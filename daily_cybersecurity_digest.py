@@ -25,9 +25,9 @@ FEEDS = [
     ("Dark Reading",            "https://www.darkreading.com/rss.xml"),
     ("CISA Alerts",             "https://www.cisa.gov/uscert/ncas/alerts.xml"),
     ("Schneier on Security",    "https://www.schneier.com/feed/atom/"),
-    ("NVD CVE Feed",            "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml"),
+    ("Exploit-DB",              "https://www.exploit-db.com/rss.xml"),
     ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
-    ("Talos Intelligence",      "https://blog.talosintelligence.com/feeds/posts/default"),
+    ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
     ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
 ]
 
@@ -132,7 +132,9 @@ def fetch_feed(name: str, url: str) -> list[dict]:
             )
             articles.append({"source": name, "title": title, "link": link, "date": date})
     else:
-        channel = root.find("channel") or root
+        channel = root.find("channel")
+        if channel is None:
+            channel = root
         for item in channel.findall("item"):
             articles.append({
                 "source": name,
