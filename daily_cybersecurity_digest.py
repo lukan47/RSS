@@ -30,8 +30,8 @@ FEEDS = [
     ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
 ]
 
-FETCH_TIMEOUT = 10       # seconds per feed request
-MAX_WORKERS   = len(FEEDS)
+FETCH_TIMEOUT  = 10
+MAX_WORKERS    = len(FEEDS)
 LOOKBACK_HOURS = 24
 
 # Optional email settings — set all three to enable email delivery
@@ -41,6 +41,34 @@ SMTP_USER     = ""
 SMTP_PASSWORD = ""
 EMAIL_FROM    = ""
 EMAIL_TO      = ""
+
+CATEGORIES = {
+    "Zero-Day Exploits & Vulnerabilities": [
+        "zero-day", "zero day", "0-day", "0day",
+        "exploit", "exploited", "exploitation",
+        "remote code execution", "rce", "arbitrary code",
+        "cve-", "nvd", "patch tuesday", "out-of-band patch",
+        "unpatched", "proof of concept", "poc",
+        "privilege escalation", "sql injection", "buffer overflow",
+        "use-after-free", "heap overflow",
+    ],
+    "Company & Service Acquisitions": [
+        "acqui", "acquisition", "acquired", "acquires",
+        "merger", "merges", "merged",
+        "bought", "buys", "purchase", "deal worth",
+        "takeover", "invest", "funding", "valuation",
+        "ipo", "spin-off", "divest",
+    ],
+    "Vendor News (CrowdStrike, Microsoft, Fortinet, Trend Micro & others)": [
+        "crowdstrike", "microsoft", "fortinet",
+        "trend micro", "trendmicro", "trendai", "trend ai",
+        "palo alto", "sentinelone", "rapid7", "tenable",
+        "mandiant", "recorded future", "darktrace",
+        "cisco talos", "sophos", "malwarebytes",
+        "checkpoint", "check point", "symantec", "broadcom",
+        "google security", "project zero",
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +175,16 @@ def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dic
     return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
 
 
+def categorize(article: dict) -> list[str]:
+    """Return all category names that match the article title."""
+    haystack = article["title"].lower()
+    matched = [
+        cat for cat, keywords in CATEGORIES.items()
+        if any(kw in haystack for kw in keywords)
+    ]
+    return matched or ["General Security News"]
+
+
 def build_digest(articles: list[dict]) -> str:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     lines = [
@@ -156,18 +194,26 @@ def build_digest(articles: list[dict]) -> str:
         "",
     ]
 
-    current_source = None
+    # Group articles into categories (an article can appear in multiple)
+    buckets: dict[str, list[dict]] = {cat: [] for cat in CATEGORIES}
+    buckets["General Security News"] = []
+
     for a in articles:
-        if a["source"] != current_source:
-            current_source = a["source"]
-            lines += ["", f"[ {current_source} ]", "-" * 40]
-        date_str = a["date"].strftime("%Y-%m-%d %H:%M UTC") if a["date"] else "unknown date"
-        lines += [
-            f"  {a['title']}",
-            f"  {date_str}",
-            f"  {a['link']}",
-            "",
-        ]
+        for cat in categorize(a):
+            buckets[cat].append(a)
+
+    for cat, items in buckets.items():
+        if not items:
+            continue
+        lines += ["", f"{'=' * 60}", f"  {cat.upper()}", f"{'=' * 60}"]
+        for a in items:
+            date_str = a["date"].strftime("%Y-%m-%d %H:%M UTC") if a["date"] else "unknown date"
+            lines += [
+                f"  [{a['source']}]  {date_str}",
+                f"  {a['title']}",
+                f"  {a['link']}",
+                "",
+            ]
 
     return "\n".join(lines)
 
