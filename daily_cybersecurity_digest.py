@@ -1,22 +1,18 @@
-branch: main
-content: #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Daily Cybersecurity Digest
-Fetches cybersecurity RSS feeds concurrently, saves an HTML report to GitHub Pages,
-and emails a link to the report.
+Fetches cybersecurity RSS feeds concurrently, saves an HTML report to GitHub Pages.
+Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
 import base64
 import html
 import json
 import os
-import smtplib
 import sys
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
@@ -39,37 +35,11 @@ FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
 LOOKBACK_HOURS = 24
 
-# ---------------------------------------------------------------------------
-# Email settings
-# ---------------------------------------------------------------------------
-# Gmail (default) — set SMTP_PASSWORD env var to your Gmail App Password
-SMTP_HOST     = "smtp.gmail.com"
-SMTP_PORT     = 587
-SMTP_USER     = "marcpajota@gmail.com"
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-
-# Outlook alternative — uncomment and comment out the Gmail block above
-# SMTP_HOST     = "smtp.office365.com"
-# SMTP_PORT     = 587
-# SMTP_USER     = "marc_pajota@trendmicro.com"
-# SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-
-EMAIL_FROM = "marcpajota@gmail.com"
-EMAIL_TO   = "marc_pajota@trendmicro.com"
-
-# ---------------------------------------------------------------------------
-# GitHub report settings
-# ---------------------------------------------------------------------------
-# Set GITHUB_TOKEN env var to a Personal Access Token with repo scope.
-# Enable GitHub Pages: repo Settings -> Pages -> Deploy from branch -> main -> / (root)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO  = "lukan47/RSS"
 REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
 
-# ---------------------------------------------------------------------------
-# Categories
-# ---------------------------------------------------------------------------
 CATEGORIES = {
     "Zero-Day Exploits & Vulnerabilities": [
         "zero-day", "zero day", "0-day", "0day",
@@ -187,7 +157,7 @@ def fetch_all_feeds() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dict]:
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff  = datetime.now(timezone.utc) - timedelta(hours=hours)
     recent  = [a for a in articles if a["date"] and a["date"] >= cutoff]
     undated = [a for a in articles if not a["date"]]
     return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
@@ -195,7 +165,7 @@ def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dic
 
 def categorize(article: dict) -> list[str]:
     haystack = article["title"].lower()
-    matched = [cat for cat, kws in CATEGORIES.items() if any(kw in haystack for kw in kws)]
+    matched  = [cat for cat, kws in CATEGORIES.items() if any(kw in haystack for kw in kws)]
     return matched or ["General Security News"]
 
 
@@ -220,16 +190,16 @@ CATEGORY_COLORS = {
 
 
 def build_html(articles: list[dict], today: str) -> str:
-    buckets = bucket_articles(articles)
-
+    buckets  = bucket_articles(articles)
     sections = []
+
     for cat, items in buckets.items():
         if not items:
             continue
         color = CATEGORY_COLORS.get(cat, "#95a5a6")
         cards = []
         for a in items:
-            date_str = a["date"].strftime("%Y-%m-%d %H:%M UTC") if a["date"] else "unknown date"
+            date_str    = a["date"].strftime("%Y-%m-%d %H:%M UTC") if a["date"] else "unknown date"
             safe_title  = html.escape(a["title"])
             safe_source = html.escape(a["source"])
             safe_link   = html.escape(a["link"])
@@ -244,7 +214,7 @@ def build_html(articles: list[dict], today: str) -> str:
 
         sections.append(f"""
         <section>
-            <h2 style="border-left: 5px solid {color}; padding-left: 12px;">{html.escape(cat)}</h2>
+            <h2 style="border-left:5px solid {color};padding-left:12px;">{html.escape(cat)}</h2>
             <p class="count">{len(items)} article(s)</p>
             {"".join(cards)}
         </section>""")
@@ -256,20 +226,20 @@ def build_html(articles: list[dict], today: str) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Cybersecurity Digest - {today}</title>
 <style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #0f1117; color: #e0e0e0; padding: 24px; }}
-  header {{ max-width: 900px; margin: 0 auto 32px; }}
-  header h1 {{ font-size: 1.8rem; color: #ffffff; }}
-  header p {{ color: #888; margin-top: 6px; }}
-  section {{ max-width: 900px; margin: 0 auto 40px; }}
-  h2 {{ font-size: 1.1rem; color: #ffffff; margin-bottom: 8px; }}
-  .count {{ font-size: 0.8rem; color: #666; margin-bottom: 16px; }}
-  .card {{ background: #1a1d27; border-radius: 8px; padding: 16px; margin-bottom: 12px; }}
-  .card-meta {{ display: flex; justify-content: space-between; font-size: 0.78rem; color: #666; margin-bottom: 8px; }}
-  .source {{ color: #5b8dee; font-weight: 600; }}
-  .card-title {{ color: #e0e0e0; text-decoration: none; font-size: 0.97rem; line-height: 1.5; }}
-  .card-title:hover {{ color: #ffffff; text-decoration: underline; }}
-  footer {{ max-width: 900px; margin: 40px auto 0; font-size: 0.78rem; color: #444; text-align: center; }}
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; background:#0f1117; color:#e0e0e0; padding:24px; }}
+  header {{ max-width:900px; margin:0 auto 32px; }}
+  header h1 {{ font-size:1.8rem; color:#fff; }}
+  header p {{ color:#888; margin-top:6px; }}
+  section {{ max-width:900px; margin:0 auto 40px; }}
+  h2 {{ font-size:1.1rem; color:#fff; margin-bottom:8px; }}
+  .count {{ font-size:0.8rem; color:#666; margin-bottom:16px; }}
+  .card {{ background:#1a1d27; border-radius:8px; padding:16px; margin-bottom:12px; }}
+  .card-meta {{ display:flex; justify-content:space-between; font-size:0.78rem; color:#666; margin-bottom:8px; }}
+  .source {{ color:#5b8dee; font-weight:600; }}
+  .card-title {{ color:#e0e0e0; text-decoration:none; font-size:0.97rem; line-height:1.5; }}
+  .card-title:hover {{ color:#fff; text-decoration:underline; }}
+  footer {{ max-width:900px; margin:40px auto 0; font-size:0.78rem; color:#444; text-align:center; }}
 </style>
 </head>
 <body>
@@ -286,13 +256,13 @@ def build_html(articles: list[dict], today: str) -> str:
 # GitHub Pages push
 # ---------------------------------------------------------------------------
 
-def push_report_to_github(html_content: str, today: str) -> str:
+def push_report_to_github(html_content: str, today: str) -> None:
     api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{REPORT_FILE}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "DailyCybersecurityDigest/1.0",
-        "Content-Type": "application/json",
+        "Accept":        "application/vnd.github.v3+json",
+        "User-Agent":    "DailyCybersecurityDigest/1.0",
+        "Content-Type":  "application/json",
     }
 
     sha = None
@@ -314,43 +284,6 @@ def push_report_to_github(html_content: str, today: str) -> str:
     with urlopen(req):
         pass
 
-    return REPORT_URL
-
-# ---------------------------------------------------------------------------
-# Email
-# ---------------------------------------------------------------------------
-
-def send_email(today: str, article_count: int, report_url: str) -> None:
-    subject = f"Daily Cybersecurity Digest - {today}"
-
-    plain = (
-        f"Your Daily Cybersecurity Digest for {today} is ready.\n\n"
-        f"{article_count} article(s) collected in the last {LOOKBACK_HOURS} hours.\n\n"
-        f"View the full report: {report_url}\n"
-    )
-    html_body = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e0e0e0;padding:32px;border-radius:10px;">
-      <h2 style="color:#fff;">Daily Cybersecurity Digest</h2>
-      <p style="color:#888;">{today}</p>
-      <p style="margin:24px 0;font-size:1rem;">{article_count} article(s) collected in the last {LOOKBACK_HOURS} hours.</p>
-      <a href="{report_url}" style="display:inline-block;background:#5b8dee;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">
-        View Full Report
-      </a>
-      <p style="margin-top:32px;font-size:0.8rem;color:#444;">lukan47/RSS · automated digest</p>
-    </div>"""
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = EMAIL_FROM
-    msg["To"]      = EMAIL_TO
-    msg.attach(MIMEText(plain, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
-
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
-
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -364,35 +297,16 @@ def main() -> None:
 
     recent = filter_recent(articles)
 
-    report_url = REPORT_URL
     if GITHUB_TOKEN:
         print("Pushing HTML report to GitHub...", file=sys.stderr)
         try:
-            report_url = push_report_to_github(build_html(recent, today), today)
-            print(f"Report published: {report_url}", file=sys.stderr)
+            push_report_to_github(build_html(recent, today), today)
+            print(f"Report published: {REPORT_URL}", file=sys.stderr)
         except Exception as exc:
             print(f"  [WARN] Could not push report: {exc}", file=sys.stderr)
     else:
         print("  [SKIP] GITHUB_TOKEN not set - skipping report upload.", file=sys.stderr)
 
-    if SMTP_PASSWORD:
-        print("Sending email...", file=sys.stderr)
-        try:
-            send_email(today, len(recent), report_url)
-            print(f"Email sent to {EMAIL_TO}.", file=sys.stderr)
-        except Exception as exc:
-            print(f"  [WARN] Could not send email: {exc}", file=sys.stderr)
-    else:
-        print("  [SKIP] SMTP_PASSWORD not set - skipping email.", file=sys.stderr)
-
 
 if __name__ == "__main__":
     main()
-
-message: Add HTML report, GitHub Pages push, categorization, and email delivery
-owner: lukan47
-path: daily_cybersecurity_digest.py
-repo: RSS
-sha: dd9d6499d0a77c643a281b52e33c1e2db957ba92
-
-failed to create/update file: PUT https://api.github.com/repos/lukan47/RSS/contents/daily_cybersecurity_digest.py: 403 Resource not accessible by integration []
