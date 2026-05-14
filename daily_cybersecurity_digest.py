@@ -24,6 +24,10 @@ FEEDS = [
     ("Dark Reading",            "https://www.darkreading.com/rss.xml"),
     ("CISA Alerts",             "https://www.cisa.gov/uscert/ncas/alerts.xml"),
     ("Schneier on Security",    "https://www.schneier.com/feed/atom/"),
+    ("NVD CVE Feed",            "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml"),
+    ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
+    ("Talos Intelligence",      "https://blog.talosintelligence.com/feeds/posts/default"),
+    ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
 ]
 
 FETCH_TIMEOUT = 10       # seconds per feed request
