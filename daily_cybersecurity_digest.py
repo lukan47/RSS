@@ -298,6 +298,9 @@ def main() -> None:
     print(f"Fetched {len(articles)} total articles.", file=sys.stderr)
 
     recent = filter_recent(articles)
+    if not recent:
+        print("  [INFO] No articles in last 24h, showing all fetched articles.", file=sys.stderr)
+        recent = articles
 
     if GITHUB_TOKEN:
         print("Pushing HTML report to GitHub...", file=sys.stderr)
