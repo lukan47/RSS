@@ -1,0 +1,32 @@
+name: Email digest notification
+
+on:
+  push:
+    branches: [main]
+    paths: [index.html]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "Daily Cybersecurity Digest - ${{ github.event.head_commit.timestamp }}"
+          to: marc_pajota@trendmicro.com
+          from: marcpajota@gmail.com
+          html_body: |
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e0e0e0;padding:32px;border-radius:10px;">
+              <h2 style="color:#fff;">Daily Cybersecurity Digest is ready</h2>
+              <p style="color:#888;margin-top:8px;">${{ github.event.head_commit.timestamp }}</p>
+              <p style="margin:24px 0;">Your daily cybersecurity report has been updated.</p>
+              <a href="https://lukan47.github.io/RSS/"
+                 style="display:inline-block;background:#5b8dee;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                View Full Report
+              </a>
+              <p style="margin-top:32px;font-size:0.8rem;color:#444;">lukan47/RSS · automated digest</p>
+            </div>
