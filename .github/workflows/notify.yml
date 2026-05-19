@@ -1,0 +1,83 @@
+# .github/workflows/notify.yml
+#
+# Runs at 06:00 and 18:00 Philippine Time (UTC+8) = 22:00 and 10:00 UTC.
+# Fetches feeds, pushes index.html to GitHub Pages, then e-mails the link
+# via Gmail SMTP using an App Password.
+#
+# Required GitHub Secrets:
+#   GH_TOKEN          – fine-grained PAT with Contents: read/write on this repo
+#   GMAIL_USER        – your Gmail address, e.g. you@gmail.com
+#   GMAIL_APP_PASS    – 16-char App Password (Google Account → Security → App passwords)
+#   NOTIFY_TO         – recipient address (can be the same Gmail or any address)
+
+name: Cybersecurity Digest
+
+on:
+  schedule:
+    - cron: "0 22 * * *"   # 06:00 PHT  (PHT = UTC+8, so 06:00 PHT = 22:00 UTC prior day)
+    - cron: "0 10 * * *"   # 18:00 PHT  (18:00 PHT = 10:00 UTC)
+  workflow_dispatch:        # allow manual runs from the Actions tab
+
+jobs:
+  build-and-notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout repo ──────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ──────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ── 3. Capture today's date in PHT for the email subject ──────────────
+      - name: Set date
+        run: echo "TODAY=$(TZ='Asia/Manila' date +'%Y-%m-%d %H:%M PHT')" >> "$GITHUB_ENV"
+
+      # ── 4. Run digest script ──────────────────────────────────────────────
+      - name: Build & push digest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: python daily_cybersecurity_digest.py
+
+      # ── 5. Send Gmail notification ────────────────────────────────────────
+      - name: Send Gmail notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          # Gmail SMTP — port 465 with SSL
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASS }}
+
+          # Sender display name matching the Gmail account avoids spam filters
+          from: "Cybersecurity Digest <${{ secrets.GMAIL_USER }}>"
+          to: ${{ secrets.NOTIFY_TO }}
+          subject: "Cybersecurity Digest — ${{ env.TODAY }}"
+
+          # Plain-text fallback keeps it out of the Promotions tab
+          body: |
+            Your cybersecurity digest has been updated.
+            View it here: https://lukan47.github.io/RSS/
+          html_body: |
+            <p style="font-family:Arial,sans-serif;font-size:15px;">
+              Your cybersecurity digest has been updated.<br><br>
+              <a href="https://lukan47.github.io/RSS/"
+                 style="background:#2563eb;color:#fff;padding:10px 20px;
+                        border-radius:6px;text-decoration:none;font-weight:bold;">
+                View Digest
+              </a>
+            </p>
+            <p style="font-family:Arial,sans-serif;font-size:12px;color:#888;margin-top:24px;">
+              Sent by your GitHub Actions workflow · lukan47/RSS
+            </p>
+
+          # List-Unsubscribe is the single most effective anti-spam header for
+          # automated mail — Gmail's classifier looks for it explicitly.
+          headers: |
+            List-Unsubscribe: <mailto:${{ secrets.GMAIL_USER }}?subject=unsubscribe>
+            X-Mailer: GitHub-Actions-Digest/1.0
