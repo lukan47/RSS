@@ -6,6 +6,7 @@ Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
 import base64
+import difflib
 import html
 import json
 import os
@@ -29,6 +30,9 @@ FEEDS = [
     ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
     ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
     ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
+    # Add new feeds below this line:
+    # ("ThreatPost",            "https://threatpost.com/feed/"),
+    # ("Wired Security",        "https://www.wired.com/feed/category/security/latest/rss"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -163,6 +167,41 @@ def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dic
     recent  = [a for a in articles if a["date"] and a["date"] >= cutoff]
     undated = [a for a in articles if not a["date"]]
     return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
+
+
+def deduplicate(articles: list[dict], threshold: float = 0.80) -> list[dict]:
+    """
+    Remove redundant articles using two passes:
+      1. Exact URL match  — same link from multiple feeds
+      2. Title similarity — same story, different sources (>= threshold)
+    The first article encountered (highest priority source) is kept.
+    """
+    seen_urls: set[str] = set()
+    unique:    list[dict] = []
+
+    for article in articles:
+        # ── Pass 1: exact URL dedup ──────────────────────────────────────
+        url = article["link"].strip().rstrip("/")
+        if url and url in seen_urls:
+            continue
+
+        # ── Pass 2: title similarity dedup ───────────────────────────────
+        title = article["title"].lower()
+        is_duplicate = any(
+            difflib.SequenceMatcher(None, title, kept["title"].lower()).ratio() >= threshold
+            for kept in unique
+        )
+        if is_duplicate:
+            continue
+
+        if url:
+            seen_urls.add(url)
+        unique.append(article)
+
+    removed = len(articles) - len(unique)
+    if removed:
+        print(f"  [INFO] Deduplication removed {removed} redundant article(s).", file=sys.stderr)
+    return unique
 
 
 def categorize(article: dict) -> list[str]:
@@ -383,6 +422,9 @@ def main() -> None:
     if not recent:
         print("  [INFO] No articles in last 24h, showing all fetched articles.", file=sys.stderr)
         recent = articles
+
+    recent = deduplicate(recent)
+    print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
     if GITHUB_TOKEN:
         print("Pushing HTML report to GitHub...", file=sys.stderr)
