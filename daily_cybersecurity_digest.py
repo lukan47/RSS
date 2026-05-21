@@ -302,7 +302,6 @@ def build_html(articles: list[dict], today: str) -> str:
           <span class="count">{len(items)} article(s)</span>
         </div>
         <div class="col-body">
-          {empty_msg}
           {"".join(cards)}
         </div>
       </div>""")
