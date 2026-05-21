@@ -47,11 +47,23 @@ jobs:
       # ── 5. Commit and push index.html via git ─────────────────────────────
       - name: Push index.html
         run: |
+          set -e
+          echo "--- First 3 lines of generated index.html ---"
+          head -3 index.html
+          echo "--- Git config ---"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git diff --staged --quiet || git commit -m "Update digest report $(TZ='Asia/Manila' date +'%Y-%m-%d %H:%M PHT')"
-          git push
+          echo "--- Git status ---"
+          git status
+          echo "--- Git diff stat ---"
+          git diff --staged --stat
+          if git diff --staged --quiet; then
+            echo "WARNING: No changes detected in index.html"
+          else
+            git commit -m "Update digest report $(TZ='Asia/Manila' date +'%Y-%m-%d %H:%M PHT')"
+            git push origin main
+          fi
 
       # ── 6. Send Gmail notification ────────────────────────────────────────
       - name: Send Gmail notification
