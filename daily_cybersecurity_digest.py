@@ -62,8 +62,9 @@ CATEGORIES = {
         "acqui", "acquisition", "acquired", "acquires",
         "merger", "merges", "merged",
         "bought", "buys", "purchase", "deal worth",
-        "takeover", "invest", "funding", "valuation",
-        "ipo", "spin-off", "divest",
+        "takeover", "investment", "investor", "investing",
+        "funding round", "series a", "series b", "series c",
+        "valuation", "ipo", "spin-off", "divest",
     ],
     "Top Cybersecurity Companies": [
         # Trend Micro / TrendAI
