@@ -30,9 +30,13 @@ FEEDS = [
     ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
     ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
     ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
-    # Add new feeds below this line:
-    # ("ThreatPost",            "https://threatpost.com/feed/"),
-    # ("Wired Security",        "https://www.wired.com/feed/category/security/latest/rss"),
+    ("ThreatPost",              "https://threatpost.com/feed/"),
+    ("Wired Security",          "https://www.wired.com/feed/category/security/latest/rss"),
+    ("Ars Technica Security",   "https://feeds.arstechnica.com/arstechnica/security"),
+    ("Naked Security (Sophos)", "https://nakedsecurity.sophos.com/feed/"),
+    ("Troy Hunt",               "https://feeds.feedburner.com/TroyHunt"),
+    ("Microsoft Security Blog", "https://www.microsoft.com/en-us/security/blog/feed/"),
+    ("US-CERT",                 "https://www.cisa.gov/uscert/ncas/current-activity.xml"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -61,14 +65,48 @@ CATEGORIES = {
         "takeover", "invest", "funding", "valuation",
         "ipo", "spin-off", "divest",
     ],
-    "Vendor News (CrowdStrike, Microsoft, Fortinet, Trend Micro & others)": [
-        "crowdstrike", "microsoft", "fortinet",
+    "Top Cybersecurity Companies": [
+        # Trend Micro / TrendAI
         "trend micro", "trendmicro", "trendai", "trend ai",
-        "palo alto", "sentinelone", "rapid7", "tenable",
-        "mandiant", "recorded future", "darktrace",
-        "cisco talos", "sophos", "malwarebytes",
-        "checkpoint", "check point", "symantec", "broadcom",
-        "google security", "project zero",
+        # CrowdStrike
+        "crowdstrike", "falcon sensor", "falcon platform",
+        # Palo Alto Networks
+        "palo alto", "palo alto networks", "cortex", "prisma",
+        # Fortinet
+        "fortinet", "fortigate", "fortios", "forticlient",
+        # SentinelOne
+        "sentinelone", "sentinel one",
+        # Microsoft Security
+        "microsoft security", "microsoft defender", "azure security",
+        "microsoft entra", "microsoft sentinel",
+        # Google / Mandiant
+        "mandiant", "google threat", "google security",
+        # Cisco / Talos
+        "cisco talos", "cisco security", "cisco umbrella",
+        # Check Point
+        "checkpoint", "check point",
+        # Sophos
+        "sophos", "naked security",
+        # Others
+        "darktrace", "recorded future", "malwarebytes",
+        "symantec", "broadcom security",
+        "okta", "cyberark", "varonis", "vectra",
+        "secureworks", "huntress",
+    ],
+    "Rapid7": [
+        "rapid7", "insightvm", "metasploit", "nexpose",
+        "insight platform", "rapid 7",
+    ],
+    "Tenable": [
+        "tenable", "nessus", "tenable.io", "tenable.sc",
+        "tenable one", "lumin",
+    ],
+    "Qualys": [
+        "qualys", "qualysguard", "vmdr", "qualys cloud",
+    ],
+    "Zscaler": [
+        "zscaler", "zpa", "zia", "zero trust exchange",
+        "zscaler internet access", "zscaler private access",
     ],
 }
 
@@ -216,17 +254,24 @@ def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
     for a in articles:
         for cat in categorize(a):
             buckets[cat].append(a)
-    return buckets
+    # Preserve display order: named categories first, General Security News last
+    ordered = {cat: buckets[cat] for cat in CATEGORY_COLORS if cat in buckets}
+    ordered["General Security News"] = buckets["General Security News"]
+    return ordered
 
 # ---------------------------------------------------------------------------
 # HTML report — column layout
 # ---------------------------------------------------------------------------
 
 CATEGORY_COLORS = {
-    "Zero-Day Exploits & Vulnerabilities":                                    "#e74c3c",
-    "Company & Service Acquisitions":                                         "#3498db",
-    "Vendor News (CrowdStrike, Microsoft, Fortinet, Trend Micro & others)":   "#2ecc71",
-    "General Security News":                                                  "#95a5a6",
+    "Zero-Day Exploits & Vulnerabilities": "#e74c3c",  # red
+    "Company & Service Acquisitions":      "#3498db",  # blue
+    "Top Cybersecurity Companies":         "#2ecc71",  # green
+    "Rapid7":                              "#e67e22",  # orange
+    "Tenable":                             "#9b59b6",  # purple
+    "Qualys":                              "#1abc9c",  # teal
+    "Zscaler":                             "#f1c40f",  # yellow
+    "General Security News":               "#95a5a6",  # grey
 }
 
 
