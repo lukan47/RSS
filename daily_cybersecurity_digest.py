@@ -5,10 +5,8 @@ Fetches cybersecurity RSS feeds concurrently, saves an HTML report to GitHub Pag
 Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
-import base64
 import difflib
 import html
-import json
 import os
 import sys
 import xml.etree.ElementTree as ET
@@ -43,10 +41,8 @@ FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
 LOOKBACK_HOURS = 24
 
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-GITHUB_REPO  = "lukan47/RSS"
-REPORT_FILE  = "index.html"
-REPORT_URL   = "https://lukan47.github.io/RSS/"
+REPORT_FILE = "index.html"
+REPORT_URL  = "https://lukan47.github.io/RSS/"
 
 CATEGORIES = {
     "Zero-Day Exploits & Vulnerabilities": [
@@ -423,38 +419,6 @@ def build_html(articles: list[dict], today: str) -> str:
 </html>"""
 
 # ---------------------------------------------------------------------------
-# GitHub Pages push
-# ---------------------------------------------------------------------------
-
-def push_report_to_github(html_content: str, today: str) -> None:
-    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{REPORT_FILE}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept":        "application/vnd.github.v3+json",
-        "User-Agent":    "DailyCybersecurityDigest/1.0",
-        "Content-Type":  "application/json",
-    }
-
-    sha = None
-    try:
-        req = Request(api_url, headers=headers)
-        with urlopen(req) as resp:
-            sha = json.loads(resp.read()).get("sha")
-    except HTTPError:
-        pass
-
-    payload: dict = {
-        "message": f"Update digest report {today}",
-        "content": base64.b64encode(html_content.encode()).decode(),
-    }
-    if sha:
-        payload["sha"] = sha
-
-    req = Request(api_url, data=json.dumps(payload).encode(), headers=headers, method="PUT")
-    with urlopen(req):
-        pass
-
-# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -473,15 +437,10 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
-    if GITHUB_TOKEN:
-        print("Pushing HTML report to GitHub...", file=sys.stderr)
-        try:
-            push_report_to_github(build_html(recent, today), today)
-            print(f"Report published: {REPORT_URL}", file=sys.stderr)
-        except Exception as exc:
-            print(f"  [WARN] Could not push report: {exc}", file=sys.stderr)
-    else:
-        print("  [SKIP] GITHUB_TOKEN not set - skipping report upload.", file=sys.stderr)
+    print(f"Writing {REPORT_FILE}...", file=sys.stderr)
+    with open(REPORT_FILE, "w", encoding="utf-8") as f:
+        f.write(build_html(recent, today))
+    print(f"Done. Open {REPORT_URL} after pushing.", file=sys.stderr)
 
 
 if __name__ == "__main__":
