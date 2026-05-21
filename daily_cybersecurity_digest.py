@@ -281,6 +281,8 @@ def build_html(articles: list[dict], today: str) -> str:
     columns = []
 
     for cat, items in buckets.items():
+        if not items:
+            continue  # hide empty columns
         color = CATEGORY_COLORS.get(cat, "#95a5a6")
         cards = []
         for a in items:
@@ -297,7 +299,6 @@ def build_html(articles: list[dict], today: str) -> str:
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
             </div>""")
 
-        empty_msg = '<p class="empty">No articles in this period.</p>' if not items else ""
         columns.append(f"""
       <div class="col">
         <div class="col-header" style="border-top:4px solid {color};">
