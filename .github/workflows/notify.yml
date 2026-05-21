@@ -103,3 +103,37 @@ jobs:
           headers: |
             List-Unsubscribe: <mailto:${{ secrets.GMAIL_USERNAME }}?subject=unsubscribe>
             X-Mailer: GitHub-Actions-Digest/1.0
+
+      # ── 7. Notify Microsoft Teams ─────────────────────────────────────────
+      - name: Notify Microsoft Teams
+        run: |
+          # Build acquisition fact block if one exists
+          if [ "${{ env.LATEST_ACQ_FOUND }}" = "true" ]; then
+            ACQ_FACT=',{"name":"Latest Acquisition","value":"[${{ env.LATEST_ACQ_TITLE }}](${{ env.LATEST_ACQ_LINK }})"}'
+            ACQ_BTN=',{"@type":"OpenUri","name":"Read Article","targets":[{"os":"default","uri":"${{ env.LATEST_ACQ_LINK }}"}]}'
+          else
+            ACQ_FACT=""
+            ACQ_BTN=""
+          fi
+
+          curl -s -X POST "${{ secrets.TEAMS_WEBHOOK_URL }}" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"@type\": \"MessageCard\",
+            \"@context\": \"http://schema.org/extensions\",
+            \"themeColor\": \"2563eb\",
+            \"summary\": \"Cybersecurity Digest Updated\",
+            \"sections\": [{
+              \"activityTitle\": \"🔐 Cybersecurity Digest — ${{ env.TODAY }}\",
+              \"activitySubtitle\": \"New articles have been published.\",
+              \"facts\": [
+                {\"name\": \"Published\", \"value\": \"${{ env.TODAY }}\"}
+                ${ACQ_FACT}
+              ],
+              \"markdown\": true
+            }],
+            \"potentialAction\": [
+              {\"@type\": \"OpenUri\", \"name\": \"View Digest\", \"targets\": [{\"os\": \"default\", \"uri\": \"https://lukan47.github.io/RSS/\"}]}
+              ${ACQ_BTN}
+            ]
+          }"
