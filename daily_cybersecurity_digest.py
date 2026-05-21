@@ -8,6 +8,7 @@ Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 import difflib
 import html
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -204,12 +205,29 @@ def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dic
     return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
 
 
-def deduplicate(articles: list[dict], threshold: float = 0.80) -> list[dict]:
+# Words too common to be useful for topic matching
+_STOP_WORDS = {
+    "a", "an", "the", "and", "or", "for", "of", "in", "on", "at", "to",
+    "is", "are", "was", "were", "be", "been", "have", "has", "had", "with",
+    "from", "by", "as", "its", "not", "but", "this", "that", "over", "after",
+    "new", "says", "said", "via", "how", "why", "what", "when", "who",
+    "into", "than", "more", "your", "about", "just", "using", "used",
+}
+
+
+def _keywords(title: str) -> set[str]:
+    """Extract significant words (4+ chars, not stop words) from a title."""
+    words = re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', title.lower())
+    return {w for w in words if len(w) >= 4 and w not in _STOP_WORDS}
+
+
+def deduplicate(articles: list[dict], threshold: float = 0.80, keyword_overlap: int = 3) -> list[dict]:
     """
-    Remove redundant articles using two passes:
-      1. Exact URL match  — same link from multiple feeds
-      2. Title similarity — same story, different sources (>= threshold)
-    The first article encountered (highest priority source) is kept.
+    Remove redundant articles using three checks (any one triggers dedup):
+      1. Exact URL match        — same link from multiple feeds
+      2. Title string similarity — same phrasing  (>= threshold)
+      3. Keyword overlap        — same topic, different wording (>= keyword_overlap shared words)
+    The first article encountered (most recent / highest priority source) is kept.
     """
     seen_urls: set[str] = set()
     unique:    list[dict] = []
@@ -220,12 +238,21 @@ def deduplicate(articles: list[dict], threshold: float = 0.80) -> list[dict]:
         if url and url in seen_urls:
             continue
 
-        # ── Pass 2: title similarity dedup ───────────────────────────────
-        title = article["title"].lower()
-        is_duplicate = any(
-            difflib.SequenceMatcher(None, title, kept["title"].lower()).ratio() >= threshold
-            for kept in unique
-        )
+        # ── Pass 2 & 3: title similarity + keyword overlap ───────────────
+        title     = article["title"].lower()
+        title_kws = _keywords(article["title"])
+        is_duplicate = False
+
+        for kept in unique:
+            # Check 2: string similarity
+            if difflib.SequenceMatcher(None, title, kept["title"].lower()).ratio() >= threshold:
+                is_duplicate = True
+                break
+            # Check 3: shared significant keywords
+            if len(title_kws & _keywords(kept["title"])) >= keyword_overlap:
+                is_duplicate = True
+                break
+
         if is_duplicate:
             continue
 
