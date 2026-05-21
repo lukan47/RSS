@@ -463,6 +463,24 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
+    # Export latest acquisition to GitHub Actions env (used by Teams notification)
+    buckets    = bucket_articles(recent)
+    acq_list   = buckets.get("Company & Service Acquisitions", [])
+    github_env = os.environ.get("GITHUB_ENV", "")
+    if github_env:
+        if acq_list:
+            acq_title = acq_list[0]["title"].replace("\n", " ")
+            acq_link  = acq_list[0]["link"]
+            acq_found = "true"
+        else:
+            acq_title = ""
+            acq_link  = ""
+            acq_found = "false"
+        with open(github_env, "a", encoding="utf-8") as f:
+            f.write(f"LATEST_ACQ_TITLE={acq_title}\n")
+            f.write(f"LATEST_ACQ_LINK={acq_link}\n")
+            f.write(f"LATEST_ACQ_FOUND={acq_found}\n")
+
     print(f"Writing {REPORT_FILE}...", file=sys.stderr)
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(build_html(recent, today))
