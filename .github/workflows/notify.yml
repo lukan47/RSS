@@ -62,7 +62,13 @@ jobs:
             echo "WARNING: No changes detected in index.html"
           else
             git commit -m "Update digest report $(TZ='Asia/Manila' date +'%Y-%m-%d %H:%M PHT')"
-            git push origin main
+            # Retry push up to 3 times in case of transient GitHub server errors
+            for i in 1 2 3; do
+              git push origin main && break
+              echo "Push attempt $i failed, retrying in 10s..."
+              sleep 10
+              git pull --rebase
+            done
           fi
 
       # ── 6. Send Gmail notification ────────────────────────────────────────
