@@ -44,22 +44,19 @@ jobs:
       - name: Build digest
         run: python daily_cybersecurity_digest.py
 
-      # ── 5. Commit and push index.html via git ─────────────────────────────
-      - name: Push index.html
+      # ── 5. Commit and push files via git ──────────────────────────────────
+      - name: Push digest files
         run: |
           set -e
-          echo "--- First 3 lines of generated index.html ---"
-          head -3 index.html
-          echo "--- Git config ---"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html
-          echo "--- Git status ---"
+          [ -f history.json ] && git add history.json || true
+          [ -d archive ]      && git add archive/     || true
           git status
-          echo "--- Git diff stat ---"
           git diff --staged --stat
           if git diff --staged --quiet; then
-            echo "WARNING: No changes detected in index.html"
+            echo "WARNING: No changes detected"
           else
             git commit -m "Update digest report $(TZ='Asia/Manila' date +'%Y-%m-%d %H:%M PHT')"
             # Retry push up to 3 times in case of transient GitHub server errors

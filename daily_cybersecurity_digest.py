@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Daily Cybersecurity Digest
+Cyber Competitive Daily Feed
 Fetches cybersecurity RSS feeds concurrently, saves an HTML report to GitHub Pages.
 Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
 import difflib
 import html
+import json
 import os
 import re
 import sys
@@ -42,8 +43,12 @@ FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
 LOOKBACK_HOURS = 24
 
-REPORT_FILE = "index.html"
-REPORT_URL  = "https://lukan47.github.io/RSS/"
+REPORT_FILE  = "index.html"
+REPORT_URL   = "https://lukan47.github.io/RSS/"
+ARCHIVE_DIR  = "archive"
+HISTORY_FILE = "history.json"
+MAX_HISTORY  = 30
+PHT          = timezone(timedelta(hours=8))
 
 CATEGORIES = {
     "Zero-Day Exploits & Vulnerabilities": [
@@ -65,28 +70,17 @@ CATEGORIES = {
         "valuation", "ipo", "spin-off", "divest",
     ],
     "Top Cybersecurity Companies": [
-        # Trend Micro / TrendAI
         "trend micro", "trendmicro", "trendai", "trend ai",
-        # CrowdStrike
         "crowdstrike", "falcon sensor", "falcon platform",
-        # Palo Alto Networks
         "palo alto", "palo alto networks", "cortex", "prisma",
-        # Fortinet
         "fortinet", "fortigate", "fortios", "forticlient",
-        # SentinelOne
         "sentinelone", "sentinel one",
-        # Microsoft Security
         "microsoft security", "microsoft defender", "azure security",
         "microsoft entra", "microsoft sentinel",
-        # Google / Mandiant
         "mandiant", "google threat", "google security",
-        # Cisco / Talos
         "cisco talos", "cisco security", "cisco umbrella",
-        # Check Point
         "checkpoint", "check point",
-        # Sophos
         "sophos", "naked security",
-        # Others
         "darktrace", "recorded future", "malwarebytes",
         "symantec", "broadcom security",
         "okta", "cyberark", "varonis", "vectra",
@@ -146,7 +140,7 @@ def _text(element, tag: str) -> str:
 
 def fetch_feed(name: str, url: str) -> list[dict]:
     try:
-        req = Request(url, headers={"User-Agent": "DailyCybersecurityDigest/1.0"})
+        req = Request(url, headers={"User-Agent": "CyberCompetitiveDailyFeed/1.0"})
         with urlopen(req, timeout=FETCH_TIMEOUT) as resp:
             raw = resp.read()
     except (URLError, OSError) as exc:
@@ -206,7 +200,6 @@ def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dic
     return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
 
 
-# Words too common to be useful for topic matching
 _STOP_WORDS = {
     "a", "an", "the", "and", "or", "for", "of", "in", "on", "at", "to",
     "is", "are", "was", "were", "be", "been", "have", "has", "had", "with",
@@ -217,39 +210,27 @@ _STOP_WORDS = {
 
 
 def _keywords(title: str) -> set[str]:
-    """Extract significant words (4+ chars, not stop words) from a title."""
     words = re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', title.lower())
     return {w for w in words if len(w) >= 4 and w not in _STOP_WORDS}
 
 
 def deduplicate(articles: list[dict], threshold: float = 0.80, keyword_overlap: int = 3) -> list[dict]:
-    """
-    Remove redundant articles using three checks (any one triggers dedup):
-      1. Exact URL match        — same link from multiple feeds
-      2. Title string similarity — same phrasing  (>= threshold)
-      3. Keyword overlap        — same topic, different wording (>= keyword_overlap shared words)
-    The first article encountered (most recent / highest priority source) is kept.
-    """
     seen_urls: set[str] = set()
     unique:    list[dict] = []
 
     for article in articles:
-        # ── Pass 1: exact URL dedup ──────────────────────────────────────
         url = article["link"].strip().rstrip("/")
         if url and url in seen_urls:
             continue
 
-        # ── Pass 2 & 3: title similarity + keyword overlap ───────────────
         title     = article["title"].lower()
         title_kws = _keywords(article["title"])
         is_duplicate = False
 
         for kept in unique:
-            # Check 2: string similarity
             if difflib.SequenceMatcher(None, title, kept["title"].lower()).ratio() >= threshold:
                 is_duplicate = True
                 break
-            # Check 3: shared significant keywords
             if len(title_kws & _keywords(kept["title"])) >= keyword_overlap:
                 is_duplicate = True
                 break
@@ -279,17 +260,34 @@ def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
     for a in articles:
         for cat in categorize(a):
             buckets[cat].append(a)
-    # Preserve display order: named categories first, General Security News last
     ordered = {cat: buckets[cat] for cat in CATEGORY_COLORS if cat in buckets}
     ordered["General Security News"] = buckets["General Security News"]
     return ordered
 
 # ---------------------------------------------------------------------------
-# HTML report — column layout
+# History management
+# ---------------------------------------------------------------------------
+
+def load_history() -> list[dict]:
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return []
+
+
+def save_history(history: list[dict]) -> None:
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history[:MAX_HISTORY], f, indent=2)
+
+# ---------------------------------------------------------------------------
+# HTML report — Trend Micro branding + column layout + history dropdown
 # ---------------------------------------------------------------------------
 
 CATEGORY_COLORS = {
-    "Zero-Day Exploits & Vulnerabilities": "#e74c3c",  # red
+    "Zero-Day Exploits & Vulnerabilities": "#DA291C",  # Trend red
     "Company & Service Acquisitions":      "#3498db",  # blue
     "Top Cybersecurity Companies":         "#2ecc71",  # green
     "Rapid7":                              "#e67e22",  # orange
@@ -300,13 +298,31 @@ CATEGORY_COLORS = {
 }
 
 
-def build_html(articles: list[dict], today: str) -> str:
-    buckets = bucket_articles(articles)
-    columns = []
+def _build_dropdown(history: list[dict]) -> str:
+    if not history:
+        return ""
+    options = '\n'.join(
+        f'<option value="{html.escape(h["url"])}">{html.escape(h["label"])}</option>'
+        for h in history
+    )
+    return f"""
+  <div class="history-bar">
+    <label for="history-select">Previous digests:</label>
+    <select id="history-select" onchange="if(this.value) window.location.href=this.value;">
+      <option value="">-- Select a date --</option>
+      {options}
+    </select>
+  </div>"""
+
+
+def build_html(articles: list[dict], label: str, history: list[dict] | None = None) -> str:
+    buckets  = bucket_articles(articles)
+    columns  = []
+    dropdown = _build_dropdown(history or [])
 
     for cat, items in buckets.items():
         if not items:
-            continue  # hide empty columns
+            continue
         color = CATEGORY_COLORS.get(cat, "#95a5a6")
         cards = []
         for a in items:
@@ -339,22 +355,66 @@ def build_html(articles: list[dict], today: str) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Daily Cybersecurity Digest - {today}</title>
+<title>Cyber Competitive Daily Feed — {label}</title>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
     font-family: 'Segoe UI', Arial, sans-serif;
-    background: #0f1117;
+    background: #0d0e17;
     color: #e0e0e0;
-    padding: 24px;
+    padding: 0;
   }}
 
-  /* ── Header ── */
-  header {{
-    margin-bottom: 28px;
+  /* ── Top bar ── */
+  .topbar {{
+    background: #13141f;
+    border-bottom: 3px solid #DA291C;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
   }}
-  header h1 {{ font-size: 1.8rem; color: #fff; }}
-  header p  {{ color: #888; margin-top: 6px; font-size: 0.9rem; }}
+  .topbar-left h1 {{
+    font-size: 1.4rem;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }}
+  .topbar-left h1 span {{
+    color: #DA291C;
+  }}
+  .topbar-left p {{
+    font-size: 0.82rem;
+    color: #666;
+    margin-top: 3px;
+  }}
+
+  /* ── History dropdown ── */
+  .history-bar {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82rem;
+    color: #888;
+  }}
+  .history-bar select {{
+    background: #1e2030;
+    color: #e0e0e0;
+    border: 1px solid #2a2d3e;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    outline: none;
+  }}
+  .history-bar select:hover {{
+    border-color: #DA291C;
+  }}
+
+  /* ── Main content ── */
+  .content {{ padding: 24px; }}
 
   /* ── Column grid ── */
   .grid {{
@@ -368,9 +428,10 @@ def build_html(articles: list[dict], today: str) -> str:
   }}
   @media (max-width: 640px) {{
     .grid {{ grid-template-columns: 1fr; }}
+    .topbar {{ flex-direction: column; align-items: flex-start; }}
   }}
 
-  /* ── Column card ── */
+  /* ── Column ── */
   .col {{
     background: #13161f;
     border-radius: 10px;
@@ -411,7 +472,7 @@ def build_html(articles: list[dict], today: str) -> str:
     color: #555;
     margin-bottom: 6px;
   }}
-  .source {{ color: #5b8dee; font-weight: 600; }}
+  .source {{ color: #DA291C; font-weight: 600; }}
   .card-title {{
     color: #d8d8d8;
     text-decoration: none;
@@ -421,27 +482,33 @@ def build_html(articles: list[dict], today: str) -> str:
   }}
   .card-title:hover {{ color: #fff; text-decoration: underline; }}
 
-  .empty {{ font-size: 0.82rem; color: #444; padding: 8px 0; }}
-
   footer {{
     margin-top: 40px;
+    padding: 20px 24px;
     font-size: 0.75rem;
     color: #333;
     text-align: center;
+    border-top: 1px solid #1a1d27;
   }}
 </style>
 </head>
 <body>
-<header>
-  <h1>Daily Cybersecurity Digest</h1>
-  <p>{today} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS} hours</p>
-</header>
 
-<div class="grid">
-  {"".join(columns)}
+<div class="topbar">
+  <div class="topbar-left">
+    <h1><span>Cyber</span> Competitive Daily Feed</h1>
+    <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS} hours</p>
+  </div>
+  {dropdown}
 </div>
 
-<footer>Generated automatically · lukan47/RSS</footer>
+<div class="content">
+  <div class="grid">
+    {"".join(columns)}
+  </div>
+</div>
+
+<footer>Updated twice daily · 6:00 AM &amp; 6:00 PM PHT · lukan47/RSS</footer>
 </body>
 </html>"""
 
@@ -450,7 +517,10 @@ def build_html(articles: list[dict], today: str) -> str:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    pht_now   = datetime.now(PHT)
+    label     = pht_now.strftime("%Y-%m-%d %H:%M PHT")
+    arch_name = pht_now.strftime("%Y-%m-%d-%H%M") + ".html"
+    arch_url  = f"{REPORT_URL}archive/{arch_name}"
 
     print("Fetching feeds...", file=sys.stderr)
     articles = fetch_all_feeds()
@@ -464,7 +534,7 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
-    # Export latest acquisition to GitHub Actions env (used by Teams notification)
+    # ── Export latest acquisition to GitHub Actions env ───────────────────
     buckets    = bucket_articles(recent)
     acq_list   = buckets.get("Company & Service Acquisitions", [])
     github_env = os.environ.get("GITHUB_ENV", "")
@@ -482,10 +552,25 @@ def main() -> None:
             f.write(f"LATEST_ACQ_LINK={acq_link}\n")
             f.write(f"LATEST_ACQ_FOUND={acq_found}\n")
 
-    print(f"Writing {REPORT_FILE}...", file=sys.stderr)
+    # ── Load & update history ─────────────────────────────────────────────
+    history = load_history()
+    history = [h for h in history if h["url"] != arch_url]  # remove if re-running same slot
+    history.insert(0, {"label": label, "url": arch_url})
+    save_history(history)
+
+    # ── Save archive snapshot ─────────────────────────────────────────────
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    arch_path = os.path.join(ARCHIVE_DIR, arch_name)
+    with open(arch_path, "w", encoding="utf-8") as f:
+        f.write(build_html(recent, label, history=history))
+    print(f"Archive saved: {arch_path}", file=sys.stderr)
+
+    # ── Save index.html (latest) with full history in dropdown ────────────
+    # Insert "Latest" entry pointing to index.html at the top of dropdown
+    dropdown_history = [{"label": f"{label} (Latest)", "url": REPORT_URL}] + history
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, today))
-    print(f"Done. Open {REPORT_URL} after pushing.", file=sys.stderr)
+        f.write(build_html(recent, label, history=dropdown_history))
+    print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
 
 if __name__ == "__main__":
