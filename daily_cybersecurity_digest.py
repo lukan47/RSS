@@ -62,7 +62,7 @@ CATEGORIES = {
     ],
     "Company & Service Acquisitions": [
         "acqui", "acquisition", "acquired", "acquires",
-        "merger", "merges", "merged",
+        "merger", "merges with", "has merged",
         "bought", "buys", "purchase", "deal worth",
         "hostile takeover", "corporate takeover",
         "investment", "investor", "investing",
