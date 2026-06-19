@@ -66,6 +66,7 @@ HISTORY_FILE = "history.json"
 MAX_HISTORY  = 30
 PHT          = timezone(timedelta(hours=8))
 
+# Priority order: first match wins — Zero-Day > Acquisitions > Companies > General
 CATEGORIES = {
     "Zero-Day Exploits & Vulnerabilities": [
         "zero-day", "zero day", "0-day", "0day",
@@ -85,22 +86,43 @@ CATEGORIES = {
         "funding round", "series a", "series b", "series c",
         "valuation", "ipo", "spin-off", "divest",
     ],
-    "Top Cybersecurity Companies": [
+    "Trend Micro": [
         "trend micro", "trendmicro", "trendai", "trend ai",
-        "crowdstrike", "falcon sensor", "falcon platform",
-        "palo alto", "palo alto networks", "cortex", "prisma",
+    ],
+    "CrowdStrike": [
+        "crowdstrike", "falcon sensor", "falcon platform", "falcon next-gen",
+    ],
+    "Palo Alto Networks": [
+        "palo alto", "palo alto networks", "unit 42", "cortex xdr",
+        "cortex xsiam", "prisma cloud", "prisma access",
+    ],
+    "Fortinet": [
         "fortinet", "fortigate", "fortios", "forticlient",
-        "sentinelone", "sentinel one",
+        "fortisiem", "fortiedr", "fortisoar",
+    ],
+    "SentinelOne": [
+        "sentinelone", "sentinel one", "singularity platform",
+    ],
+    "Microsoft Security": [
         "microsoft security", "microsoft defender", "azure security",
-        "microsoft entra", "microsoft sentinel",
-        "mandiant", "google threat", "google security",
-        "cisco talos", "cisco security", "cisco umbrella",
-        "checkpoint", "check point",
+        "microsoft entra", "microsoft sentinel", "defender for endpoint",
+        "defender for cloud",
+    ],
+    "Mandiant": [
+        "mandiant",
+    ],
+    "Sophos": [
         "sophos", "naked security",
-        "darktrace", "recorded future", "malwarebytes",
-        "symantec", "broadcom security",
-        "okta", "cyberark", "varonis", "vectra",
-        "secureworks", "huntress",
+    ],
+    "Check Point": [
+        "check point", "checkpoint", "harmony endpoint",
+    ],
+    "Recorded Future": [
+        "recorded future",
+    ],
+    "Cisco Security": [
+        "cisco talos", "cisco security", "cisco umbrella",
+        "cisco secure", "cisco xdr",
     ],
     "Rapid7": [
         "rapid7", "insightvm", "metasploit", "nexpose",
@@ -264,21 +286,21 @@ def deduplicate(articles: list[dict], threshold: float = 0.80, keyword_overlap: 
     return unique
 
 
-def categorize(article: dict) -> list[str]:
+def categorize(article: dict) -> str:
+    """Return the first matching category (priority order = CATEGORIES insertion order)."""
     haystack = article["title"].lower()
-    matched  = [cat for cat, kws in CATEGORIES.items() if any(kw in haystack for kw in kws)]
-    return matched or ["General Security News"]
+    for cat, kws in CATEGORIES.items():
+        if any(kw in haystack for kw in kws):
+            return cat
+    return "General Security News"
 
 
 def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
-    buckets: dict[str, list[dict]] = {cat: [] for cat in CATEGORIES}
-    buckets["General Security News"] = []
+    buckets: dict[str, list[dict]] = {cat: [] for cat in CATEGORY_COLORS}
     for a in articles:
-        for cat in categorize(a):
-            buckets[cat].append(a)
-    ordered = {cat: buckets[cat] for cat in CATEGORY_COLORS if cat in buckets}
-    ordered["General Security News"] = buckets["General Security News"]
-    return ordered
+        cat = categorize(a)
+        buckets.setdefault(cat, []).append(a)
+    return buckets
 
 # ---------------------------------------------------------------------------
 # History management
@@ -303,9 +325,19 @@ def save_history(history: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 CATEGORY_COLORS = {
-    "Zero-Day Exploits & Vulnerabilities": "#DA291C",  # Trend red
+    "Zero-Day Exploits & Vulnerabilities": "#DA291C",  # red
     "Company & Service Acquisitions":      "#3498db",  # blue
-    "Top Cybersecurity Companies":         "#2ecc71",  # green
+    "Trend Micro":                         "#DA291C",  # Trend red
+    "CrowdStrike":                         "#e67e22",  # orange
+    "Palo Alto Networks":                  "#00b4d8",  # cyan
+    "Fortinet":                            "#c0392b",  # dark red
+    "SentinelOne":                         "#8e44ad",  # purple
+    "Microsoft Security":                  "#0078d4",  # Microsoft blue
+    "Mandiant":                            "#e74c3c",  # red-orange
+    "Sophos":                              "#2980b9",  # steel blue
+    "Check Point":                         "#27ae60",  # green
+    "Recorded Future":                     "#16a085",  # teal
+    "Cisco Security":                      "#1ba0d7",  # Cisco blue
     "Rapid7":                              "#e67e22",  # orange
     "Tenable":                             "#9b59b6",  # purple
     "Qualys":                              "#1abc9c",  # teal
@@ -435,12 +467,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   /* ── Column grid ── */
   .grid {{
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 20px;
     align-items: start;
-  }}
-  @media (max-width: 1200px) {{
-    .grid {{ grid-template-columns: repeat(2, 1fr); }}
   }}
   @media (max-width: 640px) {{
     .grid {{ grid-template-columns: 1fr; }}
