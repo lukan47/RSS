@@ -18,25 +18,41 @@ from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
 FEEDS = [
+    # ── General security news ────────────────────────────────────────────
     ("Krebs on Security",       "https://krebsonsecurity.com/feed/"),
     ("The Hacker News",         "https://feeds.feedburner.com/TheHackersNews"),
     ("Bleeping Computer",       "https://www.bleepingcomputer.com/feed/"),
     ("SANS ISC",                "https://isc.sans.edu/rssfeed_full.xml"),
     ("SecurityWeek",            "https://feeds.feedburner.com/securityweek"),
     ("Dark Reading",            "https://www.darkreading.com/rss.xml"),
-    ("CISA Alerts",             "https://www.cisa.gov/uscert/ncas/alerts.xml"),
     ("Schneier on Security",    "https://www.schneier.com/feed/atom/"),
-    ("Exploit-DB",              "https://www.exploit-db.com/rss.xml"),
-    ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
-    ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
-    ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
     ("ThreatPost",              "https://threatpost.com/feed/"),
     ("Wired Security",          "https://www.wired.com/feed/category/security/latest/rss"),
     ("Ars Technica Security",   "https://feeds.arstechnica.com/arstechnica/security"),
-    ("Naked Security (Sophos)", "https://nakedsecurity.sophos.com/feed/"),
     ("Troy Hunt",               "https://feeds.feedburner.com/TroyHunt"),
-    ("Microsoft Security Blog", "https://www.microsoft.com/en-us/security/blog/feed/"),
+    # ── Government / advisories ──────────────────────────────────────────
+    ("CISA Alerts",             "https://www.cisa.gov/uscert/ncas/alerts.xml"),
+    ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
     ("US-CERT",                 "https://www.cisa.gov/uscert/ncas/current-activity.xml"),
+    # ── Threat intelligence ──────────────────────────────────────────────
+    ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
+    ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
+    ("Exploit-DB",              "https://www.exploit-db.com/rss.xml"),
+    ("Mandiant Blog",           "https://www.mandiant.com/resources/blog/rss.xml"),
+    ("Recorded Future",         "https://www.recordedfuture.com/feed"),
+    ("Check Point Research",    "https://research.checkpoint.com/feed/"),
+    # ── Vendor blogs ─────────────────────────────────────────────────────
+    ("Trend Micro Research",    "https://feeds.trendmicro.com/TrendMicroResearch"),
+    ("CrowdStrike Blog",        "https://www.crowdstrike.com/blog/feed/"),
+    ("Palo Alto Unit 42",       "https://unit42.paloaltonetworks.com/feed/"),
+    ("Fortinet Threat Research","https://feeds.fortinet.com/fortinet/blog/threat-research"),
+    ("Microsoft Security Blog", "https://www.microsoft.com/en-us/security/blog/feed/"),
+    ("Naked Security (Sophos)", "https://nakedsecurity.sophos.com/feed/"),
+    ("SentinelOne Blog",        "https://www.sentinelone.com/blog/feed/"),
+    ("Rapid7 Blog",             "https://blog.rapid7.com/rss/"),
+    ("Tenable Blog",            "https://www.tenable.com/blog/feed"),
+    ("Qualys Blog",             "https://blog.qualys.com/feed"),
+    ("Zscaler ThreatLabz",      "https://www.zscaler.com/blogs/security-research/feed"),
 ]
 
 FETCH_TIMEOUT  = 10
