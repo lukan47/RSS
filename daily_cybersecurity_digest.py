@@ -58,6 +58,14 @@ FEEDS = [
     ("Cybereason Blog",         "https://www.cybereason.com/blog/rss.xml"),
     ("Barracuda Blog",          "https://blog.barracuda.com/feed/"),
     ("Falco / Sysdig Blog",     "https://sysdig.com/blog/feed/"),
+    ("Wiz Blog",                "https://www.wiz.io/feed/rss.xml"),
+    ("Orca Security Blog",      "https://orca.security/resources/blog/feed/"),
+    ("Trellix Blog",            "https://www.trellix.com/blogs/feed/"),
+    ("Darktrace Blog",          "https://www.darktrace.com/blog/index.xml"),
+    ("ExtraHop Blog",           "https://www.extrahop.com/blog/feed/"),
+    ("Vectra AI Blog",          "https://www.vectra.ai/blog/feed/"),
+    ("Proofpoint Blog",         "https://www.proofpoint.com/us/rss.xml"),
+    ("Broadcom/Symantec Blog",  "https://symantec-enterprise-blogs.security.com/blogs/rss/v1/blogs/rss.xml/221"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -128,6 +136,31 @@ CATEGORIES = {
     "Cisco Security": [
         "cisco talos", "cisco security", "cisco umbrella",
         "cisco secure", "cisco xdr",
+    ],
+    "Wiz": [
+        "wiz.io", "wiz security", "wiz cloud",
+    ],
+    "Orca Security": [
+        "orca security", "orca.security",
+    ],
+    "Trellix": [
+        "trellix", "fireeye", "mcafee enterprise",
+    ],
+    "Darktrace": [
+        "darktrace", "autonomous response",
+    ],
+    "ExtraHop": [
+        "extrahop", "extra hop", "reveal(x)",
+    ],
+    "Vectra AI": [
+        "vectra ai", "vectra.ai", "vectra attack",
+    ],
+    "Proofpoint": [
+        "proofpoint", "proofpoint threat",
+    ],
+    "Broadcom / Symantec": [
+        "broadcom security", "symantec enterprise", "symantec endpoint",
+        "carbon black",
     ],
     "Kaspersky": [
         "kaspersky", "securelist", "kaspersky lab",
@@ -355,6 +388,14 @@ CATEGORY_COLORS = {
     "Check Point":                         "#27ae60",  # green
     "Recorded Future":                     "#16a085",  # teal
     "Cisco Security":                      "#1ba0d7",  # Cisco blue
+    "Wiz":                                 "#4fc3f7",  # Wiz light blue
+    "Orca Security":                       "#0288d1",  # Orca blue
+    "Trellix":                             "#7cb342",  # Trellix green
+    "Darktrace":                           "#37474f",  # dark grey
+    "ExtraHop":                            "#f4511e",  # ExtraHop orange-red
+    "Vectra AI":                           "#6a1b9a",  # deep purple
+    "Proofpoint":                          "#0277bd",  # Proofpoint blue
+    "Broadcom / Symantec":                 "#fdd835",  # yellow
     "Kaspersky":                           "#006d5b",  # Kaspersky green
     "Cybereason":                          "#e91e63",  # pink-red
     "Barracuda":                           "#e65100",  # deep orange
