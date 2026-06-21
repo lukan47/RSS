@@ -66,6 +66,9 @@ FEEDS = [
     ("Vectra AI Blog",          "https://www.vectra.ai/blog/feed/"),
     ("Proofpoint Blog",         "https://www.proofpoint.com/us/rss.xml"),
     ("Broadcom/Symantec Blog",  "https://symantec-enterprise-blogs.security.com/blogs/rss/v1/blogs/rss.xml/221"),
+    ("The Register Security",   "https://www.theregister.com/security/headlines.atom"),
+    ("Databreaches.net",        "https://www.databreaches.net/feed/"),
+    ("This Week in 4n6",        "https://thisweekin4n6.com/feed/atom/"),
 ]
 
 FETCH_TIMEOUT  = 10
