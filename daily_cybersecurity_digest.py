@@ -53,6 +53,11 @@ FEEDS = [
     ("Tenable Blog",            "https://www.tenable.com/blog/feed"),
     ("Qualys Blog",             "https://blog.qualys.com/feed"),
     ("Zscaler ThreatLabz",      "https://www.zscaler.com/blogs/security-research/feed"),
+    ("Kaspersky Blog",          "https://www.kaspersky.com/blog/feed/"),
+    ("Securelist (Kaspersky)",  "https://securelist.com/feed/"),
+    ("Cybereason Blog",         "https://www.cybereason.com/blog/rss.xml"),
+    ("Barracuda Blog",          "https://blog.barracuda.com/feed/"),
+    ("Falco / Sysdig Blog",     "https://sysdig.com/blog/feed/"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -123,6 +128,18 @@ CATEGORIES = {
     "Cisco Security": [
         "cisco talos", "cisco security", "cisco umbrella",
         "cisco secure", "cisco xdr",
+    ],
+    "Kaspersky": [
+        "kaspersky", "securelist", "kaspersky lab",
+    ],
+    "Cybereason": [
+        "cybereason", "malicious life",
+    ],
+    "Barracuda": [
+        "barracuda", "barracuda networks",
+    ],
+    "Falco / Sysdig": [
+        "falco", "sysdig", "falcosecurity",
     ],
     "Rapid7": [
         "rapid7", "insightvm", "metasploit", "nexpose",
@@ -338,6 +355,10 @@ CATEGORY_COLORS = {
     "Check Point":                         "#27ae60",  # green
     "Recorded Future":                     "#16a085",  # teal
     "Cisco Security":                      "#1ba0d7",  # Cisco blue
+    "Kaspersky":                           "#006d5b",  # Kaspersky green
+    "Cybereason":                          "#e91e63",  # pink-red
+    "Barracuda":                           "#e65100",  # deep orange
+    "Falco / Sysdig":                      "#00acc1",  # cyan
     "Rapid7":                              "#e67e22",  # orange
     "Tenable":                             "#9b59b6",  # purple
     "Qualys":                              "#1abc9c",  # teal
