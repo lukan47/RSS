@@ -69,6 +69,17 @@ FEEDS = [
     ("The Register Security",   "https://www.theregister.com/security/headlines.atom"),
     ("Databreaches.net",        "https://www.databreaches.net/feed/"),
     ("This Week in 4n6",        "https://thisweekin4n6.com/feed/atom/"),
+    ("Okta Blog",               "https://www.okta.com/blog/feed/"),
+    ("CyberArk Blog",           "https://www.cyberark.com/resources/threat-research-blog/feed/"),
+    ("IBM Security Intelligence","https://securityintelligence.com/feed/"),
+    ("Elastic Security Labs",   "https://www.elastic.co/security-labs/rss/feed.xml"),
+    ("Rubrik Blog",             "https://www.rubrik.com/blog/feed/"),
+    ("Arctic Wolf Blog",        "https://arcticwolf.com/resources/category/blog/feed/"),
+    ("Abnormal Security Blog",  "https://abnormalsecurity.com/blog/feed/"),
+    ("Huntress Blog",           "https://www.huntress.com/blog/rss.xml"),
+    ("Lacework Blog",           "https://www.lacework.com/blog/feed/"),
+    ("Aqua Security Blog",      "https://blog.aquasec.com/feed/"),
+    ("Snyk Blog",               "https://snyk.io/blog/feed/"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -176,6 +187,39 @@ CATEGORIES = {
     ],
     "Falco / Sysdig": [
         "falco", "sysdig", "falcosecurity",
+    ],
+    "Okta": [
+        "okta", "okta identity", "okta workforce",
+    ],
+    "CyberArk": [
+        "cyberark", "privileged access", "conjur",
+    ],
+    "IBM Security": [
+        "ibm security", "qradar", "ibm x-force", "security intelligence",
+    ],
+    "Elastic Security": [
+        "elastic security", "elastic siem", "elastic endpoint",
+    ],
+    "Rubrik": [
+        "rubrik", "rubrik security cloud",
+    ],
+    "Arctic Wolf": [
+        "arctic wolf", "arcticwolf",
+    ],
+    "Abnormal Security": [
+        "abnormal security", "abnormalsecurity",
+    ],
+    "Huntress": [
+        "huntress",
+    ],
+    "Lacework": [
+        "lacework",
+    ],
+    "Aqua Security": [
+        "aqua security", "aquasec", "trivy",
+    ],
+    "Snyk": [
+        "snyk",
     ],
     "Rapid7": [
         "rapid7", "insightvm", "metasploit", "nexpose",
@@ -413,6 +457,17 @@ CATEGORY_COLORS = {
     "Cybereason":                          "#e91e63",  # pink-red
     "Barracuda":                           "#e65100",  # deep orange
     "Falco / Sysdig":                      "#00acc1",  # cyan
+    "Okta":                                "#00297a",  # Okta dark blue
+    "CyberArk":                            "#cb2d3e",  # CyberArk red
+    "IBM Security":                        "#1f70c1",  # IBM blue
+    "Elastic Security":                    "#f04e98",  # Elastic pink
+    "Rubrik":                              "#ffb900",  # Rubrik gold
+    "Arctic Wolf":                         "#1a73e8",  # Arctic Wolf blue
+    "Abnormal Security":                   "#00c2a8",  # Abnormal teal
+    "Huntress":                            "#e84545",  # Huntress red
+    "Lacework":                            "#5c2d91",  # Lacework purple
+    "Aqua Security":                       "#00adef",  # Aqua cyan
+    "Snyk":                                "#4c4a73",  # Snyk dark purple
     "Rapid7":                              "#e67e22",  # orange
     "Tenable":                             "#9b59b6",  # purple
     "Qualys":                              "#1abc9c",  # teal
