@@ -96,9 +96,9 @@ CATEGORIES = {
     "Company & Service Acquisitions": [
         "acqui", "acquisition", "acquired", "acquires",
         "merger", "merges with", "has merged",
-        "bought", "buys", "purchase", "deal worth",
+        "bought", "buys", "purchase of", "to purchase", "asset purchase", "deal worth",
         "hostile takeover", "corporate takeover",
-        "investment", "investor", "investing",
+        "investment round", "investor", "investing in",
         "funding round", "series a", "series b", "series c",
         "valuation", "ipo", "spin-off", "divest",
     ],
@@ -339,12 +339,22 @@ def deduplicate(articles: list[dict], threshold: float = 0.80, keyword_overlap: 
     return unique
 
 
+_ACQ_EXCLUSIONS = {
+    "scam", "fraud", "phishing", "ransomware", "malware", "attack",
+    "tactic", "threat", "hack", "breach", "exploit", "vulnerability",
+    "stolen", "theft", "criminal", "gang", "arrest", "indicted",
+}
+
 def categorize(article: dict) -> str:
     """Return the first matching category (priority order = CATEGORIES insertion order)."""
     haystack = article["title"].lower()
+    words = set(haystack.split())
     for cat, kws in CATEGORIES.items():
-        if any(kw in haystack for kw in kws):
-            return cat
+        if not any(kw in haystack for kw in kws):
+            continue
+        if cat == "Company & Service Acquisitions" and words & _ACQ_EXCLUSIONS:
+            continue
+        return cat
     return "General Security News"
 
 
