@@ -414,7 +414,7 @@ def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
 # ---------------------------------------------------------------------------
 
 def load_history() -> list[dict]:
-    """Build history from archive files on disk — avoids git merge conflicts on history.json."""
+    """Build history from archive files on disk — avoids git merge conflicts."""
     if not os.path.exists(ARCHIVE_DIR):
         return []
     files = sorted(
@@ -430,6 +430,12 @@ def load_history() -> list[dict]:
             label = fname[:-5]
         history.append({"label": label, "url": f"{REPORT_URL}archive/{fname}"})
     return history
+
+
+def save_history(history: list[dict]) -> None:
+    """Write history.json so pages can fetch it dynamically."""
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=2)
 
 # ---------------------------------------------------------------------------
 # HTML report — Trend Micro branding + column layout + history dropdown
@@ -480,27 +486,37 @@ CATEGORY_COLORS = {
 }
 
 
-def _build_dropdown(history: list[dict]) -> str:
-    if not history:
-        return ""
-    options = '\n'.join(
-        f'<option value="{html.escape(h["url"])}">{html.escape(h["label"])}</option>'
-        for h in history
-    )
-    return f"""
+def _build_dropdown() -> str:
+    """Dropdown shell — options are populated at page-load via JS fetch of history.json."""
+    return """
   <div class="history-bar">
     <label for="history-select">Previous digests:</label>
     <select id="history-select" onchange="if(this.value) window.location.href=this.value;">
       <option value="">-- Select a date --</option>
-      {options}
     </select>
-  </div>"""
+  </div>
+  <script>
+    fetch('https://lukan47.github.io/RSS/history.json')
+      .then(r => r.json())
+      .then(history => {
+        const sel = document.getElementById('history-select');
+        const cur = window.location.href.split('?')[0].replace(/\\/+$/, '');
+        history.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h.url;
+          opt.textContent = h.label;
+          if (cur === h.url.replace(/\\/+$/, '')) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      })
+      .catch(() => {});
+  </script>"""
 
 
 def build_html(articles: list[dict], label: str, history: list[dict] | None = None) -> str:
     buckets  = bucket_articles(articles)
     columns  = []
-    dropdown = _build_dropdown(history or [])
+    dropdown = _build_dropdown()
 
     for cat, items in buckets.items():
         if not items:
@@ -741,10 +757,12 @@ def main() -> None:
     # ── Load history from archive dir (includes the file just written) ────
     history = load_history()
 
-    # ── Save index.html with full history dropdown ────────────────────────
-    dropdown_history = [{"label": f"{label} (Latest)", "url": REPORT_URL}] + history
+    # ── Write history.json so all pages can fetch it dynamically ─────────
+    save_history(history)
+
+    # ── Save index.html ───────────────────────────────────────────────────
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, label, history=dropdown_history))
+        f.write(build_html(recent, label))
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
 
