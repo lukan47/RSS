@@ -414,18 +414,22 @@ def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
 # ---------------------------------------------------------------------------
 
 def load_history() -> list[dict]:
-    if os.path.exists(HISTORY_FILE):
+    """Build history from archive files on disk — avoids git merge conflicts on history.json."""
+    if not os.path.exists(ARCHIVE_DIR):
+        return []
+    files = sorted(
+        [f for f in os.listdir(ARCHIVE_DIR) if f.endswith(".html")],
+        reverse=True,
+    )
+    history = []
+    for fname in files[:MAX_HISTORY]:
         try:
-            with open(HISTORY_FILE, encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
-    return []
-
-
-def save_history(history: list[dict]) -> None:
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history[:MAX_HISTORY], f, indent=2)
+            dt = datetime.strptime(fname[:-5], "%Y-%m-%d-%H%M")
+            label = dt.strftime("%Y-%m-%d %H:%M PHT")
+        except ValueError:
+            label = fname[:-5]
+        history.append({"label": label, "url": f"{REPORT_URL}archive/{fname}"})
+    return history
 
 # ---------------------------------------------------------------------------
 # HTML report — Trend Micro branding + column layout + history dropdown
@@ -727,21 +731,17 @@ def main() -> None:
             f.write(f"LATEST_ACQ_LINK={acq_link}\n")
             f.write(f"LATEST_ACQ_FOUND={acq_found}\n")
 
-    # ── Load & update history ─────────────────────────────────────────────
-    history = load_history()
-    history = [h for h in history if h["url"] != arch_url]  # remove if re-running same slot
-    history.insert(0, {"label": label, "url": arch_url})
-    save_history(history)
-
-    # ── Save archive snapshot ─────────────────────────────────────────────
+    # ── Save archive snapshot first so load_history() picks it up ────────
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
     arch_path = os.path.join(ARCHIVE_DIR, arch_name)
     with open(arch_path, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, label, history=history))
+        f.write(build_html(recent, label))
     print(f"Archive saved: {arch_path}", file=sys.stderr)
 
-    # ── Save index.html (latest) with full history in dropdown ────────────
-    # Insert "Latest" entry pointing to index.html at the top of dropdown
+    # ── Load history from archive dir (includes the file just written) ────
+    history = load_history()
+
+    # ── Save index.html with full history dropdown ────────────────────────
     dropdown_history = [{"label": f"{label} (Latest)", "url": REPORT_URL}] + history
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(build_html(recent, label, history=dropdown_history))
