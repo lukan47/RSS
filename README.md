@@ -1,6 +1,6 @@
 # Cyber Competitive Daily Feed
 
-A GitHub Actions-powered cybersecurity news aggregator that fetches articles from 47 RSS feeds, deduplicates them, categorizes by company/topic, and publishes an auto-updating HTML page twice daily.
+A GitHub Actions-powered cybersecurity news aggregator that fetches articles from 58 RSS feeds, deduplicates them, categorizes by company/topic, and publishes an auto-updating HTML page twice daily.
 
 **Live page:** https://lukan47.github.io/RSS/
 
@@ -8,7 +8,7 @@ A GitHub Actions-powered cybersecurity news aggregator that fetches articles fro
 
 ## Features
 
-- Pulls from 47 RSS feeds across security news, government advisories, threat intel, and vendor blogs
+- Pulls from 58 RSS feeds across security news, government advisories, threat intel, and vendor blogs
 - Dedicated columns per competitor/company — only shown when there's news
 - Article deduplication (URL match, string similarity, keyword overlap)
 - First-match categorization: Zero-Day → Acquisitions → Company columns → General News
@@ -18,7 +18,7 @@ A GitHub Actions-powered cybersecurity news aggregator that fetches articles fro
 
 ---
 
-## RSS Feeds (47)
+## RSS Feeds (58)
 
 ### General Security News (11)
 
@@ -55,7 +55,7 @@ A GitHub Actions-powered cybersecurity news aggregator that fetches articles fro
 | 19 | Recorded Future | https://www.recordedfuture.com/feed |
 | 20 | Check Point Research | https://research.checkpoint.com/feed/ |
 
-### Vendor / Competitor Blogs (27)
+### Vendor / Competitor Blogs (38)
 
 | # | Source | Feed URL |
 |---|---|---|
@@ -86,6 +86,54 @@ A GitHub Actions-powered cybersecurity news aggregator that fetches articles fro
 | 45 | The Register Security | https://www.theregister.com/security/headlines.atom |
 | 46 | Databreaches.net | https://www.databreaches.net/feed/ |
 | 47 | This Week in 4n6 | https://thisweekin4n6.com/feed/atom/ |
+| 48 | Okta Blog | https://www.okta.com/blog/feed/ |
+| 49 | CyberArk Blog | https://www.cyberark.com/resources/threat-research-blog/feed/ |
+| 50 | IBM Security Intelligence | https://securityintelligence.com/feed/ |
+| 51 | Elastic Security Labs | https://www.elastic.co/security-labs/rss/feed.xml |
+| 52 | Rubrik Blog | https://www.rubrik.com/blog/feed/ |
+| 53 | Arctic Wolf Blog | https://arcticwolf.com/resources/category/blog/feed/ |
+| 54 | Abnormal Security Blog | https://abnormalsecurity.com/blog/feed/ |
+| 55 | Huntress Blog | https://www.huntress.com/blog/rss.xml |
+| 56 | Lacework Blog | https://www.lacework.com/blog/feed/ |
+| 57 | Aqua Security Blog | https://blog.aquasec.com/feed/ |
+| 58 | Snyk Blog | https://snyk.io/blog/feed/ |
+
+---
+
+## Categories & Tracked Companies
+
+Articles are categorized in priority order — first match wins.
+
+| Priority | Category | Description |
+|---|---|---|
+| 1 | Zero-Day Exploits & Vulnerabilities | CVEs, RCEs, patch Tuesday, PoCs, etc. |
+| 2 | Company & Service Acquisitions | M&A, funding rounds, IPOs (with false-positive exclusions) |
+| 3 | Company columns (38 total) | Dedicated column per competitor — hidden when empty |
+| 4 | General Security News | Catch-all for everything else |
+
+### Tracked Companies (38)
+
+| # | Company | # | Company |
+|---|---|---|---|
+| 1 | Trend Micro | 20 | Kaspersky |
+| 2 | CrowdStrike | 21 | Cybereason |
+| 3 | Palo Alto Networks | 22 | Barracuda |
+| 4 | Fortinet | 23 | Falco / Sysdig |
+| 5 | SentinelOne | 24 | Okta |
+| 6 | Microsoft Security | 25 | CyberArk |
+| 7 | Mandiant | 26 | IBM Security |
+| 8 | Sophos | 27 | Elastic Security |
+| 9 | Check Point | 28 | Rubrik |
+| 10 | Recorded Future | 29 | Arctic Wolf |
+| 11 | Cisco Security | 30 | Abnormal Security |
+| 12 | Wiz | 31 | Huntress |
+| 13 | Orca Security | 32 | Lacework |
+| 14 | Trellix | 33 | Aqua Security |
+| 15 | Darktrace | 34 | Snyk |
+| 16 | ExtraHop | 35 | Rapid7 |
+| 17 | Vectra AI | 36 | Tenable |
+| 18 | Proofpoint | 37 | Qualys |
+| 19 | Broadcom / Symantec | 38 | Zscaler |
 
 ---
 
