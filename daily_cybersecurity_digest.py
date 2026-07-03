@@ -30,10 +30,18 @@ FEEDS = [
     ("Wired Security",          "https://www.wired.com/feed/category/security/latest/rss"),
     ("Ars Technica Security",   "https://feeds.arstechnica.com/arstechnica/security"),
     ("Troy Hunt",               "https://feeds.feedburner.com/TroyHunt"),
+    ("Infosecurity Magazine",   "https://www.infosecurity-magazine.com/rss/news/"),
+    ("Help Net Security",       "https://www.helpnetsecurity.com/feed/"),
+    ("SC Magazine",             "https://www.scmagazine.com/feed"),
+    ("Graham Cluley",           "https://grahamcluley.com/feed/"),
+    ("The CyberWire",           "https://thecyberwire.com/feeds/rss.xml"),
     # ── Government / advisories ──────────────────────────────────────────
     ("CISA Alerts",             "https://www.cisa.gov/uscert/ncas/alerts.xml"),
     ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
     ("US-CERT",                 "https://www.cisa.gov/uscert/ncas/current-activity.xml"),
+    ("NCSC UK",                 "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"),
+    ("NIST NVD CVEs",           "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml"),
+    ("Australian ACSC",         "https://www.cyber.gov.au/rss.xml"),
     # ── Threat intelligence ──────────────────────────────────────────────
     ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
     ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
@@ -41,6 +49,8 @@ FEEDS = [
     ("Mandiant Blog",           "https://www.mandiant.com/resources/blog/rss.xml"),
     ("Recorded Future",         "https://www.recordedfuture.com/feed"),
     ("Check Point Research",    "https://research.checkpoint.com/feed/"),
+    ("Cyble",                   "https://cyble.com/blog/feed/"),
+    ("VirusTotal Blog",         "https://blog.virustotal.com/feeds/posts/default"),
     # ── Vendor blogs ─────────────────────────────────────────────────────
     ("Trend Micro Research",    "https://feeds.trendmicro.com/TrendMicroResearch"),
     ("CrowdStrike Blog",        "https://www.crowdstrike.com/blog/feed/"),
@@ -80,6 +90,15 @@ FEEDS = [
     ("Lacework Blog",           "https://www.lacework.com/blog/feed/"),
     ("Aqua Security Blog",      "https://blog.aquasec.com/feed/"),
     ("Snyk Blog",               "https://snyk.io/blog/feed/"),
+    ("WithSecure Blog",         "https://labs.withsecure.com/feed.rss"),
+    ("Secureworks Blog",        "https://www.secureworks.com/rss/research"),
+    ("Blackberry Threat Intel", "https://blogs.blackberry.com/en/category/research-and-intelligence/feed"),
+    ("BeyondTrust Blog",        "https://www.beyondtrust.com/blog/rss.xml"),
+    ("Delinea Blog",            "https://delinea.com/blog/rss.xml"),
+    ("Netskope Blog",           "https://www.netskope.com/blog/feed"),
+    ("Cato Networks Blog",      "https://www.catonetworks.com/blog/feed/"),
+    ("Dragos Blog",             "https://www.dragos.com/blog/feed/"),
+    ("Claroty Blog",            "https://claroty.com/team82/blog/feed"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -235,6 +254,34 @@ CATEGORIES = {
     "Zscaler": [
         "zscaler", "zpa", "zia", "zero trust exchange",
         "zscaler internet access", "zscaler private access",
+    ],
+    "WithSecure": [
+        "withsecure", "with secure", "f-secure", "fsecure",
+    ],
+    "Secureworks": [
+        "secureworks", "secureworks taegis", "counter threat unit", "ctu threat",
+    ],
+    "Blackberry / Cylance": [
+        "blackberry cylance", "cylanceprotect", "cylance", "blackberry security",
+        "blackberry threat",
+    ],
+    "BeyondTrust": [
+        "beyondtrust", "beyond trust", "privileged remote access",
+    ],
+    "Delinea": [
+        "delinea", "thycotic", "centrify",
+    ],
+    "Netskope": [
+        "netskope", "netskope threat",
+    ],
+    "Cato Networks": [
+        "cato networks", "cato sase", "cato cloud",
+    ],
+    "Dragos": [
+        "dragos", "dragos ics", "dragos ot",
+    ],
+    "Claroty": [
+        "claroty", "team82", "claroty research",
     ],
 }
 
