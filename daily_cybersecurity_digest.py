@@ -104,16 +104,7 @@ FEEDS = [
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
-# Hybrid lookback: fresh news stays tight; vendor/competitor tracking looks back
-# further because those blogs don't post every day. Category-keyed in filter_recent.
-NEWS_LOOKBACK_HOURS   = 24        # General Security News + Zero-Day Exploits
-VENDOR_LOOKBACK_HOURS = 24 * 14   # 14 days — vendor/competitor columns + Acquisitions
-LOOKBACK_HOURS = NEWS_LOOKBACK_HOURS   # back-compat alias
-# Categories that use the short (news) window; everything else uses the vendor window.
-NEWS_WINDOW_CATEGORIES = {
-    "General Security News",
-    "Zero-Day Exploits & Vulnerabilities",
-}
+LOOKBACK_HOURS = 24   # strict window; history is preserved in the archives
 
 REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
@@ -418,29 +409,11 @@ def fetch_all_feeds() -> list[dict]:
 # Filtering & categorization
 # ---------------------------------------------------------------------------
 
-def filter_recent(articles: list[dict]) -> list[dict]:
-    """Keep articles within their category's lookback window.
-
-    Hybrid policy: General Security News + Zero-Day use the short news window;
-    vendor/competitor columns + Acquisitions use the longer vendor window (they
-    post infrequently, so a 24h window would leave those columns empty). Undated
-    articles are retained (appended last) as a safety net.
-    """
-    now           = datetime.now(timezone.utc)
-    news_cutoff   = now - timedelta(hours=NEWS_LOOKBACK_HOURS)
-    vendor_cutoff = now - timedelta(hours=VENDOR_LOOKBACK_HOURS)
-
-    recent, undated = [], []
-    for a in articles:
-        if not a["date"]:
-            undated.append(a)
-            continue
-        cutoff = news_cutoff if categorize(a) in NEWS_WINDOW_CATEGORIES else vendor_cutoff
-        if a["date"] >= cutoff:
-            recent.append(a)
-
-    recent.sort(key=lambda a: a["date"], reverse=True)
-    return recent + undated
+def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dict]:
+    cutoff  = datetime.now(timezone.utc) - timedelta(hours=hours)
+    recent  = [a for a in articles if a["date"] and a["date"] >= cutoff]
+    undated = [a for a in articles if not a["date"]]
+    return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
 
 
 _STOP_WORDS = {
@@ -800,7 +773,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 <div class="topbar">
   <div class="topbar-left">
     <h1><span>Cyber</span> Competitive Daily Feed</h1>
-    <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) &nbsp;·&nbsp; General news &amp; Zero-Day: last 24h · Vendor columns &amp; Acquisitions: last 14 days</p>
+    <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS} hours</p>
   </div>
   {dropdown}
 </div>
@@ -831,7 +804,7 @@ def main() -> None:
 
     recent = filter_recent(articles)
     if not recent:
-        print("  [INFO] No articles within lookback windows, showing all fetched articles.", file=sys.stderr)
+        print("  [INFO] No articles in last 24h, showing all fetched articles.", file=sys.stderr)
         recent = articles
 
     recent = deduplicate(recent)
