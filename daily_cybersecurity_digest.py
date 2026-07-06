@@ -6,6 +6,7 @@ Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
 import difflib
+import email.utils
 import html
 import json
 import os
@@ -289,24 +290,54 @@ CATEGORIES = {
 # Parsing helpers
 # ---------------------------------------------------------------------------
 
+# Explicit fallback formats (steps 1–2 in _parse_date cover most feeds; this
+# list is a safety net for odd variants — no-seconds, fractional seconds, bare).
 DATE_FORMATS = [
     "%a, %d %b %Y %H:%M:%S %z",
     "%a, %d %b %Y %H:%M:%S GMT",
+    "%a, %d %b %Y %H:%M %z",
     "%Y-%m-%dT%H:%M:%S%z",
     "%Y-%m-%dT%H:%M:%SZ",
+    "%Y-%m-%dT%H:%M:%S.%f%z",
+    "%Y-%m-%dT%H:%M:%S.%fZ",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d",
 ]
 
 
 def _parse_date(text: str) -> datetime | None:
+    """Parse a feed date string, returning a tz-aware datetime (UTC default).
+
+    Real-world feeds vary widely, so try robust stdlib parsers first:
+      1. email.utils — RFC 2822 RSS <pubDate>, incl. zone names (GMT/UTC/EST…)
+      2. datetime.fromisoformat — ISO 8601 / Atom, incl. fractional seconds,
+         numeric offsets, and trailing 'Z' (Python 3.11+)
+      3. the explicit DATE_FORMATS list as a final fallback
+    """
     if not text:
         return None
     text = text.strip()
+
+    # 1) RFC 2822 (RSS pubDate) — handles numeric offsets and zone names.
+    try:
+        dt = email.utils.parsedate_to_datetime(text)
+        if dt is not None:
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        pass
+
+    # 2) ISO 8601 / Atom — fractional seconds, offsets, trailing 'Z'.
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00") if text.endswith("Z") else text)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        pass
+
+    # 3) Explicit fallback formats.
     for fmt in DATE_FORMATS:
         try:
             dt = datetime.strptime(text, fmt)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     return None
@@ -357,7 +388,10 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 "source": name,
                 "title": _text(item, "title"),
                 "link":  _text(item, "link"),
-                "date":  _parse_date(_text(item, "pubDate")),
+                "date":  _parse_date(
+                    _text(item, "pubDate") or
+                    _text(item, "{http://purl.org/dc/elements/1.1/}date")
+                ),
             })
 
     return articles
