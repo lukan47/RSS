@@ -104,7 +104,7 @@ FEEDS = [
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
-LOOKBACK_HOURS = 24   # strict window; history is preserved in the archives
+LOOKBACK_HOURS = 120   # front-page window (5 days); older history is preserved in the archives
 
 REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
@@ -773,7 +773,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 <div class="topbar">
   <div class="topbar-left">
     <h1><span>Cyber</span> Competitive Daily Feed</h1>
-    <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS} hours</p>
+    <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
   {dropdown}
 </div>
