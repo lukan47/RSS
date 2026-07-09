@@ -104,7 +104,7 @@ FEEDS = [
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
-LOOKBACK_HOURS = 120   # front-page window (5 days); older history is preserved in the archives
+LOOKBACK_HOURS = 192   # front-page window (8 days); older history is preserved in the archives
 
 REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
