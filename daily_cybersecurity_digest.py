@@ -466,14 +466,17 @@ def deduplicate(articles: list[dict], threshold: float = 0.80, keyword_overlap: 
 
 _ACQ_EXCLUSIONS = {
     "scam", "fraud", "phishing", "ransomware", "malware", "attack",
-    "tactic", "threat", "hack", "breach", "exploit", "vulnerability",
+    "tactic", "threat", "hack", "hacked", "breach", "breached", "exploit", "vulnerability",
     "stolen", "theft", "criminal", "gang", "arrest", "indicted",
+    "leak", "leaked", "compromised", "extortion", "ransom", "victim", "cyberattack",
 }
 
 def categorize(article: dict) -> str:
     """Return the first matching category (priority order = CATEGORIES insertion order)."""
     haystack = article["title"].lower()
-    words = set(haystack.split())
+    # Tokenize the same way as _keywords so trailing punctuation (e.g. "breach;")
+    # doesn't defeat the whole-word exclusion check below.
+    words = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', haystack))
     for cat, kws in CATEGORIES.items():
         if not any(kw in haystack for kw in kws):
             continue
