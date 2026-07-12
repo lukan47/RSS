@@ -63,6 +63,9 @@ FEEDS = [
     ("Zscaler ThreatLabz", "https://www.zscaler.com/blogs/feeds/security-research"),
     ("Kaspersky Blog",          "https://www.kaspersky.com/blog/feed/"),
     ("Securelist (Kaspersky)",  "https://securelist.com/feed/"),
+    ("Sophos News - Threat Research", "https://news.sophos.com/en-us/category/threat-research/feed/"),
+    ("Sophos News - SecOps",    "https://news.sophos.com/en-us/category/security-operations/feed/"),
+    ("ESET WeLiveSecurity",     "https://feeds.feedburner.com/eset/blog"),
     ("Cybereason Blog",         "https://www.cybereason.com/blog/rss.xml"),
     ("Falco / Sysdig Blog", "https://sysdig.com/feed/"),
     ("Wiz Blog",                "https://www.wiz.io/feed/rss.xml"),
@@ -146,6 +149,9 @@ CATEGORIES = {
     ],
     "Sophos": [
         "sophos", "naked security",
+    ],
+    "ESET": [
+        "eset", "welivesecurity", "we live security", "nod32",
     ],
     "Check Point": [
         "check point", "checkpoint", "harmony endpoint",
@@ -522,6 +528,7 @@ CATEGORY_COLORS = {
     "Microsoft Security":                  "#0078d4",  # Microsoft blue
     "Mandiant":                            "#e74c3c",  # red-orange
     "Sophos":                              "#2980b9",  # steel blue
+    "ESET":                                "#00a9e0",  # ESET cyan-blue
     "Check Point":                         "#27ae60",  # green
     "Recorded Future":                     "#16a085",  # teal
     "Cisco Security":                      "#1ba0d7",  # Cisco blue
