@@ -29,7 +29,7 @@ FEEDS = [
     ("Schneier on Security",    "https://www.schneier.com/feed/atom/"),
     ("ThreatPost",              "https://threatpost.com/feed/"),
     ("Wired Security",          "https://www.wired.com/feed/category/security/latest/rss"),
-    ("Ars Technica Security",   "https://feeds.arstechnica.com/arstechnica/security"),
+    ("Ars Technica Security", "https://arstechnica.com/tag/security/feed/"),
     ("Troy Hunt",               "https://feeds.feedburner.com/TroyHunt"),
     ("Infosecurity Magazine",   "https://www.infosecurity-magazine.com/rss/news/"),
     ("Help Net Security",       "https://www.helpnetsecurity.com/feed/"),
@@ -37,68 +37,54 @@ FEEDS = [
     ("Graham Cluley",           "https://grahamcluley.com/feed/"),
     ("The CyberWire",           "https://thecyberwire.com/feeds/rss.xml"),
     # ── Government / advisories ──────────────────────────────────────────
-    ("CISA Alerts",             "https://www.cisa.gov/uscert/ncas/alerts.xml"),
-    ("CISA ICS Advisories",     "https://www.cisa.gov/uscert/ics/advisories/advisories.xml"),
-    ("US-CERT",                 "https://www.cisa.gov/uscert/ncas/current-activity.xml"),
+    ("CISA Advisories", "https://www.cisa.gov/cybersecurity-advisories/all.xml"),
     ("NCSC UK",                 "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"),
-    ("NIST NVD CVEs",           "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml"),
+    ("CIRCL KEV (exploited CVEs)", "https://vulnerability.circl.lu/known-exploited-vulnerabilities.rss"),
     ("Australian ACSC",         "https://www.cyber.gov.au/rss.xml"),
     # ── Threat intelligence ──────────────────────────────────────────────
     ("Talos Intelligence",      "https://blog.talosintelligence.com/rss/"),
     ("Google Project Zero",     "https://googleprojectzero.blogspot.com/feeds/posts/default"),
     ("Exploit-DB",              "https://www.exploit-db.com/rss.xml"),
-    ("Mandiant Blog",           "https://www.mandiant.com/resources/blog/rss.xml"),
+    ("Google Threat Intel (Mandiant)", "https://cloudblog.withgoogle.com/topics/threat-intelligence/rss/"),
     ("Recorded Future",         "https://www.recordedfuture.com/feed"),
     ("Check Point Research",    "https://research.checkpoint.com/feed/"),
     ("Cyble",                   "https://cyble.com/blog/feed/"),
     ("VirusTotal Blog",         "https://blog.virustotal.com/feeds/posts/default"),
     # ── Vendor blogs ─────────────────────────────────────────────────────
-    ("Trend Micro Research",    "https://feeds.trendmicro.com/TrendMicroResearch"),
+    ("Trend Micro Research", "https://feeds.feedburner.com/TrendMicroResearch"),
     ("CrowdStrike Blog",        "https://www.crowdstrike.com/blog/feed/"),
     ("Palo Alto Unit 42",       "https://unit42.paloaltonetworks.com/feed/"),
     ("Fortinet Threat Research","https://feeds.fortinet.com/fortinet/blog/threat-research"),
     ("Microsoft Security Blog", "https://www.microsoft.com/en-us/security/blog/feed/"),
-    ("Naked Security (Sophos)", "https://nakedsecurity.sophos.com/feed/"),
     ("SentinelOne Blog",        "https://www.sentinelone.com/blog/feed/"),
     ("Rapid7 Blog",             "https://blog.rapid7.com/rss/"),
     ("Tenable Blog",            "https://www.tenable.com/blog/feed"),
     ("Qualys Blog",             "https://blog.qualys.com/feed"),
-    ("Zscaler ThreatLabz",      "https://www.zscaler.com/blogs/security-research/feed"),
+    ("Zscaler ThreatLabz", "https://www.zscaler.com/blogs/feeds/security-research"),
     ("Kaspersky Blog",          "https://www.kaspersky.com/blog/feed/"),
     ("Securelist (Kaspersky)",  "https://securelist.com/feed/"),
     ("Cybereason Blog",         "https://www.cybereason.com/blog/rss.xml"),
-    ("Barracuda Blog",          "https://blog.barracuda.com/feed/"),
-    ("Falco / Sysdig Blog",     "https://sysdig.com/blog/feed/"),
+    ("Falco / Sysdig Blog", "https://sysdig.com/feed/"),
     ("Wiz Blog",                "https://www.wiz.io/feed/rss.xml"),
     ("Orca Security Blog",      "https://orca.security/resources/blog/feed/"),
-    ("Trellix Blog",            "https://www.trellix.com/blogs/feed/"),
-    ("Darktrace Blog",          "https://www.darktrace.com/blog/index.xml"),
-    ("ExtraHop Blog",           "https://www.extrahop.com/blog/feed/"),
-    ("Vectra AI Blog",          "https://www.vectra.ai/blog/feed/"),
+    ("Darktrace Blog", "https://www.darktrace.com/blog/rss.xml"),
+    ("Vectra AI Blog", "https://www.vectra.ai/blog/rss.xml"),
     ("Proofpoint Blog",         "https://www.proofpoint.com/us/rss.xml"),
     ("Broadcom/Symantec Blog",  "https://symantec-enterprise-blogs.security.com/blogs/rss/v1/blogs/rss.xml/221"),
     ("The Register Security",   "https://www.theregister.com/security/headlines.atom"),
     ("Databreaches.net",        "https://www.databreaches.net/feed/"),
     ("This Week in 4n6",        "https://thisweekin4n6.com/feed/atom/"),
-    ("Okta Blog",               "https://www.okta.com/blog/feed/"),
-    ("CyberArk Blog",           "https://www.cyberark.com/resources/threat-research-blog/feed/"),
-    ("IBM Security Intelligence","https://securityintelligence.com/feed/"),
+    ("Okta Blog", "https://sec.okta.com/rss.xml"),
+    ("CyberArk Blog", "https://www.cyberark.com/feed/"),
     ("Elastic Security Labs",   "https://www.elastic.co/security-labs/rss/feed.xml"),
     ("Rubrik Blog",             "https://www.rubrik.com/blog/feed/"),
     ("Arctic Wolf Blog",        "https://arcticwolf.com/resources/category/blog/feed/"),
-    ("Abnormal Security Blog",  "https://abnormalsecurity.com/blog/feed/"),
     ("Huntress Blog",           "https://www.huntress.com/blog/rss.xml"),
-    ("Lacework Blog",           "https://www.lacework.com/blog/feed/"),
-    ("Aqua Security Blog",      "https://blog.aquasec.com/feed/"),
+    ("Aqua Security Blog", "https://www.aquasec.com/feed/"),
     ("Snyk Blog",               "https://snyk.io/blog/feed/"),
-    ("WithSecure Blog",         "https://labs.withsecure.com/feed.rss"),
-    ("Secureworks Blog",        "https://www.secureworks.com/rss/research"),
-    ("Blackberry Threat Intel", "https://blogs.blackberry.com/en/category/research-and-intelligence/feed"),
     ("BeyondTrust Blog",        "https://www.beyondtrust.com/blog/rss.xml"),
     ("Delinea Blog",            "https://delinea.com/blog/rss.xml"),
     ("Netskope Blog",           "https://www.netskope.com/blog/feed"),
-    ("Cato Networks Blog",      "https://www.catonetworks.com/blog/feed/"),
-    ("Dragos Blog",             "https://www.dragos.com/blog/feed/"),
     ("Claroty Blog",            "https://claroty.com/team82/blog/feed"),
 ]
 
@@ -553,6 +539,8 @@ CATEGORY_COLORS = {
     "Falco / Sysdig":                      "#00acc1",  # cyan
     "Okta":                                "#00297a",  # Okta dark blue
     "CyberArk":                            "#cb2d3e",  # CyberArk red
+    "BeyondTrust":                         "#f57c00",  # BeyondTrust orange
+    "Delinea":                             "#e91e8c",  # Delinea magenta
     "IBM Security":                        "#1f70c1",  # IBM blue
     "Elastic Security":                    "#f04e98",  # Elastic pink
     "Rubrik":                              "#ffb900",  # Rubrik gold
@@ -566,6 +554,13 @@ CATEGORY_COLORS = {
     "Tenable":                             "#9b59b6",  # purple
     "Qualys":                              "#1abc9c",  # teal
     "Zscaler":                             "#f1c40f",  # yellow
+    "Netskope":                            "#0aa5a8",  # Netskope teal
+    "Cato Networks":                       "#5b6ef5",  # Cato indigo
+    "Dragos":                              "#ff6f00",  # Dragos amber (OT/ICS)
+    "Claroty":                             "#009688",  # Claroty teal (OT/ICS)
+    "WithSecure":                          "#ff4a3d",  # WithSecure coral
+    "Secureworks":                         "#b71c1c",  # Secureworks deep red
+    "Blackberry / Cylance":                "#00a94f",  # Cylance green
     "General Security News":               "#95a5a6",  # grey
 }
 
