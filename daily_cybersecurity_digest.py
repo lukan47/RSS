@@ -66,6 +66,14 @@ FEEDS = [
     ("Sophos News - Threat Research", "https://news.sophos.com/en-us/category/threat-research/feed/"),
     ("Sophos News - SecOps",    "https://news.sophos.com/en-us/category/security-operations/feed/"),
     ("ESET WeLiveSecurity",     "https://feeds.feedburner.com/eset/blog"),
+    ("SentinelLabs",            "https://www.sentinelone.com/labs/feed/"),
+    ("Check Point Blog",        "https://blog.checkpoint.com/feed/"),
+    ("Bitdefender Business Insights", "https://businessinsights.bitdefender.com/rss.xml"),
+    ("Trend Micro SimplySecurity", "https://feeds.feedburner.com/TrendMicroSimplySecurity"),
+    ("CrowdStrike IR News",     "https://ir.crowdstrike.com/rss/news-releases.xml"),
+    ("Fortinet IR News",        "https://investor.fortinet.com/rss/news-releases.xml"),
+    ("Palo Alto IR News",       "https://investors.paloaltonetworks.com/rss/news-releases.xml"),
+    ("Qualys IR News",          "https://investor.qualys.com/rss/news-releases.xml"),
     ("Cybereason Blog",         "https://www.cybereason.com/blog/rss.xml"),
     ("Falco / Sysdig Blog", "https://sysdig.com/feed/"),
     ("Wiz Blog",                "https://www.wiz.io/feed/rss.xml"),
@@ -137,7 +145,7 @@ CATEGORIES = {
         "fortisiem", "fortiedr", "fortisoar",
     ],
     "SentinelOne": [
-        "sentinelone", "sentinel one", "singularity platform",
+        "sentinelone", "sentinel one", "singularity platform", "sentinellabs", "sentinel labs",
     ],
     "Microsoft Security": [
         "microsoft security", "microsoft defender", "azure security",
@@ -152,6 +160,9 @@ CATEGORIES = {
     ],
     "ESET": [
         "eset", "welivesecurity", "we live security", "nod32",
+    ],
+    "Bitdefender": [
+        "bitdefender", "gravityzone",
     ],
     "Check Point": [
         "check point", "checkpoint", "harmony endpoint",
@@ -529,6 +540,7 @@ CATEGORY_COLORS = {
     "Mandiant":                            "#e74c3c",  # red-orange
     "Sophos":                              "#2980b9",  # steel blue
     "ESET":                                "#00a9e0",  # ESET cyan-blue
+    "Bitdefender":                         "#ed1c24",  # Bitdefender red
     "Check Point":                         "#27ae60",  # green
     "Recorded Future":                     "#16a085",  # teal
     "Cisco Security":                      "#1ba0d7",  # Cisco blue
