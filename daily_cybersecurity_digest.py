@@ -97,7 +97,23 @@ FEEDS = [
     ("Netskope Blog",           "https://www.netskope.com/blog/feed"),
     ("Claroty Blog",            "https://claroty.com/team82/blog/feed"),
     ("Cisco Security Blog",     "https://blogs.cisco.com/security/feed"),
+    # ── Podcasts ──────────────────────────────────────────────────────────
+    # Episodes flow through the same categorization as everything else, but
+    # are flagged via PODCAST_FEEDS below so the report can visually mark them.
+    ("Darknet Diaries",         "https://podcast.darknetdiaries.com/"),
+    ("Smashing Security",       "https://www.smashingsecurity.com/rss"),
+    ("Security Now",            "https://feeds.twit.tv/sn.xml"),
+    ("CyberWire Daily",         "https://feeds.megaphone.fm/cyberwire-daily-podcast"),
 ]
+
+# Source names (must match FEEDS entries above exactly) whose items are
+# podcast episodes rather than written articles - rendered with a 🎙 marker.
+PODCAST_FEEDS = {
+    "Darknet Diaries",
+    "Smashing Security",
+    "Security Now",
+    "CyberWire Daily",
+}
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
@@ -381,7 +397,8 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 _text(entry, "{http://www.w3.org/2005/Atom}updated") or
                 _text(entry, "{http://www.w3.org/2005/Atom}published")
             )
-            articles.append({"source": name, "title": title, "link": link, "date": date})
+            articles.append({"source": name, "title": title, "link": link, "date": date,
+                              "is_podcast": name in PODCAST_FEEDS})
     else:
         channel = root.find("channel")
         if channel is None:
@@ -395,6 +412,7 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                     _text(item, "pubDate") or
                     _text(item, "{http://purl.org/dc/elements/1.1/}date")
                 ),
+                "is_podcast": name in PODCAST_FEEDS,
             })
 
     return articles
@@ -626,13 +644,14 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             safe_title  = html.escape(a["title"])
             safe_source = html.escape(a["source"])
             safe_link   = html.escape(a["link"])
+            podcast_tag = '<span class="podcast-tag" title="Podcast episode">🎙</span> ' if a.get("is_podcast") else ""
             cards.append(f"""
             <div class="card">
               <div class="card-meta">
                 <span class="source">{safe_source}</span>
                 <span class="date">{date_str}</span>
               </div>
-              <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
+              <a class="card-title" href="{safe_link}" target="_blank">{podcast_tag}{safe_title}</a>
             </div>""")
 
         columns.append(f"""
@@ -774,6 +793,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     display: block;
   }}
   .card-title:hover {{ color: #fff; text-decoration: underline; }}
+  .podcast-tag {{ font-size: 0.82rem; }}
 
   footer {{
     margin-top: 40px;
