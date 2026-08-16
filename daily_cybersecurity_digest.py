@@ -33,11 +33,12 @@ FEEDS = [
     ("Troy Hunt",               "https://feeds.feedburner.com/TroyHunt"),
     ("Infosecurity Magazine",   "https://www.infosecurity-magazine.com/rss/news/"),
     ("Help Net Security",       "https://www.helpnetsecurity.com/feed/"),
-    ("SC Magazine",             "https://www.scmagazine.com/feed"),
     ("Graham Cluley",           "https://grahamcluley.com/feed/"),
     ("The CyberWire",           "https://thecyberwire.com/feeds/rss.xml"),
+    ("The Record (Recorded Future News)", "https://therecord.media/feed"),
+    ("Risky Business News",     "https://news.risky.biz/feed"),
+    ("The DFIR Report",         "https://thedfirreport.com/feed/"),
     # ── Government / advisories ──────────────────────────────────────────
-    ("CISA Advisories", "https://www.cisa.gov/cybersecurity-advisories/all.xml"),
     ("NCSC UK",                 "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"),
     ("CIRCL KEV (exploited CVEs)", "https://vulnerability.circl.lu/known-exploited-vulnerabilities.rss"),
     ("Australian ACSC",         "https://www.cyber.gov.au/rss.xml"),
@@ -88,15 +89,14 @@ FEEDS = [
     ("Okta Blog", "https://sec.okta.com/rss.xml"),
     ("CyberArk Blog", "https://www.cyberark.com/feed/"),
     ("Elastic Security Labs",   "https://www.elastic.co/security-labs/rss/feed.xml"),
-    ("Rubrik Blog",             "https://www.rubrik.com/blog/feed/"),
     ("Arctic Wolf Blog",        "https://arcticwolf.com/resources/category/blog/feed/"),
     ("Huntress Blog",           "https://www.huntress.com/blog/rss.xml"),
     ("Aqua Security Blog", "https://www.aquasec.com/feed/"),
     ("Snyk Blog",               "https://snyk.io/blog/feed/"),
-    ("BeyondTrust Blog",        "https://www.beyondtrust.com/blog/rss.xml"),
     ("Delinea Blog",            "https://delinea.com/blog/rss.xml"),
     ("Netskope Blog",           "https://www.netskope.com/blog/feed"),
     ("Claroty Blog",            "https://claroty.com/team82/blog/feed"),
+    ("Cisco Security Blog",     "https://blogs.cisco.com/security/feed"),
 ]
 
 FETCH_TIMEOUT  = 10
