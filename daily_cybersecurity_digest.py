@@ -55,7 +55,7 @@ FEEDS = [
     ("Trend Micro Research", "https://feeds.feedburner.com/TrendMicroResearch"),
     ("CrowdStrike Blog",        "https://www.crowdstrike.com/blog/feed/"),
     ("Palo Alto Unit 42",       "https://unit42.paloaltonetworks.com/feed/"),
-    ("Fortinet Threat Research","https://feeds.fortinet.com/fortinet/blog/threat-research"),
+    ("Fortinet Threat Research","https://www.fortinet.com/blog/rss-feeds/blog-rss-feeds"),
     ("Microsoft Security Blog", "https://www.microsoft.com/en-us/security/blog/feed/"),
     ("SentinelOne Blog",        "https://www.sentinelone.com/blog/feed/"),
     ("Rapid7 Blog",             "https://blog.rapid7.com/rss/"),
@@ -95,19 +95,15 @@ FEEDS = [
     ("Snyk Blog",               "https://snyk.io/blog/feed/"),
     ("Delinea Blog",            "https://delinea.com/blog/rss.xml"),
     ("Netskope Blog",           "https://www.netskope.com/blog/feed"),
-    ("Claroty Blog",            "https://claroty.com/team82/blog/feed"),
+    ("Claroty Blog",            "https://claroty.com/blog/rss.xml"),
     ("Cisco Security Blog",     "https://blogs.cisco.com/security/feed"),
     # ── Podcasts ──────────────────────────────────────────────────────────
-    # Episodes flow through the same categorization as everything else, but
-    # are flagged via PODCAST_FEEDS below so the report can visually mark them.
     ("Darknet Diaries",         "https://podcast.darknetdiaries.com/"),
     ("Smashing Security",       "https://www.smashingsecurity.com/rss"),
     ("Security Now",            "https://feeds.twit.tv/sn.xml"),
     ("CyberWire Daily",         "https://feeds.megaphone.fm/cyberwire-daily-podcast"),
 ]
 
-# Source names (must match FEEDS entries above exactly) whose items are
-# podcast episodes rather than written articles - rendered with a 🎙 marker.
 PODCAST_FEEDS = {
     "Darknet Diaries",
     "Smashing Security",
@@ -115,18 +111,18 @@ PODCAST_FEEDS = {
     "CyberWire Daily",
 }
 
-FETCH_TIMEOUT  = 10
+FETCH_TIMEOUT  = 15
 MAX_WORKERS    = len(FEEDS)
-LOOKBACK_HOURS = 192   # front-page window (8 days); older history is preserved in the archives
+LOOKBACK_HOURS = 192   # front-page window (8 days)
 
 REPORT_FILE  = "index.html"
+JSON_FILE    = "feed.json"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
 ARCHIVE_DIR  = "archive"
 HISTORY_FILE = "history.json"
 MAX_HISTORY  = 30
 PHT          = timezone(timedelta(hours=8))
 
-# Priority order: first match wins — Zero-Day > Acquisitions > Companies > General
 CATEGORIES = {
     "Zero-Day Exploits & Vulnerabilities": [
         "zero-day", "zero day", "0-day", "0day",
@@ -305,12 +301,6 @@ CATEGORIES = {
     ],
 }
 
-# ---------------------------------------------------------------------------
-# Parsing helpers
-# ---------------------------------------------------------------------------
-
-# Explicit fallback formats (steps 1–2 in _parse_date cover most feeds; this
-# list is a safety net for odd variants — no-seconds, fractional seconds, bare).
 DATE_FORMATS = [
     "%a, %d %b %Y %H:%M:%S %z",
     "%a, %d %b %Y %H:%M:%S GMT",
@@ -325,19 +315,10 @@ DATE_FORMATS = [
 
 
 def _parse_date(text: str) -> datetime | None:
-    """Parse a feed date string, returning a tz-aware datetime (UTC default).
-
-    Real-world feeds vary widely, so try robust stdlib parsers first:
-      1. email.utils — RFC 2822 RSS <pubDate>, incl. zone names (GMT/UTC/EST…)
-      2. datetime.fromisoformat — ISO 8601 / Atom, incl. fractional seconds,
-         numeric offsets, and trailing 'Z' (Python 3.11+)
-      3. the explicit DATE_FORMATS list as a final fallback
-    """
     if not text:
         return None
     text = text.strip()
 
-    # 1) RFC 2822 (RSS pubDate) — handles numeric offsets and zone names.
     try:
         dt = email.utils.parsedate_to_datetime(text)
         if dt is not None:
@@ -345,14 +326,12 @@ def _parse_date(text: str) -> datetime | None:
     except (TypeError, ValueError):
         pass
 
-    # 2) ISO 8601 / Atom — fractional seconds, offsets, trailing 'Z'.
     try:
         dt = datetime.fromisoformat(text.replace("Z", "+00:00") if text.endswith("Z") else text)
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except ValueError:
         pass
 
-    # 3) Explicit fallback formats.
     for fmt in DATE_FORMATS:
         try:
             dt = datetime.strptime(text, fmt)
@@ -366,13 +345,10 @@ def _text(element, tag: str) -> str:
     child = element.find(tag)
     return html.unescape(child.text.strip()) if child is not None and child.text else ""
 
-# ---------------------------------------------------------------------------
-# Feed fetching
-# ---------------------------------------------------------------------------
 
 def fetch_feed(name: str, url: str) -> list[dict]:
     try:
-        req = Request(url, headers={"User-Agent": "CyberCompetitiveDailyFeed/1.0"})
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CyberCompetitiveDailyFeed/1.0"})
         with urlopen(req, timeout=FETCH_TIMEOUT) as resp:
             raw = resp.read()
     except (URLError, OSError) as exc:
@@ -426,9 +402,6 @@ def fetch_all_feeds() -> list[dict]:
             all_articles.extend(future.result())
     return all_articles
 
-# ---------------------------------------------------------------------------
-# Filtering & categorization
-# ---------------------------------------------------------------------------
 
 def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dict]:
     cutoff  = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -493,10 +466,7 @@ _ACQ_EXCLUSIONS = {
 }
 
 def categorize(article: dict) -> str:
-    """Return the first matching category (priority order = CATEGORIES insertion order)."""
     haystack = article["title"].lower()
-    # Tokenize the same way as _keywords so trailing punctuation (e.g. "breach;")
-    # doesn't defeat the whole-word exclusion check below.
     words = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', haystack))
     for cat, kws in CATEGORIES.items():
         if not any(kw in haystack for kw in kws):
@@ -514,12 +484,26 @@ def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
         buckets.setdefault(cat, []).append(a)
     return buckets
 
-# ---------------------------------------------------------------------------
-# History management
-# ---------------------------------------------------------------------------
+
+def save_json_feed(articles: list[dict], filepath: str = JSON_FILE) -> None:
+    """Exports processed feed data directly as JSON for downstream consumption."""
+    json_data = []
+    for a in articles:
+        date_val = a.get("date")
+        json_data.append({
+            "title": a.get("title", ""),
+            "url": a.get("link", ""),
+            "source": a.get("source", ""),
+            "category": categorize(a),
+            "date": date_val.isoformat() if hasattr(date_val, "isoformat") else str(date_val) if date_val else None,
+            "is_podcast": a.get("is_podcast", False)
+        })
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2)
+
 
 def load_history() -> list[dict]:
-    """Build history from archive files on disk — avoids git merge conflicts."""
     if not os.path.exists(ARCHIVE_DIR):
         return []
     files = sorted(
@@ -538,72 +522,67 @@ def load_history() -> list[dict]:
 
 
 def save_history(history: list[dict]) -> None:
-    """Write history.json so pages can fetch it dynamically."""
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
 
-# ---------------------------------------------------------------------------
-# HTML report — Trend Micro branding + column layout + history dropdown
-# ---------------------------------------------------------------------------
 
 CATEGORY_COLORS = {
-    "Zero-Day Exploits & Vulnerabilities": "#DA291C",  # red
-    "Company & Service Acquisitions":      "#3498db",  # blue
-    "Trend Micro":                         "#DA291C",  # Trend red
-    "CrowdStrike":                         "#e67e22",  # orange
-    "Palo Alto Networks":                  "#00b4d8",  # cyan
-    "Fortinet":                            "#c0392b",  # dark red
-    "SentinelOne":                         "#8e44ad",  # purple
-    "Microsoft Security":                  "#0078d4",  # Microsoft blue
-    "Mandiant":                            "#e74c3c",  # red-orange
-    "Sophos":                              "#2980b9",  # steel blue
-    "ESET":                                "#00a9e0",  # ESET cyan-blue
-    "Bitdefender":                         "#ed1c24",  # Bitdefender red
-    "Check Point":                         "#27ae60",  # green
-    "Recorded Future":                     "#16a085",  # teal
-    "Cisco Security":                      "#1ba0d7",  # Cisco blue
-    "Wiz":                                 "#4fc3f7",  # Wiz light blue
-    "Orca Security":                       "#0288d1",  # Orca blue
-    "Trellix":                             "#7cb342",  # Trellix green
-    "Darktrace":                           "#37474f",  # dark grey
-    "ExtraHop":                            "#f4511e",  # ExtraHop orange-red
-    "Vectra AI":                           "#6a1b9a",  # deep purple
-    "Proofpoint":                          "#0277bd",  # Proofpoint blue
-    "Broadcom / Symantec":                 "#fdd835",  # yellow
-    "Kaspersky":                           "#006d5b",  # Kaspersky green
-    "Cybereason":                          "#e91e63",  # pink-red
-    "Barracuda":                           "#e65100",  # deep orange
-    "Falco / Sysdig":                      "#00acc1",  # cyan
-    "Okta":                                "#00297a",  # Okta dark blue
-    "CyberArk":                            "#cb2d3e",  # CyberArk red
-    "BeyondTrust":                         "#f57c00",  # BeyondTrust orange
-    "Delinea":                             "#e91e8c",  # Delinea magenta
-    "IBM Security":                        "#1f70c1",  # IBM blue
-    "Elastic Security":                    "#f04e98",  # Elastic pink
-    "Rubrik":                              "#ffb900",  # Rubrik gold
-    "Arctic Wolf":                         "#1a73e8",  # Arctic Wolf blue
-    "Abnormal Security":                   "#00c2a8",  # Abnormal teal
-    "Huntress":                            "#e84545",  # Huntress red
-    "Lacework":                            "#5c2d91",  # Lacework purple
-    "Aqua Security":                       "#00adef",  # Aqua cyan
-    "Snyk":                                "#4c4a73",  # Snyk dark purple
-    "Rapid7":                              "#e67e22",  # orange
-    "Tenable":                             "#9b59b6",  # purple
-    "Qualys":                              "#1abc9c",  # teal
-    "Zscaler":                             "#f1c40f",  # yellow
-    "Netskope":                            "#0aa5a8",  # Netskope teal
-    "Cato Networks":                       "#5b6ef5",  # Cato indigo
-    "Dragos":                              "#ff6f00",  # Dragos amber (OT/ICS)
-    "Claroty":                             "#009688",  # Claroty teal (OT/ICS)
-    "WithSecure":                          "#ff4a3d",  # WithSecure coral
-    "Secureworks":                         "#b71c1c",  # Secureworks deep red
-    "Blackberry / Cylance":                "#00a94f",  # Cylance green
-    "General Security News":               "#95a5a6",  # grey
+    "Zero-Day Exploits & Vulnerabilities": "#DA291C",
+    "Company & Service Acquisitions":      "#3498db",
+    "Trend Micro":                         "#DA291C",
+    "CrowdStrike":                         "#e67e22",
+    "Palo Alto Networks":                  "#00b4d8",
+    "Fortinet":                            "#c0392b",
+    "SentinelOne":                         "#8e44ad",
+    "Microsoft Security":                  "#0078d4",
+    "Mandiant":                            "#e74c3c",
+    "Sophos":                              "#2980b9",
+    "ESET":                                "#00a9e0",
+    "Bitdefender":                         "#ed1c24",
+    "Check Point":                         "#27ae60",
+    "Recorded Future":                     "#16a085",
+    "Cisco Security":                      "#1ba0d7",
+    "Wiz":                                 "#4fc3f7",
+    "Orca Security":                       "#0288d1",
+    "Trellix":                             "#7cb342",
+    "Darktrace":                           "#37474f",
+    "ExtraHop":                            "#f4511e",
+    "Vectra AI":                           "#6a1b9a",
+    "Proofpoint":                          "#0277bd",
+    "Broadcom / Symantec":                 "#fdd835",
+    "Kaspersky":                           "#006d5b",
+    "Cybereason":                          "#e91e63",
+    "Barracuda":                           "#e65100",
+    "Falco / Sysdig":                      "#00acc1",
+    "Okta":                                "#00297a",
+    "CyberArk":                            "#cb2d3e",
+    "BeyondTrust":                         "#f57c00",
+    "Delinea":                             "#e91e8c",
+    "IBM Security":                        "#1f70c1",
+    "Elastic Security":                    "#f04e98",
+    "Rubrik":                              "#ffb900",
+    "Arctic Wolf":                         "#1a73e8",
+    "Abnormal Security":                   "#00c2a8",
+    "Huntress":                            "#e84545",
+    "Lacework":                            "#5c2d91",
+    "Aqua Security":                       "#00adef",
+    "Snyk":                                "#4c4a73",
+    "Rapid7":                              "#e67e22",
+    "Tenable":                             "#9b59b6",
+    "Qualys":                              "#1abc9c",
+    "Zscaler":                             "#f1c40f",
+    "Netskope":                            "#0aa5a8",
+    "Cato Networks":                       "#5b6ef5",
+    "Dragos":                              "#ff6f00",
+    "Claroty":                             "#009688",
+    "WithSecure":                          "#ff4a3d",
+    "Secureworks":                         "#b71c1c",
+    "Blackberry / Cylance":                "#00a94f",
+    "General Security News":               "#95a5a6",
 }
 
 
 def _build_dropdown() -> str:
-    """Dropdown shell — options are populated at page-load via JS fetch of history.json."""
     return """
   <div class="history-bar">
     <label for="history-select">Previous digests:</label>
@@ -680,7 +659,6 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     padding: 0;
   }}
 
-  /* ── Top bar ── */
   .topbar {{
     background: #13141f;
     border-bottom: 3px solid #DA291C;
@@ -706,7 +684,6 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     margin-top: 3px;
   }}
 
-  /* ── History dropdown ── */
   .history-bar {{
     display: flex;
     align-items: center;
@@ -728,10 +705,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     border-color: #DA291C;
   }}
 
-  /* ── Main content ── */
   .content {{ padding: 24px; }}
 
-  /* ── Column grid ── */
   .grid {{
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -743,7 +718,6 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     .topbar {{ flex-direction: column; align-items: flex-start; }}
   }}
 
-  /* ── Column ── */
   .col {{
     background: #13161f;
     border-radius: 10px;
@@ -767,7 +741,6 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   }}
   .col-body {{ padding: 12px; }}
 
-  /* ── Article card ── */
   .card {{
     background: #1a1d27;
     border-radius: 7px;
@@ -825,32 +798,11 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 </body>
 </html>"""
 
-def save_json_feed(articles: list[dict], filepath: str = "feed.json") -> None:
-    """Exports processed feed data directly as JSON for downstream consumption."""
-    json_data = []
-    for a in articles:
-        json_data.append({
-            "title": a["title"],
-            "url": a["link"],
-            "source": a["source"],
-            "category": categorize(a),
-            "date": a["date"].isoformat() if a["date"] else None,
-            "is_podcast": a.get("is_podcast", False)
-        })
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(json_data, f, indent=2)
-
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 def main() -> None:
     pht_now   = datetime.now(PHT)
     label     = pht_now.strftime("%Y-%m-%d %H:%M PHT")
     arch_name = pht_now.strftime("%Y-%m-%d-%H%M") + ".html"
-    arch_url  = f"{REPORT_URL}archive/{arch_name}"
 
     print("Fetching feeds...", file=sys.stderr)
     articles = fetch_all_feeds()
@@ -882,6 +834,10 @@ def main() -> None:
             f.write(f"LATEST_ACQ_LINK={acq_link}\n")
             f.write(f"LATEST_ACQ_FOUND={acq_found}\n")
 
+    # ── Save JSON Feed ───────────────────────────────────────────────────
+    save_json_feed(recent, JSON_FILE)
+    print(f"JSON feed saved: {JSON_FILE}", file=sys.stderr)
+
     # ── Save archive snapshot first so load_history() picks it up ────────
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
     arch_path = os.path.join(ARCHIVE_DIR, arch_name)
@@ -898,9 +854,6 @@ def main() -> None:
     # ── Save index.html ───────────────────────────────────────────────────
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(build_html(recent, label))
-
-    # After fetching, deduplicating, and filtering articles:
-    save_json_feed(bucket_articles, "feed.json")
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
 
