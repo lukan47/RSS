@@ -900,7 +900,7 @@ def main() -> None:
         f.write(build_html(recent, label))
 
     # After fetching, deduplicating, and filtering articles:
-    save_json_feed(recent_articles, "feed.json")
+    save_json_feed(bucket_articles, "feed.json")
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
 
