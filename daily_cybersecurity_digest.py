@@ -825,6 +825,23 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 </body>
 </html>"""
 
+def save_json_feed(articles: list[dict], filepath: str = "feed.json") -> None:
+    """Exports processed feed data directly as JSON for downstream consumption."""
+    json_data = []
+    for a in articles:
+        json_data.append({
+            "title": a["title"],
+            "url": a["link"],
+            "source": a["source"],
+            "category": categorize(a),
+            "date": a["date"].isoformat() if a["date"] else None,
+            "is_podcast": a.get("is_podcast", False)
+        })
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2)
+
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -881,6 +898,9 @@ def main() -> None:
     # ── Save index.html ───────────────────────────────────────────────────
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(build_html(recent, label))
+
+    # After fetching, deduplicating, and filtering articles:
+    save_json_feed(recent_articles, "feed.json")
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
 
