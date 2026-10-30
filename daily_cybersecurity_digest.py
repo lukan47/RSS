@@ -780,13 +780,71 @@ CATEGORY_COLORS = {
 def _build_dropdown() -> str:
     """Dropdown shell — options are populated at page-load via JS fetch of history.json."""
     return """
-  <div class="history-bar">
-    <label for="history-select">Previous digests:</label>
-    <select id="history-select" onchange="if(this.value) window.location.href=this.value;">
-      <option value="">-- Select a date --</option>
-    </select>
+  <div class="dropdown-bar">
+    <div class="dropdown-group">
+      <label for="category-select">Filter by category:</label>
+      <select id="category-select" onchange="filterByCategory(this.value);">
+        <option value="">-- All categories --</option>
+      </select>
+    </div>
+    <div class="dropdown-group">
+      <label for="history-select">Previous digests:</label>
+      <select id="history-select" onchange="if(this.value) window.location.href=this.value;">
+        <option value="">-- Select a date --</option>
+      </select>
+    </div>
   </div>
   <script>
+    // Populate category filter
+    function populateCategories() {
+      const cols = document.querySelectorAll('.col');
+      const categories = new Set();
+      cols.forEach(col => {
+        const h2 = col.querySelector('h2');
+        if (h2) categories.add(h2.textContent.trim());
+      });
+
+      const sel = document.getElementById('category-select');
+      const sorted = Array.from(categories).sort();
+      sorted.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        sel.appendChild(opt);
+      });
+    }
+
+    // Filter columns by category
+    function filterByCategory(category) {
+      const cols = document.querySelectorAll('.col');
+      cols.forEach(col => {
+        const h2 = col.querySelector('h2');
+        if (!h2) return;
+        const colCategory = h2.textContent.trim();
+        col.style.display = category === '' || colCategory === category ? 'block' : 'none';
+      });
+
+      // Save preference to localStorage
+      if (category) {
+        localStorage.setItem('selectedCategory', category);
+      } else {
+        localStorage.removeItem('selectedCategory');
+      }
+    }
+
+    // Restore saved category filter
+    function restoreFilterPreference() {
+      const saved = localStorage.getItem('selectedCategory');
+      if (saved) {
+        const sel = document.getElementById('category-select');
+        if (sel) {
+          sel.value = saved;
+          filterByCategory(saved);
+        }
+      }
+    }
+
+    // Populate history dropdown
     fetch('https://lukan47.github.io/RSS/history.json')
       .then(r => r.json())
       .then(history => {
@@ -801,6 +859,12 @@ def _build_dropdown() -> str:
         });
       })
       .catch(() => {});
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      populateCategories();
+      restoreFilterPreference();
+    });
   </script>"""
 
 
@@ -887,15 +951,24 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     margin-top: 3px;
   }}
 
-  /* ── History dropdown ── */
-  .history-bar {{
+  /* ── Filter dropdowns ── */
+  .dropdown-bar {{
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 20px;
+    flex-wrap: wrap;
     font-size: 0.82rem;
     color: #888;
   }}
-  .history-bar select {{
+  .dropdown-group {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }}
+  .dropdown-group label {{
+    white-space: nowrap;
+  }}
+  .dropdown-group select {{
     background: #1e2030;
     color: #e0e0e0;
     border: 1px solid #2a2d3e;
@@ -904,9 +977,14 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     font-size: 0.82rem;
     cursor: pointer;
     outline: none;
+    min-width: 180px;
   }}
-  .history-bar select:hover {{
+  .dropdown-group select:hover {{
     border-color: #DA291C;
+  }}
+  .dropdown-group select:focus {{
+    border-color: #DA291C;
+    box-shadow: 0 0 0 2px rgba(218, 41, 28, 0.1);
   }}
 
   /* ── Main content ── */
