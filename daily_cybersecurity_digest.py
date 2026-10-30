@@ -938,6 +938,11 @@ def _build_dropdown() -> str:
           }
         });
 
+        document.querySelectorAll('.col').forEach(col => {
+          const any = Array.from(col.querySelectorAll('.card')).some(c => c.style.display !== 'none');
+          col.classList.toggle('search-hidden', !any);
+        });
+
         // Show/hide clear button
         searchClear.style.display = lowerQuery ? 'block' : 'none';
 
@@ -963,6 +968,29 @@ def _build_dropdown() -> str:
           searchInput.focus();
         }
       });
+    }
+
+    // Row expand/collapse: only offered when a row overflows sideways
+    function initializeRowToggles() {
+      const rows = Array.from(document.querySelectorAll('.col'));
+      function refresh() {
+        rows.forEach(col => {
+          const body = col.querySelector('.col-body');
+          const btn = col.querySelector('.col-toggle');
+          if (!body || !btn) return;
+          btn.hidden = !col.classList.contains('expanded') && body.scrollWidth <= body.clientWidth + 1;
+        });
+      }
+      rows.forEach(col => {
+        const btn = col.querySelector('.col-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          const open = col.classList.toggle('expanded');
+          btn.textContent = open ? 'Collapse' : 'Show all';
+        });
+      });
+      refresh();
+      window.addEventListener('resize', refresh);
     }
 
     // Category export: one option per category and format
@@ -999,7 +1027,7 @@ def _build_dropdown() -> str:
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      [populateCategories, initializeCategoryExports, initializeSearch, restoreFilterPreference].forEach(fn => {
+      [populateCategories, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference].forEach(fn => {
         try {
           fn();
         } catch (err) {
@@ -1043,9 +1071,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 
         columns.append(f"""
       <div class="col">
-        <div class="col-header" style="border-top:4px solid {color};">
+        <div class="col-header" style="border-left:4px solid {color};">
           <h2>{html.escape(cat)}</h2>
           <span class="count">{len(items)} article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           {"".join(cards)}
@@ -1225,13 +1254,11 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 
   /* ── Column grid ── */
   .grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }}
   @media (max-width: 640px) {{
-    .grid {{ grid-template-columns: 1fr; }}
     .topbar {{ flex-direction: column; align-items: flex-start; }}
   }}
 
@@ -1241,10 +1268,26 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     border-radius: 10px;
     overflow: hidden;
   }}
+  .col.search-hidden {{ display: none !important; }}
   .col-header {{
-    padding: 14px 16px 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 16px;
     background: #1a1d27;
   }}
+  .col-toggle {{
+    margin-left: auto;
+    background: transparent;
+    color: #aaa;
+    border: 1px solid #2a2d3e;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }}
+  .col-toggle:hover {{ color: #fff; border-color: #DA291C; }}
   .col-header h2 {{
     font-size: 0.88rem;
     color: #fff;
@@ -1254,19 +1297,31 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   .count {{
     font-size: 0.74rem;
     color: #555;
-    margin-top: 4px;
-    display: block;
+    white-space: nowrap;
   }}
-  .col-body {{ padding: 12px; }}
+  .col-body {{
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2d3e transparent;
+  }}
+  .col.expanded .col-body {{
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }}
 
   /* ── Article card ── */
   .card {{
     background: #1a1d27;
     border-radius: 7px;
     padding: 12px 14px;
-    margin-bottom: 10px;
+    flex: 0 0 320px;
+    max-width: 320px;
+    scroll-snap-align: start;
   }}
-  .card:last-child {{ margin-bottom: 0; }}
   .card-meta {{
     display: flex;
     justify-content: space-between;
