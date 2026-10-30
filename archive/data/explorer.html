@@ -49,6 +49,7 @@
   .src { color: #ff5a4d; font-weight: 600; }
   .title { display: block; color: #d8d8d8; text-decoration: none; font-size: .9rem; line-height: 1.5; }
   .title:hover, .title:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .mods { font-size: .7rem; color: #7d8299; line-height: 1.4; margin-top: 6px; }
   .ctx { font-size: .78rem; color: #8a8fa3; line-height: 1.45; margin-top: 8px; padding-top: 8px; border-top: 1px solid #242736; }
   #more { display: block; margin: 8px 24px 40px; }
   @media (max-width: 640px) {
@@ -82,6 +83,7 @@
   <label class="field" id="from-wrap" hidden>From <input type="date" id="from"></label>
   <label class="field" id="to-wrap" hidden>To <input type="date" id="to"></label>
   <label class="field">Category <select id="category"></select></label>
+  <label class="field">Module <select id="module"></select></label>
   <label class="field">Source <select id="source"></select></label>
   <label class="field">Search <input type="search" id="q" placeholder="Title, source or summary"></label>
   <div class="spacer"></div>
@@ -124,9 +126,10 @@
   }
 
   function applyFilters() {
-    var r = range(), cat = $('category').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
+    var r = range(), cat = $('category').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
     rows = all.filter(function (a) {
       if (cat && a.category !== cat) return false;
+      if (mod && (a.modules || []).indexOf(mod) === -1) return false;
       if (src && a.source !== src) return false;
       if (r.from || r.to) {
         if (!a.date) return false;
@@ -173,6 +176,8 @@
     var link = document.createElement('a'); link.className = 'title'; link.href = a.link; link.target = '_blank';
     link.rel = 'noopener noreferrer'; link.textContent = a.title;
     el.appendChild(meta); el.appendChild(link);
+    var shown = (a.modules || []).filter(function (m) { return m !== 'Other/General' && m !== 'N/A'; });
+    if (shown.length) { var mp = document.createElement('div'); mp.className = 'mods'; mp.textContent = shown.join(' · '); el.appendChild(mp); }
     if (a.context) { var p = document.createElement('p'); p.className = 'ctx'; p.textContent = a.context; el.appendChild(p); }
     return el;
   }
@@ -221,23 +226,23 @@
     try {
       if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
       var recs = rows.map(function (a) {
-        var rec = { date: a.date, category: a.category, source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        var rec = { date: a.date, category: a.category, modules: a.modules || [], source: a.source, title: a.title, link: a.link, context: a.context || '' };
         if (withText) rec.full_text = texts[a.link] || '';
         return rec;
       });
-      var rg = range(), cat = $('category').value;
-      var base = 'articles_' + (cat || 'all-categories') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
+      var rg = range(), cat = $('category').value, mod = $('module').value;
+      var base = 'articles_' + (cat || 'all-categories') + (mod ? '_' + mod : '') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
       base = base.replace(/[^A-Za-z0-9_-]+/g, '_');
       if (fmt === 'json') {
         download(base + '.json', 'application/json', JSON.stringify({
           exported: new Date().toISOString(),
-          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, source: $('source').value, search: $('q').value },
+          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, module: mod, source: $('source').value, search: $('q').value },
           count: recs.length, articles: recs }, null, 2));
       } else {
-        var head = ['Date', 'Category', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var head = ['Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
         var lines = [head.join(',')];
         recs.forEach(function (x) {
-          var cells = [x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.source, x.title, x.link, x.context];
+          var cells = [x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.source, x.title, x.link, x.context];
           if (withText) {
             var t = x.full_text;
             cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
@@ -259,13 +264,18 @@
 
   function init(data) {
     all = data.articles;
-    var cats = {}, srcs = {};
-    all.forEach(function (a) { cats[a.category] = (cats[a.category] || 0) + 1; srcs[a.source] = (srcs[a.source] || 0) + 1; });
+    var cats = {}, srcs = {}, mods = {};
+    all.forEach(function (a) {
+      cats[a.category] = (cats[a.category] || 0) + 1;
+      srcs[a.source] = (srcs[a.source] || 0) + 1;
+      (a.modules || []).forEach(function (m) { mods[m] = (mods[m] || 0) + 1; });
+    });
     fillSelect('category', 'categories', cats, true);
+    fillSelect('module', 'modules', mods, false);
     fillSelect('source', 'sources', srcs, false);
     $('to').max = $('from').max = isoDay(0);
     var timer;
-    ['category', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    ['category', 'module', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
     $('period').addEventListener('change', function () {
       var custom = $('period').value === 'custom';
       $('from-wrap').hidden = $('to-wrap').hidden = !custom;

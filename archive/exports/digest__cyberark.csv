@@ -1,9 +1,5 @@
-Date,Source,Title,Link,Context,Full Text
-2026-10-14 13:31 UTC,Delinea Blog,"AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access",https://delinea.com/blog/ai-agents-wont-go-rogue-theyll-inherit-overprivileged-access,"After the first block, the agent tried a workaround: The agent found no other path, stopped, and reported back: The agent, the task, and the persistence were the same","AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access
-
-Delinea Blog > Your AI agent doesn’t need to go rogue; it just needs you to be over-privileged
-
-Your AI agent doesn’t need to go rogue; it just needs you to be over-privileged
+Date,Source,Modules,Title,Link,Context,Full Text
+2026-10-14 13:31 UTC,Delinea Blog,AI Security; Identity Security Posture Management,"AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access",https://delinea.com/blog/ai-agents-wont-go-rogue-theyll-inherit-overprivileged-access,"After the first block, the agent tried a workaround: The agent found no other path, stopped, and reported back: The agent, the task, and the persistence were the same","What you will learn
 
 Here's how an AI agent inherits your admin rights, edits the policy that blocked it and finishes the task anyway, and how zero standing privilege and just-in-time (JIT) access limit what agents can do on your behalf.
 
@@ -29,15 +25,21 @@ Delinea runtime authorization enforces policy per action, not only per connectio
 
 I wanted to see that work with Claude Code against a live Postgres database, so I set up a test environment.
 
+The test
+
 Before the test, I wrote a policy for the database. The policy had three rules:
 
 Users must request just-in-time (JIT) access.
 
 Agents can read but cannot write.
 
+Humans can read and write.
+
 I pointed Claude Code at a Postgres database behind the Delinea gateway and gave it a one-line task:
 
 The agent requested access, and an approval workflow approved the request automatically. The agent then ran several SELECT statements to find the sales table and return the last five orders. The gateway checked each action against the policy. The reads worked.
+
+Then I asked for a write:
 
 The gateway blocked the write, as my policy required. The agent diagnosed the failure:
 
@@ -47,6 +49,8 @@ When I ran the same insert myself, outside Claude Code, the write succeeded. Pos
 
 The database and the gateway did not change. Only the identity changed. Delinea runtime authorization checks each action at the gateway and bases each decision on the policy defined for that identity.
 
+The part I didn’t plan for
+
 I also ran the same test while logged in to Delinea as an administrator. I was over-privileged, as admins tend to be.
 
 The gateway recognized Claude Code and blocked the first write. Then the agent did what a persistent engineer would do. The agent investigated the denial, identified the responsible policy, and began editing it so the write would go through.
@@ -54,6 +58,8 @@ The gateway recognized Claude Code and blocked the first write. Then the agent d
 The agent could edit the policy because the agent acted on my behalf. As an administrator, I had the right to edit policies, so the agent had that right too. My policy limited what the agent could do in the database. Nothing limited what the agent could do as an administrator.
 
 The agent had no hidden agenda. I had told the agent to insert an order, and the agent was trying to finish the task.
+
+What the agent did
 
 The agent reasoned in a straight line from “I was blocked” to “the block is a policy” to “I can edit the policy.” Each step was sensible. None of the steps was malicious. Together, the steps led the agent from the database to the policy that protects that database.
 
@@ -64,6 +70,8 @@ In the recorded run, I was not logged in as an administrator. After the first bl
 The agent found no other path, stopped, and reported back:
 
 The agent, the task, and the persistence were the same. Only my authority changed.
+
+What the two runs show
 
 1. Agents inherit your authority
 
@@ -76,6 +84,8 @@ Agents are useful because they keep going. An agent diagnoses a failure and trie
 3. Editing policy is a privilege
 
 The right to edit a policy is a privilege, like the right to write to a database. If an agent acts for an identity that holds this privilege, the agent can remove the rule that blocked it.
+
+What to do
 
 Run agents from identities that cannot edit policy. In the test, the agent had its own identity, and the policy treated the agent differently from me. The agent still carried my admin rights because the agent acted on my behalf.
 
@@ -95,10 +105,6 @@ To secure agents, make sure the humans behind them have zero standing privilege
 
 Policy-based authorization is only as strong as the weakest identity that can edit the policy. The agent didn’t break the control. The agent borrowed the most powerful credential in the room and turned it on the control.
 
-Before you connect an agent to production, check whether the agent's identity can edit its own policy. To run this test on your own resources, request a demo.
+Run the test yourself
 
-How to remove admin rights without reducing productivity
-
-Securing IT Admin identities: 7 ways to fortify your PAM and identity security strategy
-
-AI agents are already running on your endpoints. What can they do?"
+Before you connect an agent to production, check whether the agent's identity can edit its own policy. To run this test on your own resources, request a demo."

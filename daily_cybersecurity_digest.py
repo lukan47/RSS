@@ -456,33 +456,50 @@ _SKIP_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer",
               "aside", "form", "iframe", "button", "figcaption", "template"}
 _FLUSH_TAGS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre",
                "td", "th", "tr", "div", "section", "article", "main", "ul", "ol", "table"}
+_CONTAINER_TAGS = {"div", "section", "article", "main", "td", "body"}
+_VOID_TAGS = {"br", "img", "hr", "input", "meta", "link", "source", "wbr", "area", "base", "col", "embed", "param", "track"}
+EXTRACT_VERSION = 2
 
 
 class _ArticleExtractor(HTMLParser):
-    """Collect text blocks, remembering whether each sat inside <article> or <main>."""
+    """Collect text blocks tagged with their enclosing container, then keep the densest one.
+
+    Pages rarely mark up the article cleanly, and sidebars, promos and related-story
+    lists sit beside it. The container holding the most paragraph text is the article.
+    """
     def __init__(self, skip_tags=_SKIP_TAGS):
         super().__init__()
         self.skip_tags = skip_tags
         self.skip_depth = 0
         self.zone_depth = {"article": 0, "main": 0}
         self.buf = []
-        self.blocks = []  # (zone, text); zone 2 = article, 1 = main, 0 = other
+        self.blocks = []        # (zone, container_id, text); zone 2 = article, 1 = main, 0 = other
+        self.cstack = [0]       # open container ids, innermost last
+        self.parent = {0: None}
+        self.next_id = 1
 
     def _flush(self):
         text = " ".join("".join(self.buf).split())
         self.buf = []
         if text:
             zone = 2 if self.zone_depth["article"] else 1 if self.zone_depth["main"] else 0
-            if not self.blocks or self.blocks[-1][1] != text:
-                self.blocks.append((zone, text))
+            if not self.blocks or self.blocks[-1][2] != text:
+                self.blocks.append((zone, self.cstack[-1], text))
 
     def handle_starttag(self, tag, attrs):
         if tag in _FLUSH_TAGS:
             self._flush()
+        if tag in _VOID_TAGS:
+            return
         if tag in self.skip_tags:
             self.skip_depth += 1
         elif tag in self.zone_depth:
             self.zone_depth[tag] += 1
+        if tag in _CONTAINER_TAGS:
+            cid = self.next_id
+            self.next_id += 1
+            self.parent[cid] = self.cstack[-1]
+            self.cstack.append(cid)
 
     def handle_endtag(self, tag):
         if tag in _FLUSH_TAGS:
@@ -491,22 +508,42 @@ class _ArticleExtractor(HTMLParser):
             self.skip_depth = max(0, self.skip_depth - 1)
         elif tag in self.zone_depth:
             self.zone_depth[tag] = max(0, self.zone_depth[tag] - 1)
+        if tag in _CONTAINER_TAGS and len(self.cstack) > 1:
+            self.cstack.pop()
 
     def handle_data(self, data):
         if not self.skip_depth:
             self.buf.append(data)
 
+    def _densest(self, blocks):
+        """Blocks inside the container (and its descendants) with the most direct text."""
+        direct = {}
+        for _, cid, text in blocks:
+            direct[cid] = direct.get(cid, 0) + len(text)
+        best = max(direct, key=direct.get)
+
+        def inside(cid):
+            while cid is not None:
+                if cid == best:
+                    return True
+                cid = self.parent.get(cid)
+            return False
+        return [t for _, cid, t in blocks if inside(cid)]
+
     def get_text(self) -> str:
         self._flush()
-        for min_zone in (2, 1):
-            chosen = [t for z, t in self.blocks if z >= min_zone]
+        for min_zone in (2, 1, 0):
+            pool = [b for b in self.blocks if b[0] >= min_zone]
+            if not pool:
+                continue
+            chosen = self._densest(pool)
             if sum(len(t) for t in chosen) >= 300:
                 return "\n\n".join(chosen)
-        return "\n\n".join(t for _, t in self.blocks if len(t) >= 30)
+        return "\n\n".join(t for _, _, t in self.blocks if len(t) >= 30)
 
     def get_all_text(self) -> str:
         self._flush()
-        return "\n\n".join(t for _, t in self.blocks)
+        return "\n\n".join(t for _, _, t in self.blocks)
 
 
 def _html_to_text(html_content: str) -> str:
@@ -528,11 +565,21 @@ def _fragment_to_text(html_fragment: str) -> str:
     return parser.get_all_text()
 
 
+_TRAILER_RX = re.compile(
+    r"^(related( stories| articles| posts| reading)?\s*:|read more\s*:|found this article interesting|follow us on|"
+    r"share this|subscribe|join our newsletter|sign up for|you may also like|more from)", re.I)
+
+
 def _trim_trailer(text: str) -> str:
-    """Drop trailing short fragments such as share-button labels."""
+    """Drop trailing share-button labels, 'Related:' links and follow/subscribe prompts."""
     blocks = text.split("\n\n")
-    while len(blocks) > 1 and len(blocks[-1]) < 30 and not blocks[-1].rstrip().endswith((".", "!", "?", "\u201d", "\"")):
-        blocks.pop()
+    while len(blocks) > 1:
+        last = blocks[-1].strip()
+        short = len(last) < 30 and not last.endswith((".", "!", "?", "\u201d", '"'))
+        if short or _TRAILER_RX.match(last):
+            blocks.pop()
+        else:
+            break
     return "\n\n".join(blocks)
 
 
@@ -591,6 +638,10 @@ def save_fulltext_cache(cache: dict, months: dict) -> None:
         os.remove(LEGACY_FULLTEXT_CACHE)
 
 
+def _is_stale(entry: dict) -> bool:
+    return entry.get("source") == "page" and entry.get("v", 1) < EXTRACT_VERSION
+
+
 def attach_full_text(articles: list[dict]) -> int:
     """Set article['full_text'], reusing the on-disk cache and fetching what is missing.
 
@@ -604,8 +655,8 @@ def attach_full_text(articles: list[dict]) -> int:
     pending = [
         a for a in articles
         if a.get("link")
-        and not cache.get(a["link"], {}).get("text")
         and cache.get(a["link"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
+        and (not cache.get(a["link"], {}).get("text") or _is_stale(cache[a["link"]]))
     ]
     deadline = time.monotonic() + FULLTEXT_BUDGET_S
 
@@ -633,6 +684,7 @@ def attach_full_text(articles: list[dict]) -> int:
                 entry["attempts"] = entry.get("attempts", 0) + 1
                 if text:
                     entry["text"] = text
+                    entry["v"] = EXTRACT_VERSION
                     entry["source"] = source
                     entry["fetched"] = datetime.now(timezone.utc).isoformat()
                     obtained += 1
@@ -699,6 +751,151 @@ def extract_context(article: dict) -> str:
     if len(text) < 100:
         return ""
     return _extract_key_sentence(text, article.get("title", "")) or ""
+
+# ---------------------------------------------------------------------------
+# Module classification (rule based, no AI). An article can belong to several modules.
+# ---------------------------------------------------------------------------
+
+MODULE_OTHER = "Other/General"
+MODULE_NA = "N/A"
+MODULE_TYPES = [
+    "AI Security", "Attack Path Prediction", "Attack Surface Discovery", "Cloud IPS",
+    "Cloud Risk Management", "Cloud Security Posture Management", "Code Security",
+    "Compliance Management", "Container Security", "Cyber Risk Quantification",
+    "Data Security Posture Management", "Email and Collaboration Security", "Endpoint Security",
+    "File Security", "Identity Security Posture Management", "Mobile Security", "Network Security",
+    "Phishing Simulations", "Server & Workload Protection", "Threat Intelligence",
+    "Threat and Exposure Management", "Vulnerability Management", "Zero Trust Secure Access",
+    MODULE_OTHER, MODULE_NA,
+]
+MODULE_MIN_SCORE = 3      # a strong term in the title qualifies alone; body hits must add up
+MODULE_MAX_PER_ARTICLE = 4
+MODULE_BODY_CHARS = 4000  # only the start of the article body is scored
+
+# strong = specific to the module; weak = common words that only corroborate.
+_MODULE_RULES = {
+    "AI Security": (
+        r"\bai (agents?|security|models?|assistants?|supply chain|chatbots?|governance|systems?)\b|prompt injection|\bllms?\b|large language model|"
+        r"generative ai|\bgenai\b|copilot|chatgpt|openai|anthropic|\bclaude\b|\bgemini\b|\bmcp\b|agentic|jailbreak|shadow ai|"
+        r"model (poisoning|theft|extraction)|ai-(powered|driven|generated|assisted) (attack|malware|phishing|exploit)",
+        r"\bai\b|machine learning|neural|deepfake"),
+    "Attack Path Prediction": (
+        r"attack[- ]paths?|blast radius|crown jewels|choke ?points?|toxic combination",
+        r"lateral movement|privilege escalation path"),
+    "Attack Surface Discovery": (
+        r"attack surface|\basm\b|external exposure|shadow it|exposed (assets|services|instances|servers|devices|endpoints)|"
+        r"internet[- ](facing|exposed)|\bshodan\b|\bcensys\b|asset discovery|asset inventory",
+        r"publicly (accessible|exposed)|exposed to the internet"),
+    "Cloud IPS": (
+        r"intrusion prevention|\bips\b|virtual patching|cloud ips|network ips",
+        r"\bids\b|signature"),
+    "Cloud Risk Management": (
+        r"\bcnapp\b|cloud risk|cloud-native application protection|cloud security|cloud (breach|exposure|attack|compromise)|cloud-native",
+        r"\b(aws|azure|gcp|google cloud|cloud)\b"),
+    "Cloud Security Posture Management": (
+        r"\bcspm\b|cloud (security )?posture|cloud misconfigur|misconfigured (cloud|s3|bucket|blob|storage)|public (s3|bucket|blob)|"
+        r"overly permissive (iam|role|polic)|\bs3 buckets?\b|\bciem\b",
+        r"misconfigur|\biam\b"),
+    "Code Security": (
+        r"supply[- ]chain (attack|compromise|risk|security)|software supply|malicious (npm|pypi|package|extension|library|gem|crate)|"
+        r"\bnpm\b|\bpypi\b|rubygems|\bmaven\b|github actions?|\bsast\b|\bdast\b|\bsca\b|open[- ]source (package|library|component|dependenc)|"
+        r"ci/cd|vs ?code extension|code signing|secrets? (leak|in code|scanning)|source code|devsecops|\bsbom\b|dependency confusion|typosquat",
+        r"github|gitlab|developers?|repository|\bpackages?\b"),
+    "Compliance Management": (
+        r"compliance|\bgdpr\b|\bhipaa\b|pci[- ]dss|\bnis2\b|\bdora\b|\bsox\b|iso ?27001|soc ?2\b|\bcmmc\b|regulator|regulation|"
+        r"\bfined?\b|privacy law|data protection (law|act|authority)|security audit|\bnist\b",
+        r"audit|policy|legislation"),
+    "Container Security": (
+        r"kubernetes|\bk8s\b|\bdocker\b|helm chart|container (image|registry|escape|runtime|security|vulnerab)|\brunc\b|containerd|"
+        r"\b(eks|aks|gke)\b|pod security|\bcontainers\b|aqua ?sec|\bfalco\b|\bsysdig\b",
+        r"\bpods?\b|orchestrat|cluster"),
+    "Cyber Risk Quantification": (
+        r"risk quantification|cyber[- ]risk (score|rating|quantification|management)|cyber insurance|risk (score|rating)s?|value at risk|"
+        r"financial (impact|loss|exposure) of (a )?(cyber|breach|attack)|\bcrq\b",
+        r"insurers?|underwrit|risk assessment"),
+    "Data Security Posture Management": (
+        r"\bdspm\b|data security posture|sensitive data|data (loss|leak|leakage|exposure|breach|theft|exfiltration)|\bdlp\b|data classification|"
+        r"exposed (database|records|data)|records (exposed|leaked|stolen|compromised)|personal (data|information)|\bpii\b|health records|"
+        r"(customers?|patients?|users?|employees?) (data|records|information)|exfiltrat",
+        r"\bdata\b|breach|\bleak"),
+    "Email and Collaboration Security": (
+        r"email security|\bphishing\b|business email compromise|\bbec\b|spear-?phish|quishing|smishing|vishing|mailbox|microsoft teams|"
+        r"\bslack\b|\bspam\b|exchange online|microsoft 365|\bm365\b|office 365|collaboration (app|platform|tool)|\bzoom\b|email (attachment|gateway|campaign)",
+        r"\bemails?\b|\binbox\b|\bsms\b"),
+    "Endpoint Security": (
+        r"endpoint|\bedr\b|\bxdr\b|antivirus|anti-virus|ransomware|malware|infostealer|info-stealer|stealer|trojan|backdoor|\bwiper\b|"
+        r"rootkit|\bloader\b|\brat\b|keylogger|cryptominer|crypto-?mining|windows (defender|update)|macos|linux malware|botnet",
+        r"\bwindows\b|\blinux\b|\bmalicious\b|laptop|workstation"),
+    "File Security": (
+        r"malicious (file|document|attachment|archive|pdf|doc)|file (upload|scanning|security|sharing)|sandbox|office (document|macro)|"
+        r"\.lnk\b|disk image|weaponi[sz]ed (pdf|document|file)|\bwebshell|web shell|zip (file|archive)|macro-enabled",
+        r"\bfiles?\b|attachment|document"),
+    "Identity Security Posture Management": (
+        r"identity|\bispm\b|active directory|\bentra\b|\bokta\b|\bsso\b|\bmfa\b|multi-?factor|passkeys?|credential (theft|stuffing|harvest|dump)|"
+        r"stolen credentials|\bpasswords?\b|\boauth\b|token theft|session (hijack|token|cookie)|privileged access|service accounts?|\bpam\b|"
+        r"account takeover|\bato\b|authentication bypass|single sign-on|\bsaml\b|\bkerberos\b",
+        r"\bcredentials?\b|\blogin\b|\baccounts?\b|authenticat"),
+    "Mobile Security": (
+        r"\bandroid\b|(?<!cisco )\bios\b(?! ?x[er])|\biphone\b|\bipad\b|mobile (app|apps|device|devices|malware|security|phone|banking)|\bapk\b|"
+        r"app store|google play|\bmdm\b|sim[- ]swap|\bspyware\b|pegasus|telegram",
+        r"\bmobile\b|smartphone|\bapps?\b"),
+    "Network Security": (
+        r"firewall|\bvpn\b|sd-wan|\brouters?\b|network (security|detection|traffic|device|appliance|perimeter)|\bndr\b|\bddos\b|fortigate|"
+        r"fortios|pan-os|globalprotect|ivanti connect|edge devices?|snmp|wi-?fi|\bswitch(es)?\b|load balancer|netscaler|\bwaf\b|cisco (asa|ftd|ios)|"
+        r"packet|\bbgp\b",
+        r"\bnetwork\b|\bdns\b|\btraffic\b|gateway|perimeter"),
+    "Phishing Simulations": (
+        r"phishing simulation|simulated phishing|security awareness (training|program)|awareness training|knowbe4|phish(ing)? (test|testing|drill)|"
+        r"human risk|cyber ?security awareness",
+        r"awareness|training|employees"),
+    "Server & Workload Protection": (
+        r"\bworkloads?\b|vmware|\besxi\b|hypervisor|vcenter|\brdp\b|\bssh\b|exchange server|\bcitrix\b|mainframe|virtual machines?|"
+        r"(linux|windows|web|application|database|mail|file) servers?|server (compromise|breach|vulnerab)|\bnginx\b|\bapache\b|\bsap\b|\bwebsphere\b",
+        r"\bservers?\b|\bhosts?\b|\bvms?\b|datacenter|data center"),
+    "Threat Intelligence": (
+        r"threat actors?|threat intelligence|threat (group|report|research|landscape|hunting)|\bapt ?\d*\b|nation[- ]state|state[- ]sponsored|"
+        r"lazarus|fancy bear|\bttps?\b|indicators of compromise|\biocs?\b|mandiant|unit ?42|\btalos\b|threat campaign|hacking (group|campaign)|"
+        r"ransomware (gang|group)|cybercrim(e|inal) (group|gang)|dark ?web|initial access broker",
+        r"campaigns?|attributed|actors?|\bgroup\b"),
+    "Threat and Exposure Management": (
+        r"exposure management|\bctem\b|threat exposure|continuous threat exposure|risk-based (vulnerability|prioriti)|exposure (validation|assessment)|"
+        r"prioriti[sz](e|ing|ation) (risk|vulnerab|remediation)|security posture|exposure score",
+        r"\bexposures?\b|prioriti[sz]|remediation"),
+    "Vulnerability Management": (
+        r"cve-\d{4}-\d+|vulnerabilit|zero-?day|\b0-day\b|\bpatch(es|ed|ing)?\b|\bcvss\b|remote code execution|\brce\b|privilege escalation|"
+        r"security (flaw|bug|update|advisory|fix)|actively exploited|\bkev\b|proof[- ]of[- ]concept|out-of-band|patch tuesday|unpatched|"
+        r"exploited in the wild|arbitrary code|sql injection|buffer overflow|authentication bypass|critical (flaw|bug)",
+        r"\bexploits?\b|exploitation|\bflaws?\b|\bbugs?\b|advisory"),
+    "Zero Trust Secure Access": (
+        r"zero[- ]trust|\bztna\b|\bsase\b|\bsse\b|secure access|least privilege|micro-?segmentation|secure web gateway|\bcasb\b|"
+        r"conditional access|remote access (security|solution)",
+        r"remote access|\bvpn\b|access control"),
+}
+_MODULE_RX = {n: (re.compile(sr, re.I), re.compile(wk, re.I)) for n, (sr, wk) in _MODULE_RULES.items()}
+
+
+def classify_modules(article: dict) -> list[str]:
+    """Return the modules an article relates to, strongest first.
+
+    Title hits on strong terms qualify on their own; body-only evidence needs several
+    mentions. Articles with no match are 'Other/General' when we had text to judge,
+    or 'N/A' when there was nothing beyond the title.
+    """
+    title = article.get("title", "")
+    context = article.get("context", "")
+    body = " ".join((context + " " + article.get("full_text", "")[:MODULE_BODY_CHARS]).split())
+    scored = []
+    for order, (name, (strong, weak)) in enumerate(_MODULE_RX.items()):
+        score = (3 if strong.search(title) else 0) + min(len(strong.findall(body)), 3)
+        score += (1 if weak.search(title) else 0) + 0.5 * min(len(weak.findall(body)), 4)
+        if score >= MODULE_MIN_SCORE:
+            scored.append((-score, order, name))
+    if scored:
+        scored.sort()
+        floor = max(MODULE_MIN_SCORE, 0.4 * -scored[0][0])
+        return [name for neg, _, name in scored if -neg >= floor][:MODULE_MAX_PER_ARTICLE]
+    return [MODULE_OTHER] if body else [MODULE_NA]
+
 
 # ---------------------------------------------------------------------------
 # Master article store (every article ever seen) + backfill from archive snapshots
@@ -786,7 +983,8 @@ def save_master(master: dict, label: str) -> None:
     dated = [a for a in items if a.get("date")]
     items = dated + [a for a in items if not a.get("date")]
     slim = [{"source": a["source"], "category": a.get("category", ""), "title": a["title"],
-             "link": a["link"], "date": a.get("date"), "context": a.get("context", "")} for a in items]
+             "link": a["link"], "date": a.get("date"), "context": a.get("context", ""),
+             "modules": a.get("modules", [])} for a in items]
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(ARTICLES_FILE, "w", encoding="utf-8") as f:
         json.dump({"generated": label, "count": len(slim), "articles": slim}, f, ensure_ascii=False, separators=(",", ":"))
@@ -936,6 +1134,7 @@ def export_digest_json(articles: list[dict], label: str) -> str:
                 "link": a["link"],
                 "date": a["date"].isoformat() if a["date"] else None,
                 "context": a.get("context", ""),
+                "modules": a.get("modules", []),
                 "full_text": a.get("full_text", "")
             }
             for a in items
@@ -956,7 +1155,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     writer = csv_module.writer(output)
 
     # Write header
-    writer.writerow(["Date", "Category", "Source", "Title", "Link", "Context", "Full Text"])
+    writer.writerow(["Date", "Category", "Modules", "Source", "Title", "Link", "Context", "Full Text"])
 
     # Write articles
     buckets = bucket_articles(articles)
@@ -966,6 +1165,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
             writer.writerow([
                 date_str,
                 cat,
+                "; ".join(article.get("modules", [])),
                 article["source"],
                 article["title"],
                 article["link"],
@@ -994,12 +1194,13 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
         # CSV export for this category
         csv_output = io.StringIO()
         csv_writer = csv_module.writer(csv_output)
-        csv_writer.writerow(["Date", "Source", "Title", "Link", "Context", "Full Text"])
+        csv_writer.writerow(["Date", "Source", "Modules", "Title", "Link", "Context", "Full Text"])
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             csv_writer.writerow([
                 date_str,
                 article["source"],
+                "; ".join(article.get("modules", [])),
                 article["title"],
                 article["link"],
                 article.get("context", ""),
@@ -1020,6 +1221,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
                     "title": a["title"],
                     "link": a["link"],
                     "context": a.get("context", ""),
+                    "modules": a.get("modules", []),
                     "full_text": a.get("full_text", "")
                 }
                 for a in items
@@ -1095,13 +1297,19 @@ def _build_dropdown() -> str:
     return """
   <div class="dropdown-bar">
     <div class="dropdown-group">
-      <label for="category-select">Filter by category:</label>
+      <label for="category-select">Category:</label>
       <select id="category-select" onchange="filterByCategory(this.value);">
         <option value="">-- All categories --</option>
       </select>
     </div>
     <div class="dropdown-group">
-      <label for="history-select">Previous digests:</label>
+      <label for="module-select">Module:</label>
+      <select id="module-select" onchange="filterByModule(this.value);">
+        <option value="">-- All modules --</option>
+      </select>
+    </div>
+    <div class="dropdown-group">
+      <label for="history-select">History:</label>
       <select id="history-select" onchange="if(this.value) window.location.href=this.value;">
         <option value="">-- Select a date --</option>
       </select>
@@ -1125,6 +1333,39 @@ def _build_dropdown() -> str:
         opt.textContent = cat;
         sel.appendChild(opt);
       });
+    }
+
+    // Module filter: cards carry their modules in data-modules, separated by |
+    function populateModules() {
+      const counts = {};
+      document.querySelectorAll('.card').forEach(card => {
+        (card.dataset.modules || '').split('|').forEach(m => {
+          if (m) counts[m] = (counts[m] || 0) + 1;
+        });
+      });
+      const sel = document.getElementById('module-select');
+      if (!sel) return;
+      Object.keys(counts).sort().forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m + ' (' + counts[m] + ')';
+        sel.appendChild(opt);
+      });
+    }
+
+    function updateRows() {
+      document.querySelectorAll('.col').forEach(col => {
+        const any = col.querySelector('.card:not(.hide-search):not(.hide-module)') !== null;
+        col.classList.toggle('search-hidden', !any);
+      });
+    }
+
+    function filterByModule(mod) {
+      document.querySelectorAll('.card').forEach(card => {
+        const mods = (card.dataset.modules || '').split('|');
+        card.classList.toggle('hide-module', mod !== '' && mods.indexOf(mod) === -1);
+      });
+      updateRows();
     }
 
     // Filter columns by category
@@ -1191,24 +1432,18 @@ def _build_dropdown() -> str:
           const context = card.textContent || '';
           const fullText = (title + ' ' + source + ' ' + context).toLowerCase();
 
-          if (lowerQuery === '' || fullText.includes(lowerQuery)) {
-            card.style.display = 'block';
-            visibleCount++;
-          } else {
-            card.style.display = 'none';
-          }
+          const match = lowerQuery === '' || fullText.includes(lowerQuery);
+          card.classList.toggle('hide-search', !match);
+          if (match) visibleCount++;
         });
 
-        document.querySelectorAll('.col').forEach(col => {
-          const any = Array.from(col.querySelectorAll('.card')).some(c => c.style.display !== 'none');
-          col.classList.toggle('search-hidden', !any);
-        });
+        updateRows();
 
         // Show/hide clear button
         searchClear.style.display = lowerQuery ? 'block' : 'none';
 
         // Update count
-        const totalVisible = document.querySelectorAll('.card:not([style*="display: none"])').length;
+        const totalVisible = document.querySelectorAll('.card:not(.hide-search):not(.hide-module)').length;
         return totalVisible;
       }
 
@@ -1288,7 +1523,7 @@ def _build_dropdown() -> str:
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      [populateCategories, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference].forEach(fn => {
+      [populateCategories, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference].forEach(fn => {
         try {
           fn();
         } catch (err) {
@@ -1320,13 +1555,21 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             if safe_context:
                 context_html = f'<p class="card-context">{safe_context}</p>'
 
+            modules = a.get("modules") or []
+            modules_attr = html.escape("|".join(modules))
+            shown = [m for m in modules if m not in (MODULE_OTHER, MODULE_NA)]
+            modules_html = ""
+            if shown:
+                modules_html = '<div class="card-modules">' + " &middot; ".join(html.escape(m) for m in shown) + "</div>"
+
             cards.append(f"""
-            <div class="card">
+            <div class="card" data-modules="{modules_attr}">
               <div class="card-meta">
                 <span class="source">{safe_source}</span>
                 <span class="date">{date_str}</span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
+              {modules_html}
               {context_html}
             </div>""")
 
@@ -1384,9 +1627,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   .topbar-right {{
     display: flex;
     flex-direction: row;
-    gap: 12px;
+    gap: 10px 14px;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }}
   @media (max-width: 1600px) {{
     .topbar {{
@@ -1402,8 +1645,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   .dropdown-bar {{
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: nowrap;
+    gap: 10px 12px;
+    flex-wrap: wrap;
     font-size: 0.82rem;
     color: #888;
   }}
@@ -1531,6 +1774,13 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     overflow: hidden;
   }}
   .col.search-hidden {{ display: none !important; }}
+  .card.hide-search, .card.hide-module {{ display: none; }}
+  .card-modules {{
+    font-size: 0.7rem;
+    color: #7d8299;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }}
   .col-header {{
     display: flex;
     align-items: baseline;
@@ -1632,7 +1882,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period and category, then export">All articles &amp; export &rarr;</a>
+      <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period, category and module, then export">All articles &rarr;</a>
       <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
       <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
@@ -1704,10 +1954,12 @@ def main() -> None:
     for entry in entries:
         if not entry.get("context"):
             entry["context"] = extract_context(entry)
+        entry["modules"] = classify_modules(entry)
     for article in recent:
         stored = master.get(article.get("link", ""))
         if stored:
             article["full_text"] = stored["full_text"]
+            article["modules"] = stored["modules"]
             if not article.get("context"):
                 article["context"] = stored.get("context", "")
     save_master(master, label)

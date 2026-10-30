@@ -1,2 +1,40 @@
-Date,Source,Title,Link,Context
-2026-10-16 10:10 UTC,Infosecurity Magazine,"China Espionage Actor Actively Targeting Critical BeyondTrust Flaw, Google Warns",https://www.infosecurity-magazine.com/news/china-actor-beyondtrust-flaw-google/,
+Date,Source,Modules,Title,Link,Context,Full Text
+2026-10-16 10:10 UTC,Infosecurity Magazine,Threat Intelligence; Vulnerability Management; Identity Security Posture Management; File Security,"China Espionage Actor Actively Targeting Critical BeyondTrust Flaw, Google Warns",https://www.infosecurity-magazine.com/news/china-actor-beyondtrust-flaw-google/,Attackers Hide Malware Behind Signed ChatGPT and Claude Binaries Attackers Exploit Teams External Chat to Breach Organizations in Under 15 Minutes Online Scam Volumes Double to...,"A suspected China state-sponsored actor has exploited a newly disclosed critical vulnerability in a BeyondTrust Remote Support instance, Google has warned.
+
+The threat actor, tracked as Armory Castle, was observed to escalate privileges and established persistent access to compromised BeyondTrust Remote Support appliances following exploitation of the flaw, CVE-2026-102764, in August 2026.
+
+BeyondTrust publicly disclosed the vulnerability, which has a CVSS rating of 9.3, on October 15.
+
+A patch was released on October 8 for software-as-a-service (SaaS) and self-hosted customers. The vendor said it is withholding technical details of the vulnerability, as disclosing such information while appliances are still being patched could put customers at an increased risk.
+
+In its blog published on October 15, Google urged affected BeyondTrust customers to apply patches immediately.
+
+“Organizations should prepare for potential widespread exploitation following this disclosure, as Armory Castle and other threat actors have historically conducted broad, opportunistic exploitation once the vulnerability becomes public,” the tech giant wrote.
+
+Armory Castle is an espionage actor that has been active since October 2023. It is known for long-term intelligence collection on behalf of the People’s Republic of China (PRC). The group’s documented targets include legal services, SaaS providers, business-process outsourcers, technology companies, and government.
+
+Google has assessed with high confidence that Armory Castle will continue to leverage zero-day vulnerabilities in edge devices to gain access to environments to support their espionage objective.
+
+Armory Castle’s Post-Exploitation Techniques
+
+Following successful exploitation of CVE-2026-102764, Armory Castle’s post-compromise tactics were designed to establish persistence and enable lateral movement in victim environments. Google noted that this approach was tailored for BeyondTrust systems.
+
+A significant part of Armory Castle’s activity was the deployment of Sawfly, an obfuscated, lightweight PHP webshell that implements bidirectional encrypted command and control (C2) communication.
+
+Armory Castle used the webshell to escalate privileges by copying the system shell executable to the file /usr/bin/dbus-authd, then modified the file’s ownership to root and enabled Set User ID (SUID) permissions.
+
+This effectively granted the attackers a persistent root-level backdoor on the host system. They then elevated privileges from the web service account to root-level control of the appliance host, providing access to every credential the appliance stored or brokered and the ability to modify files that survive reboot and configuration reset.
+
+The threat actor attempted to harvest credentials directly from the appliance's native secrets management database by leveraging the /ns/sbin/bt-secrets binary which is a proprietary, administrative Command Line Interface (CLI) utility native to BeyondTrust appliances used to manage, store, and retrieve passwords, API keys, and endpoint credentials.
+
+Persistent access was achieved by targeting the BeyondTrust configuration templates to grant passwordless root privileges to the site service account.
+
+The researchers highlighted how the actor directly modified the compromised account's permissions, upgrading both local Jump Items and Team permissions from ‘No Access’ to ‘Administrator’. This configuration change granted the threat actor permanent, unrestricted authorization to launch remote sessions to downstream systems populated within the appliance's Jump Item list.
+
+Armory Castle also utilized the native BeyondTrust Remote Support file transfer service to download and exfiltrate sensitive internal documents useful for network reconnaissance, such as software inventories, directly from the user's desktop environment.
+
+A tunneler tool called Bareclaw was deployed to move traffic through the BeyondTrust device.
+
+Additionally, Armory Castle sought to evade detection by systematically deleting system, web server and application-level logs.
+
+“Throughout the intrusion, Armory Castle leveraged a deep understanding of BeyondTrust appliance internals, as evidenced by their abuse of proprietary CLI utilities, startup configuration templates and local reverse-proxy routing,” the Google researchers wrote."
