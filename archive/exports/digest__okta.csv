@@ -1,5 +1,37 @@
 ID,Date,Source,Modules,Title,Link,Context,Full Text
-b489293ab2c5,2026-10-23 00:00 UTC,Okta Blog,Identity Security Posture Management,Okta and Auth0 are removing trust in the eMudhra emSign ECC Root CA – G3,https://sec.okta.com/articles/2026/10/okta-and-auth0-removing-trust-in-emudhra-emsign-ecc-root-ca–g3/,"On October 17, 2026, a researcher reported that the private keys of eight intermediate eMudhra certificate authorities were generated with insufficient entropy and could be...","On October 17, 2026, a researcher reported that the private keys of eight intermediate eMudhra certificate authorities were generated with insufficient entropy and could be derived from their public certificates. Read on for Okta's response."
+b489293ab2c5,2026-10-23 00:00 UTC,Okta Blog,Identity Security Posture Management,Okta and Auth0 are removing trust in the eMudhra emSign ECC Root CA – G3,https://sec.okta.com/articles/2026/10/okta-and-auth0-removing-trust-in-emudhra-emsign-ecc-root-ca–g3/,"On October 17, 2026, a researcher reported that the private keys of eight intermediate eMudhra certificate authorities were generated with insufficient entropy and could be...","What happened?
+
+On October 17, 2026, a researcher reported that the private keys of eight intermediate eMudhra certificate authorities were generated with insufficient entropy and could be derived from their public certificates. The derived private keys can be used to issue certificates for any domain, and software that trusts the eMudhra root will accept them.
+
+Mozilla, Google, Apple, and Cloudflare have blocked the affected intermediates. Mozilla has removed the emSign ECC Root CA – G3 from its trust store, and Chrome will remove it on October 27, 2026. eMudhra has revoked the intermediates.
+
+Okta’s response
+
+Okta and Auth0 are removing trust in emSign ECC Root CA – G3 and the eight affected intermediates across our services.
+
+Security Patching Services: The change has been deployed across Okta’s production environment. The change is continuing to roll out across Auth0 production.
+
+No Evidence of Exploitation: To date, Okta and Auth0 have observed no evidence of exploitation.
+
+Do I need to do anything?
+
+Only if Okta or Auth0 connects to a server you control and that server's certificate chain includes the eMudhra emSign ECC Root CA – G3. Inbound access to Okta and Auth0, including sign-in, is not affected.
+
+The case to check is a non-browser connection or webhook that calls your own API, such as an Okta Inline Hook or Event Hook, or Auth0 Action, Custom Database connection, or Auth0 Federated Connection.
+
+These connections may not have shown you any error before now. Run
+
+openssl s_client -showcerts -connect <your-host>:443
+
+and look for ""emSign"" in the chain. If you find it, replace the certificate with one from another trusted CA. Connections to that endpoint will fail once our change is applied to your tenant.
+
+References
+
+eMudhra Statement on distrust of select Global TLS Intermediate and one Root CA
+
+Google - Protecting Chrome and Android Users from Compromised eMudhra Intermediate CA Certificates
+
+Mozilla - Protecting Firefox users following the compromise of eMudhra intermediate certificates"
 6c2ecff013dd,2026-10-22 00:00 UTC,Okta Blog,Identity Security Posture Management; Vulnerability Management,Okta's Response to PHP2Shell,https://sec.okta.com/articles/2026/10/okta-response-to-php2shell/,"Okta tested the publicly available proof-of-concept (PoC) exploits against Okta Access Gateway in its default configuration, and none achieved code execution","On October 21, 2026, industry-wide third-party critical PHP pre-authentication remote code execution (RCE) vulnerabilities (CVE-2026-109618 and CVE-2026-109619) were disclosed, both with CVSS scores of 9.2.
 
 Okta tested the publicly available proof-of-concept (PoC) exploits against Okta Access Gateway in its default configuration, and none achieved code execution.

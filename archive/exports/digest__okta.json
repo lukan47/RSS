@@ -1,7 +1,7 @@
 {
   "category": "Okta",
-  "generated": "2026-10-30 20:44 PHT",
-  "timestamp": "2026-10-30T12:47:02.094099+00:00",
+  "generated": "2026-10-30 21:34 PHT",
+  "timestamp": "2026-10-30T13:37:35.191426+00:00",
   "article_count": 2,
   "articles": [
     {
@@ -14,7 +14,7 @@
       "modules": [
         "Identity Security Posture Management"
       ],
-      "full_text": "On October 17, 2026, a researcher reported that the private keys of eight intermediate eMudhra certificate authorities were generated with insufficient entropy and could be derived from their public certificates. Read on for Okta's response."
+      "full_text": "What happened?\n\nOn October 17, 2026, a researcher reported that the private keys of eight intermediate eMudhra certificate authorities were generated with insufficient entropy and could be derived from their public certificates. The derived private keys can be used to issue certificates for any domain, and software that trusts the eMudhra root will accept them.\n\nMozilla, Google, Apple, and Cloudflare have blocked the affected intermediates. Mozilla has removed the emSign ECC Root CA \u2013 G3 from its trust store, and Chrome will remove it on October 27, 2026. eMudhra has revoked the intermediates.\n\nOkta\u2019s response\n\nOkta and Auth0 are removing trust in emSign ECC Root CA \u2013 G3 and the eight affected intermediates across our services.\n\nSecurity Patching Services: The change has been deployed across Okta\u2019s production environment. The change is continuing to roll out across Auth0 production.\n\nNo Evidence of Exploitation: To date, Okta and Auth0 have observed no evidence of exploitation.\n\nDo I need to do anything?\n\nOnly if Okta or Auth0 connects to a server you control and that server's certificate chain includes the eMudhra emSign ECC Root CA \u2013 G3. Inbound access to Okta and Auth0, including sign-in, is not affected.\n\nThe case to check is a non-browser connection or webhook that calls your own API, such as an Okta Inline Hook or Event Hook, or Auth0 Action, Custom Database connection, or Auth0 Federated Connection.\n\nThese connections may not have shown you any error before now. Run\n\nopenssl s_client -showcerts -connect <your-host>:443\n\nand look for \"emSign\" in the chain. If you find it, replace the certificate with one from another trusted CA. Connections to that endpoint will fail once our change is applied to your tenant.\n\nReferences\n\neMudhra Statement on distrust of select Global TLS Intermediate and one Root CA\n\nGoogle - Protecting Chrome and Android Users from Compromised eMudhra Intermediate CA Certificates\n\nMozilla - Protecting Firefox users following the compromise of eMudhra intermediate certificates"
     },
     {
       "id": "6c2ecff013dd",
