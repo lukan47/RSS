@@ -105,7 +105,7 @@ FEEDS = [
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
-LOOKBACK_HOURS = 192   # front-page window (8 days); older history is preserved in the archives
+LOOKBACK_HOURS = 720   # front-page window (30 days); older history is preserved in the archives
 
 REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
@@ -711,6 +711,37 @@ def export_digest_json(articles: list[dict], label: str) -> str:
 
     return json.dumps(export, indent=2)
 
+
+def export_digest_csv(articles: list[dict], label: str) -> str:
+    """Export digest as CSV with all article metadata.
+
+    Returns CSV string suitable for Excel/spreadsheet applications.
+    """
+    import io
+    import csv as csv_module
+
+    output = io.StringIO()
+    writer = csv_module.writer(output)
+
+    # Write header
+    writer.writerow(["Date", "Category", "Source", "Title", "Link", "Context"])
+
+    # Write articles
+    buckets = bucket_articles(articles)
+    for cat, items in buckets.items():
+        for article in items:
+            date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
+            writer.writerow([
+                date_str,
+                cat,
+                article["source"],
+                article["title"],
+                article["link"],
+                article.get("context", "")
+            ])
+
+    return output.getvalue()
+
 # ---------------------------------------------------------------------------
 # HTML report — Trend Micro branding + column layout + history dropdown
 # ---------------------------------------------------------------------------
@@ -1185,6 +1216,13 @@ def main() -> None:
     with open(json_file, "w", encoding="utf-8") as f:
         f.write(json_export)
     print(f"Digest exported: {json_file}", file=sys.stderr)
+
+    # ── Export digest as CSV for spreadsheet access ───────────────────────
+    csv_export = export_digest_csv(recent, label)
+    csv_file = "digest.csv"
+    with open(csv_file, "w", encoding="utf-8") as f:
+        f.write(csv_export)
+    print(f"Digest exported: {csv_file}", file=sys.stderr)
 
 
 if __name__ == "__main__":
