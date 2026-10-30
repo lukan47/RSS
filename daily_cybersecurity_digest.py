@@ -31,7 +31,6 @@ FEEDS = [
     ("SecurityWeek",            "https://feeds.feedburner.com/securityweek"),
     ("Dark Reading",            "https://www.darkreading.com/rss.xml"),
     ("Schneier on Security",    "https://www.schneier.com/feed/atom/"),
-    ("ThreatPost",              "https://threatpost.com/feed/"),
     ("Wired Security",          "https://www.wired.com/feed/category/security/latest/rss"),
     ("Ars Technica Security", "https://arstechnica.com/tag/security/feed/"),
     ("Troy Hunt",               "https://feeds.feedburner.com/TroyHunt"),
@@ -40,9 +39,12 @@ FEEDS = [
     ("SC Magazine",             "https://www.scmagazine.com/feed"),
     ("Graham Cluley",           "https://grahamcluley.com/feed/"),
     ("The CyberWire",           "https://thecyberwire.com/feeds/rss.xml"),
+    ("Security Affairs",                "https://securityaffairs.com/feed"),
+    ("CSO Online",                      "https://www.csoonline.com/feed/"),
+    ("Risky Business News",             "https://risky.biz/feeds/risky-business-news/"),
     # ── Government / advisories ──────────────────────────────────────────
     ("CISA Advisories", "https://www.cisa.gov/cybersecurity-advisories/all.xml"),
-    ("NCSC UK",                 "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"),
+    ("NCSC UK",                 "https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml"),
     ("CIRCL KEV (exploited CVEs)", "https://vulnerability.circl.lu/known-exploited-vulnerabilities.rss"),
     ("Australian ACSC",         "https://www.cyber.gov.au/rss.xml"),
     # ── Threat intelligence ──────────────────────────────────────────────
@@ -54,6 +56,8 @@ FEEDS = [
     ("Check Point Research",    "https://research.checkpoint.com/feed/"),
     ("Cyble",                   "https://cyble.com/blog/feed/"),
     ("VirusTotal Blog",         "https://blog.virustotal.com/feeds/posts/default"),
+    ("Zero Day Initiative Blog",        "https://www.zerodayinitiative.com/blog/?format=rss"),
+    ("ZDI Published Advisories",        "https://www.zerodayinitiative.com/rss/published/"),
     # ── Vendor blogs ─────────────────────────────────────────────────────
     ("Trend Micro Research", "https://feeds.feedburner.com/TrendMicroResearch"),
     ("CrowdStrike Blog",        "https://www.crowdstrike.com/blog/feed/"),
@@ -99,8 +103,20 @@ FEEDS = [
     ("Snyk Blog",               "https://snyk.io/blog/feed/"),
     ("BeyondTrust Blog",        "https://www.beyondtrust.com/blog/rss.xml"),
     ("Delinea Blog",            "https://delinea.com/blog/rss.xml"),
-    ("Netskope Blog",           "https://www.netskope.com/blog/feed"),
-    ("Claroty Blog",            "https://claroty.com/team82/blog/feed"),
+    ("Trend Micro Newsroom",            "https://newsroom.trendmicro.com/news-releases?pagetemplate=rss"),
+    ("Malwarebytes Labs",               "https://www.malwarebytes.com/blog/feed/index.xml"),
+    ("AWS Security Blog",               "https://aws.amazon.com/blogs/security/feed/"),
+    ("Cloudflare Security",             "https://blog.cloudflare.com/tag/security/rss/"),
+    ("Datadog Security Labs",           "https://securitylabs.datadoghq.com/rss/feed.xml"),
+    ("GitHub Security Blog",            "https://github.blog/security/feed/"),
+    ("Socket",                          "https://socket.dev/api/blog/feed.atom"),
+    ("JFrog Blog",                      "https://jfrog.com/blog/feed/"),
+    ("Sonatype Blog",                   "https://www.sonatype.com/blog/rss.xml"),
+    ("Varonis Blog",                    "https://www.varonis.com/blog/rss.xml"),
+    ("Silverfort Blog",                 "https://www.silverfort.com/blog/feed/"),
+    ("KnowBe4 Blog",                    "https://blog.knowbe4.com/rss.xml"),
+    ("Cofense Blog",                    "https://cofense.com/feed/"),
+    ("Cato Networks Blog",              "https://www.catonetworks.com/blog/feed/"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -382,6 +398,21 @@ def _raw_text(element, tags) -> str:
 # Feed fetching
 # ---------------------------------------------------------------------------
 
+_XML_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_XML_BARE_AMP = re.compile(r"&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)")
+_HTML_ENTITY = re.compile(r"&(nbsp|mdash|ndash|rsquo|lsquo|ldquo|rdquo|hellip|copy|reg|trade|bull|laquo|raquo);")
+
+
+def _sanitize_xml(raw: bytes) -> bytes:
+    """Repair common feed defects: control characters, bare '&', HTML-only entities."""
+    text = raw.decode("utf-8", errors="replace")
+    text = re.sub(r"^\s*<\?xml[^>]*\?>", "", text)  # bytes are re-encoded as UTF-8 below
+    text = _XML_ILLEGAL.sub("", text)
+    text = _HTML_ENTITY.sub(lambda m: html.unescape(m.group(0)), text)
+    text = _XML_BARE_AMP.sub("&amp;", text)
+    return text.encode("utf-8")
+
+
 def fetch_feed(name: str, url: str) -> list[dict]:
     try:
         req = Request(url, headers={"User-Agent": "CyberCompetitiveDailyFeed/1.0"})
@@ -393,9 +424,12 @@ def fetch_feed(name: str, url: str) -> list[dict]:
 
     try:
         root = ET.fromstring(raw)
-    except ET.ParseError as exc:
-        print(f"  [WARN] {name}: XML parse error - {exc}", file=sys.stderr)
-        return []
+    except ET.ParseError:
+        try:
+            root = ET.fromstring(_sanitize_xml(raw))
+        except ET.ParseError as exc:
+            print(f"  [WARN] {name}: XML parse error - {exc}", file=sys.stderr)
+            return []
 
     articles = []
     is_atom = root.tag in ("feed", "{http://www.w3.org/2005/Atom}feed")
