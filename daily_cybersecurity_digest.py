@@ -972,8 +972,12 @@ def _build_dropdown() -> str:
       if (url.includes('/archive/')) {
         return url.split('/archive/')[0];
       }
-      // Otherwise, use current directory
-      return url.split('/').slice(0, -1).join('/');
+      // If it ends with index.html or similar, remove it
+      if (url.endsWith('.html')) {
+        return url.substring(0, url.lastIndexOf('/'));
+      }
+      // Otherwise assume we're at root and remove trailing slash
+      return url.replace(/\/$/, '');
     }
 
     // Handle main export buttons
