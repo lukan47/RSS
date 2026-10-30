@@ -1057,16 +1057,18 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   }}
   .topbar-right {{
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 12px;
-    align-items: flex-end;
+    align-items: center;
+    flex-wrap: nowrap;
   }}
-  @media (max-width: 1200px) {{
+  @media (max-width: 1600px) {{
     .topbar {{
       grid-template-columns: 1fr;
     }}
     .topbar-right {{
-      align-items: flex-start;
+      width: 100%;
+      margin-top: 12px;
     }}
   }}
 
@@ -1074,18 +1076,20 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   .dropdown-bar {{
     display: flex;
     align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
+    gap: 12px;
+    flex-wrap: nowrap;
     font-size: 0.82rem;
     color: #888;
   }}
   .dropdown-group {{
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    white-space: nowrap;
   }}
   .dropdown-group label {{
     white-space: nowrap;
+    font-size: 0.75rem;
   }}
   .dropdown-group select {{
     background: #1e2030;
@@ -1093,10 +1097,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     border: 1px solid #2a2d3e;
     border-radius: 6px;
     padding: 6px 10px;
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     cursor: pointer;
     outline: none;
-    min-width: 180px;
+    min-width: 140px;
   }}
   .dropdown-group select:hover {{
     border-color: #DA291C;
@@ -1109,23 +1113,24 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   /* ── Export buttons ── */
   .export-buttons {{
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
   }}
   .export-btn {{
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     background: #DA291C;
     color: #fff;
-    padding: 6px 12px;
-    border-radius: 6px;
+    padding: 5px 10px;
+    border-radius: 4px;
     text-decoration: none;
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     border: none;
     transition: all 0.2s ease;
+    white-space: nowrap;
   }}
   .export-btn:hover {{
     background: #f04e3f;
@@ -1140,20 +1145,22 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   .search-bar {{
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: #1e2030;
     border: 1px solid #2a2d3e;
-    border-radius: 6px;
-    padding: 6px 12px;
-    min-width: 250px;
+    border-radius: 4px;
+    padding: 5px 10px;
+    min-width: 200px;
+    white-space: nowrap;
   }}
   .search-bar input {{
     background: transparent;
     border: none;
     color: #e0e0e0;
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     outline: none;
     flex: 1;
+    min-width: 100px;
   }}
   .search-bar input::placeholder {{
     color: #666;
