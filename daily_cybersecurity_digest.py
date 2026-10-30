@@ -520,51 +520,25 @@ def extract_context(article: dict) -> str:
     """Extract key findings/context from article verbatim snippet.
 
     Fetches the article URL and pulls out a relevant sentence or snippet
-    containing important information (partnership, capability, threat, etc).
-    Only processes articles from tracked vendor blogs and key security sources.
+    containing important information. Processes all articles for context extraction.
     """
-    # Expanded list of key competitors and security research sources
-    key_sources = [
-        "CrowdStrike Blog", "CrowdStrike IR News", "Palo Alto Unit 42", "Palo Alto IR News",
-        "Microsoft Security Blog", "Microsoft Security", "SentinelOne Blog", "SentinelOne",
-        "Fortinet Threat Research", "Fortinet IR News", "Trend Micro Research", "Trend Micro",
-        "Google Project Zero", "Talos Intelligence", "Recorded Future",
-        "Check Point Research", "Check Point Blog", "Google Threat Intel (Mandiant)", "Mandiant",
-        "Cisco Security", "Cisco Talos", "Sophos", "ESET", "Bitdefender", "Kaspersky",
-        "Rapid7 Blog", "Tenable Blog", "Qualys Blog", "Zscaler ThreatLabz",
-        "Wiz Blog", "Orca Security Blog", "Darktrace Blog", "Vectra AI Blog",
-        "Proofpoint Blog", "Cybereason Blog", "Elastic Security Labs", "Okta Blog",
-        "CyberArk Blog", "BeyondTrust Blog", "Aqua Security Blog", "Snyk Blog",
-        "Arctic Wolf Blog", "Huntress Blog", "Rubrik Blog", "Claroty Blog"
-    ]
-
-    if article["source"] not in key_sources:
-        return ""
-
     # Don't fetch if no URL
     if not article.get("link"):
         return ""
 
     try:
-        # Fetch article content
+        # Fetch article content (timeout quickly if slow)
         article_text = _fetch_article_text(article["link"])
 
-        if not article_text:
-            print(f"  [DEBUG] Empty text from {article['source']}: {article['title'][:50]}", file=sys.stderr)
+        if not article_text or len(article_text) < 100:
             return ""
 
         # Extract key sentence from the article
         context = _extract_key_sentence(article_text, article.get("title", ""))
+        return context if context else ""
 
-        if context:
-            print(f"  [INFO] Context extracted from {article['source']}: {context[:60]}...", file=sys.stderr)
-        else:
-            print(f"  [DEBUG] No context found in {article['source']}: {article['title'][:50]}", file=sys.stderr)
-
-        return context
-
-    except Exception as e:
-        print(f"  [DEBUG] Could not extract context from {article['link']}: {e}", file=sys.stderr)
+    except Exception:
+        # Silent failure - don't log for every article
         return ""
 
 # ---------------------------------------------------------------------------
@@ -1065,6 +1039,36 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     box-shadow: 0 0 0 2px rgba(218, 41, 28, 0.1);
   }}
 
+  /* ── Export buttons ── */
+  .export-buttons {{
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }}
+  .export-btn {{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #DA291C;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+  }}
+  .export-btn:hover {{
+    background: #f04e3f;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(218, 41, 28, 0.3);
+  }}
+  .export-btn:active {{
+    transform: translateY(0);
+  }}
+
   /* ── Main content ── */
   .content {{ padding: 24px; }}
 
@@ -1158,6 +1162,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
   {dropdown}
+  <div class="export-buttons">
+    <a href="digest.json" download class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
+    <a href="digest.csv" download class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+  </div>
 </div>
 
 <div class="content">
@@ -1192,9 +1200,9 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
-    # ── Extract context for key articles (top 50 to improve coverage) ────────────────────────
+    # ── Extract context for articles (top 75 for better dashboard coverage) ─────────────────
     print("  Extracting context from articles...", file=sys.stderr)
-    top_articles = recent[:50]  # Process first 50 articles for better coverage
+    top_articles = recent[:75]  # Process first 75 articles for better coverage
     context_count = 0
     for article in top_articles:
         if article.get("link") and not article.get("context"):
