@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyber Competitive Daily Feed — 2026-10-30 16:45 PHT</title>
+<title>Cyber Competitive Daily Feed — 2026-10-30 17:03 PHT</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -256,7 +256,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <h1><span>Cyber</span> Competitive Daily Feed</h1>
-    <p>2026-10-30 16:45 PHT &nbsp;·&nbsp; 611 article(s) in the last 30 day(s)</p>
+    <p>2026-10-30 17:03 PHT &nbsp;·&nbsp; 612 article(s) in the last 30 day(s)</p>
   </div>
   <div class="topbar-right">
     
@@ -393,95 +393,52 @@
       });
     }
 
-    // Helper to get base directory URL
-    function getBaseUrl() {
-      const url = window.location.href;
-      // If in archive subdirectory, go up one level
-      if (url.includes('/archive/')) {
-        return url.split('/archive/')[0];
-      }
-      // If it ends with index.html or similar, remove it
-      if (url.endsWith('.html')) {
-        return url.substring(0, url.lastIndexOf('/'));
-      }
-      // Otherwise assume we're at root and remove trailing slash
-      return url.replace(/\/$/, '');
-    }
-
-    // Handle main export buttons
-    function initializeMainExports() {
-      const baseUrl = getBaseUrl();
-      document.getElementById('export-json-btn').addEventListener('click', () => {
-        const a = document.createElement('a');
-        a.href = `${baseUrl}/digest.json`;
-        a.download = 'digest.json';
-        a.click();
-      });
-      document.getElementById('export-csv-btn').addEventListener('click', () => {
-        const a = document.createElement('a');
-        a.href = `${baseUrl}/digest.csv`;
-        a.download = 'digest.csv';
-        a.click();
-      });
-    }
-
-    // Populate and handle category exports
+    // Category export: one option per category and format
     function initializeCategoryExports() {
       const exportSelect = document.getElementById('category-export-select');
-      const cols = document.querySelectorAll('.col');
-      const categories = new Set();
-      cols.forEach(col => {
-        const h2 = col.querySelector('h2');
-        if (h2) categories.add(h2.textContent.trim());
+      if (!exportSelect) return;
+      const seen = new Set();
+      document.querySelectorAll('.col h2').forEach(h2 => {
+        const cat = h2.textContent.trim();
+        if (!cat || seen.has(cat)) return;
+        seen.add(cat);
+        const safe = cat.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+        ['csv', 'json'].forEach(fmt => {
+          const option = document.createElement('option');
+          option.value = 'digest__' + safe + '.' + fmt;
+          option.textContent = cat + ' (' + fmt.toUpperCase() + ')';
+          exportSelect.appendChild(option);
+        });
       });
 
-      categories.forEach(cat => {
-        const safe_cat = cat.toLowerCase().replace(/[^a-z0-9-_]/g, '_');
-        const option = document.createElement('option');
-        option.value = safe_cat;
-        option.textContent = cat;
-        exportSelect.appendChild(option);
-      });
-
-      exportSelect.addEventListener('change', (e) => {
-        if (e.target.value) {
-          const baseUrl = getBaseUrl();
-          const safe_cat = e.target.value;
-          const csvUrl = `${baseUrl}/digest__${safe_cat}.csv`;
-          const jsonUrl = `${baseUrl}/digest__${safe_cat}.json`;
-
-          // Create a simple menu for CSV/JSON selection
-          const format = prompt('Download format?
-1 = CSV
-2 = JSON', '1');
-          if (format === '1') {
-            const a = document.createElement('a');
-            a.href = csvUrl;
-            a.download = `digest__${safe_cat}.csv`;
-            a.click();
-          } else if (format === '2') {
-            const a = document.createElement('a');
-            a.href = jsonUrl;
-            a.download = `digest__${safe_cat}.json`;
-            a.click();
-          }
-          e.target.value = '';
-        }
+      exportSelect.addEventListener('change', () => {
+        const file = exportSelect.value;
+        if (!file) return;
+        const a = document.createElement('a');
+        const prefix = location.pathname.indexOf('/archive/') !== -1 ? '../' : './';
+        a.href = prefix + file;
+        a.download = file;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        exportSelect.value = '';
       });
     }
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      populateCategories();
-      restoreFilterPreference();
-      initializeSearch();
-      initializeMainExports();
-      initializeCategoryExports();
+      [populateCategories, initializeCategoryExports, initializeSearch, restoreFilterPreference].forEach(fn => {
+        try {
+          fn();
+        } catch (err) {
+          console.error(fn.name + ' failed:', err);
+        }
+      });
     });
   </script>
     <div class="export-buttons">
-      <button id="export-json-btn" class="export-btn export-json" title="Download all as JSON">⬇ JSON</button>
-      <button id="export-csv-btn" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</button>
+      <a href="https://lukan47.github.io/RSS/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
+      <a href="https://lukan47.github.io/RSS/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
         <option value="">⬇ Category</option>
       </select>
@@ -499,10 +456,18 @@
       <div class="col">
         <div class="col-header" style="border-top:4px solid #DA291C;">
           <h2>Zero-Day Exploits &amp; Vulnerabilities</h2>
-          <span class="count">74 article(s)</span>
+          <span class="count">76 article(s)</span>
         </div>
         <div class="col-body">
           
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">The Hacker News</span>
+                <span class="date">2026-10-30 13:15 UTC</span>
+              </div>
+              <a class="card-title" href="https://thehackernews.com/2026/10/hackers-actively-exploit-highly.html" target="_blank">Hackers Actively Exploit Highly Critical Drupal Commerce Core Authorization Bypass Flaw</a>
+              <p class="card-context">2) Trigger Emergency Security Alert Attackers Hijacked Over 300 Tor Exit Relays to Intercept SSH Connections PHP Issues Emergency Patches for Two Critical PHP2Shell RCE Flaws as...</p>
+            </div>
             <div class="card">
               <div class="card-meta">
                 <span class="source">The Hacker News</span>
@@ -542,14 +507,6 @@
               </div>
               <a class="card-title" href="https://www.theregister.com/security/2026/10/29/suspected-chinese-attackers-built-a-custom-php2shell-exploit-and-rooted-25-servers/5306456" target="_blank">Suspected Chinese attackers built a custom PHP2Shell exploit and rooted 25 servers</a>
               <p class="card-context">REG AD The attackers rooted the first US government-affiliated firewall on October 23, but the device crashed shortly afterward, possibly due to around 900 MB of exploit traffic</p>
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Bleeping Computer</span>
-                <span class="date">2026-10-29 14:38 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.bleepingcomputer.com/news/security/hackers-exploit-cisco-sd-wan-flaw-to-deploy-custom-keydrift-malware/" target="_blank">Hackers exploit Cisco SD-WAN flaw to deploy custom KeyDrift malware</a>
-              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -593,6 +550,14 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">The Hacker News</span>
+                <span class="date">2026-10-29 13:54 UTC</span>
+              </div>
+              <a class="card-title" href="https://thehackernews.com/2026/10/hackers-exploited-cisco-sd-wan-flaw-to.html" target="_blank">Hackers Exploited Cisco SD-WAN Flaw to Plant Malware Built to Steal Encryption Keys</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">CIRCL KEV (exploited CVEs)</span>
                 <span class="date">2026-10-29 07:30 UTC</span>
               </div>
@@ -613,14 +578,6 @@
                 <span class="date">2026-10-28 16:11 UTC</span>
               </div>
               <a class="card-title" href="https://www.zscaler.com/blogs/security-research/cve-2026-111497-node2shell-http2shell-vulnerability-may-allow-rce" target="_blank">CVE-2026-111497: Node2Shell / HTTP2Shell Vulnerability May Allow RCE</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">The Hacker News</span>
-                <span class="date">2026-10-28 18:18 UTC</span>
-              </div>
-              <a class="card-title" href="https://thehackernews.com/2026/10/hackers-target-critical-oracle-e.html" target="_blank">Hackers Target Critical Oracle E-Business Suite RCE Flaw Days After Security Patch</a>
               
             </div>
             <div class="card">
@@ -765,6 +722,14 @@
                 <span class="date">2026-10-26 14:14 UTC</span>
               </div>
               <a class="card-title" href="https://www.theregister.com/security/2026/10/26/we-shouldnt-be-surprised-about-the-phpocalypse-as-the-internet-is-built-on-sticks-and-glue/5305186" target="_blank">We shouldn&#x27;t be surprised about the PHPocalypse, as the internet is built on sticks and glue</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Infosecurity Magazine</span>
+                <span class="date">2026-10-26 12:45 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.infosecurity-magazine.com/news/microsoft-patch-update-net-flaw/" target="_blank">Microsoft Issues Emergency Patch Update for Critical .NET Buffer Overflow Flaw</a>
               
             </div>
             <div class="card">
@@ -1095,6 +1060,14 @@
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/ai-found-vulnerabilities-rce/" target="_blank">AI-Found Vulnerabilities More Likely to Enable RCE, Google Says</a>
               
             </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-09-30 14:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/09/30/unauthenticated-command-injection-on-internet-facing-mail-servers-tracking-cve-2026-73570/" target="_blank">Unauthenticated command injection on internet-facing mail servers: tracking CVE-2026-73570</a>
+              
+            </div>
         </div>
       </div>
       <div class="col">
@@ -1241,6 +1214,23 @@
                 <span class="date">2026-10-09 17:48 UTC</span>
               </div>
               <a class="card-title" href="https://www.sentinelone.com/blog/5-years-of-sentinelone-threatops-defense-from-the-ground-up-to-global-threat-championships/" target="_blank">5 Years of SentinelOne ThreatOps: Defense from the Ground Up to Global Threat Championships</a>
+              
+            </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-header" style="border-top:4px solid #0078d4;">
+          <h2>Microsoft Security</h2>
+          <span class="count">1 article(s)</span>
+        </div>
+        <div class="col-body">
+          
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-09-30 19:31 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/09/30/secure-whats-next-your-guide-to-microsoft-security-at-microsoft-ignite-2026/" target="_blank">​​Secure what’s next: Your guide to Microsoft Security at Microsoft Ignite 2026</a>
               
             </div>
         </div>
@@ -1442,23 +1432,6 @@
                 <span class="date">2026-10-14 13:31 UTC</span>
               </div>
               <a class="card-title" href="https://delinea.com/blog/ai-agents-wont-go-rogue-theyll-inherit-overprivileged-access" target="_blank">AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access</a>
-              
-            </div>
-        </div>
-      </div>
-      <div class="col">
-        <div class="col-header" style="border-top:4px solid #f57c00;">
-          <h2>BeyondTrust</h2>
-          <span class="count">1 article(s)</span>
-        </div>
-        <div class="col-body">
-          
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Infosecurity Magazine</span>
-                <span class="date">2026-10-16 10:10 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.infosecurity-magazine.com/news/china-actor-beyondtrust-flaw-google/" target="_blank">China Espionage Actor Actively Targeting Critical BeyondTrust Flaw, Google Warns</a>
               
             </div>
         </div>
@@ -1681,10 +1654,18 @@
       <div class="col">
         <div class="col-header" style="border-top:4px solid #95a5a6;">
           <h2>General Security News</h2>
-          <span class="count">488 article(s)</span>
+          <span class="count">487 article(s)</span>
         </div>
         <div class="col-body">
           
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">SecurityWeek</span>
+                <span class="date">2026-10-30 08:44 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.securityweek.com/teamviewer-flaw-could-let-malicious-hosts-take-over-support-technicians-machines/" target="_blank">TeamViewer Flaw Could Let Malicious Hosts Take Over Support Technicians’ Machines</a>
+              <p class="card-context">By Ionut Arghire | October 30, 2026 (4:44 AM ET) Flipboard Reddit Whatsapp Whatsapp Email A high-severity vulnerability in the popular remote-access tool TeamViewer could be...</p>
+            </div>
             <div class="card">
               <div class="card-meta">
                 <span class="source">Help Net Security</span>
@@ -1771,7 +1752,7 @@
                 <span class="date">2026-10-29 18:09 UTC</span>
               </div>
               <a class="card-title" href="https://www.bleepingcomputer.com/news/security/hugging-face-malware-campaign-returns-to-hijack-gpus-for-crypto-mining/" target="_blank">Hugging Face malware campaign returns to hijack GPUs for crypto mining</a>
-              
+              <p class="card-context">4 million installs caught hijacking searches Hackers exploit Cisco SD-WAN flaw to deploy custom KeyDrift malware CISA warns of Fragnesia Linux flaw chained in PHP2Shell attacks...</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -1795,7 +1776,7 @@
                 <span class="date">2026-10-29 17:47 UTC</span>
               </div>
               <a class="card-title" href="https://www.bleepingcomputer.com/news/security/polymarket-halts-trading-after-crypto-draining-script-breach-25m-traced/" target="_blank">Polymarket halts trading after crypto-draining script breach, $2.5M traced</a>
-              
+              <p class="card-context">4 million installs caught hijacking searches Hackers exploit Cisco SD-WAN flaw to deploy custom KeyDrift malware CISA warns of Fragnesia Linux flaw chained in PHP2Shell attacks...</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -1900,22 +1881,6 @@
               </div>
               <a class="card-title" href="https://www.bleepingcomputer.com/news/security/chrome-extensions-with-134-million-installs-caught-hijacking-searches/" target="_blank">Chrome extensions with 13.4 million installs caught hijacking searches</a>
               <p class="card-context">4 million installs caught hijacking searches Hackers exploit Cisco SD-WAN flaw to deploy custom KeyDrift malware CISA warns of Fragnesia Linux flaw chained in PHP2Shell attacks...</p>
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-29 16:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/29/tracking-ai-adoption-in-north-korean-threat-actor-tradecraft/" target="_blank">Tracking AI adoption in North Korean threat actor tradecraft</a>
-              <p class="card-context">Enable Zero-hour auto purge (ZAP) in Defender for Office 365 to quarantine sent mail in response to newly acquired threat intelligence and retroactively neutralize malicious...</p>
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-29 16:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/29/idc-marketscape-names-microsoft-a-leader-in-the-2026-worldwide-modern-endpoint-security-for-enterprises-vendor-assessment/" target="_blank">IDC MarketScape names Microsoft a Leader in the 2026 Worldwide Modern Endpoint Security for Enterprises Vendor Assessment</a>
-              <p class="card-context">The most critical moment in any attack is when it moves from access to action</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2031,19 +1996,19 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Infosecurity Magazine</span>
-                <span class="date">2026-10-29 14:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.infosecurity-magazine.com/news/crest-financial-cyber-resilience/" target="_blank">CREST Urges Whole-Ecosystem Approach to Financial Cyber Resilience</a>
-              <p class="card-context">CREST Sets Out Three Domains For Financial Cyber Resilience Under the framework, financial institutions are responsible for protecting critical business services and...</p>
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Huntress Blog</span>
                 <span class="date">2026-10-29 14:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.huntress.com/blog/reports-that-siem-is-dead-are-exaggerated" target="_blank">Reports of SIEM&#x27;s Death Have Been Greatly Exaggerated</a>
               <p class="card-context">Lean on a partner for the threats that look bad anywhere, and build your own detections for the things only your team would know are off</p>
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Infosecurity Magazine</span>
+                <span class="date">2026-10-29 14:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.infosecurity-magazine.com/news/crest-financial-cyber-resilience/" target="_blank">CREST Urges Whole-Ecosystem Approach to Financial Cyber Resilience</a>
+              <p class="card-context">CREST Sets Out Three Domains For Financial Cyber Resilience Under the framework, financial institutions are responsible for protecting critical business services and...</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2187,7 +2152,7 @@
                 <span class="date">2026-10-29 11:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.securityweek.com/hackers-steal-2-6-million-records-from-sonys-japanese-isp-so-net/" target="_blank">Hackers Steal 2.6 Million Records From Sony’s Japanese ISP So-net</a>
-              
+              <p class="card-context">The company first spotted the intrusion on October 23, then took the targeted server offline and cut off traffic coming from the attackers</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2335,6 +2300,14 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Vectra AI Blog</span>
+                <span class="date">2026-10-29 00:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.vectra.ai/blog/ccop-2026-strengthening-cyber-resilience-across-singapores-critical-infrastructure" target="_blank">CCoP 2026: Strengthening Cyber Resilience Across Singapore’s Critical Infrastructure  by Yusri Mohamed Yusop</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">Recorded Future</span>
                 <span class="date">2026-10-29 00:00 UTC</span>
               </div>
@@ -2343,10 +2316,10 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Vectra AI Blog</span>
-                <span class="date">2026-10-29 00:00 UTC</span>
+                <span class="source">Talos Intelligence</span>
+                <span class="date">2026-10-28 21:32 UTC</span>
               </div>
-              <a class="card-title" href="https://www.vectra.ai/blog/ccop-2026-strengthening-cyber-resilience-across-singapores-critical-infrastructure" target="_blank">CCoP 2026: Strengthening Cyber Resilience Across Singapore’s Critical Infrastructure  by Yusri Mohamed Yusop</a>
+              <a class="card-title" href="https://blog.talosintelligence.com/uat-11473-keydrift/" target="_blank">Inside KeyDrift: Analyzing historical UAT-11473 activity on Cisco SD-WAN</a>
               
             </div>
             <div class="card">
@@ -2435,14 +2408,6 @@
                 <span class="date">2026-10-28 16:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.huntress.com/blog/attackers-turn-mdm-into-remote-access" target="_blank">Managed for Malice: How Attackers Turn MDM into Remote Access</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-28 16:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/28/the-cisos-evolving-role-protecting-and-defending-in-the-agentic-era/" target="_blank">The CISO’s evolving role: Protecting and defending in the agentic era</a>
               
             </div>
             <div class="card">
@@ -3191,14 +3156,6 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">The Hacker News</span>
-                <span class="date">2026-10-26 14:05 UTC</span>
-              </div>
-              <a class="card-title" href="https://thehackernews.com/2026/10/microsoft-365-token-replay-attacks.html" target="_blank">Microsoft 365 Token-Replay Attacks Compromise 97 Accounts at 79 Organizations</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">The Register Security</span>
                 <span class="date">2026-10-26 09:00 UTC</span>
               </div>
@@ -3283,14 +3240,6 @@
                 <span class="date">2026-10-23 21:14 UTC</span>
               </div>
               <a class="card-title" href="https://www.theregister.com/ai-and-ml/2026/10/23/red-team-report-found-openai-utterly-failed-to-monitor-its-agents-during-hugging-face-attack/5305200" target="_blank">Red-team report found OpenAI utterly failed to monitor its agents during Hugging Face attack</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-23 18:12 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/23/inside-the-litellm-1-107-0-supply-chain-compromise-credential-theft-through-python-startup-hooks/" target="_blank">Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks</a>
               
             </div>
             <div class="card">
@@ -3403,6 +3352,14 @@
                 <span class="date">2026-10-23 11:05 UTC</span>
               </div>
               <a class="card-title" href="https://www.schneier.com/blog/archives/2026/10/compromised-tls-certificates.html" target="_blank">Compromised TLS Certificates</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Infosecurity Magazine</span>
+                <span class="date">2026-10-23 10:30 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.infosecurity-magazine.com/news/tokenspraying-attacks-target/" target="_blank">Widespread Token-Spraying Attacks Target Microsoft 365 Accounts For Email Compromise</a>
               
             </div>
             <div class="card">
@@ -3759,18 +3716,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Recorded Future</span>
-                <span class="date">2026-10-22 00:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.recordedfuture.com/blog/japan-cyber-crisis-warnings" target="_blank">Behind Japan’s Warnings of a Cyber Crisis</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Vectra AI Blog</span>
                 <span class="date">2026-10-22 00:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.vectra.ai/blog/a-patched-php-server-can-still-be-a-compromised-one" target="_blank">A patched PHP server can still be a compromised one by Lucie Cardiet</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Recorded Future</span>
+                <span class="date">2026-10-22 00:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.recordedfuture.com/blog/japan-cyber-crisis-warnings" target="_blank">Behind Japan’s Warnings of a Cyber Crisis</a>
               
             </div>
             <div class="card">
@@ -3991,18 +3948,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Talos Intelligence</span>
-                <span class="date">2026-10-21 10:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://blog.talosintelligence.com/parasitizing-trust-how-legitimate-infrastructure-becomes-a-delivery-pipeline-for-attackers/" target="_blank">Parasitizing trust: How legitimate infrastructure becomes a delivery pipeline for attackers</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Wired Security</span>
                 <span class="date">2026-10-21 10:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.wired.com/story/the-deas-premier-crypto-detective-clues-led-straight-to-her-own-family/" target="_blank">She Was the DEA’s Premier Crypto Detective. The Clues Led Straight to Her Own Family</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Talos Intelligence</span>
+                <span class="date">2026-10-21 10:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://blog.talosintelligence.com/parasitizing-trust-how-legitimate-infrastructure-becomes-a-delivery-pipeline-for-attackers/" target="_blank">Parasitizing trust: How legitimate infrastructure becomes a delivery pipeline for attackers</a>
               
             </div>
             <div class="card">
@@ -4343,14 +4300,6 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-19 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/19/agents-are-your-newest-insiders-security-must-move-at-their-speed/" target="_blank">Agents are your newest insiders. Security must move at their speed.</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Wiz Blog</span>
                 <span class="date">2026-10-19 11:26 UTC</span>
               </div>
@@ -4415,14 +4364,6 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-16 16:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/16/managing-open-weight-model-risk-in-enterprise-deployments/" target="_blank">Managing open-weight model risk in enterprise deployments</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Cyble</span>
                 <span class="date">2026-10-16 13:35 UTC</span>
               </div>
@@ -4431,18 +4372,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Infosecurity Magazine</span>
-                <span class="date">2026-10-16 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.infosecurity-magazine.com/news/ransomware-threats-physical/" target="_blank">Ransomware Gangs Increasingly Turn to Threats of Physical Violence to Extort Payments</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Huntress Blog</span>
                 <span class="date">2026-10-16 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.huntress.com/blog/employee-spotlight-sarah-reddish" target="_blank">Inside the Hunt: Sarah Reddish</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Infosecurity Magazine</span>
+                <span class="date">2026-10-16 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.infosecurity-magazine.com/news/ransomware-threats-physical/" target="_blank">Ransomware Gangs Increasingly Turn to Threats of Physical Violence to Extort Payments</a>
               
             </div>
             <div class="card">
@@ -4643,14 +4584,6 @@
                 <span class="date">2026-10-14 16:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.huntress.com/blog/cybersecurity-frameworks" target="_blank">13 Cybersecurity Frameworks for 2027 and How to Choose What&#x27;s Best for You</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-14 16:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/what-is-business-email-compromise-bec" target="_blank">Business Email Compromise (BEC) Attacks: How to Stop Them</a>
               
             </div>
             <div class="card">
@@ -5103,18 +5036,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Falco / Sysdig Blog</span>
-                <span class="date">2026-10-08 00:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://webflow.sysdig.com/blog/runtime-ai-defense-in-a-shared-responsibility-model" target="_blank">Runtime AI Defense in a shared responsibility model</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Elastic Security Labs</span>
                 <span class="date">2026-10-08 00:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.elastic.co/security-labs/blog/ai-soc-automation-alertzero" target="_blank">Introducing AlertZero: Inbox zero for your alert queue</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Falco / Sysdig Blog</span>
+                <span class="date">2026-10-08 00:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://webflow.sysdig.com/blog/runtime-ai-defense-in-a-shared-responsibility-model" target="_blank">Runtime AI Defense in a shared responsibility model</a>
               
             </div>
             <div class="card">
@@ -5151,18 +5084,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Infosecurity Magazine</span>
-                <span class="date">2026-10-07 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.infosecurity-magazine.com/news/attackers-hide-ai-prompt/" target="_blank">Attackers Hide AI Prompt Injections Inside Phishing Emails</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Huntress Blog</span>
                 <span class="date">2026-10-07 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.huntress.com/blog/screenconnect-power-bi" target="_blank">Phishing Campaign Abuses Microsoft Power BI to Deploy Rogue RMMs</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Infosecurity Magazine</span>
+                <span class="date">2026-10-07 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.infosecurity-magazine.com/news/attackers-hide-ai-prompt/" target="_blank">Attackers Hide AI Prompt Injections Inside Phishing Emails</a>
               
             </div>
             <div class="card">
@@ -5211,6 +5144,14 @@
                 <span class="date">2026-10-07 00:00 UTC</span>
               </div>
               <a class="card-title" href="https://snyk.io/blog/autonomous-attacks-already-here-defense-match-their-speed/" target="_blank">Autonomous Attacks Are Already Here. The Defense Has to Match Their Speed.</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-06 16:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/06/ciso-perspectives-on-managing-vulnerability-risks-in-the-age-of-ai/" target="_blank">CISO perspectives on managing vulnerability risks in the age of AI</a>
               
             </div>
             <div class="card">
@@ -5431,6 +5372,22 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-01 14:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://blogs.microsoft.com/on-the-issues/2026/10/01/preparing-governments-for-an-era-of-interconnected-cyber-risk/" target="_blank">Preparing governments for an era of interconnected cyber risk</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-01 14:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/01/insights-from-the-2026-microsoft-digital-defense-report/" target="_blank">Insights from the 2026 Microsoft Digital Defense Report</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">Infosecurity Magazine</span>
                 <span class="date">2026-10-01 13:30 UTC</span>
               </div>
@@ -5475,6 +5432,14 @@
                 <span class="date">2026-10-01 09:30 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/mitigating-adversarial-ai-top/" target="_blank">AI Threats Top Cybersecurity Preparedness Gap, PwC Finds</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Infosecurity Magazine</span>
+                <span class="date">2026-10-01 07:37 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.infosecurity-magazine.com/news/mi5-alerts-academics-chinese/" target="_blank">MI5 Warns Over 100 Academics Helped China&#x27;s Espionage Plans</a>
               
             </div>
             <div class="card">
