@@ -1632,7 +1632,7 @@ def main() -> None:
     # ── Export digest as CSV for spreadsheet access ───────────────────────
     csv_export = export_digest_csv(recent, label)
     csv_file = os.path.join(EXPORT_DIR, "digest.csv")
-    with open(csv_file, "w", encoding="utf-8") as f:
+    with open(csv_file, "w", encoding="utf-8", newline="") as f:
         f.write(csv_export)
     print(f"Digest exported: {csv_file}", file=sys.stderr)
 
@@ -1644,7 +1644,7 @@ def main() -> None:
 
         # Save CSV
         csv_cat_file = os.path.join(EXPORT_DIR, f"digest__{safe_cat}.csv")
-        with open(csv_cat_file, "w", encoding="utf-8") as f:
+        with open(csv_cat_file, "w", encoding="utf-8", newline="") as f:
             f.write(csv_content)
 
         # Save JSON
