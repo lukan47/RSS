@@ -977,24 +977,28 @@ def _build_dropdown() -> str:
         return url.substring(0, url.lastIndexOf('/'));
       }
       // Otherwise assume we're at root and remove trailing slash
-      return url.replace(/\/$/, '');
+      return url.replace(/\\/$/, '');
     }
 
     // Handle main export buttons
     function initializeMainExports() {
       const baseUrl = getBaseUrl();
-      document.getElementById('export-json-btn').addEventListener('click', () => {
-        const a = document.createElement('a');
-        a.href = `${baseUrl}/digest.json`;
-        a.download = 'digest.json';
-        a.click();
-      });
-      document.getElementById('export-csv-btn').addEventListener('click', () => {
-        const a = document.createElement('a');
-        a.href = `${baseUrl}/digest.csv`;
-        a.download = 'digest.csv';
-        a.click();
-      });
+      const jsonBtn = document.getElementById('export-json-btn');
+      const csvBtn = document.getElementById('export-csv-btn');
+
+      if (jsonBtn) {
+        jsonBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.location.href = `${baseUrl}/digest.json`;
+        });
+      }
+
+      if (csvBtn) {
+        csvBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.location.href = `${baseUrl}/digest.csv`;
+        });
+      }
     }
 
     // Populate and handle category exports
@@ -1025,15 +1029,9 @@ def _build_dropdown() -> str:
           // Create a simple menu for CSV/JSON selection
           const format = prompt('Download format?\n1 = CSV\n2 = JSON', '1');
           if (format === '1') {
-            const a = document.createElement('a');
-            a.href = csvUrl;
-            a.download = `digest__${safe_cat}.csv`;
-            a.click();
+            window.location.href = csvUrl;
           } else if (format === '2') {
-            const a = document.createElement('a');
-            a.href = jsonUrl;
-            a.download = `digest__${safe_cat}.json`;
-            a.click();
+            window.location.href = jsonUrl;
           }
           e.target.value = '';
         }
@@ -1045,7 +1043,6 @@ def _build_dropdown() -> str:
       populateCategories();
       restoreFilterPreference();
       initializeSearch();
-      initializeMainExports();
       initializeCategoryExports();
     });
   </script>"""
@@ -1356,8 +1353,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <button id="export-json-btn" class="export-btn export-json" title="Download all as JSON">⬇ JSON</button>
-      <button id="export-csv-btn" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</button>
+      <a href="./digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
+      <a href="./digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
         <option value="">⬇ Category</option>
       </select>
