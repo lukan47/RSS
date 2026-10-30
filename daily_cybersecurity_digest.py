@@ -742,6 +742,59 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
 
     return output.getvalue()
 
+
+def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str, str]]:
+    """Export digest split by category as separate CSV and JSON files.
+
+    Returns dict mapping category names to (csv_content, json_content) tuples.
+    """
+    import io
+    import csv as csv_module
+
+    buckets = bucket_articles(articles)
+    exports = {}
+
+    for cat, items in buckets.items():
+        if not items:
+            continue
+
+        # CSV export for this category
+        csv_output = io.StringIO()
+        csv_writer = csv_module.writer(csv_output)
+        csv_writer.writerow(["Date", "Source", "Title", "Link", "Context"])
+        for article in items:
+            date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
+            csv_writer.writerow([
+                date_str,
+                article["source"],
+                article["title"],
+                article["link"],
+                article.get("context", "")
+            ])
+        csv_content = csv_output.getvalue()
+
+        # JSON export for this category
+        json_content = json.dumps({
+            "category": cat,
+            "generated": label,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "article_count": len(items),
+            "articles": [
+                {
+                    "date": a["date"].isoformat() if a["date"] else None,
+                    "source": a["source"],
+                    "title": a["title"],
+                    "link": a["link"],
+                    "context": a.get("context", "")
+                }
+                for a in items
+            ]
+        }, indent=2)
+
+        exports[cat] = (csv_content, json_content)
+
+    return exports
+
 # ---------------------------------------------------------------------------
 # HTML report — Trend Micro branding + column layout + history dropdown
 # ---------------------------------------------------------------------------
@@ -1139,12 +1192,12 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
-    # ── Extract context for key articles (top 20 only to avoid timeout) ──────────────────────
-    print("  Extracting context from top articles...", file=sys.stderr)
-    top_articles = recent[:20]  # Limit to first 20 articles to save time
+    # ── Extract context for key articles (top 50 to improve coverage) ────────────────────────
+    print("  Extracting context from articles...", file=sys.stderr)
+    top_articles = recent[:50]  # Process first 50 articles for better coverage
     context_count = 0
     for article in top_articles:
-        if article.get("link"):
+        if article.get("link") and not article.get("context"):
             ctx = extract_context(article)
             if ctx:
                 article["context"] = ctx
@@ -1223,6 +1276,24 @@ def main() -> None:
     with open(csv_file, "w", encoding="utf-8") as f:
         f.write(csv_export)
     print(f"Digest exported: {csv_file}", file=sys.stderr)
+
+    # ── Export by category (separate CSV and JSON for each) ────────────────
+    category_exports = export_by_category(recent, label)
+    for cat, (csv_content, json_content) in category_exports.items():
+        # Sanitize category name for filename
+        safe_cat = "".join(c if c.isalnum() or c in "-_" else "_" for c in cat).lower()
+
+        # Save CSV
+        csv_cat_file = f"digest__{safe_cat}.csv"
+        with open(csv_cat_file, "w", encoding="utf-8") as f:
+            f.write(csv_content)
+
+        # Save JSON
+        json_cat_file = f"digest__{safe_cat}.json"
+        with open(json_cat_file, "w", encoding="utf-8") as f:
+            f.write(json_content)
+
+    print(f"Category exports created: {len(category_exports)} categories", file=sys.stderr)
 
 
 if __name__ == "__main__":
