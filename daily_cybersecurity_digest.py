@@ -111,8 +111,14 @@ REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
 ARCHIVE_DIR  = "archive"
 EXPORT_DIR   = os.path.join(ARCHIVE_DIR, "exports")
-FULLTEXT_CACHE     = os.path.join(ARCHIVE_DIR, "_cache", "fulltext_cache.json")
-FULLTEXT_BUDGET_S  = 420      # stop starting new downloads after this many seconds
+DATA_DIR           = os.path.join(ARCHIVE_DIR, "data")
+ARTICLES_FILE      = os.path.join(DATA_DIR, "articles.json")
+FULLTEXT_DIR       = os.path.join(DATA_DIR, "fulltext")
+EXPLORER_FILE      = os.path.join(DATA_DIR, "explorer.html")
+EXPLORER_TEMPLATE  = "explorer_template.html"
+EXPLORER_URL       = REPORT_URL + "archive/data/explorer.html"
+LEGACY_FULLTEXT_CACHE = os.path.join(ARCHIVE_DIR, "_cache", "fulltext_cache.json")
+FULLTEXT_BUDGET_S  = int(os.environ.get("FULLTEXT_BUDGET_S", "420"))  # stop starting new downloads after this many seconds
 FULLTEXT_WORKERS   = 12
 FULLTEXT_MAX_ATTEMPTS = 3
 FULLTEXT_MAX_CHARS = 60000
@@ -550,12 +556,39 @@ def fetch_full_text(url: str, timeout: int = 15) -> str:
         return ""
 
 
+def _month_key(date_iso) -> str:
+    return date_iso[:7] if date_iso else "undated"
+
+
 def load_fulltext_cache() -> dict:
-    try:
-        with open(FULLTEXT_CACHE, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
+    """Merge every monthly shard (plus the legacy single-file cache) into {link: entry}."""
+    cache: dict = {}
+    paths = []
+    if os.path.isdir(FULLTEXT_DIR):
+        paths += [os.path.join(FULLTEXT_DIR, f) for f in sorted(os.listdir(FULLTEXT_DIR)) if f.endswith(".json")]
+    if os.path.exists(LEGACY_FULLTEXT_CACHE):
+        paths.append(LEGACY_FULLTEXT_CACHE)
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8") as f:
+                cache.update(json.load(f))
+        except (OSError, ValueError):
+            continue
+    return cache
+
+
+def save_fulltext_cache(cache: dict, months: dict) -> None:
+    """Write {link: entry} back as one file per month; months maps link -> 'YYYY-MM'."""
+    shards: dict = {}
+    for link, entry in cache.items():
+        if link in months:
+            shards.setdefault(months[link], {})[link] = entry
+    os.makedirs(FULLTEXT_DIR, exist_ok=True)
+    for month, entries in shards.items():
+        with open(os.path.join(FULLTEXT_DIR, month + ".json"), "w", encoding="utf-8") as f:
+            json.dump(entries, f, ensure_ascii=False)
+    if os.path.exists(LEGACY_FULLTEXT_CACHE):
+        os.remove(LEGACY_FULLTEXT_CACHE)
 
 
 def attach_full_text(articles: list[dict]) -> int:
@@ -604,11 +637,8 @@ def attach_full_text(articles: list[dict]) -> int:
                     entry["fetched"] = datetime.now(timezone.utc).isoformat()
                     obtained += 1
 
-    live_links = {a["link"] for a in articles if a.get("link")}
-    cache = {k: v for k, v in cache.items() if k in live_links}
-    os.makedirs(os.path.dirname(FULLTEXT_CACHE), exist_ok=True)
-    with open(FULLTEXT_CACHE, "w", encoding="utf-8") as f:
-        json.dump(cache, f, ensure_ascii=False)
+    months = {a["link"]: _month_key(a.get("date")) for a in articles if a.get("link")}
+    save_fulltext_cache(cache, months)
 
     for a in articles:
         a["full_text"] = _trim_trailer(cache.get(a.get("link", ""), {}).get("text", ""))
@@ -669,6 +699,98 @@ def extract_context(article: dict) -> str:
     if len(text) < 100:
         return ""
     return _extract_key_sentence(text, article.get("title", "")) or ""
+
+# ---------------------------------------------------------------------------
+# Master article store (every article ever seen) + backfill from archive snapshots
+# ---------------------------------------------------------------------------
+
+_ARCHIVE_TOKEN = re.compile(
+    r'<h2>(?P<cat>.*?)</h2>|<div class="card">(?P<card>.*?)(?=<div class="card">|<div class="col">|</body>)',
+    re.S,
+)
+
+
+def _first(pattern: str, text: str) -> str:
+    m = re.search(pattern, text, re.S)
+    return html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip() if m else ""
+
+
+def parse_archive_html(path: str) -> list[dict]:
+    """Recover the articles shown on one archived dashboard snapshot."""
+    with open(path, encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    out, category = [], ""
+    for m in _ARCHIVE_TOKEN.finditer(text):
+        if m.group("cat") is not None:
+            category = html.unescape(m.group("cat")).strip()
+            continue
+        card = m.group("card")
+        link = re.search(r'class="card-title"\s+href="(.*?)"', card, re.S)
+        if not link:
+            continue
+        raw_date = _first(r'class="date">(.*?)</span>', card)
+        try:
+            date_iso = datetime.strptime(raw_date, "%Y-%m-%d %H:%M UTC").replace(tzinfo=timezone.utc).isoformat()
+        except ValueError:
+            date_iso = None
+        out.append({
+            "source": _first(r'class="source">(.*?)</span>', card),
+            "category": category,
+            "title": _first(r'class="card-title"[^>]*>(.*?)</a>', card),
+            "link": html.unescape(link.group(1)).strip(),
+            "date": date_iso,
+            "context": _first(r'class="card-context">(.*?)</p>', card),
+        })
+    return out
+
+
+def load_master() -> dict:
+    """{link: article} from articles.json; backfilled from archive/*.html when missing."""
+    master: dict = {}
+    try:
+        with open(ARTICLES_FILE, encoding="utf-8") as f:
+            for a in json.load(f)["articles"]:
+                master[a["link"]] = a
+        return master
+    except (OSError, ValueError, KeyError):
+        pass
+    snapshots = sorted(f for f in os.listdir(ARCHIVE_DIR) if f.endswith(".html")) if os.path.isdir(ARCHIVE_DIR) else []
+    print(f"  Backfilling article store from {len(snapshots)} archive snapshot(s)...", file=sys.stderr)
+    for name in snapshots:  # oldest first, so later snapshots refine earlier entries
+        for a in parse_archive_html(os.path.join(ARCHIVE_DIR, name)):
+            old = master.get(a["link"])
+            if old is None:
+                master[a["link"]] = a
+            elif not old.get("context") and a.get("context"):
+                old["context"] = a["context"]
+    return master
+
+
+def merge_into_master(master: dict, live: list[dict]) -> None:
+    """Add/refresh today's articles. Category is recomputed for live items only."""
+    for a in live:
+        link = a.get("link")
+        if not link:
+            continue
+        entry = master.setdefault(link, {"source": a["source"], "title": a["title"], "link": link,
+                                         "date": a["date"].isoformat() if a["date"] else None, "context": ""})
+        entry["category"] = categorize(a)
+        if a.get("context") and not entry.get("context"):
+            entry["context"] = a["context"]
+        if a.get("feed_text"):
+            entry["feed_text"] = a["feed_text"]
+
+
+def save_master(master: dict, label: str) -> None:
+    items = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
+    dated = [a for a in items if a.get("date")]
+    items = dated + [a for a in items if not a.get("date")]
+    slim = [{"source": a["source"], "category": a.get("category", ""), "title": a["title"],
+             "link": a["link"], "date": a.get("date"), "context": a.get("context", "")} for a in items]
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(ARTICLES_FILE, "w", encoding="utf-8") as f:
+        json.dump({"generated": label, "count": len(slim), "articles": slim}, f, ensure_ascii=False, separators=(",", ":"))
+
 
 # ---------------------------------------------------------------------------
 # Filtering & categorization
@@ -1320,6 +1442,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     gap: 6px;
     align-items: center;
   }}
+  .export-btn.explorer-link {{ background: #1e2030; border: 1px solid #DA291C; }}
   .export-btn {{
     display: inline-flex;
     align-items: center;
@@ -1509,6 +1632,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
+      <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period and category, then export">All articles &amp; export &rarr;</a>
       <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
       <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
@@ -1536,6 +1660,20 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 # Entry point
 # ---------------------------------------------------------------------------
 
+def write_explorer() -> None:
+    """Render explorer_template.html into archive/data/explorer.html."""
+    try:
+        with open(EXPLORER_TEMPLATE, encoding="utf-8") as f:
+            template = f.read()
+    except OSError as exc:
+        print(f"  [WARN] explorer template missing: {exc}", file=sys.stderr)
+        return
+    page = template.replace("__CATEGORY_COLORS__", json.dumps(CATEGORY_COLORS))
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(EXPLORER_FILE, "w", encoding="utf-8", newline="\n") as f:
+        f.write(page)
+
+
 def main() -> None:
     pht_now   = datetime.now(PHT)
     label     = pht_now.strftime("%Y-%m-%d %H:%M PHT")
@@ -1554,13 +1692,27 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
+    # ── Master store: every article ever seen (feeds + archive backfill) ──────────────────
+    master = load_master()
+    merge_into_master(master, recent)
+    entries = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
+
     # ── Full article text (saved for exports only, never rendered) + dashboard snippets ──
-    obtained = attach_full_text(recent)
-    have_text = sum(1 for a in recent if a["full_text"])
-    print(f"  Full text: {obtained} collected this run, {have_text}/{len(recent)} articles have it.", file=sys.stderr)
+    obtained = attach_full_text(entries)
+    have_text = sum(1 for a in entries if a["full_text"])
+    print(f"  Full text: {obtained} collected this run, {have_text}/{len(entries)} stored articles have it.", file=sys.stderr)
+    for entry in entries:
+        if not entry.get("context"):
+            entry["context"] = extract_context(entry)
     for article in recent:
-        if not article.get("context"):
-            article["context"] = extract_context(article)
+        stored = master.get(article.get("link", ""))
+        if stored:
+            article["full_text"] = stored["full_text"]
+            if not article.get("context"):
+                article["context"] = stored.get("context", "")
+    save_master(master, label)
+    write_explorer()
+    print(f"  Article store: {len(master)} article(s) -> {ARTICLES_FILE}", file=sys.stderr)
 
     # ── Export latest acquisition and top announcements to GitHub Actions env ───────────────────
     buckets    = bucket_articles(recent)

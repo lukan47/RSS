@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Articles — Cyber Competitive Daily Feed</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0d0e17; color: #e0e0e0; }
+  a { color: inherit; }
+
+  .topbar { background: #13141f; border-bottom: 3px solid #DA291C; padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .topbar h1 { font-size: 1.4rem; color: #fff; font-weight: 700; letter-spacing: .3px; }
+  .topbar h1 span { color: #DA291C; }
+  .topbar p { font-size: .82rem; color: #8a8fa3; margin-top: 3px; }
+  .back { font-size: .78rem; font-weight: 600; text-decoration: none; color: #fff; background: #1e2030;
+          border: 1px solid #2a2d3e; border-radius: 4px; padding: 6px 12px; white-space: nowrap; }
+  .back:hover, .back:focus-visible { border-color: #DA291C; outline: none; }
+
+  .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px 24px;
+             background: #10111b; border-bottom: 1px solid #1a1d27; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: .7rem; color: #8a8fa3;
+           text-transform: uppercase; letter-spacing: .06em; }
+  select, input[type="date"], input[type="search"] {
+    background: #1e2030; color: #e0e0e0; border: 1px solid #2a2d3e; border-radius: 4px;
+    padding: 6px 10px; font-size: .8rem; font-family: inherit; min-width: 140px; }
+  input[type="search"] { min-width: 220px; }
+  select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid #DA291C; outline-offset: 1px; }
+  .spacer { flex: 1 1 auto; }
+  .export { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: #c9cbd6; cursor: pointer; }
+  .btn { background: #DA291C; color: #fff; border: none; border-radius: 4px; padding: 7px 14px; font-size: .78rem;
+         font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn:hover:not(:disabled) { background: #f0352a; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.ghost { background: #1e2030; border: 1px solid #2a2d3e; }
+
+  #status { padding: 10px 24px; font-size: .78rem; color: #8a8fa3; min-height: 38px; }
+  #status.error { color: #ff7b72; }
+
+  main { padding: 0 24px 24px; max-width: 1100px; }
+  .day { font-size: .78rem; font-weight: 700; color: #fff; padding: 18px 0 8px; border-bottom: 1px solid #1a1d27;
+         margin-bottom: 10px; letter-spacing: .02em; }
+  .day small { color: #6b7088; font-weight: 400; margin-left: 8px; }
+  .item { background: #1a1d27; border-radius: 7px; padding: 12px 14px; margin-bottom: 8px; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: .72rem; color: #8a8fa3; margin-bottom: 6px; }
+  .chip { color: #fff; border-radius: 3px; padding: 1px 7px; font-weight: 600; font-size: .68rem; }
+  .src { color: #ff5a4d; font-weight: 600; }
+  .title { display: block; color: #d8d8d8; text-decoration: none; font-size: .9rem; line-height: 1.5; }
+  .title:hover, .title:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .ctx { font-size: .78rem; color: #8a8fa3; line-height: 1.45; margin-top: 8px; padding-top: 8px; border-top: 1px solid #242736; }
+  #more { display: block; margin: 8px 24px 40px; }
+  @media (max-width: 640px) {
+    .topbar, .filters, #status { padding-left: 16px; padding-right: 16px; }
+    main { padding: 0 16px 24px; }
+    .spacer { display: none; }
+    #more { margin-left: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1><span>Cyber</span> Competitive Feed &mdash; All Articles</h1>
+    <p id="summary">Loading articles&hellip;</p>
+  </div>
+  <a class="back" href="../../">&larr; Dashboard</a>
+</div>
+
+<form class="filters" id="filters" onsubmit="return false">
+  <label class="field">Period
+    <select id="period">
+      <option value="7">Last 7 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+      <option value="all" selected>All time</option>
+      <option value="custom">Custom range&hellip;</option>
+    </select>
+  </label>
+  <label class="field" id="from-wrap" hidden>From <input type="date" id="from"></label>
+  <label class="field" id="to-wrap" hidden>To <input type="date" id="to"></label>
+  <label class="field">Category <select id="category"></select></label>
+  <label class="field">Source <select id="source"></select></label>
+  <label class="field">Search <input type="search" id="q" placeholder="Title, source or summary"></label>
+  <div class="spacer"></div>
+  <div class="export">
+    <label class="chk"><input type="checkbox" id="fulltext"> Include full article text</label>
+    <button type="button" class="btn" id="btn-json" disabled>&darr; JSON</button>
+    <button type="button" class="btn" id="btn-csv" disabled>&darr; CSV</button>
+  </div>
+</form>
+
+<div id="status" role="status" aria-live="polite"></div>
+<main id="list"></main>
+<button type="button" class="btn ghost" id="more" hidden>Show more</button>
+
+<script>
+(function () {
+  'use strict';
+  var COLORS = {"Zero-Day Exploits & Vulnerabilities": "#DA291C", "Company & Service Acquisitions": "#3498db", "Trend Micro": "#DA291C", "CrowdStrike": "#e67e22", "Palo Alto Networks": "#00b4d8", "Fortinet": "#c0392b", "SentinelOne": "#8e44ad", "Microsoft Security": "#0078d4", "Mandiant": "#e74c3c", "Sophos": "#2980b9", "ESET": "#00a9e0", "Bitdefender": "#ed1c24", "Check Point": "#27ae60", "Recorded Future": "#16a085", "Cisco Security": "#1ba0d7", "Wiz": "#4fc3f7", "Orca Security": "#0288d1", "Trellix": "#7cb342", "Darktrace": "#37474f", "ExtraHop": "#f4511e", "Vectra AI": "#6a1b9a", "Proofpoint": "#0277bd", "Broadcom / Symantec": "#fdd835", "Kaspersky": "#006d5b", "Cybereason": "#e91e63", "Barracuda": "#e65100", "Falco / Sysdig": "#00acc1", "Okta": "#00297a", "CyberArk": "#cb2d3e", "BeyondTrust": "#f57c00", "Delinea": "#e91e8c", "IBM Security": "#1f70c1", "Elastic Security": "#f04e98", "Rubrik": "#ffb900", "Arctic Wolf": "#1a73e8", "Abnormal Security": "#00c2a8", "Huntress": "#e84545", "Lacework": "#5c2d91", "Aqua Security": "#00adef", "Snyk": "#4c4a73", "Rapid7": "#e67e22", "Tenable": "#9b59b6", "Qualys": "#1abc9c", "Zscaler": "#f1c40f", "Netskope": "#0aa5a8", "Cato Networks": "#5b6ef5", "Dragos": "#ff6f00", "Claroty": "#009688", "WithSecure": "#ff4a3d", "Secureworks": "#b71c1c", "Blackberry / Cylance": "#00a94f", "General Security News": "#95a5a6"};
+  var PAGE = 100, CSV_CELL_LIMIT = 32000;
+  var $ = function (id) { return document.getElementById(id); };
+  var all = [], rows = [], shown = 0, lastDay = null, dayCounts = {};
+
+  function isoDay(offset) {
+    var d = new Date(); d.setUTCDate(d.getUTCDate() - offset);
+    return d.toISOString().slice(0, 10);
+  }
+  function range() {
+    var p = $('period').value;
+    if (p === 'all') return { from: '', to: '' };
+    if (p === 'custom') return { from: $('from').value, to: $('to').value };
+    return { from: isoDay(parseInt(p, 10)), to: '' };
+  }
+  function setStatus(msg, isError) {
+    var el = $('status'); el.textContent = msg || ''; el.className = isError ? 'error' : '';
+  }
+  function dayLabel(day) {
+    if (day === 'undated') return 'Undated';
+    return new Date(day + 'T00:00:00Z').toLocaleDateString(undefined,
+      { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  function applyFilters() {
+    var r = range(), cat = $('category').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
+    rows = all.filter(function (a) {
+      if (cat && a.category !== cat) return false;
+      if (src && a.source !== src) return false;
+      if (r.from || r.to) {
+        if (!a.date) return false;
+        var d = a.date.slice(0, 10);
+        if (r.from && d < r.from) return false;
+        if (r.to && d > r.to) return false;
+      }
+      if (q && (a.title + ' ' + a.source + ' ' + (a.context || '')).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    dayCounts = {};
+    rows.forEach(function (a) { var k = a.date ? a.date.slice(0, 10) : 'undated'; dayCounts[k] = (dayCounts[k] || 0) + 1; });
+    $('list').textContent = ''; shown = 0; lastDay = null;
+    renderMore();
+    $('summary').textContent = rows.length.toLocaleString() + ' of ' + all.length.toLocaleString() +
+      ' articles, newest first';
+    $('btn-json').disabled = $('btn-csv').disabled = rows.length === 0;
+    setStatus(rows.length ? '' : 'No articles match these filters.');
+  }
+
+  function renderMore() {
+    var list = $('list'), end = Math.min(shown + PAGE, rows.length);
+    for (; shown < end; shown++) {
+      var a = rows[shown], day = a.date ? a.date.slice(0, 10) : 'undated';
+      if (day !== lastDay) {
+        var h = document.createElement('h2'); h.className = 'day'; h.textContent = dayLabel(day);
+        var n = document.createElement('small'); n.textContent = dayCounts[day] + ' article' + (dayCounts[day] === 1 ? '' : 's');
+        h.appendChild(n); list.appendChild(h); lastDay = day;
+      }
+      list.appendChild(buildItem(a));
+    }
+    $('more').hidden = shown >= rows.length;
+    $('more').textContent = 'Show more (' + (rows.length - shown).toLocaleString() + ' remaining)';
+  }
+
+  function buildItem(a) {
+    var el = document.createElement('article'); el.className = 'item';
+    var meta = document.createElement('div'); meta.className = 'meta';
+    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
+    chip.style.background = COLORS[a.category] || '#555a70';
+    var src = document.createElement('span'); src.className = 'src'; src.textContent = a.source;
+    var t = document.createElement('time'); t.textContent = a.date ? a.date.slice(11, 16) + ' UTC' : '';
+    meta.appendChild(chip); meta.appendChild(src); meta.appendChild(t);
+    var link = document.createElement('a'); link.className = 'title'; link.href = a.link; link.target = '_blank';
+    link.rel = 'noopener noreferrer'; link.textContent = a.title;
+    el.appendChild(meta); el.appendChild(link);
+    if (a.context) { var p = document.createElement('p'); p.className = 'ctx'; p.textContent = a.context; el.appendChild(p); }
+    return el;
+  }
+
+  function fillSelect(id, label, counts, sortByCount) {
+    var sel = $(id), keys = Object.keys(counts);
+    keys.sort(sortByCount ? function (x, y) { return counts[y] - counts[x] || x.localeCompare(y); }
+                          : function (x, y) { return x.localeCompare(y); });
+    var first = document.createElement('option'); first.value = ''; first.textContent = 'All ' + label;
+    sel.appendChild(first);
+    keys.forEach(function (k) {
+      var o = document.createElement('option'); o.value = k; o.textContent = k + ' (' + counts[k] + ')'; sel.appendChild(o);
+    });
+  }
+
+  function csvCell(v) {
+    v = v == null ? '' : String(v);
+    return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function download(name, mime, content) {
+    var url = URL.createObjectURL(new Blob([content], { type: mime }));
+    var a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  async function loadTexts() {
+    var want = {}, months = {}, texts = {}, failed = [];
+    rows.forEach(function (a) { want[a.link] = 1; months[a.date ? a.date.slice(0, 7) : 'undated'] = 1; });
+    var list = Object.keys(months);
+    for (var i = 0; i < list.length; i++) {
+      setStatus('Loading full text ' + (i + 1) + ' of ' + list.length + ' (' + list[i] + ')…');
+      try {
+        var res = await fetch('fulltext/' + list[i] + '.json');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var shard = await res.json();
+        Object.keys(shard).forEach(function (k) { if (want[k]) texts[k] = shard[k].text || ''; });
+      } catch (e) { failed.push(list[i]); }
+    }
+    return { texts: texts, failed: failed };
+  }
+
+  async function doExport(fmt) {
+    var withText = $('fulltext').checked, texts = {}, failed = [];
+    $('btn-json').disabled = $('btn-csv').disabled = true;
+    try {
+      if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
+      var recs = rows.map(function (a) {
+        var rec = { date: a.date, category: a.category, source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        if (withText) rec.full_text = texts[a.link] || '';
+        return rec;
+      });
+      var rg = range(), cat = $('category').value;
+      var base = 'articles_' + (cat || 'all-categories') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
+      base = base.replace(/[^A-Za-z0-9_-]+/g, '_');
+      if (fmt === 'json') {
+        download(base + '.json', 'application/json', JSON.stringify({
+          exported: new Date().toISOString(),
+          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, source: $('source').value, search: $('q').value },
+          count: recs.length, articles: recs }, null, 2));
+      } else {
+        var head = ['Date', 'Category', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var lines = [head.join(',')];
+        recs.forEach(function (x) {
+          var cells = [x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.source, x.title, x.link, x.context];
+          if (withText) {
+            var t = x.full_text;
+            cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
+          }
+          lines.push(cells.map(csvCell).join(','));
+        });
+        download(base + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n'));
+      }
+      var missing = withText ? recs.filter(function (x) { return !x.full_text; }).length : 0;
+      setStatus('Exported ' + recs.length.toLocaleString() + ' articles' +
+        (withText ? (missing ? ' (' + missing + ' without saved text)' : ' with full text') : '') +
+        (failed.length ? '. Could not load text for: ' + failed.join(', ') : '') + '.', failed.length > 0);
+    } catch (e) {
+      setStatus('Export failed: ' + e.message, true);
+    } finally {
+      $('btn-json').disabled = $('btn-csv').disabled = rows.length === 0;
+    }
+  }
+
+  function init(data) {
+    all = data.articles;
+    var cats = {}, srcs = {};
+    all.forEach(function (a) { cats[a.category] = (cats[a.category] || 0) + 1; srcs[a.source] = (srcs[a.source] || 0) + 1; });
+    fillSelect('category', 'categories', cats, true);
+    fillSelect('source', 'sources', srcs, false);
+    $('to').max = $('from').max = isoDay(0);
+    var timer;
+    ['category', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    $('period').addEventListener('change', function () {
+      var custom = $('period').value === 'custom';
+      $('from-wrap').hidden = $('to-wrap').hidden = !custom;
+      applyFilters();
+    });
+    $('q').addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(applyFilters, 150); });
+    $('more').addEventListener('click', renderMore);
+    $('btn-json').addEventListener('click', function () { doExport('json'); });
+    $('btn-csv').addEventListener('click', function () { doExport('csv'); });
+    applyFilters();
+  }
+
+  fetch('articles.json', { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(init)
+    .catch(function (e) {
+      $('summary').textContent = 'Could not load articles';
+      setStatus('Could not load articles.json (' + e.message + '). Open this page from the published site, not from a file.', true);
+    });
+})();
+</script>
+</body>
+</html>
