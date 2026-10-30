@@ -144,7 +144,7 @@ __MODAL_JS__
         if (r.from && d < r.from) return false;
         if (r.to && d > r.to) return false;
       }
-      if (q && (a.title + ' ' + a.source + ' ' + (a.context || '')).toLowerCase().indexOf(q) === -1) return false;
+      if (q && (a.title + ' ' + a.source + ' ' + (a.context || '') + ' ' + (a.id || '')).toLowerCase().indexOf(q) === -1) return false;
       return true;
     });
     dayCounts = {};
@@ -216,7 +216,7 @@ __MODAL_JS__
 
   async function loadTexts() {
     var want = {}, months = {}, texts = {}, failed = [];
-    rows.forEach(function (a) { want[a.link] = 1; months[a.date ? a.date.slice(0, 7) : 'undated'] = 1; });
+    rows.forEach(function (a) { want[a.id] = 1; months[a.date ? a.date.slice(0, 7) : 'undated'] = 1; });
     var list = Object.keys(months);
     for (var i = 0; i < list.length; i++) {
       setStatus('Loading full text ' + (i + 1) + ' of ' + list.length + ' (' + list[i] + ')…');
@@ -236,8 +236,8 @@ __MODAL_JS__
     try {
       if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
       var recs = rows.map(function (a) {
-        var rec = { date: a.date, category: a.category, modules: a.modules || [], source: a.source, title: a.title, link: a.link, context: a.context || '' };
-        if (withText) rec.full_text = texts[a.link] || '';
+        var rec = { id: a.id, date: a.date, category: a.category, modules: a.modules || [], source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        if (withText) rec.full_text = texts[a.id] || '';
         return rec;
       });
       var rg = range(), cat = $('category').value, mod = $('module').value;
@@ -249,10 +249,10 @@ __MODAL_JS__
           filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, module: mod, source: $('source').value, search: $('q').value },
           count: recs.length, articles: recs }, null, 2));
       } else {
-        var head = ['Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var head = ['ID', 'Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
         var lines = [head.join(',')];
         recs.forEach(function (x) {
-          var cells = [x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.source, x.title, x.link, x.context];
+          var cells = [x.id, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.source, x.title, x.link, x.context];
           if (withText) {
             var t = x.full_text;
             cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
@@ -293,16 +293,26 @@ __MODAL_JS__
     });
     $('q').addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(applyFilters, 150); });
     $('more').addEventListener('click', renderMore);
+    function openArticle(a) {
+      window.ArticleModal.open({ id: a.id, shareUrl: location.origin + location.pathname + '#' + a.id,
+        title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
+        color: COLORS[a.category] || '', modules: a.modules || [], context: a.context || '' }, { fullTextBase: 'fulltext/' });
+    }
+    function openFromHash() {
+      var id = location.hash.replace('#', '');
+      if (!/^[0-9a-f]{12}$/.test(id)) return;
+      var hit = all.filter(function (a) { return a.id === id; })[0];
+      if (hit) openArticle(hit); else setStatus('No article with ID ' + id + ' was found.', true);
+    }
     $('list').addEventListener('click', function (e) {
       var btn = e.target.closest('.card-details');
-      if (!btn || !btn.__article) return;
-      var a = btn.__article;
-      window.ArticleModal.open({ title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
-        color: COLORS[a.category] || '', modules: a.modules || [], context: a.context || '' }, { fullTextBase: 'fulltext/' });
+      if (btn && btn.__article) openArticle(btn.__article);
     });
     $('btn-json').addEventListener('click', function () { doExport('json'); });
     $('btn-csv').addEventListener('click', function () { doExport('csv'); });
+    window.addEventListener('hashchange', openFromHash);
     applyFilters();
+    openFromHash();
   }
 
   fetch('articles.json', { cache: 'no-cache' })

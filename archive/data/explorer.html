@@ -66,6 +66,7 @@
   .am-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: .78rem; color: #8a8fa3; margin: 12px 0 8px; }
   .am-chip { color: #fff; border-radius: 3px; padding: 1px 8px; font-weight: 600; font-size: .7rem; background: #555a70; }
   .am-src { color: #ff5a4d; font-weight: 600; }
+  .am-id { font-family: Consolas, monospace; color: #6b7088; }
   .am-mods { font-size: .78rem; color: #7d8299; margin-bottom: 12px; }
   .am-ctx { font-size: .88rem; line-height: 1.6; color: #c9cbd6; background: #1e2030; border-radius: 6px;
             padding: 12px 14px; margin-bottom: 16px; white-space: pre-wrap; }
@@ -148,6 +149,7 @@
       <a class="am-btn" id="am-open" href="#" target="_blank" rel="noopener noreferrer">Open article &#8599;</a>
       <button type="button" class="am-btn secondary" id="am-json">&darr; JSON</button>
       <button type="button" class="am-btn secondary" id="am-csv">&darr; CSV</button>
+      <button type="button" class="am-btn secondary" id="am-copy">Copy link</button>
       <label class="am-chk"><input type="checkbox" id="am-fulltext"> Include full article text</label>
     </div>
     <div class="am-status" id="am-status" role="status" aria-live="polite"></div>
@@ -162,7 +164,7 @@
   if (!overlay) return;
   var $ = function (id) { return document.getElementById(id); };
   var el = { title: $('am-title'), meta: $('am-meta'), mods: $('am-mods'), ctx: $('am-ctx'), open: $('am-open'),
-             ft: $('am-fulltext'), json: $('am-json'), csv: $('am-csv'), status: $('am-status'),
+             ft: $('am-fulltext'), json: $('am-json'), csv: $('am-csv'), copy: $('am-copy'), status: $('am-status'),
              close: $('am-close'), dialog: $('am-dialog') };
   var CSV_CELL_LIMIT = 32000;
   var current = null, base = '', lastFocus = null, shards = {};
@@ -182,12 +184,14 @@
     var when = document.createElement('span');
     when.textContent = a.date ? a.date.slice(0, 16).replace('T', ' ') + ' UTC' : 'Date unknown';
     el.meta.appendChild(when);
+    if (a.id) { var idEl = document.createElement('span'); idEl.className = 'am-id'; idEl.textContent = 'ID ' + a.id; el.meta.appendChild(idEl); }
     var mods = a.modules || [];
     el.mods.textContent = mods.length ? 'Modules: ' + mods.join(' \u00b7 ') : '';
     el.mods.hidden = !mods.length;
     el.ctx.textContent = a.context || 'No summary was extracted for this article.';
     el.ctx.className = 'am-ctx' + (a.context ? '' : ' empty');
     el.open.href = a.link;
+    el.copy.hidden = !a.shareUrl;
     el.ft.checked = false; setStatus('');
     el.json.disabled = el.csv.disabled = false;
     lastFocus = document.activeElement;
@@ -208,7 +212,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       shards[month] = await res.json();
     }
-    var entry = shards[month][a.link];
+    var entry = shards[month][a.id] || shards[month][a.link];
     return entry && entry.text ? entry.text : '';
   }
 
@@ -226,7 +230,7 @@
 
   async function exportAs(fmt) {
     var withText = el.ft.checked, note = '';
-    var rec = { date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
+    var rec = { id: current.id || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
                 title: current.title, link: current.link, context: current.context || '' };
     el.json.disabled = el.csv.disabled = true;
     try {
@@ -240,8 +244,8 @@
         download('article_' + slug + '.json', 'application/json',
                  JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
       } else {
-        var head = ['Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
-        var cells = [rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '),
+        var head = ['ID', 'Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.id, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '),
                      rec.source, rec.title, rec.link, rec.context];
         if (withText) {
           var t = rec.full_text;
@@ -262,6 +266,10 @@
   overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closeModal(); });
   el.json.addEventListener('click', function () { exportAs('json'); });
   el.csv.addEventListener('click', function () { exportAs('csv'); });
+  el.copy.addEventListener('click', async function () {
+    try { await navigator.clipboard.writeText(current.shareUrl); setStatus('Link copied.'); }
+    catch (e) { setStatus('Could not copy automatically. Link: ' + current.shareUrl, true); }
+  });
   document.addEventListener('keydown', function (e) {
     if (overlay.hidden) return;
     if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
@@ -316,7 +324,7 @@
         if (r.from && d < r.from) return false;
         if (r.to && d > r.to) return false;
       }
-      if (q && (a.title + ' ' + a.source + ' ' + (a.context || '')).toLowerCase().indexOf(q) === -1) return false;
+      if (q && (a.title + ' ' + a.source + ' ' + (a.context || '') + ' ' + (a.id || '')).toLowerCase().indexOf(q) === -1) return false;
       return true;
     });
     dayCounts = {};
@@ -388,7 +396,7 @@
 
   async function loadTexts() {
     var want = {}, months = {}, texts = {}, failed = [];
-    rows.forEach(function (a) { want[a.link] = 1; months[a.date ? a.date.slice(0, 7) : 'undated'] = 1; });
+    rows.forEach(function (a) { want[a.id] = 1; months[a.date ? a.date.slice(0, 7) : 'undated'] = 1; });
     var list = Object.keys(months);
     for (var i = 0; i < list.length; i++) {
       setStatus('Loading full text ' + (i + 1) + ' of ' + list.length + ' (' + list[i] + ')…');
@@ -408,8 +416,8 @@
     try {
       if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
       var recs = rows.map(function (a) {
-        var rec = { date: a.date, category: a.category, modules: a.modules || [], source: a.source, title: a.title, link: a.link, context: a.context || '' };
-        if (withText) rec.full_text = texts[a.link] || '';
+        var rec = { id: a.id, date: a.date, category: a.category, modules: a.modules || [], source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        if (withText) rec.full_text = texts[a.id] || '';
         return rec;
       });
       var rg = range(), cat = $('category').value, mod = $('module').value;
@@ -421,10 +429,10 @@
           filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, module: mod, source: $('source').value, search: $('q').value },
           count: recs.length, articles: recs }, null, 2));
       } else {
-        var head = ['Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var head = ['ID', 'Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
         var lines = [head.join(',')];
         recs.forEach(function (x) {
-          var cells = [x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.source, x.title, x.link, x.context];
+          var cells = [x.id, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.source, x.title, x.link, x.context];
           if (withText) {
             var t = x.full_text;
             cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
@@ -465,16 +473,26 @@
     });
     $('q').addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(applyFilters, 150); });
     $('more').addEventListener('click', renderMore);
+    function openArticle(a) {
+      window.ArticleModal.open({ id: a.id, shareUrl: location.origin + location.pathname + '#' + a.id,
+        title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
+        color: COLORS[a.category] || '', modules: a.modules || [], context: a.context || '' }, { fullTextBase: 'fulltext/' });
+    }
+    function openFromHash() {
+      var id = location.hash.replace('#', '');
+      if (!/^[0-9a-f]{12}$/.test(id)) return;
+      var hit = all.filter(function (a) { return a.id === id; })[0];
+      if (hit) openArticle(hit); else setStatus('No article with ID ' + id + ' was found.', true);
+    }
     $('list').addEventListener('click', function (e) {
       var btn = e.target.closest('.card-details');
-      if (!btn || !btn.__article) return;
-      var a = btn.__article;
-      window.ArticleModal.open({ title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
-        color: COLORS[a.category] || '', modules: a.modules || [], context: a.context || '' }, { fullTextBase: 'fulltext/' });
+      if (btn && btn.__article) openArticle(btn.__article);
     });
     $('btn-json').addEventListener('click', function () { doExport('json'); });
     $('btn-csv').addEventListener('click', function () { doExport('csv'); });
+    window.addEventListener('hashchange', openFromHash);
     applyFilters();
+    openFromHash();
   }
 
   fetch('articles.json', { cache: 'no-cache' })

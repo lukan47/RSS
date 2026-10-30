@@ -30,10 +30,12 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 |---|---|
 | `index.html` | The current dashboard (last 30 days) |
 | `archive/<date>.html` | A snapshot of each past dashboard |
-| `archive/data/articles.json` | Every article ever collected: title, link, source, date, category, modules, summary |
-| `archive/data/fulltext/YYYY-MM.json` | Saved article text, one file per month |
+| `archive/data/articles.json` | Every article ever collected: ID, title, link, source, date, category, modules, summary |
+| `archive/data/fulltext/YYYY-MM.json` | Saved article text, one file per month, keyed by article ID |
 | `archive/data/explorer.html` | The all-articles page (built from `explorer_template.html`) |
 | `archive/exports/` | `digest.json` / `digest.csv` (last 30 days) and one file pair per category |
+
+**Article IDs.** Every article has a stable 12-character ID (the first 12 hex characters of a SHA-256 of its cleaned-up URL: no scheme, `www.`, `#fragment`, `utm_*`/`fbclid`/`gclid` tracking parameters or trailing slash). The same URL always produces the same ID, so nothing has to be stored to keep IDs stable. The ID is the first field in every JSON export and the first column in every CSV export. The Details popup shows it and has a *Copy link* button; opening `archive/data/explorer.html#<id>` jumps straight to that article, and the all-articles search also matches IDs. If a publisher moves an article to a different URL it is treated as a new article.
 
 `articles.json` was first built from the archived dashboards, so history starts at the oldest snapshot and has gaps where no snapshot exists. Article text is downloaded from each article page (or taken from the feed when it carries the full article); sites that block automated requests will have no saved text.
 

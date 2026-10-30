@@ -6,6 +6,7 @@ Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
 import difflib
+import hashlib
 import email.utils
 import html
 import json
@@ -17,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
+from urllib.parse import urlsplit, parse_qsl, urlencode
 import subprocess
 import json as json_lib
 from html.parser import HTMLParser
@@ -637,12 +639,36 @@ def fetch_full_text(url: str, timeout: int = 15) -> str:
         return ""
 
 
+_TRACKING_PARAM = re.compile(r"^(utm_.*|fbclid|gclid|mc_cid|mc_eid|igshid|ref_src)$", re.I)
+
+
+def normalize_url(url: str) -> str:
+    """Canonical form of an article URL: no scheme, 'www.', fragment, tracking params or trailing slash."""
+    parts = urlsplit((url or "").strip())
+    host = re.sub(r":(80|443)$", "", parts.netloc.lower())
+    if host.startswith("www."):
+        host = host[4:]
+    path = parts.path or "/"
+    if len(path) > 1:
+        path = path.rstrip("/") or "/"
+    query = sorted((k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not _TRACKING_PARAM.match(k))
+    return host + path + ("?" + urlencode(query) if query else "")
+
+
+def article_id(url: str) -> str:
+    """Stable 12-character article ID: the same article URL always yields the same ID."""
+    return hashlib.sha256(normalize_url(url).encode("utf-8")).hexdigest()[:12]
+
+
 def _month_key(date_iso) -> str:
     return date_iso[:7] if date_iso else "undated"
 
 
 def load_fulltext_cache() -> dict:
-    """Merge every monthly shard (plus the legacy single-file cache) into {link: entry}."""
+    """Merge every monthly shard (plus the legacy single-file cache) into {article_id: entry}.
+
+    Older files were keyed by URL; those keys are converted to article IDs here.
+    """
     cache: dict = {}
     paths = []
     if os.path.isdir(FULLTEXT_DIR):
@@ -652,18 +678,23 @@ def load_fulltext_cache() -> dict:
     for path in paths:
         try:
             with open(path, encoding="utf-8") as f:
-                cache.update(json.load(f))
+                shard = json.load(f)
         except (OSError, ValueError):
             continue
+        for key, entry in shard.items():
+            if key.startswith(("http://", "https://")):
+                key = article_id(key)
+            if key not in cache or (entry.get("text") and not cache[key].get("text")):
+                cache[key] = entry
     return cache
 
 
 def save_fulltext_cache(cache: dict, months: dict) -> None:
-    """Write {link: entry} back as one file per month; months maps link -> 'YYYY-MM'."""
+    """Write {article_id: entry} back as one file per month; months maps article_id -> 'YYYY-MM'."""
     shards: dict = {}
-    for link, entry in cache.items():
-        if link in months:
-            shards.setdefault(months[link], {})[link] = entry
+    for key, entry in cache.items():
+        if key in months:
+            shards.setdefault(months[key], {})[key] = entry
     os.makedirs(FULLTEXT_DIR, exist_ok=True)
     for month, entries in shards.items():
         with open(os.path.join(FULLTEXT_DIR, month + ".json"), "w", encoding="utf-8") as f:
@@ -689,32 +720,32 @@ def attach_full_text(articles: list[dict]) -> int:
     pending = [
         a for a in articles
         if a.get("link")
-        and cache.get(a["link"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
-        and (not cache.get(a["link"], {}).get("text") or _is_stale(cache[a["link"]]))
+        and cache.get(a["id"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
+        and (not cache.get(a["id"], {}).get("text") or _is_stale(cache[a["id"]]))
     ]
     deadline = time.monotonic() + FULLTEXT_BUDGET_S
 
     def work(article):
-        feed_text = article.get("feed_text", "")
+        key, feed_text = article["id"], article.get("feed_text", "")
         if len(feed_text) >= FEED_FULLTEXT_MIN:
-            return article["link"], feed_text[:FULLTEXT_MAX_CHARS], "feed"
+            return key, feed_text[:FULLTEXT_MAX_CHARS], "feed"
         if time.monotonic() > deadline:
-            return article["link"], None, ""
+            return key, None, ""
         page_text = fetch_full_text(article["link"])
         if page_text:
-            return article["link"], page_text, "page"
+            return key, page_text, "page"
         if len(feed_text) >= MIN_FULLTEXT_CHARS:
-            return article["link"], feed_text[:FULLTEXT_MAX_CHARS], "feed-excerpt"
-        return article["link"], "", ""
+            return key, feed_text[:FULLTEXT_MAX_CHARS], "feed-excerpt"
+        return key, "", ""
 
     obtained = 0
     if pending:
         print(f"  Collecting full text for {len(pending)} article(s)...", file=sys.stderr)
         with ThreadPoolExecutor(max_workers=FULLTEXT_WORKERS) as pool:
-            for link, text, source in pool.map(work, pending):
+            for key, text, source in pool.map(work, pending):
                 if text is None:
                     continue
-                entry = cache.setdefault(link, {"text": "", "attempts": 0})
+                entry = cache.setdefault(key, {"text": "", "attempts": 0})
                 entry["attempts"] = entry.get("attempts", 0) + 1
                 if text:
                     entry["text"] = text
@@ -723,11 +754,11 @@ def attach_full_text(articles: list[dict]) -> int:
                     entry["fetched"] = datetime.now(timezone.utc).isoformat()
                     obtained += 1
 
-    months = {a["link"]: _month_key(a.get("date")) for a in articles if a.get("link")}
+    months = {a["id"]: _month_key(a.get("date")) for a in articles if a.get("link")}
     save_fulltext_cache(cache, months)
 
     for a in articles:
-        a["full_text"] = _trim_trailer(cache.get(a.get("link", ""), {}).get("text", ""))
+        a["full_text"] = _trim_trailer(cache.get(a["id"], {}).get("text", ""))
         a.pop("feed_text", None)
     return obtained
 
@@ -975,13 +1006,28 @@ def parse_archive_html(path: str) -> list[dict]:
     return out
 
 
+def _absorb(master: dict, a: dict) -> None:
+    """Add an article to the store; articles whose URLs normalise to one ID are merged."""
+    key = article_id(a["link"])
+    a["id"] = key
+    old = master.get(key)
+    if old is None:
+        master[key] = a
+        return
+    if a.get("date") and (not old.get("date") or a["date"] < old["date"]):
+        old["date"] = a["date"]
+    for field in ("context", "category"):
+        if not old.get(field) and a.get(field):
+            old[field] = a[field]
+
+
 def load_master() -> dict:
-    """{link: article} from articles.json; backfilled from archive/*.html when missing."""
+    """{article_id: article} from articles.json; backfilled from archive/*.html when missing."""
     master: dict = {}
     try:
         with open(ARTICLES_FILE, encoding="utf-8") as f:
             for a in json.load(f)["articles"]:
-                master[a["link"]] = a
+                _absorb(master, a)
         return master
     except (OSError, ValueError, KeyError):
         pass
@@ -989,11 +1035,7 @@ def load_master() -> dict:
     print(f"  Backfilling article store from {len(snapshots)} archive snapshot(s)...", file=sys.stderr)
     for name in snapshots:  # oldest first, so later snapshots refine earlier entries
         for a in parse_archive_html(os.path.join(ARCHIVE_DIR, name)):
-            old = master.get(a["link"])
-            if old is None:
-                master[a["link"]] = a
-            elif not old.get("context") and a.get("context"):
-                old["context"] = a["context"]
+            _absorb(master, a)
     return master
 
 
@@ -1003,8 +1045,9 @@ def merge_into_master(master: dict, live: list[dict]) -> None:
         link = a.get("link")
         if not link:
             continue
-        entry = master.setdefault(link, {"source": a["source"], "title": a["title"], "link": link,
-                                         "date": a["date"].isoformat() if a["date"] else None, "context": ""})
+        key = article_id(link)
+        entry = master.setdefault(key, {"id": key, "source": a["source"], "title": a["title"], "link": link,
+                                        "date": a["date"].isoformat() if a["date"] else None, "context": ""})
         entry["category"] = categorize(a)
         if a.get("context") and not entry.get("context"):
             entry["context"] = a["context"]
@@ -1016,7 +1059,7 @@ def save_master(master: dict, label: str) -> None:
     items = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
     dated = [a for a in items if a.get("date")]
     items = dated + [a for a in items if not a.get("date")]
-    slim = [{"source": a["source"], "category": a.get("category", ""), "title": a["title"],
+    slim = [{"id": a["id"], "source": a["source"], "category": a.get("category", ""), "title": a["title"],
              "link": a["link"], "date": a.get("date"), "context": a.get("context", ""),
              "modules": a.get("modules", [])} for a in items]
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -1163,6 +1206,7 @@ def export_digest_json(articles: list[dict], label: str) -> str:
     for cat, items in buckets.items():
         export["categories"][cat] = [
             {
+                "id": article_id(a["link"]),
                 "source": a["source"],
                 "title": a["title"],
                 "link": a["link"],
@@ -1189,7 +1233,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     writer = csv_module.writer(output)
 
     # Write header
-    writer.writerow(["Date", "Category", "Modules", "Source", "Title", "Link", "Context", "Full Text"])
+    writer.writerow(["ID", "Date", "Category", "Modules", "Source", "Title", "Link", "Context", "Full Text"])
 
     # Write articles
     buckets = bucket_articles(articles)
@@ -1197,6 +1241,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             writer.writerow([
+                article_id(article["link"]),
                 date_str,
                 cat,
                 "; ".join(article.get("modules", [])),
@@ -1228,10 +1273,11 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
         # CSV export for this category
         csv_output = io.StringIO()
         csv_writer = csv_module.writer(csv_output)
-        csv_writer.writerow(["Date", "Source", "Modules", "Title", "Link", "Context", "Full Text"])
+        csv_writer.writerow(["ID", "Date", "Source", "Modules", "Title", "Link", "Context", "Full Text"])
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             csv_writer.writerow([
+                article_id(article["link"]),
                 date_str,
                 article["source"],
                 "; ".join(article.get("modules", [])),
@@ -1250,6 +1296,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
             "article_count": len(items),
             "articles": [
                 {
+                    "id": article_id(a["link"]),
                     "date": a["date"].isoformat() if a["date"] else None,
                     "source": a["source"],
                     "title": a["title"],
@@ -1597,7 +1644,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                 modules_html = '<div class="card-modules">' + " &middot; ".join(html.escape(m) for m in shown) + "</div>"
 
             cards.append(f"""
-            <div class="card" data-modules="{modules_attr}">
+            <div class="card" data-id="{article_id(a["link"])}" data-modules="{modules_attr}">
               <div class="card-meta">
                 <span class="source">{safe_source}</span>
                 <span class="date">{date_str}<button type="button" class="card-details" aria-label="Details and export"></button></span>
@@ -1619,7 +1666,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
         </div>
       </div>""")
 
-    dash_modal_js = DASH_MODAL_JS.replace("__FULLTEXT_BASE__", REPORT_URL + "archive/data/fulltext/")
+    dash_modal_js = (DASH_MODAL_JS.replace("__FULLTEXT_BASE__", REPORT_URL + "archive/data/fulltext/")
+                     .replace("__EXPLORER_URL__", EXPLORER_URL))
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1974,6 +2022,7 @@ MODAL_CSS = r"""
   .am-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: .78rem; color: #8a8fa3; margin: 12px 0 8px; }
   .am-chip { color: #fff; border-radius: 3px; padding: 1px 8px; font-weight: 600; font-size: .7rem; background: #555a70; }
   .am-src { color: #ff5a4d; font-weight: 600; }
+  .am-id { font-family: Consolas, monospace; color: #6b7088; }
   .am-mods { font-size: .78rem; color: #7d8299; margin-bottom: 12px; }
   .am-ctx { font-size: .88rem; line-height: 1.6; color: #c9cbd6; background: #1e2030; border-radius: 6px;
             padding: 12px 14px; margin-bottom: 16px; white-space: pre-wrap; }
@@ -2008,6 +2057,7 @@ MODAL_HTML = """
       <a class="am-btn" id="am-open" href="#" target="_blank" rel="noopener noreferrer">Open article &#8599;</a>
       <button type="button" class="am-btn secondary" id="am-json">&darr; JSON</button>
       <button type="button" class="am-btn secondary" id="am-csv">&darr; CSV</button>
+      <button type="button" class="am-btn secondary" id="am-copy">Copy link</button>
       <label class="am-chk"><input type="checkbox" id="am-fulltext"> Include full article text</label>
     </div>
     <div class="am-status" id="am-status" role="status" aria-live="polite"></div>
@@ -2022,7 +2072,7 @@ MODAL_JS = r"""
   if (!overlay) return;
   var $ = function (id) { return document.getElementById(id); };
   var el = { title: $('am-title'), meta: $('am-meta'), mods: $('am-mods'), ctx: $('am-ctx'), open: $('am-open'),
-             ft: $('am-fulltext'), json: $('am-json'), csv: $('am-csv'), status: $('am-status'),
+             ft: $('am-fulltext'), json: $('am-json'), csv: $('am-csv'), copy: $('am-copy'), status: $('am-status'),
              close: $('am-close'), dialog: $('am-dialog') };
   var CSV_CELL_LIMIT = 32000;
   var current = null, base = '', lastFocus = null, shards = {};
@@ -2042,12 +2092,14 @@ MODAL_JS = r"""
     var when = document.createElement('span');
     when.textContent = a.date ? a.date.slice(0, 16).replace('T', ' ') + ' UTC' : 'Date unknown';
     el.meta.appendChild(when);
+    if (a.id) { var idEl = document.createElement('span'); idEl.className = 'am-id'; idEl.textContent = 'ID ' + a.id; el.meta.appendChild(idEl); }
     var mods = a.modules || [];
     el.mods.textContent = mods.length ? 'Modules: ' + mods.join(' \u00b7 ') : '';
     el.mods.hidden = !mods.length;
     el.ctx.textContent = a.context || 'No summary was extracted for this article.';
     el.ctx.className = 'am-ctx' + (a.context ? '' : ' empty');
     el.open.href = a.link;
+    el.copy.hidden = !a.shareUrl;
     el.ft.checked = false; setStatus('');
     el.json.disabled = el.csv.disabled = false;
     lastFocus = document.activeElement;
@@ -2068,7 +2120,7 @@ MODAL_JS = r"""
       if (!res.ok) throw new Error('HTTP ' + res.status);
       shards[month] = await res.json();
     }
-    var entry = shards[month][a.link];
+    var entry = shards[month][a.id] || shards[month][a.link];
     return entry && entry.text ? entry.text : '';
   }
 
@@ -2086,7 +2138,7 @@ MODAL_JS = r"""
 
   async function exportAs(fmt) {
     var withText = el.ft.checked, note = '';
-    var rec = { date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
+    var rec = { id: current.id || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
                 title: current.title, link: current.link, context: current.context || '' };
     el.json.disabled = el.csv.disabled = true;
     try {
@@ -2100,8 +2152,8 @@ MODAL_JS = r"""
         download('article_' + slug + '.json', 'application/json',
                  JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
       } else {
-        var head = ['Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
-        var cells = [rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '),
+        var head = ['ID', 'Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.id, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '),
                      rec.source, rec.title, rec.link, rec.context];
         if (withText) {
           var t = rec.full_text;
@@ -2122,6 +2174,10 @@ MODAL_JS = r"""
   overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closeModal(); });
   el.json.addEventListener('click', function () { exportAs('json'); });
   el.csv.addEventListener('click', function () { exportAs('csv'); });
+  el.copy.addEventListener('click', async function () {
+    try { await navigator.clipboard.writeText(current.shareUrl); setStatus('Link copied.'); }
+    catch (e) { setStatus('Could not copy automatically. Link: ' + current.shareUrl, true); }
+  });
   document.addEventListener('keydown', function (e) {
     if (overlay.hidden) return;
     if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
@@ -2146,6 +2202,8 @@ document.addEventListener('click', function (e) {
   var header = col && col.querySelector('.col-header');
   var ctx = card.querySelector('.card-context');
   window.ArticleModal.open({
+    id: card.dataset.id || '',
+    shareUrl: card.dataset.id ? '__EXPLORER_URL__#' + card.dataset.id : '',
     title: title.textContent.trim(),
     link: title.href,
     source: card.querySelector('.source').textContent.trim(),
@@ -2208,8 +2266,9 @@ def main() -> None:
             entry["context"] = extract_context(entry)
         entry["modules"] = classify_modules(entry)
     for article in recent:
-        stored = master.get(article.get("link", ""))
+        stored = master.get(article_id(article["link"])) if article.get("link") else None
         if stored:
+            article["id"] = stored["id"]
             article["full_text"] = stored["full_text"]
             article["modules"] = stored["modules"]
             if not article.get("context"):
