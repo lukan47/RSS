@@ -704,6 +704,8 @@ def save_fulltext_cache(cache: dict, months: dict) -> None:
 
 
 def _is_stale(entry: dict) -> bool:
+    if entry.get("source") == "backup":
+        return True  # imported from a backup: try to replace with the real page text
     return entry.get("source") == "page" and entry.get("v", 1) < EXTRACT_VERSION
 
 
