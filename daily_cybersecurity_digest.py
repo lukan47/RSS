@@ -110,6 +110,7 @@ LOOKBACK_HOURS = 720   # front-page window (30 days); older history is preserved
 REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
 ARCHIVE_DIR  = "archive"
+EXPORT_DIR   = os.path.join(ARCHIVE_DIR, "exports")
 HISTORY_FILE = "history.json"
 MAX_HISTORY  = 30
 PHT          = timezone(timedelta(hours=8))
@@ -1015,7 +1016,7 @@ def _build_dropdown() -> str:
         const file = exportSelect.value;
         if (!file) return;
         const a = document.createElement('a');
-        const prefix = location.pathname.indexOf('/archive/') !== -1 ? '../' : './';
+        const prefix = location.pathname.indexOf('/archive/') !== -1 ? 'exports/' : 'archive/exports/';
         a.href = prefix + file;
         a.download = file;
         document.body.appendChild(a);
@@ -1370,8 +1371,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <a href="{REPORT_URL}digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
-      <a href="{REPORT_URL}digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+      <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
+      <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
         <option value="">⬇ Category</option>
       </select>
@@ -1488,14 +1489,15 @@ def main() -> None:
 
     # ── Export digest as JSON for programmatic access ────────────────────
     json_export = export_digest_json(recent, label)
-    json_file = "digest.json"
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+    json_file = os.path.join(EXPORT_DIR, "digest.json")
     with open(json_file, "w", encoding="utf-8") as f:
         f.write(json_export)
     print(f"Digest exported: {json_file}", file=sys.stderr)
 
     # ── Export digest as CSV for spreadsheet access ───────────────────────
     csv_export = export_digest_csv(recent, label)
-    csv_file = "digest.csv"
+    csv_file = os.path.join(EXPORT_DIR, "digest.csv")
     with open(csv_file, "w", encoding="utf-8") as f:
         f.write(csv_export)
     print(f"Digest exported: {csv_file}", file=sys.stderr)
@@ -1507,12 +1509,12 @@ def main() -> None:
         safe_cat = "".join(c if c.isalnum() or c in "-_" else "_" for c in cat).lower()
 
         # Save CSV
-        csv_cat_file = f"digest__{safe_cat}.csv"
+        csv_cat_file = os.path.join(EXPORT_DIR, f"digest__{safe_cat}.csv")
         with open(csv_cat_file, "w", encoding="utf-8") as f:
             f.write(csv_content)
 
         # Save JSON
-        json_cat_file = f"digest__{safe_cat}.json"
+        json_cat_file = os.path.join(EXPORT_DIR, f"digest__{safe_cat}.json")
         with open(json_cat_file, "w", encoding="utf-8") as f:
             f.write(json_content)
 
