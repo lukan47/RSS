@@ -912,10 +912,64 @@ def _build_dropdown() -> str:
       })
       .catch(() => {});
 
+    // Search functionality
+    function initializeSearch() {
+      const searchInput = document.getElementById('search-input');
+      const searchClear = document.getElementById('search-clear');
+      const cards = document.querySelectorAll('.card');
+
+      if (!searchInput) return;
+
+      function performSearch(query) {
+        const lowerQuery = query.toLowerCase().trim();
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+          const title = card.querySelector('.card-title')?.textContent || '';
+          const source = card.querySelector('.source')?.textContent || '';
+          const context = card.textContent || '';
+          const fullText = (title + ' ' + source + ' ' + context).toLowerCase();
+
+          if (lowerQuery === '' || fullText.includes(lowerQuery)) {
+            card.style.display = 'block';
+            visibleCount++;
+          } else {
+            card.style.display = 'none';
+          }
+        });
+
+        // Show/hide clear button
+        searchClear.style.display = lowerQuery ? 'block' : 'none';
+
+        // Update count
+        const totalVisible = document.querySelectorAll('.card:not([style*="display: none"])').length;
+        return totalVisible;
+      }
+
+      searchInput.addEventListener('input', (e) => {
+        performSearch(e.target.value);
+      });
+
+      searchClear.addEventListener('click', () => {
+        searchInput.value = '';
+        performSearch('');
+        searchInput.focus();
+      });
+
+      // Allow Enter key to focus search
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && e.target !== searchInput) {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
+    }
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
       populateCategories();
       restoreFilterPreference();
+      initializeSearch();
     });
   </script>"""
 
@@ -982,11 +1036,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     background: #13141f;
     border-bottom: 3px solid #DA291C;
     padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    align-items: start;
   }}
   .topbar-left h1 {{
     font-size: 1.4rem;
@@ -1001,6 +1054,20 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     font-size: 0.82rem;
     color: #666;
     margin-top: 3px;
+  }}
+  .topbar-right {{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-end;
+  }}
+  @media (max-width: 1200px) {{
+    .topbar {{
+      grid-template-columns: 1fr;
+    }}
+    .topbar-right {{
+      align-items: flex-start;
+    }}
   }}
 
   /* ── Filter dropdowns ── */
@@ -1067,6 +1134,47 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   }}
   .export-btn:active {{
     transform: translateY(0);
+  }}
+
+  /* ── Search bar ── */
+  .search-bar {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1e2030;
+    border: 1px solid #2a2d3e;
+    border-radius: 6px;
+    padding: 6px 12px;
+    min-width: 250px;
+  }}
+  .search-bar input {{
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-size: 0.82rem;
+    outline: none;
+    flex: 1;
+  }}
+  .search-bar input::placeholder {{
+    color: #666;
+  }}
+  .search-bar input:focus {{
+    outline: none;
+  }}
+  .search-bar:focus-within {{
+    border-color: #DA291C;
+    box-shadow: 0 0 0 2px rgba(218, 41, 28, 0.1);
+  }}
+  .search-clear {{
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0;
+  }}
+  .search-clear:hover {{
+    color: #DA291C;
   }}
 
   /* ── Main content ── */
@@ -1161,10 +1269,16 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     <h1><span>Cyber</span> Competitive Daily Feed</h1>
     <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
-  {dropdown}
-  <div class="export-buttons">
-    <a href="digest.json" download class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
-    <a href="digest.csv" download class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+  <div class="topbar-right">
+    {dropdown}
+    <div class="export-buttons">
+      <a href="digest.json" download class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
+      <a href="digest.csv" download class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search articles..." class="search-input">
+      <button class="search-clear" id="search-clear" title="Clear search" style="display:none;">✕</button>
+    </div>
   </div>
 </div>
 
