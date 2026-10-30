@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyber Competitive Daily Feed — 2026-10-30 17:03 PHT</title>
+<title>Cyber Competitive Daily Feed — 2026-10-30 17:13 PHT</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -171,13 +171,11 @@
 
   /* ── Column grid ── */
   .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
   @media (max-width: 640px) {
-    .grid { grid-template-columns: 1fr; }
     .topbar { flex-direction: column; align-items: flex-start; }
   }
 
@@ -187,10 +185,26 @@
     border-radius: 10px;
     overflow: hidden;
   }
+  .col.search-hidden { display: none !important; }
   .col-header {
-    padding: 14px 16px 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 16px;
     background: #1a1d27;
   }
+  .col-toggle {
+    margin-left: auto;
+    background: transparent;
+    color: #aaa;
+    border: 1px solid #2a2d3e;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .col-toggle:hover { color: #fff; border-color: #DA291C; }
   .col-header h2 {
     font-size: 0.88rem;
     color: #fff;
@@ -200,19 +214,31 @@
   .count {
     font-size: 0.74rem;
     color: #555;
-    margin-top: 4px;
-    display: block;
+    white-space: nowrap;
   }
-  .col-body { padding: 12px; }
+  .col-body {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2d3e transparent;
+  }
+  .col.expanded .col-body {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 
   /* ── Article card ── */
   .card {
     background: #1a1d27;
     border-radius: 7px;
     padding: 12px 14px;
-    margin-bottom: 10px;
+    flex: 0 0 320px;
+    max-width: 320px;
+    scroll-snap-align: start;
   }
-  .card:last-child { margin-bottom: 0; }
   .card-meta {
     display: flex;
     justify-content: space-between;
@@ -256,7 +282,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <h1><span>Cyber</span> Competitive Daily Feed</h1>
-    <p>2026-10-30 17:03 PHT &nbsp;·&nbsp; 612 article(s) in the last 30 day(s)</p>
+    <p>2026-10-30 17:13 PHT &nbsp;·&nbsp; 613 article(s) in the last 30 day(s)</p>
   </div>
   <div class="topbar-right">
     
@@ -366,6 +392,11 @@
           }
         });
 
+        document.querySelectorAll('.col').forEach(col => {
+          const any = Array.from(col.querySelectorAll('.card')).some(c => c.style.display !== 'none');
+          col.classList.toggle('search-hidden', !any);
+        });
+
         // Show/hide clear button
         searchClear.style.display = lowerQuery ? 'block' : 'none';
 
@@ -391,6 +422,29 @@
           searchInput.focus();
         }
       });
+    }
+
+    // Row expand/collapse: only offered when a row overflows sideways
+    function initializeRowToggles() {
+      const rows = Array.from(document.querySelectorAll('.col'));
+      function refresh() {
+        rows.forEach(col => {
+          const body = col.querySelector('.col-body');
+          const btn = col.querySelector('.col-toggle');
+          if (!body || !btn) return;
+          btn.hidden = !col.classList.contains('expanded') && body.scrollWidth <= body.clientWidth + 1;
+        });
+      }
+      rows.forEach(col => {
+        const btn = col.querySelector('.col-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          const open = col.classList.toggle('expanded');
+          btn.textContent = open ? 'Collapse' : 'Show all';
+        });
+      });
+      refresh();
+      window.addEventListener('resize', refresh);
     }
 
     // Category export: one option per category and format
@@ -427,7 +481,7 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      [populateCategories, initializeCategoryExports, initializeSearch, restoreFilterPreference].forEach(fn => {
+      [populateCategories, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference].forEach(fn => {
         try {
           fn();
         } catch (err) {
@@ -454,9 +508,10 @@
   <div class="grid">
     
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #DA291C;">
+        <div class="col-header" style="border-left:4px solid #DA291C;">
           <h2>Zero-Day Exploits &amp; Vulnerabilities</h2>
-          <span class="count">76 article(s)</span>
+          <span class="count">75 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -498,7 +553,7 @@
                 <span class="date">2026-10-30 00:12 UTC</span>
               </div>
               <a class="card-title" href="https://www.theregister.com/security/2026/10/29/researchers-find-bugs-in-5-ai-developer-tools-with-openai-and-microsoft-flaws-still-unpatched/5306508" target="_blank">Researchers find bugs in 5 AI developer tools, with OpenAI and Microsoft flaws still unpatched</a>
-              <p class="card-context">Both Claude Desktop and VS Code allow local pages access to their respective project folders, but the researchers found that these restrictions did not apply to web workers – a...</p>
+              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -506,7 +561,7 @@
                 <span class="date">2026-10-29 20:05 UTC</span>
               </div>
               <a class="card-title" href="https://www.theregister.com/security/2026/10/29/suspected-chinese-attackers-built-a-custom-php2shell-exploit-and-rooted-25-servers/5306456" target="_blank">Suspected Chinese attackers built a custom PHP2Shell exploit and rooted 25 servers</a>
-              <p class="card-context">REG AD The attackers rooted the first US government-affiliated firewall on October 23, but the device crashed shortly afterward, possibly due to around 900 MB of exploit traffic</p>
+              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -1060,20 +1115,13 @@
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/ai-found-vulnerabilities-rce/" target="_blank">AI-Found Vulnerabilities More Likely to Enable RCE, Google Says</a>
               
             </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-09-30 14:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/09/30/unauthenticated-command-injection-on-internet-facing-mail-servers-tracking-cve-2026-73570/" target="_blank">Unauthenticated command injection on internet-facing mail servers: tracking CVE-2026-73570</a>
-              
-            </div>
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #3498db;">
+        <div class="col-header" style="border-left:4px solid #3498db;">
           <h2>Company &amp; Service Acquisitions</h2>
           <span class="count">5 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1120,9 +1168,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #e67e22;">
+        <div class="col-header" style="border-left:4px solid #e67e22;">
           <h2>CrowdStrike</h2>
           <span class="count">3 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1153,9 +1202,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #00b4d8;">
+        <div class="col-header" style="border-left:4px solid #00b4d8;">
           <h2>Palo Alto Networks</h2>
           <span class="count">3 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1186,9 +1236,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #8e44ad;">
+        <div class="col-header" style="border-left:4px solid #8e44ad;">
           <h2>SentinelOne</h2>
           <span class="count">3 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1219,26 +1270,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #0078d4;">
-          <h2>Microsoft Security</h2>
-          <span class="count">1 article(s)</span>
-        </div>
-        <div class="col-body">
-          
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-09-30 19:31 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/09/30/secure-whats-next-your-guide-to-microsoft-security-at-microsoft-ignite-2026/" target="_blank">​​Secure what’s next: Your guide to Microsoft Security at Microsoft Ignite 2026</a>
-              
-            </div>
-        </div>
-      </div>
-      <div class="col">
-        <div class="col-header" style="border-top:4px solid #00a9e0;">
+        <div class="col-header" style="border-left:4px solid #00a9e0;">
           <h2>ESET</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1253,9 +1288,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #ed1c24;">
+        <div class="col-header" style="border-left:4px solid #ed1c24;">
           <h2>Bitdefender</h2>
           <span class="count">3 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1286,9 +1322,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #16a085;">
+        <div class="col-header" style="border-left:4px solid #16a085;">
           <h2>Recorded Future</h2>
           <span class="count">2 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1311,9 +1348,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #0288d1;">
+        <div class="col-header" style="border-left:4px solid #0288d1;">
           <h2>Orca Security</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1328,9 +1366,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #0277bd;">
+        <div class="col-header" style="border-left:4px solid #0277bd;">
           <h2>Proofpoint</h2>
           <span class="count">2 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1353,9 +1392,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #006d5b;">
+        <div class="col-header" style="border-left:4px solid #006d5b;">
           <h2>Kaspersky</h2>
           <span class="count">2 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1378,9 +1418,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #00acc1;">
+        <div class="col-header" style="border-left:4px solid #00acc1;">
           <h2>Falco / Sysdig</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1395,9 +1436,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #00297a;">
+        <div class="col-header" style="border-left:4px solid #00297a;">
           <h2>Okta</h2>
           <span class="count">2 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1420,9 +1462,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #cb2d3e;">
+        <div class="col-header" style="border-left:4px solid #cb2d3e;">
           <h2>CyberArk</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1437,9 +1480,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #e91e8c;">
+        <div class="col-header" style="border-left:4px solid #e91e8c;">
           <h2>Delinea</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1454,9 +1498,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #f04e98;">
+        <div class="col-header" style="border-left:4px solid #f04e98;">
           <h2>Elastic Security</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1471,9 +1516,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #1a73e8;">
+        <div class="col-header" style="border-left:4px solid #1a73e8;">
           <h2>Arctic Wolf</h2>
           <span class="count">2 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1496,9 +1542,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #e84545;">
+        <div class="col-header" style="border-left:4px solid #e84545;">
           <h2>Huntress</h2>
           <span class="count">10 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1585,9 +1632,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #00adef;">
+        <div class="col-header" style="border-left:4px solid #00adef;">
           <h2>Aqua Security</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1602,9 +1650,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #4c4a73;">
+        <div class="col-header" style="border-left:4px solid #4c4a73;">
           <h2>Snyk</h2>
           <span class="count">1 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1619,9 +1668,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #9b59b6;">
+        <div class="col-header" style="border-left:4px solid #9b59b6;">
           <h2>Tenable</h2>
           <span class="count">3 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1652,9 +1702,10 @@
         </div>
       </div>
       <div class="col">
-        <div class="col-header" style="border-top:4px solid #95a5a6;">
+        <div class="col-header" style="border-left:4px solid #95a5a6;">
           <h2>General Security News</h2>
-          <span class="count">487 article(s)</span>
+          <span class="count">490 article(s)</span>
+          <button type="button" class="col-toggle" hidden>Show all</button>
         </div>
         <div class="col-body">
           
@@ -1884,6 +1935,22 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-29 16:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/29/tracking-ai-adoption-in-north-korean-threat-actor-tradecraft/" target="_blank">Tracking AI adoption in North Korean threat actor tradecraft</a>
+              <p class="card-context">Enable Zero-hour auto purge (ZAP) in Defender for Office 365 to quarantine sent mail in response to newly acquired threat intelligence and retroactively neutralize malicious...</p>
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-29 16:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/29/idc-marketscape-names-microsoft-a-leader-in-the-2026-worldwide-modern-endpoint-security-for-enterprises-vendor-assessment/" target="_blank">IDC MarketScape names Microsoft a Leader in the 2026 Worldwide Modern Endpoint Security for Enterprises Vendor Assessment</a>
+              <p class="card-context">The most critical moment in any attack is when it moves from access to action</p>
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">The Hacker News</span>
                 <span class="date">2026-10-29 21:27 UTC</span>
               </div>
@@ -1996,19 +2063,19 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-29 14:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/reports-that-siem-is-dead-are-exaggerated" target="_blank">Reports of SIEM&#x27;s Death Have Been Greatly Exaggerated</a>
-              <p class="card-context">Lean on a partner for the threats that look bad anywhere, and build your own detections for the things only your team would know are off</p>
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Infosecurity Magazine</span>
                 <span class="date">2026-10-29 14:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/crest-financial-cyber-resilience/" target="_blank">CREST Urges Whole-Ecosystem Approach to Financial Cyber Resilience</a>
               <p class="card-context">CREST Sets Out Three Domains For Financial Cyber Resilience Under the framework, financial institutions are responsible for protecting critical business services and...</p>
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Huntress Blog</span>
+                <span class="date">2026-10-29 14:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.huntress.com/blog/reports-that-siem-is-dead-are-exaggerated" target="_blank">Reports of SIEM&#x27;s Death Have Been Greatly Exaggerated</a>
+              <p class="card-context">Lean on a partner for the threats that look bad anywhere, and build your own detections for the things only your team would know are off</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2072,7 +2139,7 @@
                 <span class="date">2026-10-29 13:33 UTC</span>
               </div>
               <a class="card-title" href="https://www.theregister.com/security/2026/10/29/shortlist-of-age-checks-for-the-uks-under-16-social-media-ban-is-out-some-adults-will-need-verifying/5306282" target="_blank">Shortlist of age checks for the UK&#x27;s under-16 social media ban is out, &#x27;some&#x27; adults will need verifying</a>
-              <p class="card-context">5B+ valuation for entire firm, though portion sold not specified Malware Month Ten years since the first corp ransomware, Mikko Hyppönen sees no end in sight On the plus side,...</p>
+              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2112,7 +2179,7 @@
                 <span class="date">2026-10-29 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.theregister.com/security/2026/10/29/attackers-turn-github-issues-into-supply-chain-campaign-against-61-public-repos-in-less-than-an-hour/5306153" target="_blank">Attackers turn GitHub issues into supply chain campaign against 61 public repos in less than an hour</a>
-              <p class="card-context">A novel attack chain They discovered the campaign while investigating prompt injection in GitHub – and they told us the attack chain is part of what makes this supply-chain...</p>
+              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2144,7 +2211,7 @@
                 <span class="date">2026-10-29 11:15 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/online-scam-volumes-double/" target="_blank">Online Scam Volumes Double to Overtake Phishing</a>
-              <p class="card-context">The security vendor’s latest State of the Internet (SOTI) report features data from partner Bolster AI, revealing that scam activity overtook phishing for the first time</p>
+              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2152,7 +2219,7 @@
                 <span class="date">2026-10-29 11:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.securityweek.com/hackers-steal-2-6-million-records-from-sonys-japanese-isp-so-net/" target="_blank">Hackers Steal 2.6 Million Records From Sony’s Japanese ISP So-net</a>
-              <p class="card-context">The company first spotted the intrusion on October 23, then took the targeted server offline and cut off traffic coming from the attackers</p>
+              
             </div>
             <div class="card">
               <div class="card-meta">
@@ -2408,6 +2475,14 @@
                 <span class="date">2026-10-28 16:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.huntress.com/blog/attackers-turn-mdm-into-remote-access" target="_blank">Managed for Malice: How Attackers Turn MDM into Remote Access</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-28 16:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/28/the-cisos-evolving-role-protecting-and-defending-in-the-agentic-era/" target="_blank">The CISO’s evolving role: Protecting and defending in the agentic era</a>
               
             </div>
             <div class="card">
@@ -3244,6 +3319,14 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-23 18:12 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/23/inside-the-litellm-1-107-0-supply-chain-compromise-credential-theft-through-python-startup-hooks/" target="_blank">Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">Dark Reading</span>
                 <span class="date">2026-10-23 17:26 UTC</span>
               </div>
@@ -3948,18 +4031,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Wired Security</span>
-                <span class="date">2026-10-21 10:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.wired.com/story/the-deas-premier-crypto-detective-clues-led-straight-to-her-own-family/" target="_blank">She Was the DEA’s Premier Crypto Detective. The Clues Led Straight to Her Own Family</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Talos Intelligence</span>
                 <span class="date">2026-10-21 10:00 UTC</span>
               </div>
               <a class="card-title" href="https://blog.talosintelligence.com/parasitizing-trust-how-legitimate-infrastructure-becomes-a-delivery-pipeline-for-attackers/" target="_blank">Parasitizing trust: How legitimate infrastructure becomes a delivery pipeline for attackers</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Wired Security</span>
+                <span class="date">2026-10-21 10:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.wired.com/story/the-deas-premier-crypto-detective-clues-led-straight-to-her-own-family/" target="_blank">She Was the DEA’s Premier Crypto Detective. The Clues Led Straight to Her Own Family</a>
               
             </div>
             <div class="card">
@@ -4300,6 +4383,14 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-19 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/19/agents-are-your-newest-insiders-security-must-move-at-their-speed/" target="_blank">Agents are your newest insiders. Security must move at their speed.</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">Wiz Blog</span>
                 <span class="date">2026-10-19 11:26 UTC</span>
               </div>
@@ -4364,6 +4455,14 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Microsoft Security Blog</span>
+                <span class="date">2026-10-16 16:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/16/managing-open-weight-model-risk-in-enterprise-deployments/" target="_blank">Managing open-weight model risk in enterprise deployments</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">Cyble</span>
                 <span class="date">2026-10-16 13:35 UTC</span>
               </div>
@@ -4372,18 +4471,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-16 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/employee-spotlight-sarah-reddish" target="_blank">Inside the Hunt: Sarah Reddish</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Infosecurity Magazine</span>
                 <span class="date">2026-10-16 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/ransomware-threats-physical/" target="_blank">Ransomware Gangs Increasingly Turn to Threats of Physical Violence to Extort Payments</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Huntress Blog</span>
+                <span class="date">2026-10-16 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.huntress.com/blog/employee-spotlight-sarah-reddish" target="_blank">Inside the Hunt: Sarah Reddish</a>
               
             </div>
             <div class="card">
@@ -5036,18 +5135,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Elastic Security Labs</span>
-                <span class="date">2026-10-08 00:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.elastic.co/security-labs/blog/ai-soc-automation-alertzero" target="_blank">Introducing AlertZero: Inbox zero for your alert queue</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Falco / Sysdig Blog</span>
                 <span class="date">2026-10-08 00:00 UTC</span>
               </div>
               <a class="card-title" href="https://webflow.sysdig.com/blog/runtime-ai-defense-in-a-shared-responsibility-model" target="_blank">Runtime AI Defense in a shared responsibility model</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Elastic Security Labs</span>
+                <span class="date">2026-10-08 00:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.elastic.co/security-labs/blog/ai-soc-automation-alertzero" target="_blank">Introducing AlertZero: Inbox zero for your alert queue</a>
               
             </div>
             <div class="card">
@@ -5084,18 +5183,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-07 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/screenconnect-power-bi" target="_blank">Phishing Campaign Abuses Microsoft Power BI to Deploy Rogue RMMs</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Infosecurity Magazine</span>
                 <span class="date">2026-10-07 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/attackers-hide-ai-prompt/" target="_blank">Attackers Hide AI Prompt Injections Inside Phishing Emails</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Huntress Blog</span>
+                <span class="date">2026-10-07 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.huntress.com/blog/screenconnect-power-bi" target="_blank">Phishing Campaign Abuses Microsoft Power BI to Deploy Rogue RMMs</a>
               
             </div>
             <div class="card">
@@ -5144,14 +5243,6 @@
                 <span class="date">2026-10-07 00:00 UTC</span>
               </div>
               <a class="card-title" href="https://snyk.io/blog/autonomous-attacks-already-here-defense-match-their-speed/" target="_blank">Autonomous Attacks Are Already Here. The Defense Has to Match Their Speed.</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-06 16:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/06/ciso-perspectives-on-managing-vulnerability-risks-in-the-age-of-ai/" target="_blank">CISO perspectives on managing vulnerability risks in the age of AI</a>
               
             </div>
             <div class="card">
@@ -5368,22 +5459,6 @@
                 <span class="date">2026-10-01 14:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/ta419-impersonates-ai-experts-us/" target="_blank">China-Linked Hackers Impersonate AI Experts to Target US Policy Insiders</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-01 14:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://blogs.microsoft.com/on-the-issues/2026/10/01/preparing-governments-for-an-era-of-interconnected-cyber-risk/" target="_blank">Preparing governments for an era of interconnected cyber risk</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Microsoft Security Blog</span>
-                <span class="date">2026-10-01 14:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.microsoft.com/en-us/security/blog/2026/10/01/insights-from-the-2026-microsoft-digital-defense-report/" target="_blank">Insights from the 2026 Microsoft Digital Defense Report</a>
               
             </div>
             <div class="card">
