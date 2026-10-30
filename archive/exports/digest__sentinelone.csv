@@ -1,4 +1,640 @@
-Date,Source,Title,Link,Context
-2026-10-21 19:21 UTC,SentinelOne Blog,Stopping PHP2SHELL: How SentinelOne Protects Customers From This Attack Technique,https://www.sentinelone.com/blog/stopping-php2shell-how-sentinelone-protects-customers-from-this-attack-technique/,
-2026-10-16 18:01 UTC,SentinelOne Blog,How SentinelOne Blocked APT29's CaptiveCrunch Campaign,https://www.sentinelone.com/blog/how-sentinelone-blocked-apt29-s-captivecrunch-campaign/,
-2026-10-09 17:48 UTC,SentinelOne Blog,5 Years of SentinelOne ThreatOps: Defense from the Ground Up to Global Threat Championships,https://www.sentinelone.com/blog/5-years-of-sentinelone-threatops-defense-from-the-ground-up-to-global-threat-championships/,
+Date,Source,Title,Link,Context,Full Text
+2026-10-21 19:21 UTC,SentinelOne Blog,Stopping PHP2SHELL: How SentinelOne Protects Customers From This Attack Technique,https://www.sentinelone.com/blog/stopping-php2shell-how-sentinelone-protects-customers-from-this-attack-technique/,"The detection by the agent is agnostic to the vulnerability and exploit chain and focuses on attackers activity following the exploit, including but not limited to, installation...","Executive Summary
+
+On October 21, 2026, the PHP project released versions 8.5.12, 8.4.27, 8.3.36, and 8.2.35 to fix two critical vulnerabilities, CVE-2026-109618 and CVE-2026-109619, both rated CVSS v4.0 9.2. The two flaws are known together as PHP2Shell. They were disclosed by the security firms Calif and Wiz and by OpenAI, working with the PHP security team, after AI-assisted auditing turned an out-of-memory weakness that a 2024 audit had flagged but could not prove exploitable into working remote code execution.
+
+Both vulnerabilities sit in PHP's memory management and error handling, code that nearly every request touches, and the earliest affected path dates to PHP 5.4.0. An unauthenticated attacker can execute code on the web server or read its process memory, including passwords, tokens, and API keys belonging to other requests. On Apache with mod_php, the attack runs before any application code executes, which means an application with no bugs of its own is still exposed. As of October 21, 2026, no verified proof-of-concept code is available publicly. Attack attempts have been observed by Cloudflare after the leak, but no confirmed in-the-wild compromise has yet been reported.
+
+While upgrading every PHP runtime remains the primary control, SentinelOne agent detects attackers’ post-exploitation activities. Once an attacker has code execution on the web server process, the behavior that follows web server flaws: execute shell commands, drop and invoke webshells, download and execute custom payloads and outbound connections. On managed hosts, the Singularity™ agent and Singularity AI SIEM detection content look for such behaviors, and Purple AI® can be used to hunt for it during the patching window. The separate memory-disclosure path runs no code on the host, so it leaves no process behavior to detect; that path is instead surfaced through web server, WAF, and CDN telemetry forwarded into AI SIEM.
+
+This report details PHP2Shell's mechanism, affected versions, and confirmed activity, and outlines how SentinelOne customers can strengthen their defenses.
+
+Key Highlights
+
+The flaw is in PHP itself, not in any application. WordPress, Drupal, Joomla, Magento, Laravel, and other web applications are all exposed on an affected PHP version, because the vulnerable code is in the runtime beneath them.
+
+The patch is the only complete fix. PHP states plainly that no configuration change fully closes the vulnerability. Every interim mitigation reduces one attack path and leaves others open.
+
+The unauthenticated path runs before your code does. On Apache with mod_php, a single crafted HTTP request triggers the flaw during request startup, so application-level controls never see it. PHP assesses the risk as highest for mod_php.
+
+Memory disclosure leaks secrets without a shell. One path reads live worker memory and returns passwords, tokens, API keys, and certificates with no code execution, which makes it quieter than a shell and harder to catch with execution-focused tooling.
+
+End of Life PHP will not get a patch. Organizations running PHP 8.1 and prior will not receive an official release. Source-only backports exist for 7.4, 8.0, and 8.1, and distribution or LTS vendors may offer fixed packages.
+
+Leverage SentinelOne platform post-exploitation coverage. The detection by the agent is agnostic to the vulnerability and exploit chain and focuses on attackers activity following the exploit, including but not limited to, installation and usage of webshells, command executions and outbound connection behavior that follows the code execution.
+
+Organizations should take the following steps immediately:
+
+Update every PHP runtime to a fixed version and restart Apache, PHP-FPM, and any long-running workers.
+
+Inventory internet-facing PHP, including the copies bundled inside appliances, control panels, and vendor software.
+
+Isolate end-of-life PHP (8.1 and older) from the internet until it can be upgraded.
+
+Rotate credentials, tokens, and keys that a PHP worker could hold in memory on any exposed, unpatched system.
+
+Monitor the official PHP changelog for relevant updates
+
+What is PHP2SHELL
+
+PHP2Shell is a family of memory-safety vulnerabilities in core PHP, grouped under two CVEs that share one root cause. When PHP hits a fatal condition such as exhausting its configured memory limit, it does not unwind cleanly. It abandons the current operation with a “longjmp” out of the C call stack, so no cleanup runs and nothing records that a data structure was left half-built. A later cleanup routine, or a later request, then trusts that state.
+
+CVE-2026-109618 is the out-of-memory case. PHP marks request data as valid before allocating memory for it. If that allocation hits the memory limit and fails, the entry is left pointing to uninitialized heap memory. When the failed request runs its cleanup routine, it processes these stale bytes, leading to corruption..
+
+CVE-2026-109619 is the stale-state case. When a fatal error occurs, PHP fails to clean up properly, leaving a global pointer pointing to memory that has already been freed. Because worker processes handle multiple requests, a subsequent request on the same worker can interact with this freed memory before initialization resets it – resulting in a use-after-free condition. Session upload progress (enabled by default) is a confirmed trigger for this behavior.
+
+Both flaws were discovered through AI-assisted auditing under OpenAI's “Patch the Planet” program. Calif and OpenAI independently reported the root cause to the PHP security team on August 11, 2026, and Wiz reported additional attack vectors on August 24, 2026. PHP first saw signs of the underlying out-of-memory problem during a 2024 audit by OSTIF and Quarkslab, but no exploitation path was proven at the time and the fix stalled. The PHP Foundation has since described that delay as a structural failure in its security process.
+
+On October 20, the two CVE identifiers leaked on social media. PHP released a patch on October 21, 2026.
+
+PHP2SHELL at a Glance
+
+Attribute
+
+Detail
+
+Tracking
+
+CVE-2026-109618, CVE-2026-109619 (PHP2Shell)
+
+Vulnerability Class
+
+Memory safety: use-after-free and improper handling of exceptional conditions (CWE-416, CWE-755)
+
+Severity
+
+CVSS v4.0 9.2, Critical, for both CVEs
+
+Affected
+
+PHP 5.4.0 through the release before each branch's fix. Nearly every version released in a decade is affected by at least one issue
+
+Attack Vector
+
+Unauthenticated, network, over a single crafted HTTP request
+
+Impact
+
+Remote code execution as the web worker, or disclosure of sensitive process memory
+
+Exploitation Status
+
+As of October 21, 2026: no verified proof-of-concept code is available publicly, attack attempts observed by Cloudflare after the leak, no confirmed in-the-wild compromise reported.
+
+Affected and Fixed PHP Versions
+
+PHP Branch
+
+Vulnerable
+
+First Fixed Release
+
+8.5
+
+< 8.5.12
+
+8.5.12
+
+8.4
+
+< 8.4.27
+
+8.4.27
+
+8.3
+
+< 8.3.36
+
+8.3.36
+
+8.2
+
+< 8.2.35
+
+8.2.35 (branch reaches end of life December 31, 2026)
+
+8.1 and older
+
+All releases
+
+No official fix. Source backports only for 7.4, 8.0, and 8.1
+
+Affected and Fixed PHP Versions
+
+PHP Branch
+
+Vulnerable
+
+First Fixed Release
+
+8.5
+
+< 8.5.12
+
+8.5.12
+
+8.4
+
+< 8.4.27
+
+8.4.27
+
+8.3
+
+< 8.3.36
+
+8.3.36
+
+8.2
+
+< 8.2.35
+
+8.2.35 (branch reaches end of life December 31, 2026)
+
+8.1 and older
+
+All releases
+
+No official fix. Source backports only for 7.4, 8.0, and 8.1
+
+Am I Affected?
+
+Assume exposure for any PHP runtime below the fixed version for its branch. Check the version the web server actually loads, which can differ from the command-line version, using php --version for the CLI and the equivalent for PHP-FPM or the Apache module. Linux distributions and LTS vendors received the patch in advance, and a packaged build may carry the fix under an older version number, so confirm against your vendor's advisory rather than the version string alone.
+
+PHP states that all installations serving web requests are at risk, including PHP-FPM, Apache with mod_php, php-cgi, FrankenPHP, and LiteSpeed, and rates the risk highest for mod_php. Do not use configuration to rule out exposure. PHP validated mod_php code execution with default input and memory limits, and states that no configuration change is a complete mitigation. OpenAI has published a PHP version checker, which should be reviewed before you run it.
+
+How The Two CVEs Differ
+
+CVE-2026-109618
+
+CVE-2026-109619
+
+PHP title
+
+RCE via OOM corruption
+
+RCE via stale global state
+
+Trigger
+
+Out-of-memory during request startup, such as multipart parsing
+
+A fatal error, including out-of-memory or an execution timeout, that leaves request state published
+
+Requests needed
+
+One. The invalid state is processed during the same request's shutdown
+
+Two. One request poisons the worker, a later request on the same worker consumes the stale state
+
+Confirmed code execution
+
+mod_php with default PHP input and memory limits. PHP-FPM is susceptible by source analysis, with no complete exploit demonstrated
+
+mod_php through the PHP 8.5 fatal backtrace and session upload progress paths. PHP-FPM through session upload progress, which needs a suitable application operation
+
+Interim setting
+
+memory_limit=-1 set administratively, plus a low post_max_size
+
+session.upload_progress.enabled=0, and fatal_error_backtraces=0 on PHP 8.5
+
+Limit of the setting
+
+Partial. An underlying allocation failure can still reach the vulnerable path
+
+Partial. Blocks the confirmed paths only
+
+Why This Matters
+
+A flaw in PHP itself reaches far further than a flaw in any one application. PHP is widely used across the internet, and it is embedded in content management systems, control panels such as cPanel and Plesk, and a variety of vendor applications. The hard part of this response is not applying the patch. It is finding every runtime that needs it.
+
+The patch is also the only complete fix, and a large share of PHP cannot receive it. PHP 8.1 and older are at end of life, and Talos estimates from open-source data that around half of internet-facing PHP runs on branches with no official update. Those systems need to be upgraded to a supported branch or taken off the internet, not merely reconfigured.
+
+Exploitation is also hard to see. The memory-disclosure path returns secrets from live worker memory without running code at all, which Wiz notes makes it harder to catch with tools focused on malicious code execution. Because the flaws execute below the application layer, Wiz also reports that application logs may contain little context, and the clearest traces are in web server and PHP error logs rather than in application telemetry.
+
+Attack Chain
+
+Stage 1: Reaching the Flaw Over an Unauthenticated Request
+
+The attacker sends a crafted multipart HTTP request that places PHP's memory under pressure or forces a fatal error during request startup. A chunked or lengthless request slips past the post_max_size check, and empty file controls with deeply nested field names expand a small request body into large internal allocations.
+
+Stage 2: Corrupting Worker State
+
+The forced out-of-memory condition or fatal error interrupts PHP in a context that does not account for the early exit. For CVE-2026-109618, Apache with mod_php runs its request shutdown unconditionally and processes the partially initialized state as if it were valid. For CVE-2026-109619, a global pointer is left referring to freed request memory, and a later request on the same worker consumes it.
+
+Stage 3: Code Execution or Memory Disclosure
+
+With the heap arranged to reclaim the freed or invalid memory with attacker-controlled bytes, the corrupted state becomes a memory-corruption primitive that yields code execution as the web worker. PHP confirmed complete remote code execution against mod_php with default input and memory limits. On a separate path, the attacker instead reads live worker memory and extracts passwords, tokens, API keys, and certificates belonging to other requests, returned through the PHPSESSID response cookie, with no code execution at all.
+
+Stage 4: Post-Exploitation
+
+Code runs with the privileges of the web server worker, commonly www-data. From there, operators drop a web shell into the web root, spawn shells and tooling such as sh, bash, python, curl, and wget, and move laterally using any credentials recovered through memory disclosure.
+
+Hardening Recommendations
+
+These steps apply to any PHP estate, independent of security vendor. Patching is the only complete remediation. Everything else reduces exposure during the window before every runtime is updated.
+
+Patch Every PHP Runtime and Restart Workers
+
+Update to PHP 8.5.12, 8.4.27, 8.3.36, or 8.2.35, or to the fixed package from your Linux distribution or hosting provider.
+
+Restart Apache, PHP-FPM, and every long-running PHP worker after updating. The running process keeps the vulnerable code until it is restarted.
+
+Remember that updating an application, CMS, or framework does not update the PHP runtime beneath it.
+
+Assess Your Exposure
+
+Inventory every PHP runtime: web servers first, then vendor appliances, Windows software that bundles php.exe or php-cgi.exe, control panels such as cPanel and Plesk, and any WordPress, Drupal, Joomla, or Magento install.
+
+Isolate end-of-life PHP (8.1 and older) behind a VPN or take it off the internet until it is upgraded to a supported branch.
+
+Apply Interim Settings Only as a Bridge
+
+For CVE-2026-109618, set memory_limit=-1 administratively so applications cannot override it, and keep post_max_size low. Do not substitute RLIMIT_AS or RLIMIT_DATA, which can trigger the vulnerable path.
+
+For CVE-2026-109619, set session.upload_progress.enabled=0, and on PHP 8.5 set fatal_error_backtraces=0, applied before request parsing and followed by a worker restart.
+
+Treat all of these as partial. PHP confirms there is no complete configuration mitigation, and hiding diagnostics with error_reporting, display_errors, or the @ operator does not help.
+
+Constrain the Request at the Edge
+
+At the proxy or web application firewall, enforce limits on decoded request size, input field count, multipart part count, header count per part, and nesting depth, including requests that arrive without a usable Content-Length.
+
+Enable your WAF or reverse proxy vendor's managed rules for PHP2Shell, which several vendors published on October 21, and test first because rules can block legitimate traffic.
+
+Treat the WAF as a layer, not a fix: Cloudflare saw attackers mutating payloads to bypass its rules.
+
+If an application does not use multipart form data, block multipart requests to it before they reach PHP.
+
+Limit Worker Reuse and Blast Radius
+
+Lower PHP-FPM pm.max_requests so workers recycle more often, reducing how long the corrupted state can persist.
+
+Use a cgroup memory.max as an availability boundary that kills only the affected worker, not the whole pool.
+
+Apply SELinux or AppArmor policies to restrict what a web worker can execute.
+
+Rotate Secrets Reachable in Process Memory
+
+Assume any credential, session token, API key, or certificate held by a PHP worker on an exposed, unpatched system may have been disclosed.
+
+Rotate them now rather than after confirmed compromise, because memory disclosure leaves little trace.
+
+Hunt for Post-Exploitation
+
+Review the web root for newly created files and web shells, and watch for new cron jobs, scheduled tasks, and accounts.
+
+Alert on PHP worker processes (php-fpm, php-cgi, httpd, apache2, w3wp) spawning shells, interpreters, or download tools, including cmd.exe and powershell.exe on Windows.
+
+In web server and PHP error logs, look for unusual multipart requests followed by memory-limit fatal errors or repeated HTTP 500 responses, and for unexplained PHP worker churn (Wiz).
+
+Check response headers for unexpectedly large or malformed PHPSESSID cookies, which Wiz identifies as a sign of the memory-disclosure path.
+
+Enable log_errors, a working error_log, and error_reporting=E_ALL in startup configuration for an isolated audit, as PHP recommends, and treat a clean log as supporting evidence rather than proof of safety.
+
+Treat these signals as leads, not verdicts. They come from public research rather than confirmed attack traffic, and memory-limit errors and HTTP 500s also occur on healthy systems.
+
+How SentinelOne Protects You
+
+PHP2Shell executes inside the web server worker process, below the application. SentinelOne’s visibility begins where that worker runs on a host with the agent installed. The agent cannot see internal application activity which doesn’t interact with the OS or other processes as the memory-disclosure path. What SentinelOne can address is the behavior of the code executed by the attacker.
+
+The Behavior After Exploitation
+
+Code execution through a web server worker process has the worker’s privileges. From there the sequence is familiar. The attacker runs host and user discovery, pulls a second-stage payload with a built-in download utility, writes a web shell into the document root so a fragile memory bug does not have to be triggered twice, opens an outbound connection to attacker infrastructure, and reads application configuration files for database credentials.
+
+Detection on the Host
+
+The Singularity agent builds a storyline of every process group activity on a host, including the web server workers PHP2Shell targets. These workers have a predictable life: they answer HTTP requests. They do not normally start /bin/sh, run reconnaissance commands, download executables into /tmp, write new .php files into the web root, or open outbound connections to arbitrary hosts. Behavioral detection looks for that deviation from the worker’s normal behavior. With the policy mode set to protect, the agent can terminate the process tree and quarantine dropped artifacts.
+
+Detection in Singularity AI SIEM
+
+Platform detection content looks at what happens on the host after exploitation, not at the request body.
+
+Attacker Step
+
+Telemetry
+
+Visible Indicators
+
+Code execution in the worker
+
+Process creation
+
+Web server and script-interpreter processes spawning system shells, enumeration utilities (id, whoami, uname, hostname), or sensitive file reads
+
+Tooling download
+
+Process Creation, File Creation
+
+Downloaders (curl, wget, interpreters) fetching to world-writable paths, and executables written and then run from /tmp
+
+Webshell drop
+
+File creation
+
+Web server processes writing .php, .jsp, .sh, or other script files into web-served directories, correlated with the inbound HTTP connection that preceded it
+
+Reverse shell and C2
+
+Process Creation, IP Connect
+
+Shell processes with socket-redirection patterns (/dev/tcp, nc, socat) and unexpected outbound connections from web workers
+
+Novel child process
+
+First-seen analytics
+
+A PHP or web server process spawning a child it has never spawned in that environment
+
+Correlation rules tie these together. An inbound HTTP connection followed by a file drop or process spawn from the same worker is the shape of a successful PHP2Shell chain.
+
+Visibility at the Edge
+
+The memory-disclosure path never starts a process, so host telemetry alone will not see it. It can leave traces in web server, WAF, and CDN logs: unusual multipart requests followed by memory-limit errors or bursts of HTTP 500s, malformed or oversized PHPSESSID cookies, and unexplained worker churn. Singularity AI SIEM can ingest those sources alongside endpoint data if you forward them. Existing content covers allowed web shell uploads, successful POSTs to server-side scripts that have never received them before, and web shell command execution at the network layer.
+
+Hunt with Purple AI While You Patch
+
+Patching is the only complete fix, and the Hardening section covers interim settings. While that work runs, analysts can ask Purple AI questions such as:
+
+Show me web server workers that spawned a shell in the last 72 hours.
+
+Show me new files written to web roots by php-fpm.
+
+Show me hosts with a spike in 500 responses followed by a child process from Apache.
+
+Show me outbound connections from www-data to destinations we have never seen.
+
+The 500-response question depends on web server logs being ingested.
+
+Confirm Agent Saturation on Web-Facing Servers
+
+Confirm the agent is deployed, healthy, and in protect mode on every server that serves PHP, including internet-facing Linux hosts.
+
+Conclusion
+
+The exploitation picture for PHP2Shell is moving quickly. As of October 21, 2026, no verified proof-of-concept code is available publicly. Attack attempts have been observed by Cloudflare after the leak, but no confirmed in-the-wild compromise has yet been reported. SentinelOne is monitoring PHP2Shell activity and will update this report as exploitation evidence, vendor guidance, and detection content change.
+
+SentinelOne recommends customers follow vendor guidance and prioritize patching as the primary defensive tactic. Interim settings, WAF rules, and detection reduce risk while it is deployed. Update every PHP runtime to 8.5.12, 8.4.27, 8.3.36, or 8.2.35, restart the workers, and confirm the fix is running on the version the web server actually loads. Move PHP 8.1 and older to a supported branch or off the internet, and rotate any secrets that a worker on an unpatched, exposed system could have held in memory.
+
+SentinelOne Black October Webinar
+
+Disclaimer
+
+Information contained herein is current as of October 21, 2026, and is subject to change as patch releases and threat activity evolve. Recipients should not rely solely on this report for security decisions and should consult with their security teams and SentinelOne account representatives for current guidance."
+2026-10-16 18:01 UTC,SentinelOne Blog,How SentinelOne Blocked APT29's CaptiveCrunch Campaign,https://www.sentinelone.com/blog/how-sentinelone-blocked-apt29-s-captivecrunch-campaign/,Run these steps as a scheduled threat hunt rather than as a detection rule,"Once the corporate network stopped being defensible, the control had to move to the device, as SentinelOne® has long argued.
+
+That move carried one assumption with it. Wherever the laptop sits, name resolution tells it the truth and the agent can reach its own cloud. Almost nothing in the stack checks either half.
+
+In July 2026, Microsoft disclosed a campaign that breaks both and named it CaptiveCrunch. A captive portal is the sign-in page a public Wi-Fi network pushes in front of you before it lets you online. Hotels, airports, conference centres, the splash screen you click through without reading. That is where this campaign starts.
+
+CaptiveCrunch is the work of APT29, the cyber-espionage arm of Russia's Foreign Intelligence Service. Microsoft tracks the group as Midnight Blizzard, and elsewhere it is Cozy Bear. Outside the industry it is best known for the SolarWinds compromise.
+
+We saw the same operation from the endpoint, across multiple environments we protect in three regions. We also found the adversary answering from inside the victims' own networks, which no public account of the campaign describes.
+
+The Adversary Was on the Victim's Own Network Segment
+
+Public accounts of CaptiveCrunch describe compromised captive-portal infrastructure, but our telemetry shows something narrower. The DnsPoison indicator recorded LLMNR responses on UDP/5355 carrying the adversary's address on roughly a third of affected hosts.
+
+The queries carried randomised canary hostnames. LLMNR is link-local multicast that does not traverse routers. Anything answering those queries had to be sitting on the victim's own broadcast domain.
+
+A Responder-style spoofer was sitting on the shared network, and no DNS server anywhere in the chain was compromised.
+
+The techniques in play:
+
+T1557.001 (LLMNR/NBT-NS Poisoning and SMB Relay)
+
+T1557 (Adversary-in-the-Middle)
+
+T1659 (Content Injection), for the fake updates served in response to connectivity checks
+
+T1584.008 (Compromise Infrastructure: Network Devices), per public accounts, for the captive portal gateways
+
+From the same layer-two segment as the laptop, the spoofer raced the legitimate resolver and won often enough to matter. Across affected hosts, clean and poisoned answers for the same domain interleaved seconds apart.
+
+Success rates ranged from 5.6% to 84% depending on the network. The spoofer replayed the genuine CNAME chain and rewrote only the terminal A record.
+
+Then Windows delivered the lure itself. To check whether a network needs a sign-in page, Windows fetches a known file over plain HTTP. If the reply is not what it expects, it assumes a captive portal and opens the default browser for sign-in. All of that is documented behaviour.
+
+An adversary who rewrites the reply on-path gets the operating system to open the browser at their page. The lure needed no email and no link, but everything after that still needed a person at the keyboard.
+
+The payload was a browser updater matched to the victim's own browser. Microsoft documented ClickFix-style lures for this campaign. In those, the victim is walked through running a command. We saw no such lure on our endpoints, where downloading the file and launching it was manual every time.
+
+Nothing you own sits in the path on someone else's LAN, so the control has to live on the host.
+
+Disable LLMNR. It is the best host control and also the bluntest. It takes away the protocol the adversary is answering on, which no detection rule can do. LLMNR's fallback is rarely load-bearing in a managed estate.
+
+Why the Usual Controls Were Not In the Path
+
+The attack runs on someone else's network, so your network controls are not involved. Your DNS filtering is not involved either, because the spoofer forges answers on the wire before trusted resolvers respond.
+
+The browser renders the lure because Windows told it to. The chain has no email, link, attachment, or scripting host in it.
+
+There is also almost no behaviour to detect, because everything dangerous about this payload happens after a process is created. Before that, nearly every step belongs to the operating system or the network. That is not the kind of behaviour a detection engine is built to catch.
+
+The payload is CornFlake, a Go remote access trojan. CornFlake in turn deploys ChocoShell, a PowerShell infostealer that runs entirely in memory. Microsoft's analysis of the same payload itemises what each of them does.
+
+CornFlake, on the host:
+
+Surveillance: A raw-input keylogger, clipboard monitoring, on-demand screenshots, microphone and webcam capture, and USB monitoring.
+
+Persistence: Service registration, Run keys, and scheduled tasks, with a watchdog to restore whatever a defender removes.
+
+ChocoShell, deployed by CornFlake and resident only in memory:
+
+Cookie theft: Live cookie extraction from browser process memory and a defeat for Chrome's App-Bound Encryption.
+
+Token theft: Microsoft 365 and Entra ID tokens lifted from the Token Broker cache.
+
+Evasion: It disables AMSI through .NET reflection and runs a timing-based check for sandboxes and virtual machines before collecting anything.
+
+Escalation: It chains three UAC bypasses in fallback order through the SilentCleanup task, wsreset.exe, and sdclt.exe.
+
+Until it runs, the file sits inert in Downloads.
+
+Deciding Locally, On the File, Before it Runs
+
+The adversary controlled the network the laptop sat on and had cut the agent's path to its cloud. That left the file, judged on the agent with nothing else in the loop.
+
+The agent convicted every copy that landed, each before it could execute. That is one hundred percent of delivered payloads in one hundred percent of affected environments. We verified both figures twice against the telemetry. One endpoint ran an agent nearly a year out of date and reached the same verdict as current ones.
+
+Then we tested for the things that would mean we were wrong. Every check came back empty:
+
+No process creations from the Downloads folder on any affected host
+
+No adversary-attributable persistence
+
+No lateral movement
+
+No post-incident C2 contact
+
+No payload hashes remaining
+
+What It Looked Like in the Console
+
+The investigating analyst recorded his screen while walking the Storylines on the endpoint where the payload came closest to running.
+
+Because the Storylines are scattered across the campaign, he worked in two views. One was the management console, and the other was the Threat Operations Center, which clusters the same events more legibly.
+
+Storyline 1: Delivery, With the Poisoning Visible On One Screen
+
+It opens with Windows launching Edge with the connectivity-check URL as its argument.
+
+Scroll into the DNS events on that same Storyline and the race is sitting there in plain view. One request for a domain resolves to a legitimate address. Scroll down, same domain, and it resolves to the adversary's address.
+
+The same name was answered both ways, minutes apart, on one machine. Only injection racing a real resolver produces that pattern. Later comes the download, a browser updater with a (5) suffix on its filename.
+
+The suffix means the browser had already written four earlier copies to the same folder. Our analyst took that to mean someone kept going back for it and tried to run the last one.
+
+Deep Visibility does not record mouse clicks. Manual launching is an inference from the filename and the process chain, and we are flagging it as one.
+
+Storyline 2: A Token Request While the Login Domain Was Poisoned
+
+A different Storyline shows connections out to the adversary's address. Follow the URL events and the timing lines up with the delivery window.
+
+The request is a POST to the OAuth token endpoint. Open the DNS events on that same Storyline, and the Microsoft login domain is already resolving to the adversary's address.
+
+We can confirm token requests were issued while the poisoning was active, to a login domain resolving to the adversary. We cannot confirm what happened to them. Endpoint telemetry records the intended destination of a request, not the outcome of the TLS handshake. That handshake content is not something we have or can obtain.
+
+Across the campaign there were 49 such requests. On one endpoint they began roughly 24 hours before any payload arrived, on another ten minutes before. Roughly half of the affected endpoints saw poisoning and no payload at all. That is a reasonable sign the malware was never the sole objective.
+
+Storyline 3: The Verdict
+
+It starts with the launch attempt, from the same browser process that had carried the operation from the start.
+
+Static AI caught the download attempts, and the agent quarantined the file. On the launch attempt, the console records the payload blocked before launch and quarantined in under 100 milliseconds. It names the engine and the detection type on that event.
+
+Earlier in the same sequence, Static AI convicted a .crdownload, the partial file a browser writes mid-download. That file was not named .exe, was not complete, and carried a partial hash rather than the payload's finished one.
+
+Static AI read its structure and reached a verdict while the file was still arriving. It needed no signature, finished artifact, or lookup. The later (5) suffix shows the downloads kept coming. Nothing that landed ever ran.
+
+Hunting for the Pattern, and the Identity Question the Endpoint Cannot Answer
+
+Every behavioural signal missed at least one confirmed victim. Only two signals fired on every affected endpoint: the adversary's address and the poisoned DNS answer. Both depend on one address the operator can rotate at will.
+
+Run these steps as a scheduled threat hunt rather than as a detection rule. Most of the work is correlation that costs something to run.
+
+Primary Hunt: One Address Answering for Unrelated Domain Owners
+
+Count distinct registrable domains (eTLD+1) spanning unrelated vendor ecosystems that resolve to the same public address. In our test against roughly ten thousand IPs and domains from affected environments, two surfaced, and both were the adversary.
+
+Take DNS resolution events across the hunt window, keeping the queried name and the answered address.
+
+Drop answers in private and carrier-grade ranges.
+
+Reduce each queried name to its registrable domain using the Public Suffix List.
+
+Group by answered address and count distinct registrable domains.
+
+Map each registrable domain to its owning organisation and count distinct owners per address.
+
+Step five separates a CDN from the adversary. An address answering for many domains owned by one organisation is a CDN. An address answering for many unrelated owners is not anything legitimate.
+
+Counting raw answers instead fires on 389 of 9,375 addresses at a threshold of five. Azure Front Door and Cisco Umbrella top that list, and this hunt must never alert on that traffic.
+
+Azure Front Door answers for azure.com, office.com, live.com, and microsoft.com. The adversary's address answered for Adobe, Apple, Akamai, AnyDesk, BeyondTrust, Brother, Microsoft, and roughly 128 others.
+
+This hunt surfaced nearly a third of the endpoints we confirmed. No alert had flagged any of them. It runs across whole accounts, so it reaches machines beyond the ones you have already been handed.
+
+Supporting inputs, weaker alone and useful in combination:
+
+An LLMNR response carrying a non-RFC1918 address. Expect travel noise, since some hotel and carrier networks hand out addressing outside RFC1918 that is odd but harmless.
+
+wpad.[your domain] resolving to a non-RFC1918 address.
+
+The connectivity-check URL in a browser command line, followed within sixty seconds by an executable or .crdownload in Downloads.
+
+Failed _ldap._tcp SRV lookups for your own domain controllers in the same window, placing the machine outside your own network.
+
+If your staff roam, review the identity side for any suspected exposure window. Look for sign-ins from unfamiliar infrastructure, anomalous token issuance, and unexpected device registrations. Check there for what happened to the token requests.
+
+Why the File Verdict Held
+
+The agent convicted every copy of the file, on current and year-old agents alike. It did so while the adversary answered DNS for our own cloud endpoints in two regions. The network was the adversary's, down to the answer the agent received when it tried to reach its own console.
+
+Static AI ships inside the SentinelOne agent. It reads a file's structure and reaches a verdict on the endpoint, without a signature update or a cloud round-trip. The Singularity™ Platform is built that way on purpose, because an agent cut off from its cloud needs a verdict.
+
+APT29 showed here that it can cut an agent off from its cloud. Test what renders a verdict on your endpoints when the network is hostile and your console is unreachable. If it requires a lookup, that is your gap.
+
+Third Party Disclaimer:
+
+All third-party product names, logos, and brands mentioned in this publication are the property of their respective owners and are for identification purposes only. Use of these names, logos, and brands does not imply affiliation, endorsement, sponsorship, or association with the third-party."
+2026-10-09 17:48 UTC,SentinelOne Blog,5 Years of SentinelOne ThreatOps: Defense from the Ground Up to Global Threat Championships,https://www.sentinelone.com/blog/5-years-of-sentinelone-threatops-defense-from-the-ground-up-to-global-threat-championships/,"Rapid scaling and industrialization soon followed: Public Challenges and Accreditation (2021): In March 2021, ThreatOps launched its first public challenge featuring cash...","For five years, SentinelOne™’s ThreatOps has inspired a global defender movement. What began in 2020 as a threat hunting webinar has grown into an industrial-scale gamified platform that has trained over 19,000 blue teamers, influenced over $661 million in closed-won revenue (September 2023–September 2026), and spawned the Sentinels League Threat Hunting World Championship.
+
+As we mark five years of ThreatOps innovation, defenders worldwide are gearing up for the ultimate showcase: the Sentinels League Grand Final, hosted live on stage at OneCon 2026 in Las Vegas from October 20–22, 2026.
+
+The Evolution of ThreatOps
+
+The origin of ThreatOps dates back to April 2020, when Solutions Engineer (SE) Director Ryan Merrick launched a two-hour threat hunting webinar covering MITRE ATT&CK concepts, indicators of compromise (IOCs), and the distinction between hunting and searching. While educational, the team recognized that defenders needed hands-on experience interacting with real product telemetry.
+
+In May of 2020, SE Joseph Poyner sketched a vision in a team chat channel: standing up a Capture the Flag (CTF) game that would walk players through the product, requiring them to search deep visibility telemetry for malicious process connections to find hidden flags.
+
+With the support and guidance of SE leaders Tommy Hui, Dave Gold, Keith Weisman, and Jared Phipps, the team secured a dedicated CTF line item in the FY21 budget, turning a side project into an official initiative. That initial sketch defined the exact game format ThreatOps still runs today. By August 2020, the team had stood up a dedicated console and created a parallel ransomware workshop track.
+
+The first live game ran in October 2020 for SentinelOne's product management team, followed by the first customer workshop in EMEA. Rapid scaling and industrialization soon followed:
+
+Public Challenges and Accreditation (2021): In March 2021, ThreatOps launched its first public challenge featuring cash prizes, expanding across named accounts, partner channels, and UK regional teams.
+
+Industrialization & Platform (2022): PJ Norris built a game-creator program to train SEs globally while securing CPE accreditation. At the same time, Brian Martin created a platform to automate game provisioning, data replays, and self-service registration. This new platform reduced workshop setup times from two days to under five minutes.
+
+Hackathon (2023) & Content Editor: In September 2023, the team met for the first ThreatOps Hackathon in Detroit, Michigan, where SEs spent a week building content, including the new Purple AI game (featuring GLaDOS). Shortly thereafter, Ryan O’Grady built a new game editor that streamlined the process for creating and publishing new game content.
+
+Multi-Surface & AI Expansion (2024–2025): The program expanded into every surface SentinelOne ships, including a new SDL Deep Dive game, Cloud Security, the Need for Speed-themed Hyperautomation game featuring live API interactions, and the Data Pipelines games. These games were made possible by collaboration with SE champions, including John Pease and Marco Rottigni.
+
+Through continuous craft and automation, ThreatOps transformed threat hunting from a manual class into an enterprise-grade operational standard.
+
+Enterprise Protection and $661M+ Revenue
+
+The impact of ThreatOps shows up in two places: the number of defenders it has trained and the revenue it has influenced.
+
+Empowering 19,000+ Global Defenders
+
+What started as an internal workshop has grown into a massive global educational engine. Between September 2023 to September 2026, ThreatOps has built and deployed 5,215 game instances across 9 unique game types, generating a total of 27,899 player seats and reaching 19,211 unique players across 5,869 email domains.
+
+The program's core audience is overwhelmingly enterprise-focused, with 87.4% corporate participation representing over 16,700 unique corporate defenders. Practitioners from world-class organizations regularly refine their skills in ThreatOps competitions, including teams from Orange and Orange Cyberdefense, Exclusive Networks, Cloud4C, GoDaddy and many more. This global footprint is sustained by an active internal community of 407 game owners.
+
+$661.8M+ Closed-Won Revenue Influence
+
+Beyond skill development, interactive threat hunting has become one of SentinelOne's most potent catalysts for customer acquisition and technical evaluation. Our analysis reveals that ThreatOps engagements have influenced $661.8 million in closed-won revenue across 6,435 deals and 1,538 corporate accounts (Sept 2023–Sept 2026).
+
+The data points to a clear correlation between ThreatOps participation and commercial success. Opportunities where prospective accounts engaged in a ThreatOps game saw a 3.7x higher mean deal value, averaging $103,000 per closed-won deal compared to $28,000 for non-participating accounts.
+
+This commercial lift is driven by strategic timing: 80.4% of games execute mid-cycle while sales opportunities are actively open, serving as a decisive technical proof point during active Proof of Concept (POC) and Proof of Value (POV) evaluations.
+
+The Sentinels League World Championship
+
+In August 2025, Steve Regini, SVP of Global Solutions Engineering, and theater leadership (Keith Weisman, Amit Sabharwal, Lloyd Webb, and Wayne Phillips) approved turning ThreatOps’ game cadence into a global tournament: the Sentinels League Threat Hunting World Championship.
+
+Presented in partnership with Dropzone AI, Google Cloud, and Mimecast, the Sentinels League features a $100,000 prize pool. Defenders compete across four critical attack surfaces in 30-minute CTF qualifiers: Endpoint, Cloud, AI Security, and Autonomous SOC. Prizes are awarded at every stage: qualifier winners earn cash, regional semifinal winners take home $3,000 and a trip to the Grand Final, other semifinal placers are rewarded too, and the top three finishers in the Grand Final all win prizes.
+
+Season 1 (2025): At OneCon 2025 in Las Vegas, Derek Render of ProCircular was crowned the first Threat Hunting World Champion, alongside runners-up Arnau Osso (T-Systems) and Ethan Chew (Intfinity).
+
+Season 2 (2026): Season 2 expanded to 49 qualifiers worldwide. It was led by Ryan O’Grady (Director of SE Operations) and Andy Wool (Senior Marketing Manager), with major contributions from PJ Norris (Lead Technical Enablement Manager) and Michael Logan (Senior Solutions Engineer).
+
+Catch the Grand Final Live at OneCon 2026 in Las Vegas!
+
+After months of regional competition, three elite regional champions have earned an all-expenses-paid trip to Las Vegas for the Grand Final:
+
+John Paul Lonie, aka “grumpycat” (Iress)
+
+Jodie McDonald, aka “jodie” (LevelBlue)
+
+Jason Walker, aka “tresscross” (Five9)
+
+These three finalists, each of whom has already won $3,000 as a regional winner, will compete live on stage at OneCon 2026 for the $5,000 grand prize, the World Champion trophy, and a matching charitable donation made through the S Foundation.
+
+Experience OneCon 2026: October 20–22, 2026
+
+OneCon 2026 is SentinelOne's premier annual cybersecurity conference in Las Vegas. Beyond witnessing the Grand Final live, attendees will experience:
+
+Visionary Keynotes: Exploring AI-driven defense and autonomous cybersecurity.
+
+The OneCon Expo: Live technology demos and direct interaction with SentinelOne experts.
+
+Special Advisory Panels: Exclusive Customer and Partner Advisory Board sessions featuring unfiltered industry insights.
+
+OneCon After Dark: Evening networking at Jason Aldean's Kitchen + Bar featuring live music, dinner, and drinks.
+
+Register Today!
+
+Five years after a single wild idea, ThreatOps has elevated threat hunting for tens of thousands of defenders worldwide. Be there live in Las Vegas when the 2026 World Champion is crowned! Visit onecon.io to explore the full agenda."

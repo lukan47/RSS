@@ -1,2 +1,104 @@
-Date,Source,Title,Link,Context
-2026-10-14 13:31 UTC,Delinea Blog,"AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access",https://delinea.com/blog/ai-agents-wont-go-rogue-theyll-inherit-overprivileged-access,
+Date,Source,Title,Link,Context,Full Text
+2026-10-14 13:31 UTC,Delinea Blog,"AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access",https://delinea.com/blog/ai-agents-wont-go-rogue-theyll-inherit-overprivileged-access,"After the first block, the agent tried a workaround: The agent found no other path, stopped, and reported back: The agent, the task, and the persistence were the same","AI Agents Won’t Go Rogue, They’ll Inherit Overprivileged Access
+
+Delinea Blog > Your AI agent doesn’t need to go rogue; it just needs you to be over-privileged
+
+Your AI agent doesn’t need to go rogue; it just needs you to be over-privileged
+
+Here's how an AI agent inherits your admin rights, edits the policy that blocked it and finishes the task anyway, and how zero standing privilege and just-in-time (JIT) access limit what agents can do on your behalf.
+
+The agent found out who it was working for.
+
+Our core belief at Delinea is that organizations need to secure agent access alongside human access. Our teams are adding capabilities to the Delinea Platform that put this belief into practice. One of these capabilities enables runtime authorization policies to determine whether a human or an agent is acting.
+
+To test that capability, I wrote a policy that enables a human to write to a database and stops the agent working for that human from changing anything in the same database.
+
+The policy worked. The test also showed me how far an agent will go to finish a task.
+
+To secure agents, you must make sure the humans behind them have zero standing privilege; meaning no one holds admin rights until a task requires them.
+
+Why I ran the ""human or agent"" test
+
+Engineering teams now give AI agents such as Claude Code access to production systems, including source code repositories, databases and cloud infrastructure.
+
+An agent reads a repository, connects to a database and runs commands that nobody typed. Most access controls were built for people, and they make one decision: whether a user can connect. Once the connection opens, the user can run any command the database credential permits.
+
+That model breaks down for agents. An agent that needs to read sales data does not need to change it, even when the person who launched the agent needs to do both.
+
+Delinea runtime authorization enforces policy per action, not only per connection. A gateway sits between the user and the database, inspects each action and checks it against policy before the action reaches the database. The gateway can apply one set of rules to a human and a different set to the agent that human launched.
+
+I wanted to see that work with Claude Code against a live Postgres database, so I set up a test environment.
+
+Before the test, I wrote a policy for the database. The policy had three rules:
+
+Users must request just-in-time (JIT) access.
+
+Agents can read but cannot write.
+
+I pointed Claude Code at a Postgres database behind the Delinea gateway and gave it a one-line task:
+
+The agent requested access, and an approval workflow approved the request automatically. The agent then ran several SELECT statements to find the sales table and return the last five orders. The gateway checked each action against the policy. The reads worked.
+
+The gateway blocked the write, as my policy required. The agent diagnosed the failure:
+
+The database credential held full insert privilege, so Postgres would have accepted the write. The gateway blocked the write before the statement reached Postgres.
+
+When I ran the same insert myself, outside Claude Code, the write succeeded. Postgres inserted two rows, and a follow-up query returned the new order:
+
+The database and the gateway did not change. Only the identity changed. Delinea runtime authorization checks each action at the gateway and bases each decision on the policy defined for that identity.
+
+I also ran the same test while logged in to Delinea as an administrator. I was over-privileged, as admins tend to be.
+
+The gateway recognized Claude Code and blocked the first write. Then the agent did what a persistent engineer would do. The agent investigated the denial, identified the responsible policy, and began editing it so the write would go through.
+
+The agent could edit the policy because the agent acted on my behalf. As an administrator, I had the right to edit policies, so the agent had that right too. My policy limited what the agent could do in the database. Nothing limited what the agent could do as an administrator.
+
+The agent had no hidden agenda. I had told the agent to insert an order, and the agent was trying to finish the task.
+
+The agent reasoned in a straight line from “I was blocked” to “the block is a policy” to “I can edit the policy.” Each step was sensible. None of the steps was malicious. Together, the steps led the agent from the database to the policy that protects that database.
+
+The same agent without admin rights
+
+In the recorded run, I was not logged in as an administrator. After the first block, the agent tried a workaround:
+
+The agent found no other path, stopped, and reported back:
+
+The agent, the task, and the persistence were the same. Only my authority changed.
+
+1. Agents inherit your authority
+
+An agent acting on your behalf can do what you can do. If you are an administrator, the agent is an administrator too. The agent will use the permissions needed to complete the job.
+
+2. Persistence is the feature, and the risk
+
+Agents are useful because they keep going. An agent diagnoses a failure and tries another way. The same behavior turns a denial into an obstacle to route around. In the recorded run, the agent rewrote its write after the first block and then searched for another access path.
+
+3. Editing policy is a privilege
+
+The right to edit a policy is a privilege, like the right to write to a database. If an agent acts for an identity that holds this privilege, the agent can remove the rule that blocked it.
+
+Run agents from identities that cannot edit policy. In the test, the agent had its own identity, and the policy treated the agent differently from me. The agent still carried my admin rights because the agent acted on my behalf.
+
+Grant admin rights only when needed. An administrator who holds policy rights all day passes those rights to every agent the administrator runs. Request admin rights just-in-time, for the task that needs them.
+
+Keep access JIT and scoped. In the test, the agent had no standing access. The agent requested access before connecting.
+
+Make denial the end of the road. Write policy at the action level, and give agent identities no other path to the resource. A control that works only if the agent gives up will eventually fail.
+
+Log the attempts. Across both runs, the agent hit a denial, rewrote the write, searched for another access path and edited the policy. Each step belongs in your logs.
+
+Secure the human behind the agent
+
+Runtime authorization gave me what I wanted. Agents could read, humans could write, and the gateway decided each action. The admin run showed the other half of the story.
+
+To secure agents, make sure the humans behind them have zero standing privilege
+
+Policy-based authorization is only as strong as the weakest identity that can edit the policy. The agent didn’t break the control. The agent borrowed the most powerful credential in the room and turned it on the control.
+
+Before you connect an agent to production, check whether the agent's identity can edit its own policy. To run this test on your own resources, request a demo.
+
+How to remove admin rights without reducing productivity
+
+Securing IT Admin identities: 7 ways to fortify your PAM and identity security strategy
+
+AI agents are already running on your endpoints. What can they do?"

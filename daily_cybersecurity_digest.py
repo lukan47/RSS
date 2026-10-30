@@ -111,6 +111,14 @@ REPORT_FILE  = "index.html"
 REPORT_URL   = "https://lukan47.github.io/RSS/"
 ARCHIVE_DIR  = "archive"
 EXPORT_DIR   = os.path.join(ARCHIVE_DIR, "exports")
+FULLTEXT_CACHE     = os.path.join(ARCHIVE_DIR, "_cache", "fulltext_cache.json")
+FULLTEXT_BUDGET_S  = 420      # stop starting new downloads after this many seconds
+FULLTEXT_WORKERS   = 12
+FULLTEXT_MAX_ATTEMPTS = 3
+FULLTEXT_MAX_CHARS = 60000
+FEED_FULLTEXT_MIN  = 1500     # a feed body this long is treated as the whole article
+MIN_FULLTEXT_CHARS = 200
+CSV_CELL_LIMIT     = 32000    # Excel cannot hold more than 32,767 characters per cell
 HISTORY_FILE = "history.json"
 MAX_HISTORY  = 30
 PHT          = timezone(timedelta(hours=8))
@@ -355,6 +363,15 @@ def _text(element, tag: str) -> str:
     child = element.find(tag)
     return html.unescape(child.text.strip()) if child is not None and child.text else ""
 
+
+def _raw_text(element, tags) -> str:
+    """First non-empty raw (still HTML-escaped-free) text among the given child tags."""
+    for tag in tags:
+        child = element.find(tag)
+        if child is not None and child.text and child.text.strip():
+            return child.text
+    return ""
+
 # ---------------------------------------------------------------------------
 # Feed fetching
 # ---------------------------------------------------------------------------
@@ -391,7 +408,10 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 "title": title,
                 "link": link,
                 "date": date,
-                "context": ""
+                "context": "",
+                "feed_text": _fragment_to_text(_raw_text(entry, (
+                    "{http://www.w3.org/2005/Atom}content",
+                    "{http://www.w3.org/2005/Atom}summary"))),
             }
             articles.append(article)
     else:
@@ -407,7 +427,10 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                     _text(item, "pubDate") or
                     _text(item, "{http://purl.org/dc/elements/1.1/}date")
                 ),
-                "context": ""
+                "context": "",
+                "feed_text": _fragment_to_text(_raw_text(item, (
+                    "{http://purl.org/rss/1.0/modules/content/}encoded",
+                    "description"))),
             }
             articles.append(article)
 
@@ -423,51 +446,174 @@ def fetch_all_feeds() -> list[dict]:
     return all_articles
 
 
-class _HTMLTextExtractor(HTMLParser):
-    """Extract plain text from HTML, preserving paragraph structure."""
-    def __init__(self):
+_SKIP_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer",
+              "aside", "form", "iframe", "button", "figcaption", "template"}
+_FLUSH_TAGS = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "pre",
+               "td", "th", "tr", "div", "section", "article", "main", "ul", "ol", "table"}
+
+
+class _ArticleExtractor(HTMLParser):
+    """Collect text blocks, remembering whether each sat inside <article> or <main>."""
+    def __init__(self, skip_tags=_SKIP_TAGS):
         super().__init__()
-        self.text = []
-        self.in_script = False
-        self.in_style = False
+        self.skip_tags = skip_tags
+        self.skip_depth = 0
+        self.zone_depth = {"article": 0, "main": 0}
+        self.buf = []
+        self.blocks = []  # (zone, text); zone 2 = article, 1 = main, 0 = other
+
+    def _flush(self):
+        text = " ".join("".join(self.buf).split())
+        self.buf = []
+        if text:
+            zone = 2 if self.zone_depth["article"] else 1 if self.zone_depth["main"] else 0
+            if not self.blocks or self.blocks[-1][1] != text:
+                self.blocks.append((zone, text))
 
     def handle_starttag(self, tag, attrs):
-        if tag in ("script", "style"):
-            setattr(self, f"in_{tag}", True)
+        if tag in _FLUSH_TAGS:
+            self._flush()
+        if tag in self.skip_tags:
+            self.skip_depth += 1
+        elif tag in self.zone_depth:
+            self.zone_depth[tag] += 1
 
     def handle_endtag(self, tag):
-        if tag in ("script", "style"):
-            setattr(self, f"in_{tag}", False)
-        elif tag in ("p", "div", "br"):
-            if self.text and self.text[-1] != "\n":
-                self.text.append("\n")
+        if tag in _FLUSH_TAGS:
+            self._flush()
+        if tag in self.skip_tags:
+            self.skip_depth = max(0, self.skip_depth - 1)
+        elif tag in self.zone_depth:
+            self.zone_depth[tag] = max(0, self.zone_depth[tag] - 1)
 
     def handle_data(self, data):
-        if not self.in_script and not self.in_style:
-            text = data.strip()
-            if text:
-                self.text.append(text)
+        if not self.skip_depth:
+            self.buf.append(data)
 
-    def get_text(self):
-        return " ".join(self.text).strip()
+    def get_text(self) -> str:
+        self._flush()
+        for min_zone in (2, 1):
+            chosen = [t for z, t in self.blocks if z >= min_zone]
+            if sum(len(t) for t in chosen) >= 300:
+                return "\n\n".join(chosen)
+        return "\n\n".join(t for _, t in self.blocks if len(t) >= 30)
+
+    def get_all_text(self) -> str:
+        self._flush()
+        return "\n\n".join(t for _, t in self.blocks)
 
 
-def _fetch_article_text(url: str, timeout: int = 8) -> str:
-    """Fetch article URL and extract plain text content."""
+def _html_to_text(html_content: str) -> str:
+    parser = _ArticleExtractor()
+    parser.feed(html_content)
+    text = parser.get_text()
+    if len(text) < MIN_FULLTEXT_CHARS:
+        # Unbalanced markup can leave a skip tag open; retry skipping only scripts/styles.
+        parser = _ArticleExtractor(skip_tags={"script", "style", "noscript", "svg", "template"})
+        parser.feed(html_content)
+        text = parser.get_text()
+    return text
+
+
+def _fragment_to_text(html_fragment: str) -> str:
+    """Plain text of an HTML fragment (e.g. a feed item's content:encoded)."""
+    parser = _ArticleExtractor(skip_tags={"script", "style"})
+    parser.feed(html_fragment)
+    return parser.get_all_text()
+
+
+def _trim_trailer(text: str) -> str:
+    """Drop trailing short fragments such as share-button labels."""
+    blocks = text.split("\n\n")
+    while len(blocks) > 1 and len(blocks[-1]) < 30 and not blocks[-1].rstrip().endswith((".", "!", "?", "\u201d", "\"")):
+        blocks.pop()
+    return "\n\n".join(blocks)
+
+
+def fetch_full_text(url: str, timeout: int = 15) -> str:
+    """Download an article page and return its body text, or '' on failure."""
+    from urllib.parse import quote
     try:
+        url = quote(url, safe=":/?&=%#+@,;~!*()'[]$")
         req = Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
         })
         with urlopen(req, timeout=timeout) as resp:
-            html_content = resp.read().decode("utf-8", errors="ignore")
-
-        # Extract text from HTML
-        parser = _HTMLTextExtractor()
-        parser.feed(html_content)
-        return parser.get_text()
+            charset = resp.headers.get_content_charset() or "utf-8"
+            raw = resp.read(3_000_000)
+        text = _html_to_text(raw.decode(charset, errors="replace"))
+        return text[:FULLTEXT_MAX_CHARS] if len(text) >= MIN_FULLTEXT_CHARS else ""
     except Exception as e:
         print(f"  [DEBUG] Failed to fetch {url}: {e}", file=sys.stderr)
         return ""
+
+
+def load_fulltext_cache() -> dict:
+    try:
+        with open(FULLTEXT_CACHE, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def attach_full_text(articles: list[dict]) -> int:
+    """Set article['full_text'], reusing the on-disk cache and fetching what is missing.
+
+    Order of preference: a long body already in the feed item, then the article page,
+    then a short feed body as a last resort. Newest articles go first within a time
+    budget; failures are retried on later runs up to FULLTEXT_MAX_ATTEMPTS.
+    Returns the number of texts obtained this run.
+    """
+    import time
+    cache = load_fulltext_cache()
+    pending = [
+        a for a in articles
+        if a.get("link")
+        and not cache.get(a["link"], {}).get("text")
+        and cache.get(a["link"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
+    ]
+    deadline = time.monotonic() + FULLTEXT_BUDGET_S
+
+    def work(article):
+        feed_text = article.get("feed_text", "")
+        if len(feed_text) >= FEED_FULLTEXT_MIN:
+            return article["link"], feed_text[:FULLTEXT_MAX_CHARS], "feed"
+        if time.monotonic() > deadline:
+            return article["link"], None, ""
+        page_text = fetch_full_text(article["link"])
+        if page_text:
+            return article["link"], page_text, "page"
+        if len(feed_text) >= MIN_FULLTEXT_CHARS:
+            return article["link"], feed_text[:FULLTEXT_MAX_CHARS], "feed-excerpt"
+        return article["link"], "", ""
+
+    obtained = 0
+    if pending:
+        print(f"  Collecting full text for {len(pending)} article(s)...", file=sys.stderr)
+        with ThreadPoolExecutor(max_workers=FULLTEXT_WORKERS) as pool:
+            for link, text, source in pool.map(work, pending):
+                if text is None:
+                    continue
+                entry = cache.setdefault(link, {"text": "", "attempts": 0})
+                entry["attempts"] = entry.get("attempts", 0) + 1
+                if text:
+                    entry["text"] = text
+                    entry["source"] = source
+                    entry["fetched"] = datetime.now(timezone.utc).isoformat()
+                    obtained += 1
+
+    live_links = {a["link"] for a in articles if a.get("link")}
+    cache = {k: v for k, v in cache.items() if k in live_links}
+    os.makedirs(os.path.dirname(FULLTEXT_CACHE), exist_ok=True)
+    with open(FULLTEXT_CACHE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False)
+
+    for a in articles:
+        a["full_text"] = _trim_trailer(cache.get(a.get("link", ""), {}).get("text", ""))
+        a.pop("feed_text", None)
+    return obtained
 
 
 def _extract_key_sentence(text: str, title: str = "") -> str:
@@ -518,29 +664,11 @@ def _extract_key_sentence(text: str, title: str = "") -> str:
 
 
 def extract_context(article: dict) -> str:
-    """Extract key findings/context from article verbatim snippet.
-
-    Fetches the article URL and pulls out a relevant sentence or snippet
-    containing important information. Processes all articles for context extraction.
-    """
-    # Don't fetch if no URL
-    if not article.get("link"):
+    """Short dashboard snippet: the most informative sentence of the article's full text."""
+    text = " ".join(article.get("full_text", "").split())[:20000]
+    if len(text) < 100:
         return ""
-
-    try:
-        # Fetch article content (timeout quickly if slow)
-        article_text = _fetch_article_text(article["link"])
-
-        if not article_text or len(article_text) < 100:
-            return ""
-
-        # Extract key sentence from the article
-        context = _extract_key_sentence(article_text, article.get("title", ""))
-        return context if context else ""
-
-    except Exception:
-        # Silent failure - don't log for every article
-        return ""
+    return _extract_key_sentence(text, article.get("title", "")) or ""
 
 # ---------------------------------------------------------------------------
 # Filtering & categorization
@@ -659,6 +787,12 @@ def save_history(history: list[dict]) -> None:
         json.dump(history, f, indent=2)
 
 
+def _csv_text(text: str) -> str:
+    if len(text) <= CSV_CELL_LIMIT:
+        return text
+    return text[:CSV_CELL_LIMIT] + " [truncated for CSV - full text is in the JSON export]"
+
+
 def export_digest_json(articles: list[dict], label: str) -> str:
     """Export digest as JSON with all article metadata including context.
 
@@ -679,7 +813,8 @@ def export_digest_json(articles: list[dict], label: str) -> str:
                 "title": a["title"],
                 "link": a["link"],
                 "date": a["date"].isoformat() if a["date"] else None,
-                "context": a.get("context", "")
+                "context": a.get("context", ""),
+                "full_text": a.get("full_text", "")
             }
             for a in items
         ]
@@ -699,7 +834,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     writer = csv_module.writer(output)
 
     # Write header
-    writer.writerow(["Date", "Category", "Source", "Title", "Link", "Context"])
+    writer.writerow(["Date", "Category", "Source", "Title", "Link", "Context", "Full Text"])
 
     # Write articles
     buckets = bucket_articles(articles)
@@ -712,7 +847,8 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
                 article["source"],
                 article["title"],
                 article["link"],
-                article.get("context", "")
+                article.get("context", ""),
+                _csv_text(article.get("full_text", ""))
             ])
 
     return output.getvalue()
@@ -736,7 +872,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
         # CSV export for this category
         csv_output = io.StringIO()
         csv_writer = csv_module.writer(csv_output)
-        csv_writer.writerow(["Date", "Source", "Title", "Link", "Context"])
+        csv_writer.writerow(["Date", "Source", "Title", "Link", "Context", "Full Text"])
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             csv_writer.writerow([
@@ -744,7 +880,8 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
                 article["source"],
                 article["title"],
                 article["link"],
-                article.get("context", "")
+                article.get("context", ""),
+                _csv_text(article.get("full_text", ""))
             ])
         csv_content = csv_output.getvalue()
 
@@ -760,7 +897,8 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
                     "source": a["source"],
                     "title": a["title"],
                     "link": a["link"],
-                    "context": a.get("context", "")
+                    "context": a.get("context", ""),
+                    "full_text": a.get("full_text", "")
                 }
                 for a in items
             ]
@@ -1416,17 +1554,13 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
-    # ── Extract context for articles (top 75 for better dashboard coverage) ─────────────────
-    print("  Extracting context from articles...", file=sys.stderr)
-    top_articles = recent[:75]  # Process first 75 articles for better coverage
-    context_count = 0
-    for article in top_articles:
-        if article.get("link") and not article.get("context"):
-            ctx = extract_context(article)
-            if ctx:
-                article["context"] = ctx
-                context_count += 1
-    print(f"  Context extracted for {context_count} article(s).", file=sys.stderr)
+    # ── Full article text (saved for exports only, never rendered) + dashboard snippets ──
+    obtained = attach_full_text(recent)
+    have_text = sum(1 for a in recent if a["full_text"])
+    print(f"  Full text: {obtained} collected this run, {have_text}/{len(recent)} articles have it.", file=sys.stderr)
+    for article in recent:
+        if not article.get("context"):
+            article["context"] = extract_context(article)
 
     # ── Export latest acquisition and top announcements to GitHub Actions env ───────────────────
     buckets    = bucket_articles(recent)
