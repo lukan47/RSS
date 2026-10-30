@@ -965,85 +965,47 @@ def _build_dropdown() -> str:
       });
     }
 
-    // Helper to get base directory URL
-    function getBaseUrl() {
-      const url = window.location.href;
-      // If in archive subdirectory, go up one level
-      if (url.includes('/archive/')) {
-        return url.split('/archive/')[0];
-      }
-      // If it ends with index.html or similar, remove it
-      if (url.endsWith('.html')) {
-        return url.substring(0, url.lastIndexOf('/'));
-      }
-      // Otherwise assume we're at root and remove trailing slash
-      return url.replace(/\\/$/, '');
-    }
-
-    // Handle main export buttons
-    function initializeMainExports() {
-      const baseUrl = getBaseUrl();
-      const jsonBtn = document.getElementById('export-json-btn');
-      const csvBtn = document.getElementById('export-csv-btn');
-
-      if (jsonBtn) {
-        jsonBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          window.location.href = `${baseUrl}/digest.json`;
-        });
-      }
-
-      if (csvBtn) {
-        csvBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          window.location.href = `${baseUrl}/digest.csv`;
-        });
-      }
-    }
-
-    // Populate and handle category exports
+    // Category export: one option per category and format
     function initializeCategoryExports() {
       const exportSelect = document.getElementById('category-export-select');
-      const cols = document.querySelectorAll('.col');
-      const categories = new Set();
-      cols.forEach(col => {
-        const h2 = col.querySelector('h2');
-        if (h2) categories.add(h2.textContent.trim());
+      if (!exportSelect) return;
+      const seen = new Set();
+      document.querySelectorAll('.col h2').forEach(h2 => {
+        const cat = h2.textContent.trim();
+        if (!cat || seen.has(cat)) return;
+        seen.add(cat);
+        const safe = cat.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+        ['csv', 'json'].forEach(fmt => {
+          const option = document.createElement('option');
+          option.value = 'digest__' + safe + '.' + fmt;
+          option.textContent = cat + ' (' + fmt.toUpperCase() + ')';
+          exportSelect.appendChild(option);
+        });
       });
 
-      categories.forEach(cat => {
-        const safe_cat = cat.toLowerCase().replace(/[^a-z0-9-_]/g, '_');
-        const option = document.createElement('option');
-        option.value = safe_cat;
-        option.textContent = cat;
-        exportSelect.appendChild(option);
-      });
-
-      exportSelect.addEventListener('change', (e) => {
-        if (e.target.value) {
-          const baseUrl = getBaseUrl();
-          const safe_cat = e.target.value;
-          const csvUrl = `${baseUrl}/digest__${safe_cat}.csv`;
-          const jsonUrl = `${baseUrl}/digest__${safe_cat}.json`;
-
-          // Create a simple menu for CSV/JSON selection
-          const format = prompt('Download format?\n1 = CSV\n2 = JSON', '1');
-          if (format === '1') {
-            window.location.href = csvUrl;
-          } else if (format === '2') {
-            window.location.href = jsonUrl;
-          }
-          e.target.value = '';
-        }
+      exportSelect.addEventListener('change', () => {
+        const file = exportSelect.value;
+        if (!file) return;
+        const a = document.createElement('a');
+        const prefix = location.pathname.indexOf('/archive/') !== -1 ? '../' : './';
+        a.href = prefix + file;
+        a.download = file;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        exportSelect.value = '';
       });
     }
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      populateCategories();
-      restoreFilterPreference();
-      initializeSearch();
-      initializeCategoryExports();
+      [populateCategories, initializeCategoryExports, initializeSearch, restoreFilterPreference].forEach(fn => {
+        try {
+          fn();
+        } catch (err) {
+          console.error(fn.name + ' failed:', err);
+        }
+      });
     });
   </script>"""
 
@@ -1353,8 +1315,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <a href="./digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
-      <a href="./digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+      <a href="{REPORT_URL}digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
+      <a href="{REPORT_URL}digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
         <option value="">⬇ Category</option>
       </select>
