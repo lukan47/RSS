@@ -17,6 +17,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
+import subprocess
+import json as json_lib
+from html.parser import HTMLParser
+from textwrap import shorten
 
 FEEDS = [
     # ── General security news ────────────────────────────────────────────
@@ -381,13 +385,23 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 _text(entry, "{http://www.w3.org/2005/Atom}updated") or
                 _text(entry, "{http://www.w3.org/2005/Atom}published")
             )
-            articles.append({"source": name, "title": title, "link": link, "date": date})
+            article = {
+                "source": name,
+                "title": title,
+                "link": link,
+                "date": date,
+                "context": ""
+            }
+            # Extract context for key sources
+            if article["link"]:
+                article["context"] = extract_context(article)
+            articles.append(article)
     else:
         channel = root.find("channel")
         if channel is None:
             channel = root
         for item in channel.findall("item"):
-            articles.append({
+            article = {
                 "source": name,
                 "title": _text(item, "title"),
                 "link":  _text(item, "link"),
@@ -395,7 +409,12 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                     _text(item, "pubDate") or
                     _text(item, "{http://purl.org/dc/elements/1.1/}date")
                 ),
-            })
+                "context": ""
+            }
+            # Extract context for key sources
+            if article["link"]:
+                article["context"] = extract_context(article)
+            articles.append(article)
 
     return articles
 
@@ -407,6 +426,152 @@ def fetch_all_feeds() -> list[dict]:
         for future in as_completed(futures):
             all_articles.extend(future.result())
     return all_articles
+
+
+class _HTMLTextExtractor(HTMLParser):
+    """Extract plain text from HTML, preserving paragraph structure."""
+    def __init__(self):
+        super().__init__()
+        self.text = []
+        self.in_script = False
+        self.in_style = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            setattr(self, f"in_{tag}", True)
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            setattr(self, f"in_{tag}", False)
+        elif tag in ("p", "div", "br"):
+            if self.text and self.text[-1] != "\n":
+                self.text.append("\n")
+
+    def handle_data(self, data):
+        if not self.in_script and not self.in_style:
+            text = data.strip()
+            if text:
+                self.text.append(text)
+
+    def get_text(self):
+        return " ".join(self.text).strip()
+
+
+def _fetch_article_text(url: str, timeout: int = 8) -> str:
+    """Fetch article URL and extract plain text content."""
+    try:
+        req = Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        })
+        with urlopen(req, timeout=timeout) as resp:
+            html_content = resp.read().decode("utf-8", errors="ignore")
+
+        # Extract text from HTML
+        parser = _HTMLTextExtractor()
+        parser.feed(html_content)
+        return parser.get_text()
+    except Exception as e:
+        print(f"  [DEBUG] Failed to fetch {url}: {e}", file=sys.stderr)
+        return ""
+
+
+def _extract_key_sentence(text: str, title: str = "") -> str:
+    """Extract a key sentence from article text containing important context.
+
+    Looks for sentences with keywords related to security findings, partnerships,
+    or significant announcements. Returns a truncated sentence (up to 180 chars).
+    """
+    if not text:
+        return ""
+
+    # Keywords that indicate important context
+    keywords = {
+        "announced", "partnership", "acquired", "released", "vulnerability",
+        "discovered", "found", "exploit", "threat", "malware", "attack",
+        "detection", "capability", "feature", "certification", "award",
+        "collaboration", "integration", "supported", "available", "launch",
+        "first", "only", "breakthrough", "critical", "severe", "zero-day"
+    }
+
+    # Split into sentences
+    sentences = re.split(r'[.!?]+', text)
+
+    # Score sentences by keyword presence and length
+    scored = []
+    for sent in sentences:
+        sent_clean = sent.strip()
+        if len(sent_clean) < 20 or len(sent_clean) > 300:
+            continue
+
+        # Count keyword matches
+        score = sum(1 for kw in keywords if kw.lower() in sent_clean.lower())
+        if score > 0:
+            scored.append((score, sent_clean))
+
+    if scored:
+        # Return highest-scoring sentence, truncated
+        best = max(scored, key=lambda x: x[0])[1]
+        return shorten(best, width=180, placeholder="...")
+
+    # Fallback: return first meaningful sentence
+    for sent in sentences:
+        sent_clean = sent.strip()
+        if len(sent_clean) > 30:
+            return shorten(sent_clean, width=180, placeholder="...")
+
+    return ""
+
+
+def extract_context(article: dict) -> str:
+    """Extract key findings/context from article verbatim snippet.
+
+    Fetches the article URL and pulls out a relevant sentence or snippet
+    containing important information (partnership, capability, threat, etc).
+    Only processes articles from tracked vendor blogs and key security sources.
+    """
+    # Expanded list of key competitors and security research sources
+    key_sources = [
+        "CrowdStrike Blog", "CrowdStrike IR News", "Palo Alto Unit 42", "Palo Alto IR News",
+        "Microsoft Security Blog", "Microsoft Security", "SentinelOne Blog", "SentinelOne",
+        "Fortinet Threat Research", "Fortinet IR News", "Trend Micro Research", "Trend Micro",
+        "Google Project Zero", "Talos Intelligence", "Recorded Future",
+        "Check Point Research", "Check Point Blog", "Google Threat Intel (Mandiant)", "Mandiant",
+        "Cisco Security", "Cisco Talos", "Sophos", "ESET", "Bitdefender", "Kaspersky",
+        "Rapid7 Blog", "Tenable Blog", "Qualys Blog", "Zscaler ThreatLabz",
+        "Wiz Blog", "Orca Security Blog", "Darktrace Blog", "Vectra AI Blog",
+        "Proofpoint Blog", "Cybereason Blog", "Elastic Security Labs", "Okta Blog",
+        "CyberArk Blog", "BeyondTrust Blog", "Aqua Security Blog", "Snyk Blog",
+        "Arctic Wolf Blog", "Huntress Blog", "Rubrik Blog", "Claroty Blog"
+    ]
+
+    if article["source"] not in key_sources:
+        return ""
+
+    # Don't fetch if no URL
+    if not article.get("link"):
+        return ""
+
+    try:
+        # Fetch article content
+        article_text = _fetch_article_text(article["link"])
+
+        if not article_text:
+            print(f"  [DEBUG] Empty text from {article['source']}: {article['title'][:50]}", file=sys.stderr)
+            return ""
+
+        # Extract key sentence from the article
+        context = _extract_key_sentence(article_text, article.get("title", ""))
+
+        if context:
+            print(f"  [INFO] Context extracted from {article['source']}: {context[:60]}...", file=sys.stderr)
+        else:
+            print(f"  [DEBUG] No context found in {article['source']}: {article['title'][:50]}", file=sys.stderr)
+
+        return context
+
+    except Exception as e:
+        print(f"  [DEBUG] Could not extract context from {article['link']}: {e}", file=sys.stderr)
+        return ""
 
 # ---------------------------------------------------------------------------
 # Filtering & categorization
@@ -524,6 +689,34 @@ def save_history(history: list[dict]) -> None:
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
 
+
+def export_digest_json(articles: list[dict], label: str) -> str:
+    """Export digest as JSON with all article metadata including context.
+
+    Returns JSON string suitable for external tools/dashboards.
+    """
+    buckets = bucket_articles(articles)
+    export = {
+        "generated": label,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "total_articles": len(articles),
+        "categories": {}
+    }
+
+    for cat, items in buckets.items():
+        export["categories"][cat] = [
+            {
+                "source": a["source"],
+                "title": a["title"],
+                "link": a["link"],
+                "date": a["date"].isoformat() if a["date"] else None,
+                "context": a.get("context", "")
+            }
+            for a in items
+        ]
+
+    return json.dumps(export, indent=2)
+
 # ---------------------------------------------------------------------------
 # HTML report — Trend Micro branding + column layout + history dropdown
 # ---------------------------------------------------------------------------
@@ -626,6 +819,12 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             safe_title  = html.escape(a["title"])
             safe_source = html.escape(a["source"])
             safe_link   = html.escape(a["link"])
+            safe_context = html.escape(a.get("context", ""))
+
+            context_html = ""
+            if safe_context:
+                context_html = f'<p class="card-context">{safe_context}</p>'
+
             cards.append(f"""
             <div class="card">
               <div class="card-meta">
@@ -633,6 +832,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                 <span class="date">{date_str}</span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
+              {context_html}
             </div>""")
 
         columns.append(f"""
@@ -772,8 +972,17 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     font-size: 0.88rem;
     line-height: 1.5;
     display: block;
+    margin-bottom: 8px;
   }}
   .card-title:hover {{ color: #fff; text-decoration: underline; }}
+  .card-context {{
+    font-size: 0.78rem;
+    color: #888;
+    line-height: 1.4;
+    margin: 0;
+    padding: 8px 0 0 0;
+    border-top: 1px solid #222;
+  }}
 
   footer {{
     margin-top: 40px;
@@ -827,23 +1036,46 @@ def main() -> None:
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
 
-    # ── Export latest acquisition to GitHub Actions env ───────────────────
+    # ── Export latest acquisition and top announcements to GitHub Actions env ───────────────────
     buckets    = bucket_articles(recent)
     acq_list   = buckets.get("Company & Service Acquisitions", [])
+
+    # Find top vendor announcements (for GitHub Actions notifications)
+    top_announcements = []
+    for cat in ["CrowdStrike", "Palo Alto Networks", "Microsoft Security", "Fortinet", "SentinelOne", "Trend Micro"]:
+        if cat in buckets and buckets[cat]:
+            top_announcements.append(buckets[cat][0])
+
     github_env = os.environ.get("GITHUB_ENV", "")
     if github_env:
         if acq_list:
             acq_title = acq_list[0]["title"].replace("\n", " ")
             acq_link  = acq_list[0]["link"]
+            acq_context = acq_list[0].get("context", "").replace("\n", " ")
             acq_found = "true"
         else:
             acq_title = ""
             acq_link  = ""
+            acq_context = ""
             acq_found = "false"
+
         with open(github_env, "a", encoding="utf-8") as f:
             f.write(f"LATEST_ACQ_TITLE={acq_title}\n")
             f.write(f"LATEST_ACQ_LINK={acq_link}\n")
+            f.write(f"LATEST_ACQ_CONTEXT={acq_context}\n")
             f.write(f"LATEST_ACQ_FOUND={acq_found}\n")
+
+            # Export top vendor announcements with context
+            if top_announcements:
+                top_ann = top_announcements[0]
+                top_title = top_ann["title"].replace("\n", " ")
+                top_link = top_ann["link"]
+                top_context = top_ann.get("context", "").replace("\n", " ")
+                top_source = top_ann["source"]
+                f.write(f"TOP_ANNOUNCEMENT_SOURCE={top_source}\n")
+                f.write(f"TOP_ANNOUNCEMENT_TITLE={top_title}\n")
+                f.write(f"TOP_ANNOUNCEMENT_LINK={top_link}\n")
+                f.write(f"TOP_ANNOUNCEMENT_CONTEXT={top_context}\n")
 
     # ── Save archive snapshot first so load_history() picks it up ────────
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
@@ -862,6 +1094,13 @@ def main() -> None:
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(build_html(recent, label))
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
+
+    # ── Export digest as JSON for programmatic access ────────────────────
+    json_export = export_digest_json(recent, label)
+    json_file = "digest.json"
+    with open(json_file, "w", encoding="utf-8") as f:
+        f.write(json_export)
+    print(f"Digest exported: {json_file}", file=sys.stderr)
 
 
 if __name__ == "__main__":
