@@ -15,7 +15,8 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - First-match categorization: Zero-Day → Acquisitions → Company rows → General News
 - **Module tagging** — each article is tagged with one or more security module types by keyword rules (no AI), shown on cards and usable as a filter
 - **All-articles page** — every article ever collected, newest first, filterable by period, category, module, source and text; exports the filtered list as JSON or CSV
-- **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export
+- **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, every module, and *Podcast* / *Transcript available* where they apply
+- **Podcasts** — episodes carry a microphone icon on cards and a *Podcast* tag, can be filtered on the all-articles page (*Type*), and have a `podcast` field in JSON exports and a `Type` column in CSV exports. Where a transcript is published (feed transcript tag, or the show's own transcript page: SANS Stormcast, CyberWire, Security Now, Smashing Security), it is saved as the episode's text and the card's summary snippet and module tags are taken from it
 - **Exports are generated in the browser** when you click a button in the popup or on the all-articles page; nothing is saved per click (the `archive/exports/` files are written on every scheduled run)
 - **Full article text** is saved for export only (never shown on the dashboard) and can be included in any export
 - Search box (press `/`), category filter, module filter and a history dropdown of previous digests (last 30 runs)
@@ -30,7 +31,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 |---|---|
 | `index.html` | The current dashboard (last 30 days) |
 | `archive/<date>.html` | A snapshot of each past dashboard |
-| `archive/data/articles.json` | Every article ever collected: ID, title, link, source, date, category, modules, summary |
+| `archive/data/articles.json` | Every article ever collected: ID, title, link, source, date, category, modules, summary, `podcast` / `transcript` flags |
 | `archive/data/fulltext/YYYY-MM.json` | Saved article text, one file per month, keyed by article ID |
 | `archive/data/explorer.html` | The all-articles page (built from `explorer_template.html`) |
 | `archive/exports/` | `digest.json` / `digest.csv` (last 30 days) and one file pair per category |
@@ -42,7 +43,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 ---
 
 <!-- feeds:start -->
-## RSS Feeds (90)
+## RSS Feeds (94)
 
 ### General security news (18)
 
@@ -153,6 +154,15 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 | 88 | KnowBe4 Blog | https://blog.knowbe4.com/rss.xml |
 | 89 | Cofense Blog | https://cofense.com/feed/ |
 | 90 | Cato Networks Blog | https://www.catonetworks.com/blog/feed/ |
+
+### Podcasts (4)
+
+| # | Source | Feed URL |
+|---|---|---|
+| 91 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
+| 92 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
+| 93 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
+| 94 | Security Now | https://feeds.twit.tv/sn.xml |
 <!-- feeds:end -->
 
 ---

@@ -124,6 +124,11 @@ FEEDS = [
     ("KnowBe4 Blog",                    "https://blog.knowbe4.com/rss.xml"),
     ("Cofense Blog",                    "https://cofense.com/feed/"),
     ("Cato Networks Blog",              "https://www.catonetworks.com/blog/feed/"),
+    # ── Podcasts ─────────────────────────────────────────────────────────
+    ("CyberWire Daily",         "https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast"),
+    ("Darknet Diaries",         "https://feeds.megaphone.fm/darknetdiaries"),
+    ("Talos Takes",             "https://rss.buzzsprout.com/2018149.rss"),
+    ("Security Now",            "https://feeds.twit.tv/sn.xml"),
 ]
 
 FETCH_TIMEOUT  = 10
@@ -423,6 +428,23 @@ def _sanitize_xml(raw: bytes) -> bytes:
     return text.encode("utf-8")
 
 
+def _item_link(item) -> str:
+    """Episode URL. Some podcast feeds leave <link> empty, so fall back to the guid, then the audio file."""
+    link = _text(item, "link")
+    if link:
+        return link
+    guid = _text(item, "guid")
+    if guid.startswith("http"):
+        return guid
+    for child in item:
+        if isinstance(child.tag, str) and child.tag.endswith("}transcript"):
+            m = re.match(r"^(https://www\.buzzsprout\.com/\d+/\d+)/transcript", child.get("url", ""))
+            if m:
+                return m.group(1)
+    enclosure = item.find("enclosure")
+    return enclosure.get("url", "") if enclosure is not None else ""
+
+
 def fetch_feed(name: str, url: str) -> list[dict]:
     try:
         req = Request(url, headers={"User-Agent": "CyberCompetitiveDailyFeed/1.0"})
@@ -472,7 +494,7 @@ def fetch_feed(name: str, url: str) -> list[dict]:
             article = {
                 "source": name,
                 "title": _text(item, "title"),
-                "link":  _text(item, "link"),
+                "link":  _item_link(item),
                 "date":  _parse_date(
                     _text(item, "pubDate") or
                     _text(item, "{http://purl.org/dc/elements/1.1/}date")
@@ -482,6 +504,16 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                     "{http://purl.org/rss/1.0/modules/content/}encoded",
                     "description"))),
             }
+            enclosure = item.find("enclosure")
+            if enclosure is not None and (enclosure.get("type", "").startswith("audio")
+                                          or re.search(r"\.(mp3|m4a|aac|ogg)(\?|$)", enclosure.get("url", ""), re.I)):
+                article["podcast"] = True
+            transcripts = [(c.get("type", ""), c.get("url", "")) for c in item
+                           if isinstance(c.tag, str) and c.tag.endswith("}transcript") and c.get("url")]
+            if transcripts:
+                transcripts.sort(key=lambda t: _TRANSCRIPT_PREFERENCE.index(t[0]) if t[0] in _TRANSCRIPT_PREFERENCE else 99)
+                article["transcript_type"], article["transcript_url"] = transcripts[0]
+                article["podcast"] = True
             articles.append(article)
 
     return articles
@@ -820,6 +852,14 @@ def _is_stale(entry: dict) -> bool:
     return entry.get("source") == "page" and entry.get("v", 1) < EXTRACT_VERSION
 
 
+TRANSCRIPT_MAX_ATTEMPTS = 14  # transcripts often appear days after an episode, so they get their own, larger budget
+
+
+def _wants_transcript(a: dict, entry: dict) -> bool:
+    return (bool(a.get("podcast")) and entry.get("source") != "transcript"
+            and entry.get("tattempts", 0) < TRANSCRIPT_MAX_ATTEMPTS and bool(transcript_url_for(a)[0]))
+
+
 def attach_full_text(articles: list[dict]) -> int:
     """Set article['full_text'], reusing the on-disk cache and fetching what is missing.
 
@@ -834,15 +874,23 @@ def attach_full_text(articles: list[dict]) -> int:
     LAST_TEXT_ERRORS.clear()
     pending = [
         a for a in articles
-        if a.get("link")
-        and cache.get(a["id"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
-        and cache.get(a["id"], {}).get("transient", 0) < FULLTEXT_MAX_TRANSIENT
-        and (not cache.get(a["id"], {}).get("text") or _is_stale(cache[a["id"]]))
+        if a.get("link") and (
+            (cache.get(a["id"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
+             and cache.get(a["id"], {}).get("transient", 0) < FULLTEXT_MAX_TRANSIENT
+             and (not cache.get(a["id"], {}).get("text") or _is_stale(cache[a["id"]])))
+            or _wants_transcript(a, cache.get(a["id"], {})))
     ]
+    by_key = {a["id"]: a for a in pending}
     deadline = time.monotonic() + FULLTEXT_BUDGET_S
 
     def work(article):
         key, feed_text = article["id"], article.get("feed_text", "")
+        if article.get("podcast"):
+            url, hint = transcript_url_for(article)
+            if url:
+                transcript, _ = fetch_transcript(url, hint)
+                if transcript:
+                    return key, transcript, "transcript", ""
         if len(feed_text) >= FEED_FULLTEXT_MIN:
             return key, feed_text[:FULLTEXT_MAX_CHARS], "feed", ""
         if time.monotonic() > deadline:
@@ -862,9 +910,11 @@ def attach_full_text(articles: list[dict]) -> int:
                 if text is None:
                     continue
                 entry = cache.setdefault(key, {"text": "", "attempts": 0})
+                if _wants_transcript(by_key[key], entry):
+                    entry["tattempts"] = entry.get("tattempts", 0) + 1
                 if not text and _is_transient(error):
                     entry["transient"] = entry.get("transient", 0) + 1
-                else:
+                elif entry.get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS:
                     entry["attempts"] = entry.get("attempts", 0) + 1
                 if text:
                     entry["text"] = text
@@ -899,7 +949,140 @@ def attach_full_text(articles: list[dict]) -> int:
     for a in articles:
         a["full_text"] = _trim_trailer(cache.get(a["id"], {}).get("text", ""))
         a.pop("feed_text", None)
+        kind = cache.get(a["id"], {}).get("source", "")
+        if kind != "transcript" and a.get("podcast") and _EMBEDDED_TRANSCRIPT_RX.search(a["full_text"]):
+            kind = "transcript"  # the episode page itself carries the transcript
+        a["text_source"] = kind
     return obtained
+
+
+_CONTEXT_KEYWORDS = {
+    "announced", "partnership", "acquired", "released", "vulnerability",
+    "discovered", "found", "exploit", "threat", "malware", "attack",
+    "detection", "capability", "feature", "certification", "award",
+    "collaboration", "integration", "supported", "available", "launch",
+    "first", "only", "breakthrough", "critical", "severe", "zero-day"
+}
+
+# ---- podcasts ---------------------------------------------------------------------------------------
+_PODCAST_SOURCES = {"CyberWire Daily", "Security Now", "Risky Business News", "Darknet Diaries", "Talos Takes"}
+_PODCAST_TITLE_RX = re.compile(r"^\s*ISC Stormcast\b|\bpodcast\s*#?\d+\b|^\s*podcast\s*:|^\s*SN\s?\d{3,4}\s*:", re.I)
+_PODCAST_LINK_RX = re.compile(r"/podcastdetail/|twit\.tv/shows/|thecyberwire\.com/podcasts/", re.I)
+_TRANSCRIPT_PREFERENCE = ("text/plain", "text/html", "application/srt", "text/srt", "text/vtt", "application/json")
+TRANSCRIPT_MAX_CHARS = 150000
+_EMBEDDED_TRANSCRIPT_RX = re.compile(r"Show full transcript|This transcript was generated automatically[^\n]*", re.I)
+
+
+def is_podcast(a: dict) -> bool:
+    """True for podcast episodes: flagged by the feed (audio file), a known podcast source, or an episode-style title/link."""
+    return bool(a.get("podcast")) or a.get("source") in _PODCAST_SOURCES \
+        or bool(_PODCAST_TITLE_RX.search(a.get("title", ""))) or bool(_PODCAST_LINK_RX.search(a.get("link", "")))
+
+
+_STORMCAST_TITLE_RX = re.compile(r"^(.*?)\s+https?://isc\.sans\.edu/podcastdetail/(\d+),?\s*(\([^)]*\))?\s*$")
+
+
+def tidy_podcast_title(entry: dict) -> None:
+    """SANS Stormcast titles end with the episode URL and date; keep the transcript link, drop the clutter."""
+    m = _STORMCAST_TITLE_RX.match(entry.get("title", ""))
+    if m:
+        entry["transcript_url"] = f"https://isc.sans.edu/podcasttranscript.html?id={m.group(2)}"
+        entry["transcript_type"] = "text/plain"
+        entry["title"] = m.group(1).strip()
+
+
+def transcript_url_for(a: dict) -> tuple[str, str]:
+    """(url, type) of a published transcript for an episode, or ('', '')."""
+    if a.get("transcript_url"):
+        return a["transcript_url"], a.get("transcript_type", "")
+    title, link = a.get("title", ""), a.get("link", "")
+    m = re.search(r"isc\.sans\.edu/podcastdetail/(\d+)", title + " " + link)
+    if m:
+        return f"https://isc.sans.edu/podcasttranscript.html?id={m.group(1)}", "text/plain"
+    m = re.match(r"\s*SN\s?(\d{3,4})\b", title) or re.search(r"twit\.tv/shows/security-now/episodes/(\d+)", link)
+    if m:
+        return f"https://www.grc.com/sn/sn-{m.group(1)}.txt", "text/plain"
+    if re.search(r"thecyberwire\.com/podcasts/[^/]+/\d+/notes", link):
+        return link.replace("/notes", "/transcript"), "text/html"
+    return "", ""
+
+
+def parse_transcript(raw: str, hint: str = "") -> str:
+    """Plain text of a transcript delivered as WebVTT, SRT, Podcasting 2.0 JSON, HTML or plain text."""
+    t = raw.lstrip("\ufeff")
+    head = t[:400].lstrip()
+    if head.startswith("WEBVTT") or "-->" in t[:600]:
+        lines = []
+        for line in t.splitlines():
+            line = line.strip()
+            if not line or line == "WEBVTT" or "-->" in line or re.fullmatch(r"\d+", line) or line.startswith(("NOTE", "STYLE", "Kind:", "Language:")):
+                continue
+            lines.append(re.sub(r"<[^>]+>", "", line))
+        return " ".join(lines)
+    if head.startswith(("{", "[")):
+        try:
+            data = json.loads(t)
+        except ValueError:
+            return ""
+        segments = data.get("segments", []) if isinstance(data, dict) else data
+        out, last = [], None
+        for seg in segments:
+            if not isinstance(seg, dict) or not seg.get("body"):
+                continue
+            speaker = seg.get("speaker") or ""
+            out.append((f"{speaker}: " if speaker and speaker != last else "") + str(seg["body"]).strip())
+            last = speaker
+        return " ".join(out)
+    if re.search(r"<(html|body|p|div)[\s>]", head, re.I) or hint == "text/html":
+        return _html_to_text(t)
+    paragraphs = re.split(r"\n\s*\n", t)
+    return "\n\n".join(" ".join(line.strip() for line in p.splitlines() if line.strip()) for p in paragraphs if p.strip())
+
+
+def fetch_transcript(url: str, hint: str = "") -> tuple[str, str]:
+    """Download and parse a transcript. Returns (text, error)."""
+    try:
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                    "Accept": "text/plain,text/html,application/json,*/*;q=0.8"})
+        with urlopen(req, timeout=20) as resp:
+            charset = resp.headers.get_content_charset() or "utf-8"
+            raw = resp.read(6_000_000).decode(charset, errors="replace")
+        text = parse_transcript(raw, hint)
+    except Exception as exc:
+        return "", _classify_error(exc)
+    return (text[:TRANSCRIPT_MAX_CHARS], "") if len(text) >= 500 else ("", "thin")
+
+
+_INLINE_SPEAKER_RX = re.compile(r"^[A-Z][A-Z .'\-]{1,30}:\s+")
+_SPEAKER_TURN_RX = re.compile(r"\b[A-Z][a-z]+(?: [A-Z][a-z]+){0,2}\s+\d{1,2}:\d{2}(?::\d{2})?(?=\s)")  # "Martin Lee 5:28"
+_INLINE_TIMESTAMP_RX = re.compile(r"\s\d{1,2}:\d{2}(?::\d{2})?(?=\s)")
+_SPEAKER_LINE_RX = re.compile(r"^[A-Z][A-Z .'\-]{2,40}:?$")
+_HEADER_LINE_RX = re.compile(r"^(SERIES|EPISODE|DATE|TITLE|HOSTS?|SOURCE|ARCHIVE|DESCRIPTION|SPONSORS?|TRANSCRIPT)\s*:", re.I)
+_TIMESTAMP_RX = re.compile(r"^\[?\(?\d{1,2}:\d{2}(:\d{2})?\)?\]?$")
+_FILLER_RX = re.compile(r"^(hello|hi\b|hey\b|welcome|good (morning|afternoon|evening)|this is\b|you're listening|thanks for|thank you for|my name is|i'm your host)", re.I)
+
+
+def podcast_context(text: str, limit: int = 320) -> str:
+    """Up to two of the most informative sentences from a transcript (no greetings, speaker labels or timestamps)."""
+    marker = _EMBEDDED_TRANSCRIPT_RX.search(text)
+    if marker:
+        text = text[marker.end():]
+    lines = []
+    for line in text.replace("\n\n", "\n").splitlines():
+        line = line.strip()
+        if not line or _SPEAKER_LINE_RX.match(line) or _HEADER_LINE_RX.match(line) or _TIMESTAMP_RX.match(line):
+            continue
+        lines.append(line)
+    body = _INLINE_TIMESTAMP_RX.sub(" ", _SPEAKER_TURN_RX.sub(" ", " ".join(lines)))
+    sentences = []
+    for chunk in re.split(r"(?<=[.!?])\s+", body[:60000]):
+        chunk = _INLINE_SPEAKER_RX.sub("", chunk.strip())
+        if 40 <= len(chunk) <= 260 and not _FILLER_RX.match(chunk):
+            sentences.append(chunk)
+    scored = [(sum(1 for kw in _CONTEXT_KEYWORDS if kw in s_.lower()), -i, s_) for i, s_ in enumerate(sentences)]
+    picked = sorted((x for x in scored if x[0] > 0), reverse=True)[:2] or [(0, -i, s_) for i, s_ in enumerate(sentences[:2])]
+    picked.sort(key=lambda x: -x[1])  # back into reading order
+    return shorten(" ".join(x[2] for x in picked), width=limit, placeholder="...") if picked else ""
 
 
 def _extract_key_sentence(text: str, title: str = "") -> str:
@@ -911,14 +1094,7 @@ def _extract_key_sentence(text: str, title: str = "") -> str:
     if not text:
         return ""
 
-    # Keywords that indicate important context
-    keywords = {
-        "announced", "partnership", "acquired", "released", "vulnerability",
-        "discovered", "found", "exploit", "threat", "malware", "attack",
-        "detection", "capability", "feature", "certification", "award",
-        "collaboration", "integration", "supported", "available", "launch",
-        "first", "only", "breakthrough", "critical", "severe", "zero-day"
-    }
+    keywords = _CONTEXT_KEYWORDS
 
     # Split into sentences
     sentences = re.split(r'[.!?]+', text)
@@ -1087,7 +1263,8 @@ def classify_modules(article: dict) -> list[str]:
     """
     title = article.get("title", "")
     context = article.get("context", "")
-    body = " ".join((context + " " + article.get("full_text", "")[:MODULE_BODY_CHARS]).split())
+    limit = MODULE_BODY_CHARS * 3 if article.get("text_source") == "transcript" else MODULE_BODY_CHARS
+    body = " ".join((context + " " + article.get("full_text", "")[:limit]).split())
     scored = []
     for order, (name, (strong, weak)) in enumerate(_MODULE_RX.items()):
         score = (3 if strong.search(title) else 0) + min(len(strong.findall(body)), 3)
@@ -1192,6 +1369,10 @@ def merge_into_master(master: dict, live: list[dict]) -> None:
             entry["context"] = a["context"]
         if a.get("feed_text"):
             entry["feed_text"] = a["feed_text"]
+        if a.get("podcast"):
+            entry["podcast"] = True
+        if a.get("transcript_url"):
+            entry["transcript_url"], entry["transcript_type"] = a["transcript_url"], a.get("transcript_type", "")
 
 
 def save_master(master: dict, label: str) -> None:
@@ -1200,7 +1381,10 @@ def save_master(master: dict, label: str) -> None:
     items = dated + [a for a in items if not a.get("date")]
     slim = [{"id": a["id"], "source": a["source"], "category": a.get("category", ""), "title": a["title"],
              "link": a["link"], "date": a.get("date"), "context": a.get("context", ""),
-             "modules": a.get("modules", [])} for a in items]
+             "modules": a.get("modules", []), "podcast": bool(a.get("podcast")),
+             "transcript": a.get("text_source") == "transcript",
+             **({"transcript_url": a["transcript_url"], "transcript_type": a.get("transcript_type", "")} if a.get("transcript_url") else {})}
+            for a in items]
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(ARTICLES_FILE, "w", encoding="utf-8") as f:
         json.dump({"generated": label, "count": len(slim), "articles": slim}, f, ensure_ascii=False, separators=(",", ":"))
@@ -1346,6 +1530,7 @@ def export_digest_json(articles: list[dict], label: str) -> str:
         export["categories"][cat] = [
             {
                 "id": article_id(a["link"]),
+                "podcast": bool(a.get("podcast")),
                 "source": a["source"],
                 "title": a["title"],
                 "link": a["link"],
@@ -1372,7 +1557,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     writer = csv_module.writer(output)
 
     # Write header
-    writer.writerow(["ID", "Date", "Category", "Modules", "Source", "Title", "Link", "Context", "Full Text"])
+    writer.writerow(["ID", "Date", "Category", "Modules", "Type", "Source", "Title", "Link", "Context", "Full Text"])
 
     # Write articles
     buckets = bucket_articles(articles)
@@ -1384,6 +1569,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
                 date_str,
                 cat,
                 "; ".join(article.get("modules", [])),
+                "Podcast" if article.get("podcast") else "Article",
                 article["source"],
                 article["title"],
                 article["link"],
@@ -1412,7 +1598,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
         # CSV export for this category
         csv_output = io.StringIO()
         csv_writer = csv_module.writer(csv_output)
-        csv_writer.writerow(["ID", "Date", "Source", "Modules", "Title", "Link", "Context", "Full Text"])
+        csv_writer.writerow(["ID", "Date", "Source", "Modules", "Type", "Title", "Link", "Context", "Full Text"])
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             csv_writer.writerow([
@@ -1420,6 +1606,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
                 date_str,
                 article["source"],
                 "; ".join(article.get("modules", [])),
+                "Podcast" if article.get("podcast") else "Article",
                 article["title"],
                 article["link"],
                 article.get("context", ""),
@@ -1436,6 +1623,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
             "articles": [
                 {
                     "id": article_id(a["link"]),
+                    "podcast": bool(a.get("podcast")),
                     "date": a["date"].isoformat() if a["date"] else None,
                     "source": a["source"],
                     "title": a["title"],
@@ -1775,6 +1963,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             if safe_context:
                 context_html = f'<p class="card-context">{safe_context}</p>'
 
+            pod_badge = POD_BADGE_HTML if a.get("podcast") else ""
             modules = a.get("modules") or []
             modules_attr = html.escape("|".join(modules))
             shown = [m for m in modules if m not in (MODULE_OTHER, MODULE_NA)]
@@ -1783,9 +1972,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                 modules_html = '<div class="card-modules">' + " &middot; ".join(html.escape(m) for m in shown) + "</div>"
 
             cards.append(f"""
-            <div class="card" data-id="{article_id(a["link"])}" data-modules="{modules_attr}">
+            <div class="card" data-id="{article_id(a["link"])}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}">
               <div class="card-meta">
-                <span class="source">{safe_source}</span>
+                <span class="source">{pod_badge}{safe_source}</span>
                 <span class="date">{date_str}<button type="button" class="card-details" aria-label="Details and export"></button></span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
@@ -2145,6 +2334,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 # Exports are generated in the browser when a button is clicked; no static files.
 # ---------------------------------------------------------------------------
 
+POD_ICON_SVG = ('<svg class="pod-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" '
+                'd="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>')
+POD_BADGE_HTML = '<span class="pod-badge" title="Podcast">' + POD_ICON_SVG + '</span>'
+
 MODAL_CSS = r"""
   body.am-open { overflow: hidden; }
   .am-overlay { position: fixed; inset: 0; background: rgba(5,6,12,.72); display: flex; align-items: center;
@@ -2162,7 +2355,15 @@ MODAL_CSS = r"""
   .am-chip { color: #fff; border-radius: 3px; padding: 1px 8px; font-weight: 600; font-size: .7rem; background: #555a70; }
   .am-src { color: #ff5a4d; font-weight: 600; }
   .am-id { font-family: Consolas, monospace; color: #6b7088; }
-  .am-mods { font-size: .78rem; color: #7d8299; margin-bottom: 12px; }
+  .am-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+  .am-tag { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; line-height: 1.5; border-radius: 999px;
+            padding: 1px 10px; border: 1px solid #343850; color: #c9cbd6; background: #1b1e2d; }
+  .am-tag.category { color: #fff; border-color: transparent; font-weight: 600; background: #555a70; }
+  .am-tag.podcast { color: #ff8a80; border-color: #6b2a27; background: #2a1a1b; font-weight: 600; }
+  .am-tag.transcript { color: #9fd3a8; border-color: #2c4a33; background: #17241b; }
+  .am-tag.muted { color: #6b7088; font-style: italic; }
+  .pod-badge { display: inline-flex; vertical-align: -2px; margin-right: 5px; color: #ff5a4d; }
+  .pod-icon { width: 12px; height: 12px; }
   .am-ctx { font-size: .88rem; line-height: 1.6; color: #c9cbd6; background: #1e2030; border-radius: 6px;
             padding: 12px 14px; margin-bottom: 16px; white-space: pre-wrap; }
   .am-ctx.empty { color: #6b7088; font-style: italic; }
@@ -2190,7 +2391,7 @@ MODAL_HTML = """
       <button type="button" class="am-close" id="am-close" aria-label="Close">&times;</button>
     </div>
     <div class="am-meta" id="am-meta"></div>
-    <div class="am-mods" id="am-mods"></div>
+    <div class="am-tags" id="am-tags"></div>
     <p class="am-ctx" id="am-ctx"></p>
     <div class="am-actions">
       <a class="am-btn" id="am-open" href="#" target="_blank" rel="noopener noreferrer">Open article &#8599;</a>
@@ -2210,10 +2411,11 @@ MODAL_JS = r"""
   var overlay = document.getElementById('am-overlay');
   if (!overlay) return;
   var $ = function (id) { return document.getElementById(id); };
-  var el = { title: $('am-title'), meta: $('am-meta'), mods: $('am-mods'), ctx: $('am-ctx'), open: $('am-open'),
+  var el = { title: $('am-title'), meta: $('am-meta'), tags: $('am-tags'), ctx: $('am-ctx'), open: $('am-open'),
              ft: $('am-fulltext'), json: $('am-json'), csv: $('am-csv'), copy: $('am-copy'), status: $('am-status'),
              close: $('am-close'), dialog: $('am-dialog') };
   var CSV_CELL_LIMIT = 32000;
+  var POD_ICON = '__POD_ICON__';
   var current = null, base = '', lastFocus = null, shards = {};
 
   function setStatus(msg, isError) { el.status.textContent = msg || ''; el.status.style.color = isError ? '#ff7b72' : ''; }
@@ -2222,19 +2424,24 @@ MODAL_JS = r"""
     current = a; base = (opts && opts.fullTextBase) || '';
     el.title.textContent = a.title;
     el.meta.textContent = '';
-    if (a.category) {
-      var chip = document.createElement('span'); chip.className = 'am-chip'; chip.textContent = a.category;
-      if (a.color) chip.style.background = a.color;
-      el.meta.appendChild(chip);
-    }
     var src = document.createElement('span'); src.className = 'am-src'; src.textContent = a.source; el.meta.appendChild(src);
     var when = document.createElement('span');
     when.textContent = a.date ? a.date.slice(0, 16).replace('T', ' ') + ' UTC' : 'Date unknown';
     el.meta.appendChild(when);
     if (a.id) { var idEl = document.createElement('span'); idEl.className = 'am-id'; idEl.textContent = 'ID ' + a.id; el.meta.appendChild(idEl); }
-    var mods = a.modules || [];
-    el.mods.textContent = mods.length ? 'Modules: ' + mods.join(' \u00b7 ') : '';
-    el.mods.hidden = !mods.length;
+    el.tags.textContent = '';
+    function addTag(label, cls, icon) {
+      var t = document.createElement('span'); t.className = 'am-tag ' + cls;
+      if (icon) t.innerHTML = icon + ' ';
+      t.appendChild(document.createTextNode(label));
+      el.tags.appendChild(t);
+      return t;
+    }
+    if (a.category) { var c = addTag(a.category, 'category'); if (a.color) c.style.background = a.color; }
+    if (a.podcast) addTag('Podcast', 'podcast', POD_ICON);
+    if (a.transcript) addTag('Transcript available', 'transcript');
+    (a.modules || []).forEach(function (m) { addTag(m, m === 'Other/General' || m === 'N/A' ? 'muted' : ''); });
+    el.tags.hidden = !el.tags.children.length;
     el.ctx.textContent = a.context || 'No summary was extracted for this article.';
     el.ctx.className = 'am-ctx' + (a.context ? '' : ' empty');
     el.open.href = a.link;
@@ -2278,7 +2485,7 @@ MODAL_JS = r"""
   async function exportAs(fmt) {
     var withText = el.ft.checked, note = '';
     var rec = { id: current.id || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
-                title: current.title, link: current.link, context: current.context || '' };
+                podcast: !!current.podcast, title: current.title, link: current.link, context: current.context || '' };
     el.json.disabled = el.csv.disabled = true;
     try {
       if (withText) {
@@ -2291,8 +2498,8 @@ MODAL_JS = r"""
         download('article_' + slug + '.json', 'application/json',
                  JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
       } else {
-        var head = ['ID', 'Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
-        var cells = [rec.id, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '),
+        var head = ['ID', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.id, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
                      rec.source, rec.title, rec.link, rec.context];
         if (withText) {
           var t = rec.full_text;
@@ -2331,6 +2538,8 @@ MODAL_JS = r"""
 })();
 """
 
+MODAL_JS = MODAL_JS.replace("__POD_ICON__", POD_ICON_SVG)
+
 DASH_MODAL_JS = r"""
 document.addEventListener('click', function (e) {
   var btn = e.target.closest ? e.target.closest('.card-details') : null;
@@ -2350,6 +2559,8 @@ document.addEventListener('click', function (e) {
     category: col ? col.querySelector('h2').textContent.trim() : '',
     color: header ? getComputedStyle(header).borderLeftColor : '',
     modules: (card.dataset.modules || '').split('|').filter(Boolean),
+    podcast: card.dataset.podcast === '1',
+    transcript: card.dataset.transcript === '1',
     context: ctx ? ctx.textContent.trim() : ''
   }, { fullTextBase: '__FULLTEXT_BASE__' });
 });
@@ -2367,7 +2578,8 @@ def write_explorer() -> None:
     page = (template.replace("__CATEGORY_COLORS__", json.dumps(CATEGORY_COLORS))
             .replace("__MODAL_CSS__", MODAL_CSS)
             .replace("__MODAL_HTML__", MODAL_HTML)
-            .replace("__MODAL_JS__", MODAL_JS))
+            .replace("__MODAL_JS__", MODAL_JS)
+            .replace("__POD_ICON__", POD_ICON_SVG))
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(EXPLORER_FILE, "w", encoding="utf-8", newline="\n") as f:
         f.write(page)
@@ -2395,6 +2607,9 @@ def main() -> None:
     master = load_master()
     merge_into_master(master, recent)
     entries = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
+    for entry in entries:
+        tidy_podcast_title(entry)
+        entry["podcast"] = is_podcast(entry)
 
     # ── Full article text (saved for exports only, never rendered) + dashboard snippets ──
     obtained = attach_full_text(entries)
@@ -2405,6 +2620,8 @@ def main() -> None:
     for entry in entries:
         if not entry.get("context"):
             entry["context"] = extract_context(entry)
+        if entry.get("podcast") and entry.get("text_source") == "transcript":
+            entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
     for article in recent:
         stored = master.get(article_id(article["link"])) if article.get("link") else None
@@ -2412,6 +2629,9 @@ def main() -> None:
             article["id"] = stored["id"]
             article["full_text"] = stored["full_text"]
             article["modules"] = stored["modules"]
+            article["podcast"] = bool(stored.get("podcast"))
+            article["text_source"] = stored.get("text_source", "")
+            article["context"] = stored["context"]
             if not article.get("context"):
                 article["context"] = stored.get("context", "")
     save_master(master, label)
@@ -2522,6 +2742,9 @@ def retry_text() -> None:
     BROWSER_BUDGET_S = int(os.environ.get("BROWSER_BUDGET_S", "900"))
     master = load_master()
     entries = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
+    for entry in entries:
+        tidy_podcast_title(entry)
+        entry["podcast"] = is_podcast(entry)
     cache = load_fulltext_cache()
     reset = 0
     for entry in cache.values():
@@ -2539,6 +2762,8 @@ def retry_text() -> None:
     for entry in entries:
         if not entry.get("context"):
             entry["context"] = extract_context(entry)
+        if entry.get("podcast") and entry.get("text_source") == "transcript":
+            entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
     save_master(master, datetime.now(PHT).strftime("%Y-%m-%d %H:%M PHT"))
 
