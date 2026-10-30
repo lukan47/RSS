@@ -49,6 +49,8 @@
   .src { color: #ff5a4d; font-weight: 600; }
   .title { display: block; color: #d8d8d8; text-decoration: none; font-size: .9rem; line-height: 1.5; }
   .title:hover, .title:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .meta .card-details { margin-left: auto; }
+  __MODAL_CSS__
   .mods { font-size: .7rem; color: #7d8299; line-height: 1.4; margin-top: 6px; }
   .ctx { font-size: .78rem; color: #8a8fa3; line-height: 1.45; margin-top: 8px; padding-top: 8px; border-top: 1px solid #242736; }
   #more { display: block; margin: 8px 24px 40px; }
@@ -97,6 +99,11 @@
 <div id="status" role="status" aria-live="polite"></div>
 <main id="list"></main>
 <button type="button" class="btn ghost" id="more" hidden>Show more</button>
+
+__MODAL_HTML__
+<script>
+__MODAL_JS__
+</script>
 
 <script>
 (function () {
@@ -173,6 +180,9 @@
     var src = document.createElement('span'); src.className = 'src'; src.textContent = a.source;
     var t = document.createElement('time'); t.textContent = a.date ? a.date.slice(11, 16) + ' UTC' : '';
     meta.appendChild(chip); meta.appendChild(src); meta.appendChild(t);
+    var details = document.createElement('button'); details.type = 'button'; details.className = 'card-details';
+    details.setAttribute('aria-label', 'Details and export'); details.__article = a;
+    meta.appendChild(details);
     var link = document.createElement('a'); link.className = 'title'; link.href = a.link; link.target = '_blank';
     link.rel = 'noopener noreferrer'; link.textContent = a.title;
     el.appendChild(meta); el.appendChild(link);
@@ -283,6 +293,13 @@
     });
     $('q').addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(applyFilters, 150); });
     $('more').addEventListener('click', renderMore);
+    $('list').addEventListener('click', function (e) {
+      var btn = e.target.closest('.card-details');
+      if (!btn || !btn.__article) return;
+      var a = btn.__article;
+      window.ArticleModal.open({ title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
+        color: COLORS[a.category] || '', modules: a.modules || [], context: a.context || '' }, { fullTextBase: 'fulltext/' });
+    });
     $('btn-json').addEventListener('click', function () { doExport('json'); });
     $('btn-csv').addEventListener('click', function () { doExport('csv'); });
     applyFilters();

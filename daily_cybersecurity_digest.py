@@ -1566,7 +1566,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             <div class="card" data-modules="{modules_attr}">
               <div class="card-meta">
                 <span class="source">{safe_source}</span>
-                <span class="date">{date_str}</span>
+                <span class="date">{date_str}<button type="button" class="card-details" aria-label="Details and export"></button></span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
               {modules_html}
@@ -1585,6 +1585,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
         </div>
       </div>""")
 
+    dash_modal_js = DASH_MODAL_JS.replace("__FULLTEXT_BASE__", REPORT_URL + "archive/data/fulltext/")
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1775,6 +1776,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   }}
   .col.search-hidden {{ display: none !important; }}
   .card.hide-search, .card.hide-module {{ display: none; }}
+  .card-meta .source {{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  .card-meta .date {{ display: inline-flex; align-items: center; white-space: nowrap; }}
+  {MODAL_CSS}
   .card-modules {{
     font-size: 0.7rem;
     color: #7d8299;
@@ -1903,12 +1907,223 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 </div>
 
 <footer>Updated twice daily · 6:00 AM &amp; 6:00 PM PHT · lukan47/RSS</footer>
+{MODAL_HTML}
+<script>
+{MODAL_JS}
+{dash_modal_js}
+</script>
 </body>
 </html>"""
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Article details popup (shared by the dashboard and the all-articles page).
+# Exports are generated in the browser when a button is clicked; no static files.
+# ---------------------------------------------------------------------------
+
+MODAL_CSS = r"""
+  body.am-open { overflow: hidden; }
+  .am-overlay { position: fixed; inset: 0; background: rgba(5,6,12,.72); display: flex; align-items: center;
+                justify-content: center; padding: 16px; z-index: 1000; }
+  .am-overlay[hidden] { display: none; }
+  .am-dialog { background: #171a26; border: 1px solid #2a2d3e; border-top: 3px solid #DA291C; border-radius: 8px;
+               width: min(680px, 100%); max-height: 90vh; overflow: auto; padding: 20px 22px; color: #e0e0e0;
+               box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .am-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+  .am-title { font-size: 1.05rem; line-height: 1.4; color: #fff; font-weight: 700; }
+  .am-close { background: transparent; border: 1px solid #2a2d3e; color: #aaa; border-radius: 4px; width: 30px;
+              height: 30px; cursor: pointer; font-size: 1.1rem; flex: 0 0 auto; line-height: 1; }
+  .am-close:hover { color: #fff; border-color: #DA291C; }
+  .am-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: .78rem; color: #8a8fa3; margin: 12px 0 8px; }
+  .am-chip { color: #fff; border-radius: 3px; padding: 1px 8px; font-weight: 600; font-size: .7rem; background: #555a70; }
+  .am-src { color: #ff5a4d; font-weight: 600; }
+  .am-mods { font-size: .78rem; color: #7d8299; margin-bottom: 12px; }
+  .am-ctx { font-size: .88rem; line-height: 1.6; color: #c9cbd6; background: #1e2030; border-radius: 6px;
+            padding: 12px 14px; margin-bottom: 16px; white-space: pre-wrap; }
+  .am-ctx.empty { color: #6b7088; font-style: italic; }
+  .am-actions { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; }
+  .am-btn { background: #DA291C; color: #fff; border: none; border-radius: 4px; padding: 7px 14px; font-size: .78rem;
+            font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; font-family: inherit; }
+  .am-btn:hover:not(:disabled) { background: #f0352a; }
+  .am-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .am-btn.secondary { background: #1e2030; border: 1px solid #2a2d3e; }
+  .am-btn.secondary:hover:not(:disabled) { background: #262a3d; border-color: #DA291C; }
+  .am-chk { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: #c9cbd6; cursor: pointer; margin-left: auto; }
+  .am-status { font-size: .75rem; color: #8a8fa3; min-height: 1.3em; margin-top: 10px; }
+  .am-dialog button:focus-visible, .am-dialog a:focus-visible, .am-dialog input:focus-visible { outline: 2px solid #DA291C; outline-offset: 1px; }
+  .card-details { margin-left: 10px; background: transparent; color: #8a8fa3; border: 1px solid #2a2d3e; border-radius: 3px;
+                  padding: 0 7px; font-size: .68rem; cursor: pointer; font-family: inherit; line-height: 1.6; }
+  .card-details::after { content: "Details"; }
+  .card-details:hover, .card-details:focus-visible { color: #fff; border-color: #DA291C; outline: none; }
+"""
+
+MODAL_HTML = """
+<div class="am-overlay" id="am-overlay" hidden>
+  <div class="am-dialog" id="am-dialog" role="dialog" aria-modal="true" aria-labelledby="am-title">
+    <div class="am-head">
+      <h2 class="am-title" id="am-title"></h2>
+      <button type="button" class="am-close" id="am-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="am-meta" id="am-meta"></div>
+    <div class="am-mods" id="am-mods"></div>
+    <p class="am-ctx" id="am-ctx"></p>
+    <div class="am-actions">
+      <a class="am-btn" id="am-open" href="#" target="_blank" rel="noopener noreferrer">Open article &#8599;</a>
+      <button type="button" class="am-btn secondary" id="am-json">&darr; JSON</button>
+      <button type="button" class="am-btn secondary" id="am-csv">&darr; CSV</button>
+      <label class="am-chk"><input type="checkbox" id="am-fulltext"> Include full article text</label>
+    </div>
+    <div class="am-status" id="am-status" role="status" aria-live="polite"></div>
+  </div>
+</div>
+"""
+
+MODAL_JS = r"""
+(function () {
+  'use strict';
+  var overlay = document.getElementById('am-overlay');
+  if (!overlay) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var el = { title: $('am-title'), meta: $('am-meta'), mods: $('am-mods'), ctx: $('am-ctx'), open: $('am-open'),
+             ft: $('am-fulltext'), json: $('am-json'), csv: $('am-csv'), status: $('am-status'),
+             close: $('am-close'), dialog: $('am-dialog') };
+  var CSV_CELL_LIMIT = 32000;
+  var current = null, base = '', lastFocus = null, shards = {};
+
+  function setStatus(msg, isError) { el.status.textContent = msg || ''; el.status.style.color = isError ? '#ff7b72' : ''; }
+
+  function openModal(a, opts) {
+    current = a; base = (opts && opts.fullTextBase) || '';
+    el.title.textContent = a.title;
+    el.meta.textContent = '';
+    if (a.category) {
+      var chip = document.createElement('span'); chip.className = 'am-chip'; chip.textContent = a.category;
+      if (a.color) chip.style.background = a.color;
+      el.meta.appendChild(chip);
+    }
+    var src = document.createElement('span'); src.className = 'am-src'; src.textContent = a.source; el.meta.appendChild(src);
+    var when = document.createElement('span');
+    when.textContent = a.date ? a.date.slice(0, 16).replace('T', ' ') + ' UTC' : 'Date unknown';
+    el.meta.appendChild(when);
+    var mods = a.modules || [];
+    el.mods.textContent = mods.length ? 'Modules: ' + mods.join(' \u00b7 ') : '';
+    el.mods.hidden = !mods.length;
+    el.ctx.textContent = a.context || 'No summary was extracted for this article.';
+    el.ctx.className = 'am-ctx' + (a.context ? '' : ' empty');
+    el.open.href = a.link;
+    el.ft.checked = false; setStatus('');
+    el.json.disabled = el.csv.disabled = false;
+    lastFocus = document.activeElement;
+    overlay.hidden = false; document.body.classList.add('am-open');
+    el.close.focus();
+  }
+
+  function closeModal() {
+    if (overlay.hidden) return;
+    overlay.hidden = true; document.body.classList.remove('am-open');
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  async function savedText(a) {
+    var month = a.date ? a.date.slice(0, 7) : 'undated';
+    if (!shards[month]) {
+      var res = await fetch(base + month + '.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      shards[month] = await res.json();
+    }
+    var entry = shards[month][a.link];
+    return entry && entry.text ? entry.text : '';
+  }
+
+  function csvCell(v) {
+    v = v == null ? '' : String(v);
+    return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+
+  function download(name, mime, content) {
+    var url = URL.createObjectURL(new Blob([content], { type: mime }));
+    var a = document.createElement('a'); a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  async function exportAs(fmt) {
+    var withText = el.ft.checked, note = '';
+    var rec = { date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
+                title: current.title, link: current.link, context: current.context || '' };
+    el.json.disabled = el.csv.disabled = true;
+    try {
+      if (withText) {
+        setStatus('Loading saved article text\u2026');
+        try { rec.full_text = await savedText(current); } catch (e) { rec.full_text = ''; note = ' (could not load saved text: ' + e.message + ')'; }
+        if (!rec.full_text && !note) note = ' (no saved text for this article)';
+      }
+      var slug = current.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'article';
+      if (fmt === 'json') {
+        download('article_' + slug + '.json', 'application/json',
+                 JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
+      } else {
+        var head = ['Date', 'Category', 'Modules', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '),
+                     rec.source, rec.title, rec.link, rec.context];
+        if (withText) {
+          var t = rec.full_text;
+          cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
+        }
+        download('article_' + slug + '.csv', 'text/csv;charset=utf-8',
+                 '\ufeff' + head.join(',') + '\r\n' + cells.map(csvCell).join(',') + '\r\n');
+      }
+      setStatus('Exported as ' + fmt.toUpperCase() + note + '.', !!note && note.indexOf('could not') !== -1);
+    } catch (e) {
+      setStatus('Export failed: ' + e.message, true);
+    } finally {
+      el.json.disabled = el.csv.disabled = false;
+    }
+  }
+
+  el.close.addEventListener('click', closeModal);
+  overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closeModal(); });
+  el.json.addEventListener('click', function () { exportAs('json'); });
+  el.csv.addEventListener('click', function () { exportAs('csv'); });
+  document.addEventListener('keydown', function (e) {
+    if (overlay.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+    if (e.key !== 'Tab') return;
+    var f = Array.prototype.filter.call(el.dialog.querySelectorAll('a[href], button, input'), function (n) { return !n.disabled; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  window.ArticleModal = { open: openModal, close: closeModal };
+})();
+"""
+
+DASH_MODAL_JS = r"""
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest ? e.target.closest('.card-details') : null;
+  if (!btn || !window.ArticleModal) return;
+  var card = btn.closest('.card'), col = card.closest('.col');
+  var title = card.querySelector('.card-title');
+  var m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) UTC$/.exec((card.querySelector('.date').textContent || '').trim());
+  var header = col && col.querySelector('.col-header');
+  var ctx = card.querySelector('.card-context');
+  window.ArticleModal.open({
+    title: title.textContent.trim(),
+    link: title.href,
+    source: card.querySelector('.source').textContent.trim(),
+    date: m ? m[1] + 'T' + m[2] + ':00+00:00' : null,
+    category: col ? col.querySelector('h2').textContent.trim() : '',
+    color: header ? getComputedStyle(header).borderLeftColor : '',
+    modules: (card.dataset.modules || '').split('|').filter(Boolean),
+    context: ctx ? ctx.textContent.trim() : ''
+  }, { fullTextBase: '__FULLTEXT_BASE__' });
+});
+"""
+
 
 def write_explorer() -> None:
     """Render explorer_template.html into archive/data/explorer.html."""
@@ -1918,7 +2133,10 @@ def write_explorer() -> None:
     except OSError as exc:
         print(f"  [WARN] explorer template missing: {exc}", file=sys.stderr)
         return
-    page = template.replace("__CATEGORY_COLORS__", json.dumps(CATEGORY_COLORS))
+    page = (template.replace("__CATEGORY_COLORS__", json.dumps(CATEGORY_COLORS))
+            .replace("__MODAL_CSS__", MODAL_CSS)
+            .replace("__MODAL_HTML__", MODAL_HTML)
+            .replace("__MODAL_JS__", MODAL_JS))
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(EXPLORER_FILE, "w", encoding="utf-8", newline="\n") as f:
         f.write(page)
