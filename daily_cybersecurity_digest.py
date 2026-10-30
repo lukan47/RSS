@@ -965,11 +965,84 @@ def _build_dropdown() -> str:
       });
     }
 
+    // Helper to get base directory URL
+    function getBaseUrl() {
+      const url = window.location.href;
+      // If in archive subdirectory, go up one level
+      if (url.includes('/archive/')) {
+        return url.split('/archive/')[0];
+      }
+      // Otherwise, use current directory
+      return url.split('/').slice(0, -1).join('/');
+    }
+
+    // Handle main export buttons
+    function initializeMainExports() {
+      const baseUrl = getBaseUrl();
+      document.getElementById('export-json-btn').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = `${baseUrl}/digest.json`;
+        a.download = 'digest.json';
+        a.click();
+      });
+      document.getElementById('export-csv-btn').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = `${baseUrl}/digest.csv`;
+        a.download = 'digest.csv';
+        a.click();
+      });
+    }
+
+    // Populate and handle category exports
+    function initializeCategoryExports() {
+      const exportSelect = document.getElementById('category-export-select');
+      const cols = document.querySelectorAll('.col');
+      const categories = new Set();
+      cols.forEach(col => {
+        const h2 = col.querySelector('h2');
+        if (h2) categories.add(h2.textContent.trim());
+      });
+
+      categories.forEach(cat => {
+        const safe_cat = cat.toLowerCase().replace(/[^a-z0-9-_]/g, '_');
+        const option = document.createElement('option');
+        option.value = safe_cat;
+        option.textContent = cat;
+        exportSelect.appendChild(option);
+      });
+
+      exportSelect.addEventListener('change', (e) => {
+        if (e.target.value) {
+          const baseUrl = getBaseUrl();
+          const safe_cat = e.target.value;
+          const csvUrl = `${baseUrl}/digest__${safe_cat}.csv`;
+          const jsonUrl = `${baseUrl}/digest__${safe_cat}.json`;
+
+          // Create a simple menu for CSV/JSON selection
+          const format = prompt('Download format?\n1 = CSV\n2 = JSON', '1');
+          if (format === '1') {
+            const a = document.createElement('a');
+            a.href = csvUrl;
+            a.download = `digest__${safe_cat}.csv`;
+            a.click();
+          } else if (format === '2') {
+            const a = document.createElement('a');
+            a.href = jsonUrl;
+            a.download = `digest__${safe_cat}.json`;
+            a.click();
+          }
+          e.target.value = '';
+        }
+      });
+    }
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
       populateCategories();
       restoreFilterPreference();
       initializeSearch();
+      initializeMainExports();
+      initializeCategoryExports();
     });
   </script>"""
 
@@ -1279,8 +1352,11 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <a href="digest.json" download class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
-      <a href="digest.csv" download class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+      <button id="export-json-btn" class="export-btn export-json" title="Download all as JSON">⬇ JSON</button>
+      <button id="export-csv-btn" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</button>
+      <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
+        <option value="">⬇ Category</option>
+      </select>
     </div>
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search articles..." class="search-input">
