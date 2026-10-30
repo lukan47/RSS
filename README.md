@@ -273,6 +273,37 @@ python daily_cybersecurity_digest.py
 
 Set `FULLTEXT_BUDGET_S` (seconds, default 420) to allow longer article-text downloads on a run.
 
+### How download failures are counted
+
+Each failed download is recorded with its reason (`archive/data/fulltext/*.json`, field `error`). Hard failures (403, empty page, SSL certificate errors) use up one of an article's 3 attempts. Temporary ones (timeouts, 5xx, rate limits) are retried after a short pause and counted separately, so a slow site does not use up an article's attempts.
+
+### Optional: headless-browser fallback
+
+Some sites reject plain downloads but accept a real browser. If [Playwright](https://playwright.dev/python/) is installed, pages that fail with 401/403/406/451, an SSL certificate error or an empty page are retried once in headless Chromium. Without Playwright nothing changes.
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Set `USE_BROWSER=0` to switch it off and `BROWSER_BUDGET_S` (default 300 seconds per run) to change its time limit. It is a plain browser: it does not solve CAPTCHAs or hide that it is automated, so sites that block headless browsers stay without text. In a test it recovered CISA pages but not Dark Reading, databreaches.net, CrowdStrike investor news, Fortra or Fortinet investor news.
+
+To use it in GitHub Actions, add these steps to `.github/workflows/notify.yml` before the step that runs the script:
+
+```yaml
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-v1
+
+      - name: Install Playwright (optional browser fallback)
+        continue-on-error: true
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+```
+
 ### Retrying articles with missing or partial text
 
 Each run tries to download the text of articles that have none, up to 3 attempts per article; after that an article is left alone (typically a site that blocks automated downloads). To try them all again, ignoring the attempt limit, run from a normal internet connection (a home connection is blocked less often than GitHub's servers):

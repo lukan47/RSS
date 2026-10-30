@@ -5,14 +5,19 @@ Fetches cybersecurity RSS feeds concurrently, saves an HTML report to GitHub Pag
 Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
+import collections
 import difflib
 import hashlib
+import http.client
 import email.utils
 import html
 import json
 import os
 import re
+import socket
+import ssl
 import sys
+import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
@@ -138,6 +143,9 @@ EXPLORER_URL       = REPORT_URL + "archive/data/explorer.html"
 LEGACY_FULLTEXT_CACHE = os.path.join(ARCHIVE_DIR, "_cache", "fulltext_cache.json")
 FULLTEXT_BUDGET_S  = int(os.environ.get("FULLTEXT_BUDGET_S", "420"))  # stop starting new downloads after this many seconds
 FULLTEXT_WORKERS   = 12
+FULLTEXT_MAX_TRANSIENT = 10   # temporary failures (timeouts, 5xx, rate limits) are retried more often than hard failures
+BROWSER_CONCURRENCY = 3
+BROWSER_BUDGET_S   = int(os.environ.get("BROWSER_BUDGET_S", "300"))  # time limit for the optional browser pass
 FULLTEXT_MAX_ATTEMPTS = 3
 FULLTEXT_MAX_CHARS = 60000
 FEED_FULLTEXT_MIN  = 1500     # a feed body this long is treated as the whole article
@@ -619,24 +627,127 @@ def _trim_trailer(text: str) -> str:
     return "\n\n".join(blocks)
 
 
-def fetch_full_text(url: str, timeout: int = 15) -> str:
-    """Download an article page and return its body text, or '' on failure."""
+_TRANSIENT_HTTP = {429, 500, 502, 503, 504}
+_BROWSER_ERRORS = {"HTTP 401", "HTTP 403", "HTTP 406", "HTTP 451", "ssl", "thin"}
+LAST_TEXT_ERRORS: collections.Counter = collections.Counter()
+
+
+def _classify_error(exc: Exception) -> str:
+    """Short label for why a download failed: 'HTTP 403', 'timeout', 'ssl', 'connection', 'error'."""
+    if isinstance(exc, HTTPError):
+        return f"HTTP {exc.code}"
+    reason = getattr(exc, "reason", exc)
+    msg = str(reason).lower()
+    if isinstance(exc, (socket.timeout, TimeoutError)) or isinstance(reason, (socket.timeout, TimeoutError)) or "timed out" in msg:
+        return "timeout"
+    if isinstance(reason, ssl.SSLCertVerificationError) or "certificate" in msg:
+        return "ssl"
+    if isinstance(exc, (ConnectionError, http.client.HTTPException)) or "reset" in msg or "refused" in msg:
+        return "connection"
+    return "error"
+
+
+def _is_transient(error: str) -> bool:
+    return error in ("timeout", "connection") or (error.startswith("HTTP ") and int(error[5:]) in _TRANSIENT_HTTP)
+
+
+def fetch_page_text(url: str, timeout: int = 15) -> tuple[str, str]:
+    """Download an article page. Returns (text, error); error is '' on success.
+
+    Temporary failures (timeouts, 5xx, rate limits) get one more try after a short pause.
+    """
     from urllib.parse import quote
+    url = quote(url, safe=":/?&=%#+@,;~!*()'[]$")
+    error = "error"
+    for attempt in (1, 2):
+        try:
+            req = Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            })
+            with urlopen(req, timeout=timeout) as resp:
+                charset = resp.headers.get_content_charset() or "utf-8"
+                raw = resp.read(3_000_000)
+            text = _html_to_text(raw.decode(charset, errors="replace"))
+            if len(text) < MIN_FULLTEXT_CHARS:
+                return "", "thin"
+            return text[:FULLTEXT_MAX_CHARS], ""
+        except Exception as exc:
+            error = _classify_error(exc)
+            if attempt == 1 and _is_transient(error):
+                time.sleep(2)
+                continue
+            break
+    print(f"  [DEBUG] Failed to fetch {url}: {error}", file=sys.stderr)
+    return "", error
+
+
+def fetch_full_text(url: str, timeout: int = 15) -> str:
+    """Article body text, or '' on failure."""
+    return fetch_page_text(url, timeout)[0]
+
+
+def _browser_available() -> bool:
+    import importlib.util
+    return os.environ.get("USE_BROWSER", "auto") != "0" and importlib.util.find_spec("playwright") is not None
+
+
+_CHALLENGE_RX = re.compile(r"just a moment|checking your browser|verify you are human|enable javascript and cookies|attention required", re.I)
+
+
+def _browser_fetch(items: list, deadline: float) -> dict:
+    """Load pages in headless Chromium (Playwright). items: [(key, url)] -> {key: (text, error)}.
+
+    A plain browser: it does not solve CAPTCHAs or hide that it is automated, so pages that
+    show a challenge are reported as 'challenge' and left without text.
+    """
+    import asyncio
     try:
-        url = quote(url, safe=":/?&=%#+@,;~!*()'[]$")
-        req = Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        })
-        with urlopen(req, timeout=timeout) as resp:
-            charset = resp.headers.get_content_charset() or "utf-8"
-            raw = resp.read(3_000_000)
-        text = _html_to_text(raw.decode(charset, errors="replace"))
-        return text[:FULLTEXT_MAX_CHARS] if len(text) >= MIN_FULLTEXT_CHARS else ""
-    except Exception as e:
-        print(f"  [DEBUG] Failed to fetch {url}: {e}", file=sys.stderr)
-        return ""
+        from playwright.async_api import async_playwright
+    except ImportError:
+        return {}
+
+    async def run():
+        results = {}
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            context = await browser.new_context(ignore_https_errors=True, locale="en-US")
+            gate = asyncio.Semaphore(BROWSER_CONCURRENCY)
+
+            async def one(key, url):
+                async with gate:
+                    if time.monotonic() > deadline:
+                        return
+                    page = await context.new_page()
+                    try:
+                        resp = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(1500)
+                        text = _html_to_text(await page.content())
+                        status = resp.status if resp else 0
+                        if _CHALLENGE_RX.search(text[:600]):
+                            results[key] = ("", "challenge")
+                        elif status >= 400 and len(text) < 600:
+                            results[key] = ("", f"browser HTTP {status}")
+                        elif len(text) < MIN_FULLTEXT_CHARS:
+                            results[key] = ("", "thin")
+                        else:
+                            results[key] = (text[:FULLTEXT_MAX_CHARS], "")
+                    except Exception as exc:
+                        results[key] = ("", "browser " + type(exc).__name__)
+                    finally:
+                        await page.close()
+
+            await asyncio.gather(*(one(k, u) for k, u in items))
+            await context.close()
+            await browser.close()
+        return results
+
+    try:
+        return asyncio.run(run())
+    except Exception as exc:
+        print(f"  [WARN] browser fallback unavailable: {exc}", file=sys.stderr)
+        return {}
 
 
 _TRACKING_PARAM = re.compile(r"^(utm_.*|fbclid|gclid|mc_cid|mc_eid|igshid|ref_src)$", re.I)
@@ -713,16 +824,19 @@ def attach_full_text(articles: list[dict]) -> int:
     """Set article['full_text'], reusing the on-disk cache and fetching what is missing.
 
     Order of preference: a long body already in the feed item, then the article page,
-    then a short feed body as a last resort. Newest articles go first within a time
-    budget; failures are retried on later runs up to FULLTEXT_MAX_ATTEMPTS.
+    then (if Playwright is installed) the page loaded in a headless browser, then a short
+    feed body as a last resort. Newest articles go first within a time budget. Hard failures
+    (403, SSL, empty page) use up one of FULLTEXT_MAX_ATTEMPTS; temporary ones (timeouts,
+    5xx, rate limits) are counted separately and retried far more often.
     Returns the number of texts obtained this run.
     """
-    import time
     cache = load_fulltext_cache()
+    LAST_TEXT_ERRORS.clear()
     pending = [
         a for a in articles
         if a.get("link")
         and cache.get(a["id"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
+        and cache.get(a["id"], {}).get("transient", 0) < FULLTEXT_MAX_TRANSIENT
         and (not cache.get(a["id"], {}).get("text") or _is_stale(cache[a["id"]]))
     ]
     deadline = time.monotonic() + FULLTEXT_BUDGET_S
@@ -730,31 +844,54 @@ def attach_full_text(articles: list[dict]) -> int:
     def work(article):
         key, feed_text = article["id"], article.get("feed_text", "")
         if len(feed_text) >= FEED_FULLTEXT_MIN:
-            return key, feed_text[:FULLTEXT_MAX_CHARS], "feed"
+            return key, feed_text[:FULLTEXT_MAX_CHARS], "feed", ""
         if time.monotonic() > deadline:
-            return key, None, ""
-        page_text = fetch_full_text(article["link"])
+            return key, None, "", ""
+        page_text, error = fetch_page_text(article["link"])
         if page_text:
-            return key, page_text, "page"
+            return key, page_text, "page", ""
         if len(feed_text) >= MIN_FULLTEXT_CHARS:
-            return key, feed_text[:FULLTEXT_MAX_CHARS], "feed-excerpt"
-        return key, "", ""
+            return key, feed_text[:FULLTEXT_MAX_CHARS], "feed-excerpt", error
+        return key, "", "", error
 
-    obtained = 0
+    obtained, browser_queue = 0, []
     if pending:
         print(f"  Collecting full text for {len(pending)} article(s)...", file=sys.stderr)
         with ThreadPoolExecutor(max_workers=FULLTEXT_WORKERS) as pool:
-            for key, text, source in pool.map(work, pending):
+            for key, text, source, error in pool.map(work, pending):
                 if text is None:
                     continue
                 entry = cache.setdefault(key, {"text": "", "attempts": 0})
-                entry["attempts"] = entry.get("attempts", 0) + 1
+                if not text and _is_transient(error):
+                    entry["transient"] = entry.get("transient", 0) + 1
+                else:
+                    entry["attempts"] = entry.get("attempts", 0) + 1
                 if text:
                     entry["text"] = text
                     entry["v"] = EXTRACT_VERSION
                     entry["source"] = source
                     entry["fetched"] = datetime.now(timezone.utc).isoformat()
                     obtained += 1
+                if error:
+                    entry["error"] = error
+                    LAST_TEXT_ERRORS[error] += 1
+                    if error in _BROWSER_ERRORS:
+                        browser_queue.append(key)
+                else:
+                    entry.pop("error", None)
+
+    if browser_queue and _browser_available():
+        links = {a["id"]: a["link"] for a in pending}
+        print(f"  Retrying {len(browser_queue)} blocked article(s) in a headless browser...", file=sys.stderr)
+        for key, (text, error) in _browser_fetch([(k, links[k]) for k in browser_queue], time.monotonic() + BROWSER_BUDGET_S).items():
+            entry = cache[key]
+            if text:
+                entry.update(text=text, v=EXTRACT_VERSION, source="browser", fetched=datetime.now(timezone.utc).isoformat())
+                entry.pop("error", None)
+                LAST_TEXT_ERRORS["recovered by browser"] += 1
+                obtained += 1
+            elif error:
+                entry["error"] = error
 
     months = {a["id"]: _month_key(a.get("date")) for a in articles if a.get("link")}
     save_fulltext_cache(cache, months)
@@ -2263,6 +2400,8 @@ def main() -> None:
     obtained = attach_full_text(entries)
     have_text = sum(1 for a in entries if a["full_text"])
     print(f"  Full text: {obtained} collected this run, {have_text}/{len(entries)} stored articles have it.", file=sys.stderr)
+    if LAST_TEXT_ERRORS:
+        print("  Text download problems this run: " + ", ".join(f"{k} x{v}" for k, v in LAST_TEXT_ERRORS.most_common()), file=sys.stderr)
     for entry in entries:
         if not entry.get("context"):
             entry["context"] = extract_context(entry)
@@ -2378,16 +2517,18 @@ def retry_text() -> None:
     Does not fetch feeds or rebuild any page. Articles without text go first. Run it from a
     normal internet connection:  python daily_cybersecurity_digest.py --retry-text
     """
-    global FULLTEXT_BUDGET_S
+    global FULLTEXT_BUDGET_S, BROWSER_BUDGET_S
     FULLTEXT_BUDGET_S = int(os.environ.get("FULLTEXT_BUDGET_S", "1800"))
+    BROWSER_BUDGET_S = int(os.environ.get("BROWSER_BUDGET_S", "900"))
     master = load_master()
     entries = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
     cache = load_fulltext_cache()
     reset = 0
     for entry in cache.values():
         partial = entry.get("source") in ("backup", "feed-excerpt")
-        if (not entry.get("text") or partial) and entry.get("attempts", 0):
+        if (not entry.get("text") or partial) and (entry.get("attempts", 0) or entry.get("transient", 0)):
             entry["attempts"] = 0
+            entry["transient"] = 0
             reset += 1
     save_fulltext_cache(cache, {a["id"]: _month_key(a.get("date")) for a in entries})
     entries.sort(key=lambda a: bool(cache.get(a["id"], {}).get("text")))  # stable: no-text articles first
@@ -2409,6 +2550,9 @@ def retry_text() -> None:
     print(f"Done: {obtained} texts obtained this run | {missing_before} -> {len(still)} articles without text.", file=sys.stderr)
     for host, n in sorted(hosts.items(), key=lambda kv: -kv[1])[:8]:
         print(f"  still missing: {n:4d}  {host}", file=sys.stderr)
+    saved = load_fulltext_cache()
+    reasons = collections.Counter(saved.get(a["id"], {}).get("error", "never reached") for a in still)
+    print("  reasons: " + ", ".join(f"{k} x{v}" for k, v in reasons.most_common()), file=sys.stderr)
 
 
 if __name__ == "__main__":
