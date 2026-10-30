@@ -704,8 +704,8 @@ def save_fulltext_cache(cache: dict, months: dict) -> None:
 
 
 def _is_stale(entry: dict) -> bool:
-    if entry.get("source") == "backup":
-        return True  # imported from a backup: try to replace with the real page text
+    if entry.get("source") in ("backup", "feed-excerpt"):
+        return True  # partial text: try to replace with the real page text
     return entry.get("source") == "page" and entry.get("v", 1) < EXTRACT_VERSION
 
 
@@ -2372,5 +2372,47 @@ def main() -> None:
     print(f"Category exports created: {len(category_exports)} categories", file=sys.stderr)
 
 
+def retry_text() -> None:
+    """Retry saved text for articles that have none or only a partial text, ignoring the attempt limit.
+
+    Does not fetch feeds or rebuild any page. Articles without text go first. Run it from a
+    normal internet connection:  python daily_cybersecurity_digest.py --retry-text
+    """
+    global FULLTEXT_BUDGET_S
+    FULLTEXT_BUDGET_S = int(os.environ.get("FULLTEXT_BUDGET_S", "1800"))
+    master = load_master()
+    entries = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
+    cache = load_fulltext_cache()
+    reset = 0
+    for entry in cache.values():
+        partial = entry.get("source") in ("backup", "feed-excerpt")
+        if (not entry.get("text") or partial) and entry.get("attempts", 0):
+            entry["attempts"] = 0
+            reset += 1
+    save_fulltext_cache(cache, {a["id"]: _month_key(a.get("date")) for a in entries})
+    entries.sort(key=lambda a: bool(cache.get(a["id"], {}).get("text")))  # stable: no-text articles first
+    missing_before = sum(1 for a in entries if not cache.get(a["id"], {}).get("text"))
+    print(f"Retrying saved text: {reset} attempt counters reset, {missing_before} articles have no text yet.", file=sys.stderr)
+
+    obtained = attach_full_text(entries)
+    for entry in entries:
+        if not entry.get("context"):
+            entry["context"] = extract_context(entry)
+        entry["modules"] = classify_modules(entry)
+    save_master(master, datetime.now(PHT).strftime("%Y-%m-%d %H:%M PHT"))
+
+    still = [a for a in entries if not a["full_text"]]
+    hosts = {}
+    for a in still:
+        host = urlsplit(a["link"]).netloc.lower().removeprefix("www.")
+        hosts[host] = hosts.get(host, 0) + 1
+    print(f"Done: {obtained} texts obtained this run | {missing_before} -> {len(still)} articles without text.", file=sys.stderr)
+    for host, n in sorted(hosts.items(), key=lambda kv: -kv[1])[:8]:
+        print(f"  still missing: {n:4d}  {host}", file=sys.stderr)
+
+
 if __name__ == "__main__":
-    main()
+    if "--retry-text" in sys.argv:
+        retry_text()
+    else:
+        main()

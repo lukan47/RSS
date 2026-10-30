@@ -272,3 +272,13 @@ python daily_cybersecurity_digest.py
 ```
 
 Set `FULLTEXT_BUDGET_S` (seconds, default 420) to allow longer article-text downloads on a run.
+
+### Retrying articles with missing or partial text
+
+Each run tries to download the text of articles that have none, up to 3 attempts per article; after that an article is left alone (typically a site that blocks automated downloads). To try them all again, ignoring the attempt limit, run from a normal internet connection (a home connection is blocked less often than GitHub's servers):
+
+```bash
+python daily_cybersecurity_digest.py --retry-text
+```
+
+This only re-downloads article text — it does not fetch feeds or rebuild any page. Articles with no text go first, then ones holding only a feed excerpt or text imported from a backup. The default time limit is 30 minutes (`FULLTEXT_BUDGET_S` overrides it). Afterwards commit `archive/data/` (the article store and `fulltext/` files) and push.
