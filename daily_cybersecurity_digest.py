@@ -392,9 +392,6 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 "date": date,
                 "context": ""
             }
-            # Extract context for key sources
-            if article["link"]:
-                article["context"] = extract_context(article)
             articles.append(article)
     else:
         channel = root.find("channel")
@@ -411,9 +408,6 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 ),
                 "context": ""
             }
-            # Extract context for key sources
-            if article["link"]:
-                article["context"] = extract_context(article)
             articles.append(article)
 
     return articles
@@ -1113,6 +1107,18 @@ def main() -> None:
 
     recent = deduplicate(recent)
     print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
+
+    # ── Extract context for key articles (top 20 only to avoid timeout) ──────────────────────
+    print("  Extracting context from top articles...", file=sys.stderr)
+    top_articles = recent[:20]  # Limit to first 20 articles to save time
+    context_count = 0
+    for article in top_articles:
+        if article.get("link"):
+            ctx = extract_context(article)
+            if ctx:
+                article["context"] = ctx
+                context_count += 1
+    print(f"  Context extracted for {context_count} article(s).", file=sys.stderr)
 
     # ── Export latest acquisition and top announcements to GitHub Actions env ───────────────────
     buckets    = bucket_articles(recent)
