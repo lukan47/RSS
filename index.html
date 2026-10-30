@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyber Competitive Daily Feed — 2026-10-30 16:28 PHT</title>
+<title>Cyber Competitive Daily Feed — 2026-10-30 16:36 PHT</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -256,7 +256,7 @@
 <div class="topbar">
   <div class="topbar-left">
     <h1><span>Cyber</span> Competitive Daily Feed</h1>
-    <p>2026-10-30 16:28 PHT &nbsp;·&nbsp; 611 article(s) in the last 30 day(s)</p>
+    <p>2026-10-30 16:36 PHT &nbsp;·&nbsp; 611 article(s) in the last 30 day(s)</p>
   </div>
   <div class="topbar-right">
     
@@ -393,16 +393,94 @@
       });
     }
 
+    // Helper to get base directory URL
+    function getBaseUrl() {
+      const url = window.location.href;
+      // If in archive subdirectory, go up one level
+      if (url.includes('/archive/')) {
+        return url.split('/archive/')[0];
+      }
+      // Otherwise, use current directory
+      return url.split('/').slice(0, -1).join('/');
+    }
+
+    // Handle main export buttons
+    function initializeMainExports() {
+      const baseUrl = getBaseUrl();
+      document.getElementById('export-json-btn').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = `${baseUrl}/digest.json`;
+        a.download = 'digest.json';
+        a.click();
+      });
+      document.getElementById('export-csv-btn').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = `${baseUrl}/digest.csv`;
+        a.download = 'digest.csv';
+        a.click();
+      });
+    }
+
+    // Populate and handle category exports
+    function initializeCategoryExports() {
+      const exportSelect = document.getElementById('category-export-select');
+      const cols = document.querySelectorAll('.col');
+      const categories = new Set();
+      cols.forEach(col => {
+        const h2 = col.querySelector('h2');
+        if (h2) categories.add(h2.textContent.trim());
+      });
+
+      categories.forEach(cat => {
+        const safe_cat = cat.toLowerCase().replace(/[^a-z0-9-_]/g, '_');
+        const option = document.createElement('option');
+        option.value = safe_cat;
+        option.textContent = cat;
+        exportSelect.appendChild(option);
+      });
+
+      exportSelect.addEventListener('change', (e) => {
+        if (e.target.value) {
+          const baseUrl = getBaseUrl();
+          const safe_cat = e.target.value;
+          const csvUrl = `${baseUrl}/digest__${safe_cat}.csv`;
+          const jsonUrl = `${baseUrl}/digest__${safe_cat}.json`;
+
+          // Create a simple menu for CSV/JSON selection
+          const format = prompt('Download format?
+1 = CSV
+2 = JSON', '1');
+          if (format === '1') {
+            const a = document.createElement('a');
+            a.href = csvUrl;
+            a.download = `digest__${safe_cat}.csv`;
+            a.click();
+          } else if (format === '2') {
+            const a = document.createElement('a');
+            a.href = jsonUrl;
+            a.download = `digest__${safe_cat}.json`;
+            a.click();
+          }
+          e.target.value = '';
+        }
+      });
+    }
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
       populateCategories();
       restoreFilterPreference();
       initializeSearch();
+      initializeMainExports();
+      initializeCategoryExports();
     });
   </script>
     <div class="export-buttons">
-      <a href="digest.json" download class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
-      <a href="digest.csv" download class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
+      <button id="export-json-btn" class="export-btn export-json" title="Download all as JSON">⬇ JSON</button>
+      <button id="export-csv-btn" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</button>
+      <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
+        <option value="">⬇ Category</option>
+      </select>
     </div>
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search articles..." class="search-input">
@@ -1681,7 +1759,7 @@
                 <span class="date">2026-10-29 19:35 UTC</span>
               </div>
               <a class="card-title" href="https://www.bleepingcomputer.com/news/artificial-intelligence/openai-doubles-chatgpt-pro-usage-limits-after-backlash-over-planned-50-percent-cut/" target="_blank">OpenAI doubles ChatGPT Pro usage limits after backlash over planned 50% cut</a>
-              
+              <p class="card-context">4 million installs caught hijacking searches Hackers exploit Cisco SD-WAN flaw to deploy custom KeyDrift malware CISA warns of Fragnesia Linux flaw chained in PHP2Shell attacks...</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -1941,14 +2019,6 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-29 14:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/reports-that-siem-is-dead-are-exaggerated" target="_blank">Reports of SIEM&#x27;s Death Have Been Greatly Exaggerated</a>
-              <p class="card-context">Lean on a partner for the threats that look bad anywhere, and build your own detections for the things only your team would know are off</p>
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Talos Intelligence</span>
                 <span class="date">2026-10-29 14:00 UTC</span>
               </div>
@@ -1962,6 +2032,14 @@
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/crest-financial-cyber-resilience/" target="_blank">CREST Urges Whole-Ecosystem Approach to Financial Cyber Resilience</a>
               <p class="card-context">CREST Sets Out Three Domains For Financial Cyber Resilience Under the framework, financial institutions are responsible for protecting critical business services and...</p>
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Huntress Blog</span>
+                <span class="date">2026-10-29 14:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.huntress.com/blog/reports-that-siem-is-dead-are-exaggerated" target="_blank">Reports of SIEM&#x27;s Death Have Been Greatly Exaggerated</a>
+              <p class="card-context">Lean on a partner for the threats that look bad anywhere, and build your own detections for the things only your team would know are off</p>
             </div>
             <div class="card">
               <div class="card-meta">
@@ -4349,18 +4427,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-16 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/employee-spotlight-sarah-reddish" target="_blank">Inside the Hunt: Sarah Reddish</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Infosecurity Magazine</span>
                 <span class="date">2026-10-16 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/ransomware-threats-physical/" target="_blank">Ransomware Gangs Increasingly Turn to Threats of Physical Violence to Extort Payments</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Huntress Blog</span>
+                <span class="date">2026-10-16 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.huntress.com/blog/employee-spotlight-sarah-reddish" target="_blank">Inside the Hunt: Sarah Reddish</a>
               
             </div>
             <div class="card">
@@ -5069,18 +5147,18 @@
             </div>
             <div class="card">
               <div class="card-meta">
-                <span class="source">Huntress Blog</span>
-                <span class="date">2026-10-07 13:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.huntress.com/blog/screenconnect-power-bi" target="_blank">Phishing Campaign Abuses Microsoft Power BI to Deploy Rogue RMMs</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
                 <span class="source">Infosecurity Magazine</span>
                 <span class="date">2026-10-07 13:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.infosecurity-magazine.com/news/attackers-hide-ai-prompt/" target="_blank">Attackers Hide AI Prompt Injections Inside Phishing Emails</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
+                <span class="source">Huntress Blog</span>
+                <span class="date">2026-10-07 13:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.huntress.com/blog/screenconnect-power-bi" target="_blank">Phishing Campaign Abuses Microsoft Power BI to Deploy Rogue RMMs</a>
               
             </div>
             <div class="card">
@@ -5405,6 +5483,14 @@
             </div>
             <div class="card">
               <div class="card-meta">
+                <span class="source">Vectra AI Blog</span>
+                <span class="date">2026-10-01 00:00 UTC</span>
+              </div>
+              <a class="card-title" href="https://www.vectra.ai/blog/defending-at-ai-speed" target="_blank">Defending at AI Speed - Introducing Hunt Club Defenders Month by Tommy Jenkins</a>
+              
+            </div>
+            <div class="card">
+              <div class="card-meta">
                 <span class="source">Exploit-DB</span>
                 <span class="date">2026-10-01 00:00 UTC</span>
               </div>
@@ -5449,14 +5535,6 @@
                 <span class="date">2026-10-01 00:00 UTC</span>
               </div>
               <a class="card-title" href="https://www.exploit-db.com/exploits/52684" target="_blank">[webapps] POMS oretnom23v1.0  - SQLi vulnerabilities</a>
-              
-            </div>
-            <div class="card">
-              <div class="card-meta">
-                <span class="source">Vectra AI Blog</span>
-                <span class="date">2026-10-01 00:00 UTC</span>
-              </div>
-              <a class="card-title" href="https://www.vectra.ai/blog/defending-at-ai-speed" target="_blank">Defending at AI Speed - Introducing Hunt Club Defenders Month by Tommy Jenkins</a>
               
             </div>
             <div class="card">
