@@ -111,6 +111,50 @@
   .seg button:focus-visible { outline: 2px solid #DA291C; outline-offset: -2px; }
   #topic-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
   #topic-options[hidden] { display: none; }
+  #baseline-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  #baseline-options[hidden] { display: none; }
+  table.bl { width: 100%; border-collapse: collapse; background: #1a1d27; border-radius: 7px; overflow: hidden; margin-top: 4px; }
+  .bl th { text-align: left; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8fa3; font-weight: 600; padding: 10px 14px; background: #171a26; }
+  .bl td { padding: 8px 14px; border-top: 1px solid #242736; font-size: .84rem; vertical-align: middle; }
+  .bl .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bl .up { color: #ff8a80; }
+  .bl .down { color: #7fb4ff; }
+  .bl-group { background: transparent; border: none; border-left: 4px solid #555a70; color: #e0e0e0; font: inherit; font-weight: 600; padding: 2px 0 2px 10px; cursor: pointer; text-align: left; }
+  .bl-group:hover, .bl-group:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .bl-chip { display: inline-block; border-radius: 3px; padding: 1px 8px; font-size: .68rem; font-weight: 700; color: #fff; background: #555a70; }
+  .bl-spike { background: #DA291C; }
+  .bl-up { background: #e67e22; }
+  .bl-down { background: #3b6fb5; }
+  .bl-new { background: #8e6bd6; }
+  .bl-normal, .bl-na { background: #3a3e52; color: #c9cbd6; }
+  .spark { display: block; }
+  #period:disabled, #category:disabled { opacity: .4; cursor: not-allowed; }
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .saved { display: inline-flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  #roadmap-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  #roadmap-options[hidden], #watch-wrap[hidden] { display: none; }
+  .star { color: #f1c40f; font-weight: 700; }
+  .rm-vendor { background: #1a1d27; border-radius: 7px; margin-bottom: 14px; overflow: hidden; }
+  .rm-head { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px; background: #171a26; border-left: 4px solid #555a70; }
+  .rm-head h2 { font-size: .92rem; color: #fff; }
+  .rm-head small { color: #6b7088; font-size: .72rem; }
+  .tl { list-style: none; padding: 6px 16px 10px 28px; margin: 0; position: relative; }
+  .tl::before { content: ""; position: absolute; left: 20px; top: 14px; bottom: 16px; width: 2px; background: #2a2d3e; }
+  .tl li { position: relative; padding: 7px 0 7px 14px; display: grid; grid-template-columns: 78px auto 1fr; gap: 4px 12px; align-items: baseline; }
+  .tl li::before { content: ""; position: absolute; left: -12px; top: 15px; width: 8px; height: 8px; border-radius: 50%; background: #4b5068; }
+  .tl li.k-retirement::before { background: #DA291C; }
+  .tl li.k-launch::before, .tl li.k-general-availability::before { background: #2e7d4f; }
+  .tl time { font-size: .72rem; color: #8a8fa3; font-variant-numeric: tabular-nums; }
+  .tl .kind { font-size: .66rem; font-weight: 700; border-radius: 3px; padding: 1px 7px; background: #3a3e52; color: #c9cbd6; white-space: nowrap; }
+  .tl .kind.k-retirement { background: #DA291C; color: #fff; }
+  .tl .kind.k-launch, .tl .kind.k-general-availability { background: #2e7d4f; color: #fff; }
+  .tl .kind.k-preview-roadmap { background: #8e6bd6; color: #fff; }
+  .tl .kind.k-integration { background: #3b6fb5; color: #fff; }
+  .tl a { color: #d8d8d8; text-decoration: none; font-size: .86rem; line-height: 1.45; }
+  .tl a:hover, .tl a:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .tl small { grid-column: 3; color: #6b7088; font-size: .7rem; margin-top: -2px; }
+  .rm-more { margin: 0 16px 12px 28px; }
+  @media (max-width: 640px) { .tl li { grid-template-columns: 1fr; } .tl small { grid-column: 1; } .saved { margin-left: 0; } }
   .topic-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
   .btn.small { padding: 5px 12px; font-size: .72rem; }
   .lead-link { font-size: .74rem; color: #8a8fa3; text-decoration: none; }
@@ -134,7 +178,10 @@
     <h1><span>CI</span> Overwatch &mdash; All Articles</h1>
     <p id="summary">Loading articles&hellip;</p>
   </div>
-  <a class="back" href="../../">&larr; Dashboard</a>
+  <div class="links">
+    <a class="back" href="sources.html" title="Which feeds work, which are failing or stale">Source health</a>
+    <a class="back" href="../../">&larr; Dashboard</a>
+  </div>
 </div>
 
 <form class="filters" id="filters" onsubmit="return false">
@@ -161,8 +208,11 @@
   </label>
   <label class="field">Source <select id="source"></select></label>
   <label class="field">Search <input type="search" id="q" placeholder="Title, source or summary"></label>
+  <label class="chk" id="watch-wrap" hidden title="Only articles that match watchlist.json"><input type="checkbox" id="watch"> &#9733; Watchlist only</label>
   <div class="spacer"></div>
   <div class="export">
+    <button type="button" class="btn ghost" id="btn-brief-md" disabled title="Last 7 days: top stories, spikes, vulnerabilities, deals, product news, policy, watchlist">&darr; Briefing .md</button>
+    <button type="button" class="btn ghost" id="btn-brief-doc" disabled title="Same briefing as a Word document">&darr; Briefing .doc</button>
     <label class="chk"><input type="checkbox" id="fulltext"> Include full article text</label>
     <button type="button" class="btn" id="btn-json" disabled>&darr; JSON</button>
     <button type="button" class="btn" id="btn-csv" disabled>&darr; CSV</button>
@@ -173,7 +223,53 @@
   <div class="seg" role="group" aria-label="View">
     <button type="button" id="view-articles" aria-pressed="true">Articles</button>
     <button type="button" id="view-topics" aria-pressed="false">Topics</button>
+    <button type="button" id="view-baseline" aria-pressed="false">Baseline</button>
+    <button type="button" id="view-roadmap" aria-pressed="false">Roadmap</button>
   </div>
+  <span id="roadmap-options" hidden>
+    <label class="field">Kind
+      <select id="rm-kind">
+        <option value="">All</option>
+        <option value="Launch">Launch</option>
+        <option value="Preview / roadmap">Preview / roadmap</option>
+        <option value="General availability">General availability</option>
+        <option value="Integration">Integration</option>
+        <option value="Retirement">Retirement</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="rm-untracked"> Include untracked vendors</label>
+  </span>
+  <span id="baseline-options" hidden>
+    <label class="field">Group by
+      <select id="bl-by">
+        <option value="category">Category</option>
+        <option value="vendor">Vendor</option>
+        <option value="module">Module</option>
+      </select>
+    </label>
+    <label class="field">Window
+      <select id="bl-window">
+        <option value="7">Last 7 days</option>
+        <option value="14">Last 14 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+    </label>
+    <label class="field">Compared with
+      <select id="bl-weeks">
+        <option value="4">Previous 4 weeks</option>
+        <option value="8" selected>Previous 8 weeks</option>
+        <option value="12">Previous 12 weeks</option>
+      </select>
+    </label>
+    <label class="field">Sort
+      <select id="bl-sort">
+        <option value="increase">Biggest increase</option>
+        <option value="drop">Biggest drop</option>
+        <option value="volume">Most articles</option>
+        <option value="name">Name</option>
+      </select>
+    </label>
+  </span>
   <span id="topic-options" hidden>
     <label class="field">Sort
       <select id="topic-sort">
@@ -182,6 +278,14 @@
       </select>
     </label>
     <label class="chk"><input type="checkbox" id="topic-multi" checked> Only topics with 2+ articles</label>
+  </span>
+  <span class="saved">
+    <label class="field">Saved views
+      <select id="saved-views"><option value="">Choose&hellip;</option></select>
+    </label>
+    <button type="button" class="btn ghost small" id="view-save" title="Remember the current filters and view in this browser">Save view</button>
+    <button type="button" class="btn ghost small" id="view-delete" disabled>Delete</button>
+    <button type="button" class="btn ghost small" id="view-link" title="Copy a link that opens exactly this view">Copy link</button>
   </span>
 </div>
 <div id="status" role="status" aria-live="polite"></div>
@@ -197,6 +301,12 @@
     </div>
     <div class="am-meta" id="sm-meta"></div>
     <div class="am-tags" id="sm-tags"></div>
+    <div class="am-actions sm-actions">
+      <button type="button" class="am-btn secondary" id="sm-json">&darr; JSON</button>
+      <button type="button" class="am-btn secondary" id="sm-csv">&darr; CSV</button>
+      <label class="am-chk"><input type="checkbox" id="sm-ft"> Include full article text</label>
+    </div>
+    <div class="am-status" id="sm-status" role="status" aria-live="polite"></div>
     <ul class="sm-list" id="sm-list"></ul>
   </div>
 </div>
@@ -278,10 +388,10 @@
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
-  async function savedText(a) {
+  async function savedText(a, root) {
     var month = a.date ? a.date.slice(0, 7) : 'undated';
     if (!shards[month]) {
-      var res = await fetch(base + month + '.json');
+      var res = await fetch((root !== undefined ? root : base) + month + '.json');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       shards[month] = await res.json();
     }
@@ -353,7 +463,7 @@
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
-  window.ArticleModal = { open: openModal, close: closeModal };
+  window.ArticleModal = { open: openModal, close: closeModal, kit: { savedText: savedText, csvCell: csvCell, download: download, csvLimit: CSV_CELL_LIMIT } };
 })();
 
 (function () {
@@ -361,12 +471,63 @@
   var overlay = document.getElementById('sm-overlay');
   if (!overlay) return;
   var $ = function (id) { return document.getElementById(id); };
-  var el = { title: $('sm-title'), meta: $('sm-meta'), tags: $('sm-tags'), list: $('sm-list'), close: $('sm-close'), dialog: $('sm-dialog') };
-  var opts = {}, lastFocus = null;
+  var el = { title: $('sm-title'), meta: $('sm-meta'), tags: $('sm-tags'), list: $('sm-list'), close: $('sm-close'), dialog: $('sm-dialog'),
+             json: $('sm-json'), csv: $('sm-csv'), ft: $('sm-ft'), status: $('sm-status') };
+  var opts = {}, lastFocus = null, shown = { id: '', title: '', members: [] };
+
+  function setStatus(msg, isError) { el.status.textContent = msg || ''; el.status.style.color = isError ? '#ff7b72' : ''; }
+
+  // Export every article in the story (newest first), optionally with the saved full text
+  async function exportStory(fmt) {
+    var kit = window.ArticleModal && window.ArticleModal.kit;
+    if (!kit || !shown.members.length) return;
+    var withText = el.ft.checked, list = shown.members, failed = 0, missing = 0, recs = [];
+    el.json.disabled = el.csv.disabled = true;
+    try {
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i];
+        var rec = { id: m.id || '', story: m.story || shown.id || '', date: m.date, category: m.category || '', vendor: m.vendor || '', modules: m.modules || [],
+                    source: m.source, podcast: !!m.podcast, title: m.title, link: m.link, context: m.context || '' };
+        if (withText) {
+          setStatus('Loading saved article text ' + (i + 1) + ' of ' + list.length + '…');
+          try { rec.full_text = await kit.savedText(m, opts.fullTextBase); } catch (e) { rec.full_text = ''; failed++; }
+          if (!rec.full_text) missing++;
+        }
+        recs.push(rec);
+      }
+      var slug = (shown.title || 'story').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'story';
+      if (fmt === 'json') {
+        kit.download('story_' + slug + '.json', 'application/json',
+                     JSON.stringify({ exported: new Date().toISOString(), story: { id: shown.id, title: shown.title }, count: recs.length, articles: recs }, null, 2));
+      } else {
+        var head = ['ID', 'Story', 'Date', 'Category', 'Vendor', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var lines = [head.join(',')];
+        recs.forEach(function (r) {
+          var cells = [r.id, r.story, r.date ? r.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', r.category, r.vendor, r.modules.join('; '), r.podcast ? 'Podcast' : 'Article',
+                       r.source, r.title, r.link, r.context];
+          if (withText) {
+            var t = r.full_text;
+            cells.push(t.length > kit.csvLimit ? t.slice(0, kit.csvLimit) + ' [truncated for CSV - use JSON for the full text]' : t);
+          }
+          lines.push(cells.map(kit.csvCell).join(','));
+        });
+        kit.download('story_' + slug + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n') + '\r\n');
+      }
+      setStatus('Exported ' + recs.length + ' article' + (recs.length === 1 ? '' : 's') + ' as ' + fmt.toUpperCase() +
+                (withText ? (failed ? ' (could not load saved text for some months)' : missing ? ' (' + missing + ' without saved text)' : ' with full text') : '') + '.', failed > 0);
+    } catch (e) {
+      setStatus('Export failed: ' + e.message, true);
+    } finally {
+      el.json.disabled = el.csv.disabled = false;
+    }
+  }
 
   function openStory(story, o) {
     opts = o || {};
     var members = (story.members || []).slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    shown = { id: story.id || '', title: story.title || (members[0] && members[0].title) || '', members: members };
+    el.ft.checked = false; setStatus('');
+    el.json.disabled = el.csv.disabled = !members.length;
     var sources = {};
     members.forEach(function (m) { sources[m.source] = 1; });
     var dated = members.filter(function (m) { return m.date; });
@@ -409,12 +570,14 @@
   }
 
   el.close.addEventListener('click', closeStory);
+  el.json.addEventListener('click', function () { exportStory('json'); });
+  el.csv.addEventListener('click', function () { exportStory('csv'); });
   overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closeStory(); });
   document.addEventListener('keydown', function (e) {
     if (overlay.hidden || e.defaultPrevented) return;
     if (e.key === 'Escape') { e.preventDefault(); closeStory(); return; }
     if (e.key !== 'Tab') return;
-    var f = Array.prototype.filter.call(el.dialog.querySelectorAll('a[href], button'), function (n) { return !n.disabled; });
+    var f = Array.prototype.filter.call(el.dialog.querySelectorAll('a[href], button, input'), function (n) { return !n.disabled; });
     if (!f.length) return;
     var first = f[0], last = f[f.length - 1];
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -434,6 +597,22 @@
   var PAGE = 100, CSV_CELL_LIMIT = 32000;
   var $ = function (id) { return document.getElementById(id); };
   var all = [], rows = [], shown = 0, lastDay = null, dayCounts = {}, view = 'articles', topics = [], byStory = {};
+  var ROADMAP_CAT = 'Product & Roadmap', watchlist = { vendors: [], keywords: [] }, roadmapRows = [];
+
+  // Watchlist (watchlist.json at the site root): a vendor, or a keyword in the title ("~word" matches whole words only)
+  function watchActive() { return watchlist.vendors.length > 0 || watchlist.keywords.length > 0; }
+  function watchReason(a) {
+    if (!watchActive()) return '';
+    if (a.vendor && watchlist.vendors.indexOf(a.vendor) !== -1) return a.vendor;
+    var t = (a.title || '').toLowerCase();
+    for (var i = 0; i < watchlist.keywords.length; i++) {
+      var kw = watchlist.keywords[i];
+      if (kw.charAt(0) === '~') {
+        if (new RegExp('(^|[^a-z0-9])' + kw.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])').test(t)) return kw.slice(1);
+      } else if (t.indexOf(kw) !== -1) return kw;
+    }
+    return '';
+  }
 
   function isoDay(offset) {
     var d = new Date(); d.setUTCDate(d.getUTCDate() - offset);
@@ -455,16 +634,17 @@
   }
 
   function applyFilters() {
-    var r = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
-    var type = $('type').value;
-    rows = all.filter(function (a) {
+    var r = range(), cat = view === 'roadmap' ? '' : $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
+    var type = $('type').value, watchOnly = $('watch').checked;
+    var pass = function (a, usePeriod) {
+      if (watchOnly && !watchReason(a)) return false;
       if (type === 'podcast' && !a.podcast) return false;
       if (type === 'article' && a.podcast) return false;
       if (cat && a.category !== cat) return false;
       if (vend && (a.vendor || NO_VENDOR) !== vend) return false;
       if (mod && (a.modules || []).indexOf(mod) === -1) return false;
       if (src && a.source !== src) return false;
-      if (r.from || r.to) {
+      if (usePeriod && (r.from || r.to)) {
         if (!a.date) return false;
         var d = a.date.slice(0, 10);
         if (r.from && d < r.from) return false;
@@ -472,7 +652,18 @@
       }
       if (q && (a.title + ' ' + a.source + ' ' + (a.context || '') + ' ' + (a.id || '')).toLowerCase().indexOf(q) === -1) return false;
       return true;
-    });
+    };
+    rows = all.filter(function (a) { return pass(a, true); });
+    if (view === 'baseline') {
+      $('list').textContent = ''; shown = 0; $('more').hidden = true;
+      buildBaseline(all.filter(function (a) { return pass(a, false); }));
+      return;
+    }
+    if (view === 'roadmap') {
+      $('list').textContent = ''; shown = 0; $('more').hidden = true;
+      buildRoadmap(rows);
+      return;
+    }
     var topicsView = view === 'topics';
     if (topicsView) {
       buildTopics();
@@ -510,6 +701,301 @@
     topics.sort(function (a, b) {
       return byNewest ? b.latest.localeCompare(a.latest) : (b.sources.length - a.sources.length || b.latest.localeCompare(a.latest));
     });
+  }
+
+  // ── Historical baseline: this window against the same-length average of the weeks before it ──
+  var DAY_MS = 86400000, SPARK_WEEKS = 12, DAYS_KEPT = 120, baselineRows = [], baselineMeta = {};
+  function dayNum(iso) { return Math.floor(Date.parse(iso.slice(0, 10) + 'T00:00:00Z') / DAY_MS); }
+  function isoOfDay(n) { return new Date(n * DAY_MS).toISOString().slice(0, 10); }
+  function groupKeys(a, by) {
+    if (by === 'category') return [a.category || 'Uncategorised'];
+    if (by === 'vendor') return [a.vendor || NO_VENDOR];
+    return (a.modules || []).filter(function (m) { return m !== 'Other/General' && m !== 'N/A'; });
+  }
+  function baselineStatus(cur, exp, base, z) {
+    if (base === 0 && cur >= 3) return 'New';
+    var d = exp > 0 ? (cur - exp) / exp : 0;
+    if (cur >= 5 && d >= 0.5 && z >= 2) return 'Spike';
+    if (cur >= 3 && d >= 0.25 && z >= 1) return 'Up';
+    if (d <= -0.25 && z <= -1) return 'Down';
+    return 'Normal';
+  }
+  function computeBaseline(list, opts) {
+    opts = opts || {};
+    var by = opts.by || $('bl-by').value, W = opts.W || parseInt($('bl-window').value, 10), N = opts.N || parseInt($('bl-weeks').value, 10);
+    var dated = list.filter(function (a) { return a.date; });
+    var allDays = all.filter(function (a) { return a.date; }).map(function (a) { return dayNum(a.date); }).sort(function (x, y) { return x - y; });
+    if (!allDays.length) return { rows: [], meta: { by: by, W: W, N: N, days: 0 } };
+    var anchor = allDays[allDays.length - 1];
+    var dataStart = allDays[Math.floor(allDays.length * 0.01)];
+    var baseDays = Math.min(N * 7, anchor - dataStart + 1 - W);
+    // Keep the comparison fair: ignore feeds that were not being collected yet, and weeks where collection had a gap
+    var baseStart = anchor - W - baseDays + 1, first = {};
+    all.forEach(function (a) {
+      if (!a.date) return;
+      var dn = dayNum(a.date);
+      if (first[a.source] === undefined || dn < first[a.source]) first[a.source] = dn;
+    });
+    var comparable = function (a) { return first[a.source] <= baseStart + 14; };
+    var excludedSources = Object.keys(first).filter(function (s) { return first[s] > baseStart + 14; }).length;
+    var totals = new Array(DAYS_KEPT).fill(0);
+    all.forEach(function (a) {
+      if (!a.date || !comparable(a)) return;
+      var ti = anchor - dayNum(a.date);
+      if (ti >= 0 && ti < DAYS_KEPT) totals[ti]++;
+    });
+    var weekSums = [];
+    for (var wk = 0; wk * 7 + 7 <= baseDays; wk++) {
+      var ws = 0; for (var q = 0; q < 7; q++) ws += totals[W + wk * 7 + q];
+      weekSums.push(ws);
+    }
+    var ordered = weekSums.slice().sort(function (x, y) { return x - y; }), median = ordered.length ? ordered[Math.floor(ordered.length / 2)] : 0;
+    var useDay = new Array(DAYS_KEPT).fill(true), gapWeeks = 0, usedDays = baseDays;
+    weekSums.forEach(function (ws, wi) {
+      if (ws >= 0.4 * median) return;
+      gapWeeks++; usedDays -= 7;
+      for (var q = 0; q < 7; q++) useDay[W + wi * 7 + q] = false;
+    });
+    var daily = {};
+    dated.forEach(function (a) {
+      if (!comparable(a)) return;
+      var idx = anchor - dayNum(a.date);
+      if (idx < 0 || idx >= DAYS_KEPT) return;
+      groupKeys(a, by).forEach(function (k) { (daily[k] = daily[k] || new Array(DAYS_KEPT).fill(0))[idx]++; });
+    });
+    var out = [];
+    Object.keys(daily).forEach(function (k) {
+      var d = daily[k], cur = 0, base = 0, i;
+      for (i = 0; i < W; i++) cur += d[i];
+      var vals = [];
+      for (i = W; i < W + baseDays; i++) { if (!useDay[i]) continue; base += d[i]; vals.push(d[i]); }
+      var mean = usedDays > 0 ? base / usedDays : 0, exp = mean * W;
+      var variance = vals.length ? vals.reduce(function (s, v) { return s + (v - mean) * (v - mean); }, 0) / vals.length : 0;
+      var sd = Math.max(Math.sqrt(variance), Math.sqrt(Math.max(mean, 0.05))) * Math.sqrt(W);
+      var z = (cur - exp) / sd;
+      var weekly = [];
+      for (var w = SPARK_WEEKS - 1; w >= 0; w--) {
+        var c = 0; for (i = w * 7; i < w * 7 + 7; i++) c += d[i];
+        weekly.push(c);
+      }
+      if (cur === 0 && base === 0) return;
+      out.push({ group: k, current: cur, expected: exp, base: base, delta: exp > 0 ? (cur - exp) / exp : null, z: z,
+                 status: usedDays >= 7 ? baselineStatus(cur, exp, base, z) : 'n/a', weekly: weekly });
+    });
+    var sort = opts.sort || $('bl-sort').value;
+    out.sort(function (x, y) {
+      if (sort === 'drop') return (x.current - x.expected) - (y.current - y.expected);
+      if (sort === 'volume') return y.current - x.current;
+      if (sort === 'name') return x.group.localeCompare(y.group);
+      return (y.current - y.expected) - (x.current - x.expected);
+    });
+    return { rows: out, meta: { by: by, W: W, N: N, baseDays: baseDays, usedDays: usedDays, gapWeeks: gapWeeks, excludedSources: excludedSources,
+             anchor: isoOfDay(anchor), from: isoOfDay(anchor - W + 1),
+             baseFrom: isoOfDay(anchor - W - baseDays + 1), baseTo: isoOfDay(anchor - W) } };
+  }
+  function sparkSvg(weekly) {
+    var max = Math.max.apply(null, weekly.concat([1])), w = 5, gap = 2, h = 22, bars = '';
+    weekly.forEach(function (v, i) {
+      var bh = Math.max(v ? 2 : 1, Math.round(v / max * h));
+      bars += '<rect x="' + i * (w + gap) + '" y="' + (h - bh) + '" width="' + w + '" height="' + bh + '" rx="1" fill="' + (i === weekly.length - 1 ? '#DA291C' : '#4b5068') + '"/>';
+    });
+    return '<svg class="spark" width="' + weekly.length * (w + gap) + '" height="' + h + '" viewBox="0 0 ' + weekly.length * (w + gap) + ' ' + h + '" role="img" aria-label="Weekly counts, oldest to newest: ' + weekly.join(', ') + '">' + bars + '</svg>';
+  }
+  function buildBaseline(list) {
+    var res = computeBaseline(list); baselineRows = res.rows; baselineMeta = res.meta;
+    var host = $('list'), m = res.meta;
+    $('btn-json').disabled = $('btn-csv').disabled = !res.rows.length;
+    if (!res.rows.length || m.usedDays < 7) {
+      $('summary').textContent = 'Baseline';
+      setStatus(res.rows.length ? 'Not enough history before this window for a baseline. Pick a shorter window.' : 'No articles match these filters.');
+      return;
+    }
+    var plural = { category: 'categories', vendor: 'vendors', module: 'modules' }[m.by];
+    var notes = [];
+    if (m.baseDays < m.N * 7) notes.push('only ' + m.baseDays + ' days of history available');
+    if (m.gapWeeks) notes.push(m.gapWeeks + ' week' + (m.gapWeeks === 1 ? '' : 's') + ' skipped for missing collection');
+    if (m.excludedSources) notes.push(m.excludedSources + ' newer feed' + (m.excludedSources === 1 ? '' : 's') + ' left out');
+    $('summary').textContent = 'Baseline as of ' + m.anchor + ' · ' + res.rows.length + ' ' + (res.rows.length === 1 ? m.by : plural);
+    setStatus('Last ' + m.W + ' days (' + m.from + ' to ' + m.anchor + ') against the daily average of ' + m.baseFrom + ' to ' + m.baseTo +
+      (notes.length ? ' (' + notes.join('; ') + ')' : '') +
+      '. Period filter is ignored here. Spike: 50%+ above baseline and 2+ standard deviations; Up: 25%+ and 1+.');
+    var table = document.createElement('table'); table.className = 'bl';
+    var head = document.createElement('thead'); var hr = document.createElement('tr');
+    ['', 'Last ' + m.W + ' days', 'Baseline', 'Change', 'Last ' + SPARK_WEEKS + ' weeks', 'Status'].forEach(function (t, i) {
+      var th = document.createElement('th'); th.textContent = i === 0 ? m.by.charAt(0).toUpperCase() + m.by.slice(1) : t; if (i >= 1 && i <= 3) th.className = 'num'; hr.appendChild(th);
+    });
+    head.appendChild(hr); table.appendChild(head);
+    var body = document.createElement('tbody');
+    res.rows.forEach(function (r) {
+      var tr = document.createElement('tr'), td = document.createElement('td');
+      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bl-group'; btn.textContent = r.group; btn.__group = r.group;
+      btn.title = 'Show these articles'; if (COLORS[r.group]) btn.style.borderLeftColor = COLORS[r.group];
+      td.appendChild(btn); tr.appendChild(td);
+      function cell(text, cls) { var c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; tr.appendChild(c); return c; }
+      cell(String(r.current), 'num');
+      cell(r.expected.toFixed(r.expected < 10 ? 1 : 0), 'num');
+      cell(r.delta === null ? 'new' : (r.delta >= 0 ? '+' : '') + Math.round(r.delta * 100) + '%', 'num ' + (r.delta === null || r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : ''));
+      var sp = document.createElement('td'); sp.innerHTML = sparkSvg(r.weekly); tr.appendChild(sp);
+      var st = document.createElement('td'), chip = document.createElement('span'); chip.className = 'bl-chip bl-' + r.status.toLowerCase().replace('/', ''); chip.textContent = r.status; st.appendChild(chip); tr.appendChild(st);
+      body.appendChild(tr);
+    });
+    table.appendChild(body); host.appendChild(table);
+  }
+
+  // ── Roadmap: product news per vendor as a timeline (launches, previews, GA, integrations, retirements) ──
+  function roadmapKind(a) {
+    var t = (a.title || '').toLowerCase();
+    if (/retire|deprecat|sunset|end[ -]of[ -](support|life)|\beol\b|discontinu/.test(t)) return 'Retirement';
+    if (/roadmap|road map|coming soon|preview|\bbeta\b|early access|later this year|will begin|to begin/.test(t)) return 'Preview / roadmap';
+    if (/general availability|generally available|now available|\bga\b/.test(t)) return 'General availability';
+    if (/integrat/.test(t)) return 'Integration';
+    return 'Launch';
+  }
+  function kindClass(kind) { return 'k-' + kind.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, ''); }
+
+  function buildRoadmap(list) {
+    var kindSel = $('rm-kind').value, untracked = $('rm-untracked').checked;
+    var items = list.filter(function (a) { return a.category === ROADMAP_CAT && a.date && (untracked || a.vendor); })
+      .map(function (a) { return { vendor: a.vendor || NO_VENDOR, date: a.date.slice(0, 10), kind: roadmapKind(a), a: a }; })
+      .filter(function (x) { return !kindSel || x.kind === kindSel; });
+    items.sort(function (x, y) { return y.a.date.localeCompare(x.a.date); });
+    roadmapRows = items;
+    $('btn-json').disabled = $('btn-csv').disabled = !items.length;
+    var byVendor = {};
+    items.forEach(function (x) { (byVendor[x.vendor] = byVendor[x.vendor] || []).push(x); });
+    var vendors = Object.keys(byVendor).sort(function (p, q) {
+      if (p === NO_VENDOR) return 1; if (q === NO_VENDOR) return -1;
+      return byVendor[q][0].a.date.localeCompare(byVendor[p][0].a.date);
+    });
+    $('summary').textContent = items.length.toLocaleString() + ' product & roadmap items from ' + vendors.length + ' vendor' + (vendors.length === 1 ? '' : 's');
+    setStatus(items.length ? 'Newest first. The kind is read from the title. The period, vendor, module, type and source filters apply; the category filter does not.'
+                           : 'No product or roadmap news matches these filters.');
+    var host = $('list');
+    vendors.forEach(function (v) {
+      var group = byVendor[v], sec = document.createElement('section'); sec.className = 'rm-vendor';
+      var head = document.createElement('div'); head.className = 'rm-head'; head.style.borderLeftColor = COLORS[v] || '#555a70';
+      var h = document.createElement('h2'); h.textContent = v;
+      var sm = document.createElement('small'); sm.textContent = group.length + ' item' + (group.length === 1 ? '' : 's') + ' · latest ' + group[0].date;
+      head.appendChild(h); head.appendChild(sm); sec.appendChild(head);
+      var ul = document.createElement('ul'); ul.className = 'tl';
+      function addItem(x) {
+        var li = document.createElement('li'); li.className = kindClass(x.kind);
+        var tm = document.createElement('time'); tm.textContent = x.date;
+        var kd = document.createElement('span'); kd.className = 'kind ' + kindClass(x.kind); kd.textContent = x.kind;
+        var a = document.createElement('a'); a.href = x.a.link; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = x.a.title;
+        var sr = document.createElement('small'); sr.textContent = x.a.source;
+        li.appendChild(tm); li.appendChild(kd); li.appendChild(a); li.appendChild(sr); ul.appendChild(li);
+      }
+      group.slice(0, 8).forEach(addItem);
+      sec.appendChild(ul);
+      if (group.length > 8) {
+        var more = document.createElement('button'); more.type = 'button'; more.className = 'btn ghost small rm-more';
+        more.textContent = 'Show ' + (group.length - 8) + ' more';
+        more.addEventListener('click', function () { group.slice(8).forEach(addItem); more.remove(); });
+        sec.appendChild(more);
+      }
+      host.appendChild(sec);
+    });
+  }
+
+  function exportRoadmap(fmt) {
+    var base = 'roadmap_' + (isoDay(0));
+    var recs = roadmapRows.map(function (x) { return { vendor: x.vendor, date: x.date, kind: x.kind, title: x.a.title, link: x.a.link, source: x.a.source, id: x.a.id }; });
+    if (fmt === 'json') {
+      download(base + '.json', 'application/json', JSON.stringify({ exported: new Date().toISOString(), view: 'roadmap', count: recs.length, items: recs }, null, 2));
+    } else {
+      var lines = [['Vendor', 'Date', 'Kind', 'Title', 'Link', 'Source', 'ID'].join(',')];
+      recs.forEach(function (x) { lines.push([x.vendor, x.date, x.kind, x.title, x.link, x.source, x.id].map(csvCell).join(',')); });
+      download(base + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n'));
+    }
+    setStatus('Exported ' + recs.length + ' roadmap items as ' + fmt.toUpperCase() + '.');
+  }
+
+  // ── Weekly briefing: the newest 7 days as Markdown or a Word document ──
+  var BRIEF_CATS = ['Vulnerabilities & Patching', 'Attacks, Breaches & Threat Intel', 'Business & Industry News', 'Policy, Legal & Compliance', 'Product & Roadmap'];
+  function briefingDoc() {
+    var cat = computeBaseline(all, { by: 'category', W: 7, N: 8, sort: 'increase' });
+    var ven = computeBaseline(all, { by: 'vendor', W: 7, N: 8, sort: 'increase' });
+    var from = cat.meta.from, to = cat.meta.anchor;
+    if (!from) return null;
+    var prevFrom = isoOfDay(dayNum(from) - 7);
+    var inWin = function (a) { var d = a.date && a.date.slice(0, 10); return d && d >= from && d <= to; };
+    var win = all.filter(inWin);
+    var prev = all.filter(function (a) { var d = a.date && a.date.slice(0, 10); return d && d >= prevFrom && d < from; }).length;
+    var srcs = {}; win.forEach(function (a) { srcs[a.source] = 1; });
+    var pct = prev ? Math.round((win.length - prev) / prev * 100) : null;
+    var blocks = [{ h: 'At a glance', items: [{ text: win.length.toLocaleString() + ' articles from ' + Object.keys(srcs).length + ' sources ('
+      + (pct === null ? 'no previous week to compare' : (pct >= 0 ? '+' : '') + pct + '% on the previous 7 days') + ').' }] }];
+    var movers = [];
+    function addMovers(res, skip, take) {
+      res.rows.filter(function (r) { return ['Spike', 'Up', 'New'].indexOf(r.status) !== -1 && r.group !== skip; }).slice(0, take).forEach(function (r) {
+        var exp = r.expected < 10 ? r.expected.toFixed(1) : String(Math.round(r.expected));
+        movers.push({ text: r.group + ' — ' + r.status.toLowerCase(), note: r.current + ' articles against ' + exp + ' expected' + (r.delta === null ? '' : ' (' + (r.delta >= 0 ? '+' : '') + Math.round(r.delta * 100) + '%)') });
+      });
+    }
+    addMovers(ven, NO_VENDOR, 6); addMovers(cat, 'General Security News', 3);
+    if (movers.length) blocks.push({ h: 'Spikes against the baseline', intro: 'This week against the daily average of the previous 8 weeks.', items: movers });
+    var stories = {};
+    win.forEach(function (a) { var k = a.story || a.id; (stories[k] = stories[k] || []).push(a); });
+    var ranked = Object.keys(stories).map(function (k) {
+      var m = stories[k].slice().sort(function (x, y) { return x.date.localeCompare(y.date); }), s = {};
+      m.forEach(function (x) { s[x.source] = 1; });
+      return { m: m, n: Object.keys(s).length, lead: m.filter(function (x) { return !isTemplated(x); })[0] || m[0] };
+    }).filter(function (x) { return x.n >= 2; }).sort(function (x, y) { return y.n - x.n || y.m.length - x.m.length; }).slice(0, 8);
+    if (ranked.length) blocks.push({ h: 'Top stories', intro: 'Covered by the most sources this week.', items: ranked.map(function (x) {
+      return { text: x.lead.title, link: x.lead.link, note: x.n + ' sources · ' + x.m.length + ' articles' + (x.lead.vendor ? ' · ' + x.lead.vendor : '') };
+    }) });
+    var hot = /actively exploited|exploited in the wild|zero-?day|known exploited/i;
+    function section(title, pool, limit) {
+      var seen = {}, picked = [];
+      pool.slice().sort(function (x, y) { return (hot.test(y.title) - hot.test(x.title)) || y.date.localeCompare(x.date); }).forEach(function (a) {
+        var k = a.story || a.id; if (seen[k] || picked.length >= limit) return; seen[k] = 1; picked.push(a);
+      });
+      if (picked.length) blocks.push({ h: title, items: picked.map(function (a) {
+        return { text: a.title, link: a.link, note: [a.vendor, a.source, a.date.slice(0, 10)].filter(Boolean).join(' · ') };
+      }) });
+    }
+    BRIEF_CATS.forEach(function (c) {
+      var pool = win.filter(function (a) { return a.category === c; });
+      if (c !== 'Vulnerabilities & Patching') pool.sort(function (x, y) { return y.date.localeCompare(x.date); });
+      section(c + ' (' + pool.length + ')', pool, c === 'Attacks, Breaches & Threat Intel' ? 8 : 10);
+    });
+    if (watchActive()) {
+      var wl = win.filter(function (a) { return watchReason(a); });
+      if (wl.length) blocks.push({ h: 'Watchlist (' + wl.length + ')', items: wl.slice().sort(function (x, y) { return y.date.localeCompare(x.date); }).slice(0, 15).map(function (a) {
+        return { text: a.title, link: a.link, note: [watchReason(a), a.source, a.date.slice(0, 10)].join(' · ') };
+      }) });
+    }
+    return { title: 'CI Overwatch weekly briefing', sub: from + ' to ' + to, blocks: blocks };
+  }
+  function briefingMd(d) {
+    var out = ['# ' + d.title, '', '*' + d.sub + ' · generated ' + new Date().toISOString().slice(0, 10) + '*', ''];
+    d.blocks.forEach(function (b) {
+      out.push('## ' + b.h, ''); if (b.intro) out.push(b.intro, '');
+      b.items.forEach(function (i) { out.push('- ' + (i.link ? '[' + i.text.replace(/[\[\]]/g, '') + '](' + i.link + ')' : i.text) + (i.note ? ' — ' + i.note : '')); });
+      out.push('');
+    });
+    return out.join('\n');
+  }
+  function briefingHtml(d, forWord) {
+    var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var body = '<h1>' + esc(d.title) + '</h1><p><i>' + esc(d.sub) + ' &middot; generated ' + new Date().toISOString().slice(0, 10) + '</i></p>';
+    d.blocks.forEach(function (b) {
+      body += '<h2>' + esc(b.h) + '</h2>' + (b.intro ? '<p>' + esc(b.intro) + '</p>' : '') + '<ul>' + b.items.map(function (i) {
+        return '<li>' + (i.link ? '<a href="' + esc(i.link) + '">' + esc(i.text) + '</a>' : esc(i.text)) + (i.note ? ' &mdash; <span style="color:#666">' + esc(i.note) + '</span>' : '') + '</li>';
+      }).join('') + '</ul>';
+    });
+    var style = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222} h1{color:#DA291C;font-size:20pt} h2{font-size:14pt;border-bottom:1px solid #ccc;padding-bottom:2px;margin-top:18pt} li{margin-bottom:3pt}';
+    return (forWord ? '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' : '<html>') +
+      '<head><meta charset="utf-8"><title>' + esc(d.title) + '</title><style>' + style + '</style></head><body>' + body + '</body></html>';
+  }
+  function exportBriefing(kind) {
+    var d = briefingDoc();
+    if (!d) { setStatus('There are no dated articles to build a briefing from.', true); return; }
+    var name = 'ci_overwatch_briefing_' + d.sub.slice(-10);
+    if (kind === 'md') download(name + '.md', 'text/markdown;charset=utf-8', briefingMd(d));
+    else download(name + '.doc', 'application/msword', '﻿' + briefingHtml(d, true));
+    setStatus('Weekly briefing for ' + d.sub + ' exported as ' + (kind === 'md' ? 'Markdown' : 'a Word document') + '.');
   }
 
   function toArticle(a) {
@@ -583,7 +1069,10 @@
     if (a.podcast) { var pb = document.createElement('span'); pb.className = 'pod-badge'; pb.title = 'Podcast'; pb.innerHTML = POD_ICON; src.appendChild(pb); }
     src.appendChild(document.createTextNode(a.source));
     var t = document.createElement('time'); t.textContent = a.date ? a.date.slice(11, 16) + ' UTC' : '';
-    addChips(meta, a); meta.appendChild(src); meta.appendChild(t);
+    addChips(meta, a); meta.appendChild(src);
+    var why = watchReason(a);
+    if (why) { var star = document.createElement('span'); star.className = 'star'; star.title = 'Watchlist: ' + why; star.textContent = '★'; meta.appendChild(star); }
+    meta.appendChild(t);
     var details = document.createElement('button'); details.type = 'button'; details.className = 'card-details';
     details.setAttribute('aria-label', 'Details and export'); details.__article = a;
     meta.appendChild(details);
@@ -634,7 +1123,31 @@
     return { texts: texts, failed: failed };
   }
 
+  function exportBaseline(fmt) {
+    var m = baselineMeta, base = 'baseline_' + m.by + '_last' + m.W + 'd_vs_' + m.N + 'w_' + m.anchor;
+    var weekHead = baselineRows.length ? baselineRows[0].weekly.map(function (_, i, a) { return i === a.length - 1 ? 'This week' : 'Week -' + (a.length - 1 - i); }) : [];
+    var recs = baselineRows.map(function (r) {
+      return { group: r.group, current: r.current, baseline_expected: Math.round(r.expected * 100) / 100,
+               change_pct: r.delta === null ? null : Math.round(r.delta * 1000) / 10, z_score: Math.round(r.z * 100) / 100, status: r.status, weekly: r.weekly };
+    });
+    if (fmt === 'json') {
+      download(base + '.json', 'application/json', JSON.stringify({ exported: new Date().toISOString(), as_of: m.anchor, group_by: m.by,
+        window: { days: m.W, from: m.from, to: m.anchor }, baseline: { days: m.baseDays, from: m.baseFrom, to: m.baseTo },
+        filters: { category: $('category').value, vendor: $('vendor').value, module: $('module').value, source: $('source').value, type: $('type').value, search: $('q').value },
+        rows: recs }, null, 2));
+    } else {
+      var lines = [['Group', 'Last ' + m.W + ' days', 'Baseline (expected)', 'Change %', 'Z score', 'Status'].concat(weekHead).join(',')];
+      recs.forEach(function (x) {
+        lines.push([x.group, x.current, x.baseline_expected, x.change_pct === null ? 'new' : x.change_pct, x.z_score, x.status].concat(x.weekly).map(csvCell).join(','));
+      });
+      download(base + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n'));
+    }
+    setStatus('Exported ' + recs.length + ' baseline rows as ' + fmt.toUpperCase() + '.');
+  }
+
   async function doExport(fmt) {
+    if (view === 'baseline') { exportBaseline(fmt); return; }
+    if (view === 'roadmap') { exportRoadmap(fmt); return; }
     var withText = $('fulltext').checked, texts = {}, failed = [];
     $('btn-json').disabled = $('btn-csv').disabled = true;
     try {
@@ -723,20 +1236,120 @@
     });
     function setView(next) {
       view = next;
-      $('view-articles').setAttribute('aria-pressed', next === 'articles' ? 'true' : 'false');
-      $('view-topics').setAttribute('aria-pressed', next === 'topics' ? 'true' : 'false');
+      ['articles', 'topics', 'baseline', 'roadmap'].forEach(function (v) { $('view-' + v).setAttribute('aria-pressed', next === v ? 'true' : 'false'); });
       $('topic-options').hidden = next !== 'topics';
+      $('baseline-options').hidden = next !== 'baseline';
+      $('roadmap-options').hidden = next !== 'roadmap';
+      $('period').disabled = next === 'baseline';
+      $('category').disabled = next === 'roadmap';
       applyFilters();
     }
     $('view-articles').addEventListener('click', function () { setView('articles'); });
     $('view-topics').addEventListener('click', function () { setView('topics'); });
+    $('view-baseline').addEventListener('click', function () { setView('baseline'); });
+    ['bl-by', 'bl-window', 'bl-weeks', 'bl-sort'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    // Clicking a group in the baseline table shows its articles for the same window
+    function showGroup(group) {
+      var by = baselineMeta.by;
+      var target = by === 'category' ? 'category' : by === 'vendor' ? 'vendor' : 'module';
+      $('category').value = $('vendor').value = $('module').value = '';
+      $(target).value = group;
+      $('period').disabled = false;
+      $('period').value = 'custom'; $('from-wrap').hidden = $('to-wrap').hidden = false;
+      $('from').value = baselineMeta.from; $('to').value = '';
+      setView('articles');
+    }
+    $('list').addEventListener('click', function (e) {
+      var g = e.target.closest('.bl-group');
+      if (g && g.__group) showGroup(g.__group);
+    });
     $('topic-sort').addEventListener('change', applyFilters);
     $('topic-multi').addEventListener('change', applyFilters);
     $('btn-json').addEventListener('click', function () { doExport('json'); });
     $('btn-csv').addEventListener('click', function () { doExport('csv'); });
-    window.addEventListener('hashchange', openFromHash);
-    applyFilters();
-    openFromHash();
+    $('view-roadmap').addEventListener('click', function () { setView('roadmap'); });
+    ['rm-kind', 'rm-untracked', 'watch'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    $('btn-brief-md').disabled = $('btn-brief-doc').disabled = false;
+    $('btn-brief-md').addEventListener('click', function () { exportBriefing('md'); });
+    $('btn-brief-doc').addEventListener('click', function () { exportBriefing('doc'); });
+
+    // Shareable and saved views: the view and its filters as URL parameters
+    var FIELDS = { period: 'period', from: 'from', to: 'to', category: 'category', vendor: 'vendor', module: 'module', type: 'type', source: 'source', q: 'q',
+                   by: 'bl-by', win: 'bl-window', weeks: 'bl-weeks', sort: 'bl-sort', kind: 'rm-kind' };
+    var defaults = {};
+    Object.keys(FIELDS).forEach(function (k) { defaults[k] = $(FIELDS[k]).value; });
+    function viewParams() {
+      var p = new URLSearchParams(); p.set('view', view);
+      Object.keys(FIELDS).forEach(function (k) { var v = $(FIELDS[k]).value; if (v && v !== defaults[k]) p.set(k, v); });
+      if ($('watch').checked) p.set('watch', '1');
+      if ($('rm-untracked').checked) p.set('untracked', '1');
+      return p;
+    }
+    function applyParams(p) {
+      Object.keys(FIELDS).forEach(function (k) {
+        var el = $(FIELDS[k]), v = p.has(k) ? p.get(k) : defaults[k];
+        if (el.tagName === 'SELECT') el.value = Array.prototype.some.call(el.options, function (o) { return o.value === v; }) ? v : defaults[k];
+        else el.value = v;
+      });
+      $('watch').checked = p.get('watch') === '1';
+      $('rm-untracked').checked = p.get('untracked') === '1';
+      var custom = $('period').value === 'custom'; $('from-wrap').hidden = $('to-wrap').hidden = !custom;
+      var v = p.get('view');
+      setView(['articles', 'topics', 'baseline', 'roadmap'].indexOf(v) !== -1 ? v : 'articles');
+    }
+    var SAVED_KEY = 'ciSavedViews';
+    function loadSaved() { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}') || {}; } catch (e) { return {}; } }
+    function storeSaved(o) { try { localStorage.setItem(SAVED_KEY, JSON.stringify(o)); return true; } catch (e) { return false; } }
+    function paintSaved(select) {
+      var o = loadSaved(), sel = $('saved-views'); sel.textContent = '';
+      var first = document.createElement('option'); first.value = ''; first.textContent = 'Choose…'; sel.appendChild(first);
+      Object.keys(o).sort().forEach(function (n) { var op = document.createElement('option'); op.value = n; op.textContent = n; sel.appendChild(op); });
+      if (select && o[select]) sel.value = select;
+      $('view-delete').disabled = !sel.value;
+    }
+    $('saved-views').addEventListener('change', function () {
+      var o = loadSaved(), n = $('saved-views').value;
+      $('view-delete').disabled = !n;
+      if (n && o[n]) applyParams(new URLSearchParams(o[n]));
+    });
+    $('view-save').addEventListener('click', function () {
+      var name = (window.prompt('Name this view:') || '').trim();
+      if (!name) return;
+      var o = loadSaved(); o[name] = viewParams().toString();
+      if (storeSaved(o)) { paintSaved(name); setStatus('Saved view "' + name + '" (kept in this browser).'); }
+      else setStatus('This browser would not save the view. Use Copy link instead.', true);
+    });
+    $('view-delete').addEventListener('click', function () {
+      var n = $('saved-views').value, o = loadSaved();
+      if (!n) return;
+      delete o[n]; storeSaved(o); paintSaved(''); setStatus('Deleted view "' + n + '".');
+    });
+    $('view-link').addEventListener('click', async function () {
+      var link = location.origin + location.pathname + '#' + viewParams().toString();
+      try { await navigator.clipboard.writeText(link); setStatus('Link to this view copied.'); }
+      catch (e) { setStatus('Could not copy automatically. Link: ' + link, true); }
+    });
+    function applyHash() {
+      var h = location.hash.replace(/^#/, '');
+      if (h.indexOf('=') === -1) return false;
+      applyParams(new URLSearchParams(h));
+      return true;
+    }
+    window.addEventListener('hashchange', function () { if (!applyHash()) openFromHash(); });
+    paintSaved('');
+
+    // The watchlist is optional; the page works without it. The first view is drawn once it has loaded (or failed to).
+    fetch('../../watchlist.json', { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (w) {
+        if (w) watchlist = { vendors: (w.vendors || []).map(String), keywords: (w.keywords || []).map(function (k) { return String(k).toLowerCase(); }) };
+      })
+      .catch(function () {})
+      .then(function () {
+        $('watch-wrap').hidden = !watchActive();
+        if (!applyHash()) applyFilters();
+        openFromHash();
+      });
   }
 
   fetch('articles.json', { cache: 'no-cache' })
