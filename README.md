@@ -1,4 +1,4 @@
-# Cyber Competitive Daily Feed
+# CI Overwatch
 
 A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from the RSS feeds listed below, removes duplicates, sorts them into categories and modules, keeps every article it has ever seen, and publishes an auto-updating dashboard twice daily.
 
@@ -13,6 +13,8 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - Dashboard shows the last 30 days, one row per company or topic, newest first — rows are only shown when there is news
 - Article deduplication (URL match, string similarity, keyword overlap)
 - First-match categorization: Zero-Day → Acquisitions → Company rows → General News
+- **Trending this week** — a carousel above the rows shows the stories covered by the most distinct sources in the last 7 days, three at a time (arrows, dots, or automatic rotation that pauses on hover). *View coverage* lists every article in the story
+- **Same-topic grouping** — articles about the same event form a *story*. A *Group same topic* button on the dashboard shows one card per story in each row with a *+N related* badge (click it to see the whole story); turning it off shows every article. The all-articles page has a *Topics* view with search, sort (most covered / newest) and an "only topics with 2+ articles" option. Nothing is deleted — grouping only changes what is shown
 - **Module tagging** — each article is tagged with one or more security module types by keyword rules (no AI), shown on cards and usable as a filter
 - **All-articles page** — every article ever collected, newest first, filterable by period, category, module, source and text; exports the filtered list as JSON or CSV
 - **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, every module, and *Podcast* / *Transcript available* where they apply
@@ -31,12 +33,14 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 |---|---|
 | `index.html` | The current dashboard (last 30 days) |
 | `archive/<date>.html` | A snapshot of each past dashboard |
-| `archive/data/articles.json` | Every article ever collected: ID, title, link, source, date, category, modules, summary, `podcast` / `transcript` flags |
+| `archive/data/articles.json` | Every article ever collected: ID, story ID, title, link, source, date, category, modules, summary, `podcast` / `transcript` flags |
 | `archive/data/fulltext/YYYY-MM.json` | Saved article text, one file per month, keyed by article ID |
 | `archive/data/explorer.html` | The all-articles page (built from `explorer_template.html`) |
 | `archive/exports/` | `digest.json` / `digest.csv` (last 30 days) and one file pair per category |
 
 **Article IDs.** Every article has a stable 12-character ID (the first 12 hex characters of a SHA-256 of its cleaned-up URL: no scheme, `www.`, `#fragment`, `utm_*`/`fbclid`/`gclid` tracking parameters or trailing slash). The same URL always produces the same ID, so nothing has to be stored to keep IDs stable. The ID is the first field in every JSON export and the first column in every CSV export. The Details popup shows it and has a *Copy link* button; opening `archive/data/explorer.html#<id>` jumps straight to that article, and the all-articles search also matches IDs. If a publisher moves an article to a different URL it is treated as a new article.
+
+**Stories.** Every article also carries a `story` ID (the ID of the story's earliest article); it is the second field/column in exports. Two articles join the same story when they were published within 7 days of each other and share a CVE ID, a coined name (e.g. `PHP2Shell`, `FortiBleed`), or enough distinctive title words. Podcasts, weekly roundups and templated advisory feeds (Exploit-DB, CISA, ZDI) only join a story through a shared CVE ID, and a gap of more than 4 days starts a new story. The trending score is 2 per distinct source, +3 if the coverage mentions active exploitation or a zero-day, +2 if the newest article is under 48 hours old (+1 under 96 hours), and a small bonus per article; a story needs at least 3 sources in the last 7 days to qualify. The rules are in `assign_stories` and `trending_stories` in `daily_cybersecurity_digest.py`.
 
 `articles.json` was first built from the archived dashboards, so history starts at the oldest snapshot and has gaps where no snapshot exists. Article text is downloaded from each article page (or taken from the feed when it carries the full article); sites that block automated requests will have no saved text.
 

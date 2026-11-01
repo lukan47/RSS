@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cyber Competitive Daily Feed
+CI Overwatch
 Fetches cybersecurity RSS feeds concurrently, saves an HTML report to GitHub Pages.
 Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
@@ -1279,6 +1279,152 @@ def classify_modules(article: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Stories: articles about the same event are grouped, and the busiest ones are "trending"
+# ---------------------------------------------------------------------------
+
+STORY_WINDOW_DAYS = 7      # two articles can only belong to one story if published this close together
+STORY_GAP_DAYS = 4         # a gap longer than this inside a group starts a new story
+TRENDING_DAYS = 7
+TRENDING_POOL = 9          # stories kept for the carousel (shown three at a time)
+TRENDING_MIN_SOURCES = 3
+_STORY_STOP = frozenset(
+    "a an the and or for of in on at to is are was were be been have has had with from by as its not but this that over after new says said via how why "
+    "what when who your you our their into out up down more most than can will may could would about against between during attack attacks flaw bug hackers "
+    "hacker security cyber vulnerability vulnerabilities exploited exploit exploits patch patches update updates critical week weekly recap news podcast "
+    "now just here there still also first one two three amid new using used use gets get got makes make made".split())
+_STORY_ROUNDUP_RX = re.compile(
+    r"week in review|weekly (recap|roundup|round-up|news|update)|week in (security|vulnerabilities)|a week in security|patch tuesday|newsletter|"
+    r"in other news|news roundup|security news|this week in|upcoming speaking|friday squid|monthly (recap|roundup)|"
+    r"bulletin|threatsday|digest|threat intelligence report|weekly|recap|round-?up|week in|this week|top stories|the week", re.I)
+_STORY_TEMPLATED_SOURCES = {"Exploit-DB", "ZDI Published Advisories", "CISA Advisories", "CIRCL KEV (exploited CVEs)"}
+_STORY_BRANDS = {
+    "openai", "github", "wordpress", "powershell", "linkedin", "youtube", "chatgpt", "javascript", "typescript", "iphone", "whatsapp", "sharepoint",
+    "onedrive", "microsoft", "android", "macos", "windows", "linux", "google", "apple", "amazon", "cloudflare", "telegram", "facebook", "instagram",
+    "tiktok", "deepseek", "gemini", "copilot", "anthropic", "kubernetes", "docker", "bitcoin", "ethereum", "binance", "paypal", "salesforce",
+    "servicenow", "oracle", "cisco", "vmware", "fortinet", "fortigate", "ivanti", "netscaler", "citrix", "sophos", "kaspersky", "bitdefender",
+}
+_STORY_EXPLOIT_RX = re.compile(r"actively exploited|exploited in the wild|zero-?day|0-day|known exploited|\bkev\b|emergency (patch|update)|under attack", re.I)
+_STORY_CVE_RX = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+
+
+def _title_tokens(title: str) -> tuple[set, set]:
+    """(significant lowercase words, coined names such as PHP2Shell or FortiBleed) of a title."""
+    words, names = set(), set()
+    for raw in re.findall(r"[A-Za-z0-9][A-Za-z0-9+#\-]*", title):
+        w = raw.lower().strip("-")
+        if len(w) < 3 or w.isdigit() or w in _STORY_STOP or _STORY_CVE_RX.fullmatch(raw):
+            continue
+        words.add(w)
+        if len(w) >= 5 and "-" not in raw and ((re.search(r"[A-Za-z]", raw) and re.search(r"\d", raw)) or re.search(r"[a-z][A-Z]", raw)):
+            names.add(w)
+    return words, names
+
+
+def assign_stories(entries: list[dict]) -> None:
+    """Set entry['story'] (the ID of the story's earliest article). Never removes anything.
+
+    Articles are linked when published within STORY_WINDOW_DAYS and they share a CVE ID, a coined
+    name (e.g. PHP2Shell), or enough distinctive title words. Podcasts, roundups and templated
+    advisory feeds (Exploit-DB, CISA, ZDI) only ever join a story through a shared CVE ID.
+    """
+    for e in entries:
+        e["story"] = e["id"]
+    items = []
+    for e in entries:
+        if not e.get("date") or e.get("podcast") or _STORY_ROUNDUP_RX.search(e["title"]):
+            continue
+        words, names = _title_tokens(e["title"])
+        words -= set(re.findall(r"[a-z0-9]+", e["source"].lower()))
+        items.append({"e": e, "dt": datetime.fromisoformat(e["date"]), "words": words, "names": names,
+                      "cves": {c.upper() for c in _STORY_CVE_RX.findall(e["title"] + " " + e.get("context", ""))},
+                      "templated": e["source"] in _STORY_TEMPLATED_SOURCES or e["source"].startswith("CISA")})
+    df = collections.Counter(w for it in items for w in it["words"])
+    brand_words = {t for kws in CATEGORIES.values() for kw in kws for t in re.findall(r"[a-z0-9]+", kw.lower())} | _STORY_BRANDS
+    for it in items:
+        it["names"] = {n for n in it["names"] if n not in brand_words and df[n] <= 80}
+    word_index, cve_index = collections.defaultdict(list), collections.defaultdict(list)
+    for i, it in enumerate(items):
+        for w in it["words"]:
+            if df[w] <= 120:
+                word_index[w].append(i)
+        for c in it["cves"]:
+            cve_index[c].append(i)
+    parent = list(range(len(items)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i, a in enumerate(items):
+        candidates = set()
+        for w in a["words"]:
+            candidates.update(j for j in word_index.get(w, ()) if j > i)
+        for c in a["cves"]:
+            candidates.update(j for j in cve_index[c] if j > i)
+        for j in candidates:
+            b = items[j]
+            if abs((a["dt"] - b["dt"]).days) > STORY_WINDOW_DAYS:
+                continue
+            linked = bool(a["cves"] & b["cves"])
+            if not linked and not (a["templated"] or b["templated"]):
+                shared = a["words"] & b["words"]
+                union = a["words"] | b["words"]
+                rare = [w for w in shared if df[w] <= 20 and w not in brand_words]
+                linked = (bool(a["names"] & b["names"])
+                          or (len(shared) / max(1, len(union)) >= 0.5)
+                          or (len(rare) >= 2 and len(shared) / max(1, min(len(a["words"]), len(b["words"]))) >= 0.5))
+            if linked:
+                parent[find(i)] = find(j)
+    groups = collections.defaultdict(list)
+    for i, it in enumerate(items):
+        groups[find(i)].append(it)
+    for members in groups.values():
+        members.sort(key=lambda m: (m["dt"], m["e"]["id"]))
+        parts = [[members[0]]]
+        for m in members[1:]:
+            if (m["dt"] - parts[-1][-1]["dt"]).days > STORY_GAP_DAYS:
+                parts.append([m])
+            else:
+                parts[-1].append(m)
+        for part in parts:
+            for m in part:
+                m["e"]["story"] = part[0]["e"]["id"]
+
+
+def trending_stories(entries: list[dict], now=None, days: int = TRENDING_DAYS, limit: int = TRENDING_POOL,
+                     min_sources: int = TRENDING_MIN_SOURCES) -> list[dict]:
+    """Stories covered by the most distinct sources in the last `days` days, best first."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+    by_story = collections.defaultdict(list)
+    for e in entries:
+        by_story[e.get("story", e["id"])].append(e)
+    ranked = []
+    for sid, members in by_story.items():
+        recent = [m for m in members if m.get("date") and not m.get("podcast") and datetime.fromisoformat(m["date"]) >= cutoff]
+        sources = {m["source"] for m in recent}
+        if len(sources) < min_sources:
+            continue
+        latest = max(datetime.fromisoformat(m["date"]) for m in recent)
+        age_h = (now - latest).total_seconds() / 3600
+        exploited = any(_STORY_EXPLOIT_RX.search(m["title"] + " " + m.get("context", "")) for m in recent)
+        score = 2 * len(sources) + (3 if exploited else 0) + (2 if age_h <= 48 else 1 if age_h <= 96 else 0) + 0.2 * len(recent)
+        recent.sort(key=lambda m: m["date"])
+        lead = next((m for m in recent if m["source"] not in _STORY_TEMPLATED_SOURCES and not m["source"].startswith("CISA")), recent[0])
+        mod_count = collections.Counter(x for m in recent for x in m.get("modules", []) if x not in (MODULE_OTHER, MODULE_NA))
+        ranked.append({
+            "id": sid, "title": lead["title"], "link": lead["link"], "source": lead["source"], "date": lead["date"],
+            "context": lead.get("context", ""), "category": collections.Counter(m.get("category", "") for m in recent).most_common(1)[0][0],
+            "modules": [m for m, _ in mod_count.most_common(3)], "sources": sorted(sources), "articles": len(members),
+            "recent_articles": len(recent), "latest": latest.isoformat(), "exploited": exploited, "score": round(score, 1),
+        })
+    ranked.sort(key=lambda t: (-t["score"], t["latest"]), reverse=False)
+    return ranked[:limit]
+
+
+# ---------------------------------------------------------------------------
 # Master article store (every article ever seen) + backfill from archive snapshots
 # ---------------------------------------------------------------------------
 
@@ -1382,7 +1528,7 @@ def save_master(master: dict, label: str) -> None:
     slim = [{"id": a["id"], "source": a["source"], "category": a.get("category", ""), "title": a["title"],
              "link": a["link"], "date": a.get("date"), "context": a.get("context", ""),
              "modules": a.get("modules", []), "podcast": bool(a.get("podcast")),
-             "transcript": a.get("text_source") == "transcript",
+             "story": a.get("story", a["id"]), "transcript": a.get("text_source") == "transcript",
              **({"transcript_url": a["transcript_url"], "transcript_type": a.get("transcript_type", "")} if a.get("transcript_url") else {})}
             for a in items]
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -1530,6 +1676,7 @@ def export_digest_json(articles: list[dict], label: str) -> str:
         export["categories"][cat] = [
             {
                 "id": article_id(a["link"]),
+                "story": a.get("story", article_id(a["link"])),
                 "podcast": bool(a.get("podcast")),
                 "source": a["source"],
                 "title": a["title"],
@@ -1557,7 +1704,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     writer = csv_module.writer(output)
 
     # Write header
-    writer.writerow(["ID", "Date", "Category", "Modules", "Type", "Source", "Title", "Link", "Context", "Full Text"])
+    writer.writerow(["ID", "Story", "Date", "Category", "Modules", "Type", "Source", "Title", "Link", "Context", "Full Text"])
 
     # Write articles
     buckets = bucket_articles(articles)
@@ -1566,6 +1713,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             writer.writerow([
                 article_id(article["link"]),
+                article.get("story", article_id(article["link"])),
                 date_str,
                 cat,
                 "; ".join(article.get("modules", [])),
@@ -1598,11 +1746,12 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
         # CSV export for this category
         csv_output = io.StringIO()
         csv_writer = csv_module.writer(csv_output)
-        csv_writer.writerow(["ID", "Date", "Source", "Modules", "Type", "Title", "Link", "Context", "Full Text"])
+        csv_writer.writerow(["ID", "Story", "Date", "Source", "Modules", "Type", "Title", "Link", "Context", "Full Text"])
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             csv_writer.writerow([
                 article_id(article["link"]),
+                article.get("story", article_id(article["link"])),
                 date_str,
                 article["source"],
                 "; ".join(article.get("modules", [])),
@@ -1623,6 +1772,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
             "articles": [
                 {
                     "id": article_id(a["link"]),
+                    "story": a.get("story", article_id(a["link"])),
                     "podcast": bool(a.get("podcast")),
                     "date": a["date"].isoformat() if a["date"] else None,
                     "source": a["source"],
@@ -1761,9 +1911,55 @@ def _build_dropdown() -> str:
       });
     }
 
-    function updateRows() {
+    let groupOn = true;
+    try { groupOn = localStorage.getItem('groupSameTopic') !== 'off'; } catch (err) { /* storage blocked */ }
+
+    function applyGrouping() {
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(c => {
+        c.classList.remove('hide-group');
+        const b = c.querySelector('.story-badge');
+        if (b) b.hidden = true;
+      });
+      if (!groupOn) return;
+      const visible = document.querySelectorAll('.card:not(.hide-search):not(.hide-module)');
+      const perStory = {};
+      visible.forEach(c => { const s = c.dataset.story; if (s) perStory[s] = (perStory[s] || 0) + 1; });
       document.querySelectorAll('.col').forEach(col => {
-        const any = col.querySelector('.card:not(.hide-search):not(.hide-module)') !== null;
+        const first = {};
+        col.querySelectorAll('.card:not(.hide-search):not(.hide-module)').forEach(card => {
+          const s = card.dataset.story;
+          if (!s) return;
+          if (first[s]) card.classList.add('hide-group'); else first[s] = card;
+        });
+        Object.keys(first).forEach(s => {
+          const others = perStory[s] - 1, badge = first[s].querySelector('.story-badge');
+          if (badge && others > 0) { badge.textContent = '+' + others + ' related'; badge.hidden = false; }
+        });
+      });
+    }
+
+    function initializeGrouping() {
+      const btn = document.getElementById('group-toggle');
+      if (!btn) return;
+      function paint() {
+        btn.setAttribute('aria-pressed', groupOn ? 'true' : 'false');
+        btn.textContent = 'Group same topic: ' + (groupOn ? 'on' : 'off');
+      }
+      paint();
+      btn.addEventListener('click', () => {
+        groupOn = !groupOn;
+        try { localStorage.setItem('groupSameTopic', groupOn ? 'on' : 'off'); } catch (err) { /* storage blocked */ }
+        paint();
+        updateRows();
+      });
+      updateRows();
+    }
+
+    function updateRows() {
+      applyGrouping();
+      document.querySelectorAll('.col').forEach(col => {
+        const any = col.querySelector('.card:not(.hide-search):not(.hide-module):not(.hide-group)') !== null;
         col.classList.toggle('search-hidden', !any);
       });
     }
@@ -1931,7 +2127,7 @@ def _build_dropdown() -> str:
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      [populateCategories, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference].forEach(fn => {
+      [populateCategories, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference, initializeGrouping].forEach(fn => {
         try {
           fn();
         } catch (err) {
@@ -1942,7 +2138,7 @@ def _build_dropdown() -> str:
   </script>"""
 
 
-def build_html(articles: list[dict], label: str, history: list[dict] | None = None) -> str:
+def build_html(articles: list[dict], label: str, history: list[dict] | None = None, trending: list[dict] | None = None) -> str:
     buckets  = bucket_articles(articles)
     columns  = []
     dropdown = _build_dropdown()
@@ -1972,10 +2168,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                 modules_html = '<div class="card-modules">' + " &middot; ".join(html.escape(m) for m in shown) + "</div>"
 
             cards.append(f"""
-            <div class="card" data-id="{article_id(a["link"])}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}">
+            <div class="card" data-id="{article_id(a["link"])}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}" data-story="{a.get("story") or article_id(a["link"])}">
               <div class="card-meta">
                 <span class="source">{pod_badge}{safe_source}</span>
-                <span class="date">{date_str}<button type="button" class="card-details" aria-label="Details and export"></button></span>
+                <span class="date">{date_str}<button type="button" class="story-badge" hidden></button><button type="button" class="card-details" aria-label="Details and export"></button></span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
               {modules_html}
@@ -1995,13 +2191,15 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
       </div>""")
 
     dash_modal_js = (DASH_MODAL_JS.replace("__FULLTEXT_BASE__", REPORT_URL + "archive/data/fulltext/")
-                     .replace("__EXPLORER_URL__", EXPLORER_URL))
+                     .replace("__EXPLORER_URL__", EXPLORER_URL)) + CAROUSEL_JS.replace(
+        "__FULLTEXT_BASE_JS__", json.dumps(REPORT_URL + "archive/data/fulltext/"))
+    trending_html = _trending_html(trending or [])
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyber Competitive Daily Feed — {label}</title>
+<title>CI Overwatch — {label}</title>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
@@ -2185,10 +2383,11 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     overflow: hidden;
   }}
   .col.search-hidden {{ display: none !important; }}
-  .card.hide-search, .card.hide-module {{ display: none; }}
+  .card.hide-search, .card.hide-module, .card.hide-group {{ display: none; }}
   .card-meta .source {{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
   .card-meta .date {{ display: inline-flex; align-items: center; white-space: nowrap; }}
   {MODAL_CSS}
+  {DASH_EXTRA_CSS}
   .card-modules {{
     font-size: 0.7rem;
     color: #7d8299;
@@ -2290,13 +2489,14 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 
 <div class="topbar">
   <div class="topbar-left">
-    <h1><span>Cyber</span> Competitive Daily Feed</h1>
+    <h1><span>CI</span> Overwatch</h1>
     <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
       <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period, category and module, then export">All articles &rarr;</a>
+      <button type="button" id="group-toggle" class="export-btn explorer-link" aria-pressed="true" title="Show one card per story in each row, with a +N related badge">Group same topic: on</button>
       <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
       <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
@@ -2310,6 +2510,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   </div>
 </div>
 
+{trending_html}
 <div class="content">
   <div class="grid">
     {"".join(columns)}
@@ -2362,6 +2563,16 @@ MODAL_CSS = r"""
   .am-tag.podcast { color: #ff8a80; border-color: #6b2a27; background: #2a1a1b; font-weight: 600; }
   .am-tag.transcript { color: #9fd3a8; border-color: #2c4a33; background: #17241b; }
   .am-tag.muted { color: #6b7088; font-style: italic; }
+  #am-overlay { z-index: 1100; }
+  .sm-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .sm-item { background: #1e2030; border-radius: 6px; padding: 9px 12px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: start; }
+  .sm-row { grid-column: 1 / 2; font-size: .7rem; color: #8a8fa3; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sm-src { color: #ff5a4d; font-weight: 600; }
+  .sm-link { grid-column: 1 / 2; color: #d8d8d8; text-decoration: none; font-size: .84rem; line-height: 1.45; }
+  .sm-link:hover, .sm-link:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .sm-details { grid-column: 2 / 3; grid-row: 1 / 3; align-self: center; background: transparent; color: #8a8fa3; border: 1px solid #2a2d3e; border-radius: 3px;
+                padding: 2px 9px; font-size: .68rem; cursor: pointer; font-family: inherit; }
+  .sm-details:hover, .sm-details:focus-visible { color: #fff; border-color: #DA291C; outline: none; }
   .pod-badge { display: inline-flex; vertical-align: -2px; margin-right: 5px; color: #ff5a4d; }
   .pod-icon { width: 12px; height: 12px; }
   .am-ctx { font-size: .88rem; line-height: 1.6; color: #c9cbd6; background: #1e2030; border-radius: 6px;
@@ -2384,6 +2595,17 @@ MODAL_CSS = r"""
 """
 
 MODAL_HTML = """
+<div class="am-overlay" id="sm-overlay" hidden>
+  <div class="am-dialog" id="sm-dialog" role="dialog" aria-modal="true" aria-labelledby="sm-title">
+    <div class="am-head">
+      <h2 class="am-title" id="sm-title"></h2>
+      <button type="button" class="am-close" id="sm-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="am-meta" id="sm-meta"></div>
+    <div class="am-tags" id="sm-tags"></div>
+    <ul class="sm-list" id="sm-list"></ul>
+  </div>
+</div>
 <div class="am-overlay" id="am-overlay" hidden>
   <div class="am-dialog" id="am-dialog" role="dialog" aria-modal="true" aria-labelledby="am-title">
     <div class="am-head">
@@ -2455,7 +2677,9 @@ MODAL_JS = r"""
 
   function closeModal() {
     if (overlay.hidden) return;
-    overlay.hidden = true; document.body.classList.remove('am-open');
+    overlay.hidden = true;
+    var story = document.getElementById('sm-overlay');
+    if (!story || story.hidden) document.body.classList.remove('am-open');
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
@@ -2484,7 +2708,7 @@ MODAL_JS = r"""
 
   async function exportAs(fmt) {
     var withText = el.ft.checked, note = '';
-    var rec = { id: current.id || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
+    var rec = { id: current.id || '', story: current.story || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
                 podcast: !!current.podcast, title: current.title, link: current.link, context: current.context || '' };
     el.json.disabled = el.csv.disabled = true;
     try {
@@ -2498,8 +2722,8 @@ MODAL_JS = r"""
         download('article_' + slug + '.json', 'application/json',
                  JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
       } else {
-        var head = ['ID', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
-        var cells = [rec.id, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
+        var head = ['ID', 'Story', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.id, rec.story, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
                      rec.source, rec.title, rec.link, rec.context];
         if (withText) {
           var t = rec.full_text;
@@ -2536,21 +2760,85 @@ MODAL_JS = r"""
   });
   window.ArticleModal = { open: openModal, close: closeModal };
 })();
+
+(function () {
+  'use strict';
+  var overlay = document.getElementById('sm-overlay');
+  if (!overlay) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var el = { title: $('sm-title'), meta: $('sm-meta'), tags: $('sm-tags'), list: $('sm-list'), close: $('sm-close'), dialog: $('sm-dialog') };
+  var opts = {}, lastFocus = null;
+
+  function openStory(story, o) {
+    opts = o || {};
+    var members = (story.members || []).slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var sources = {};
+    members.forEach(function (m) { sources[m.source] = 1; });
+    var dated = members.filter(function (m) { return m.date; });
+    el.title.textContent = story.title || (members[0] && members[0].title) || '';
+    var bits = [members.length + ' article' + (members.length === 1 ? '' : 's') + ' from ' + Object.keys(sources).length + ' source' + (Object.keys(sources).length === 1 ? '' : 's')];
+    if (dated.length) {
+      var first = dated[dated.length - 1].date.slice(0, 10), last = dated[0].date.slice(0, 10);
+      bits.push(first === last ? first : first + ' to ' + last);
+    }
+    el.meta.textContent = bits.join(' \u00b7 ');
+    var counts = {};
+    members.forEach(function (m) { (m.modules || []).forEach(function (x) { if (x !== 'Other/General' && x !== 'N/A') counts[x] = (counts[x] || 0) + 1; }); });
+    el.tags.textContent = '';
+    Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 4).forEach(function (x) {
+      var t = document.createElement('span'); t.className = 'am-tag'; t.textContent = x; el.tags.appendChild(t);
+    });
+    el.tags.hidden = !el.tags.children.length;
+    el.list.textContent = '';
+    members.forEach(function (m) {
+      var li = document.createElement('li'); li.className = 'sm-item';
+      var row = document.createElement('div'); row.className = 'sm-row';
+      var src = document.createElement('span'); src.className = 'sm-src'; src.textContent = m.source;
+      var when = document.createElement('span'); when.textContent = m.date ? m.date.slice(0, 10) : 'date unknown';
+      row.appendChild(src); row.appendChild(when);
+      var link = document.createElement('a'); link.className = 'sm-link'; link.href = m.link; link.target = '_blank';
+      link.rel = 'noopener noreferrer'; link.textContent = m.title;
+      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'sm-details'; btn.textContent = 'Details';
+      btn.addEventListener('click', function () { if (window.ArticleModal) window.ArticleModal.open(m, { fullTextBase: opts.fullTextBase }); });
+      li.appendChild(row); li.appendChild(link); li.appendChild(btn); el.list.appendChild(li);
+    });
+    lastFocus = document.activeElement;
+    overlay.hidden = false; document.body.classList.add('am-open');
+    el.close.focus();
+  }
+
+  function closeStory() {
+    if (overlay.hidden) return;
+    overlay.hidden = true; document.body.classList.remove('am-open');
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  el.close.addEventListener('click', closeStory);
+  overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closeStory(); });
+  document.addEventListener('keydown', function (e) {
+    if (overlay.hidden || e.defaultPrevented) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeStory(); return; }
+    if (e.key !== 'Tab') return;
+    var f = Array.prototype.filter.call(el.dialog.querySelectorAll('a[href], button'), function (n) { return !n.disabled; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  window.StoryModal = { open: openStory, close: closeStory };
+})();
 """
 
 MODAL_JS = MODAL_JS.replace("__POD_ICON__", POD_ICON_SVG)
 
 DASH_MODAL_JS = r"""
-document.addEventListener('click', function (e) {
-  var btn = e.target.closest ? e.target.closest('.card-details') : null;
-  if (!btn || !window.ArticleModal) return;
-  var card = btn.closest('.card'), col = card.closest('.col');
-  var title = card.querySelector('.card-title');
+function cardToArticle(card) {
+  var col = card.closest('.col'), title = card.querySelector('.card-title');
   var m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) UTC$/.exec((card.querySelector('.date').textContent || '').trim());
-  var header = col && col.querySelector('.col-header');
-  var ctx = card.querySelector('.card-context');
-  window.ArticleModal.open({
+  var header = col && col.querySelector('.col-header'), ctx = card.querySelector('.card-context');
+  return {
     id: card.dataset.id || '',
+    story: card.dataset.story || '',
     shareUrl: card.dataset.id ? '__EXPLORER_URL__#' + card.dataset.id : '',
     title: title.textContent.trim(),
     link: title.href,
@@ -2562,9 +2850,159 @@ document.addEventListener('click', function (e) {
     podcast: card.dataset.podcast === '1',
     transcript: card.dataset.transcript === '1',
     context: ctx ? ctx.textContent.trim() : ''
-  }, { fullTextBase: '__FULLTEXT_BASE__' });
+  };
+}
+
+function storyFromDom(id, title) {
+  var members = Array.prototype.filter.call(document.querySelectorAll('.card'), function (c) { return c.dataset.story === id; }).map(cardToArticle);
+  return { id: id, title: title || (members[0] && members[0].title) || '', members: members };
+}
+
+document.addEventListener('click', function (e) {
+  var t = e.target;
+  if (!t || !t.closest) return;
+  var details = t.closest('.card-details');
+  if (details && window.ArticleModal) {
+    window.ArticleModal.open(cardToArticle(details.closest('.card')), { fullTextBase: '__FULLTEXT_BASE__' });
+    return;
+  }
+  var badge = t.closest('.story-badge');
+  if (badge && window.StoryModal) {
+    var card = badge.closest('.card');
+    window.StoryModal.open(storyFromDom(card.dataset.story, card.querySelector('.card-title').textContent.trim()), { fullTextBase: '__FULLTEXT_BASE__' });
+  }
 });
 """
+
+CAROUSEL_JS = r"""
+(function () {
+  var track = document.getElementById('tr-track');
+  if (!track) return;
+  var slides = Array.prototype.slice.call(track.children), n = slides.length, page = 0, per = 3, timer = null;
+  var prev = document.getElementById('tr-prev'), next = document.getElementById('tr-next'), dots = document.getElementById('tr-dots');
+  var nav = document.getElementById('tr-nav'), section = document.getElementById('trending');
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function perView() { var w = window.innerWidth; return w >= 1100 ? 3 : (w >= 700 ? 2 : 1); }
+  function pages() { return Math.max(1, Math.ceil(n / per)); }
+  function render() {
+    per = perView();
+    if (page >= pages()) page = 0;
+    track.style.setProperty('--per', per);
+    track.style.transform = 'translateX(-' + (page * 100) + '%)';
+    slides.forEach(function (s, i) {
+      var visible = i >= page * per && i < (page + 1) * per;
+      s.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      s.inert = !visible;
+    });
+    dots.textContent = '';
+    for (var p = 0; p < pages(); p++) {
+      var d = document.createElement('button'); d.type = 'button'; d.className = 'tr-dot';
+      d.setAttribute('aria-label', 'Show stories ' + (p * per + 1) + ' to ' + Math.min(n, (p + 1) * per));
+      d.setAttribute('aria-current', p === page ? 'true' : 'false');
+      (function (target) { d.addEventListener('click', function () { go(target); }); })(p);
+      dots.appendChild(d);
+    }
+    nav.hidden = pages() === 1;
+  }
+  function go(p) { page = (p + pages()) % pages(); render(); }
+  function start() { stop(); if (!reduced && pages() > 1) timer = setInterval(function () { go(page + 1); }, 9000); }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+
+  prev.addEventListener('click', function () { go(page - 1); start(); });
+  next.addEventListener('click', function () { go(page + 1); start(); });
+  section.addEventListener('mouseenter', stop); section.addEventListener('mouseleave', start);
+  section.addEventListener('focusin', stop); section.addEventListener('focusout', start);
+  window.addEventListener('resize', render);
+  track.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.tr-open') : null;
+    if (!btn || !window.StoryModal) return;
+    var title = btn.closest('.tr-slide').querySelector('.tr-title').textContent.trim();
+    window.StoryModal.open(storyFromDom(btn.dataset.story, title), { fullTextBase: __FULLTEXT_BASE_JS__ });
+  });
+  render(); start();
+})();
+"""
+
+DASH_EXTRA_CSS = r"""
+  .export-btn[aria-pressed="false"] { opacity: .65; }
+  .story-badge { margin-left: 8px; background: #2a1a1b; color: #ff8a80; border: 1px solid #6b2a27; border-radius: 3px; padding: 0 7px;
+                 font-size: .68rem; cursor: pointer; font-family: inherit; line-height: 1.6; white-space: nowrap; }
+  .story-badge:hover { color: #fff; border-color: #DA291C; }
+  .story-badge[hidden] { display: none; }
+  .trending { padding: 18px 24px 0; }
+  .trending-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .trending-head h2 { font-size: 1rem; color: #fff; font-weight: 700; }
+  .trending-head p { font-size: .75rem; color: #7d8299; }
+  .trending-nav { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .trending-nav[hidden] { display: none; }
+  .tr-arrow { background: #1e2030; color: #fff; border: 1px solid #2a2d3e; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 1rem; line-height: 1; }
+  .tr-arrow:hover, .tr-arrow:focus-visible { border-color: #DA291C; outline: none; }
+  .tr-dots { display: flex; gap: 6px; }
+  .tr-dot { width: 8px; height: 8px; border-radius: 50%; border: none; background: #343850; cursor: pointer; padding: 0; }
+  .tr-dot[aria-current="true"] { background: #DA291C; }
+  .trending-viewport { overflow: hidden; margin: 0 -6px; }
+  .trending-track { display: flex; --per: 3; transition: transform .45s ease; }
+  .tr-slide { flex: 0 0 calc(100% / var(--per)); padding: 0 6px; min-width: 0; }
+  .tr-card { background: linear-gradient(180deg, #1c1f2e, #171a26); border: 1px solid #2a2d3e; border-top: 3px solid #DA291C; border-radius: 8px;
+             padding: 14px 16px; height: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .tr-top { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; color: #8a8fa3; }
+  .tr-rank { font-weight: 800; color: #DA291C; font-size: .95rem; }
+  .tr-count b { color: #fff; font-size: .95rem; }
+  .tr-title { font-size: .95rem; line-height: 1.4; font-weight: 600; }
+  .tr-title a { color: #fff; text-decoration: none; }
+  .tr-title a:hover, .tr-title a:focus-visible { text-decoration: underline; outline: none; }
+  .tr-chips, .tr-sources { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tr-chip { font-size: .66rem; border-radius: 999px; padding: 1px 8px; border: 1px solid #343850; color: #c9cbd6; background: #1b1e2d; }
+  .tr-chip.hot { color: #ff8a80; border-color: #6b2a27; background: #2a1a1b; font-weight: 700; }
+  .tr-context { font-size: .78rem; color: #8a8fa3; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .tr-src { font-size: .68rem; color: #ff5a4d; }
+  .tr-src + .tr-src::before { content: "\00b7"; color: #555a70; margin-right: 5px; }
+  .tr-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 4px; }
+  .tr-meta { font-size: .7rem; color: #6b7088; }
+  .tr-open { background: #DA291C; color: #fff; border: none; border-radius: 4px; padding: 5px 11px; font-size: .72rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .tr-open:hover, .tr-open:focus-visible { background: #f0352a; outline: none; }
+  @media (max-width: 1099px) { .trending-track { --per: 2; } }
+  @media (max-width: 699px) { .trending-track { --per: 1; } .trending { padding: 14px 16px 0; } }
+  @media (prefers-reduced-motion: reduce) { .trending-track { transition: none; } }
+"""
+
+
+def _trending_html(stories: list[dict]) -> str:
+    """The 'Trending this week' carousel; empty when no story is covered by enough sources."""
+    if not stories:
+        return ""
+    esc = html.escape
+    slides = []
+    for rank, st in enumerate(stories, 1):
+        chips = []
+        if st["exploited"]:
+            chips.append('<span class="tr-chip hot">Exploited</span>')
+        if st["category"]:
+            chips.append(f'<span class="tr-chip">{esc(st["category"])}</span>')
+        chips += [f'<span class="tr-chip">{esc(m)}</span>' for m in st["modules"]]
+        shown = st["sources"][:5]
+        sources = "".join(f'<span class="tr-src">{esc(x)}</span>' for x in shown)
+        if len(st["sources"]) > len(shown):
+            sources += f'<span class="tr-src">+{len(st["sources"]) - len(shown)} more</span>'
+        context = f'<p class="tr-context">{esc(st["context"])}</p>' if st["context"] else ""
+        slides.append(
+            f'<article class="tr-slide" data-story="{esc(st["id"])}"><div class="tr-card">'
+            f'<div class="tr-top"><span class="tr-rank">#{rank}</span><span class="tr-count"><b>{len(st["sources"])}</b> sources</span></div>'
+            f'<h3 class="tr-title"><a href="{esc(st["link"])}" target="_blank" rel="noopener noreferrer">{esc(st["title"])}</a></h3>'
+            f'<div class="tr-chips">{"".join(chips)}</div>{context}<div class="tr-sources">{sources}</div>'
+            f'<div class="tr-foot"><span class="tr-meta">{st["articles"]} articles &middot; latest {st["latest"][:10]}</span>'
+            f'<button type="button" class="tr-open" data-story="{esc(st["id"])}">View coverage</button></div>'
+            f'</div></article>')
+    return (
+        '<section class="trending" id="trending" aria-label="Trending this week">'
+        '<div class="trending-head"><h2>Trending this week</h2>'
+        f'<p>Stories covered by the most sources in the last {TRENDING_DAYS} days</p>'
+        '<div class="trending-nav" id="tr-nav"><button type="button" class="tr-arrow" id="tr-prev" aria-label="Previous stories">&lsaquo;</button>'
+        '<div class="tr-dots" id="tr-dots"></div>'
+        '<button type="button" class="tr-arrow" id="tr-next" aria-label="Next stories">&rsaquo;</button></div></div>'
+        f'<div class="trending-viewport"><div class="trending-track" id="tr-track">{"".join(slides)}</div></div></section>')
+
 
 
 def write_explorer() -> None:
@@ -2623,12 +3061,15 @@ def main() -> None:
         if entry.get("podcast") and entry.get("text_source") == "transcript":
             entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
+    assign_stories(entries)
+    trending = trending_stories(entries)
     for article in recent:
         stored = master.get(article_id(article["link"])) if article.get("link") else None
         if stored:
             article["id"] = stored["id"]
             article["full_text"] = stored["full_text"]
             article["modules"] = stored["modules"]
+            article["story"] = stored["story"]
             article["podcast"] = bool(stored.get("podcast"))
             article["text_source"] = stored.get("text_source", "")
             article["context"] = stored["context"]
@@ -2683,7 +3124,7 @@ def main() -> None:
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
     arch_path = os.path.join(ARCHIVE_DIR, arch_name)
     with open(arch_path, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, label))
+        f.write(build_html(recent, label, trending=trending))
     print(f"Archive saved: {arch_path}", file=sys.stderr)
 
     # ── Load history from archive dir (includes the file just written) ────
@@ -2694,7 +3135,7 @@ def main() -> None:
 
     # ── Save index.html ───────────────────────────────────────────────────
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, label))
+        f.write(build_html(recent, label, trending=trending))
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
     # ── Export digest as JSON for programmatic access ────────────────────
@@ -2765,6 +3206,7 @@ def retry_text() -> None:
         if entry.get("podcast") and entry.get("text_source") == "transcript":
             entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
+    assign_stories(entries)
     save_master(master, datetime.now(PHT).strftime("%Y-%m-%d %H:%M PHT"))
 
     still = [a for a in entries if not a["full_text"]]

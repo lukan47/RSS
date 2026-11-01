@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>All Articles — Cyber Competitive Daily Feed</title>
+<title>All Articles — CI Overwatch</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #0d0e17; color: #e0e0e0; }
@@ -51,6 +51,18 @@
   .title:hover, .title:focus-visible { color: #fff; text-decoration: underline; outline: none; }
   .meta .card-details { margin-left: auto; }
   __MODAL_CSS__
+  .viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 24px 0; }
+  .seg { display: inline-flex; border: 1px solid #2a2d3e; border-radius: 6px; overflow: hidden; }
+  .seg button { background: #1e2030; color: #c9cbd6; border: none; padding: 6px 16px; font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .seg button[aria-pressed="true"] { background: #DA291C; color: #fff; }
+  .seg button:focus-visible { outline: 2px solid #DA291C; outline-offset: -2px; }
+  #topic-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  #topic-options[hidden] { display: none; }
+  .topic-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+  .btn.small { padding: 5px 12px; font-size: .72rem; }
+  .lead-link { font-size: .74rem; color: #8a8fa3; text-decoration: none; }
+  .lead-link:hover, .lead-link:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .hot { color: #ff8a80; font-weight: 700; }
   .mods { font-size: .7rem; color: #7d8299; line-height: 1.4; margin-top: 6px; }
   .ctx { font-size: .78rem; color: #8a8fa3; line-height: 1.45; margin-top: 8px; padding-top: 8px; border-top: 1px solid #242736; }
   #more { display: block; margin: 8px 24px 40px; }
@@ -66,7 +78,7 @@
 
 <div class="topbar">
   <div>
-    <h1><span>Cyber</span> Competitive Feed &mdash; All Articles</h1>
+    <h1><span>CI</span> Overwatch &mdash; All Articles</h1>
     <p id="summary">Loading articles&hellip;</p>
   </div>
   <a class="back" href="../../">&larr; Dashboard</a>
@@ -103,6 +115,21 @@
   </div>
 </form>
 
+<div class="viewbar">
+  <div class="seg" role="group" aria-label="View">
+    <button type="button" id="view-articles" aria-pressed="true">Articles</button>
+    <button type="button" id="view-topics" aria-pressed="false">Topics</button>
+  </div>
+  <span id="topic-options" hidden>
+    <label class="field">Sort
+      <select id="topic-sort">
+        <option value="coverage">Most covered</option>
+        <option value="newest">Newest</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="topic-multi" checked> Only topics with 2+ articles</label>
+  </span>
+</div>
 <div id="status" role="status" aria-live="polite"></div>
 <main id="list"></main>
 <button type="button" class="btn ghost" id="more" hidden>Show more</button>
@@ -119,7 +146,7 @@ __MODAL_JS__
   var POD_ICON = '__POD_ICON__';
   var PAGE = 100, CSV_CELL_LIMIT = 32000;
   var $ = function (id) { return document.getElementById(id); };
-  var all = [], rows = [], shown = 0, lastDay = null, dayCounts = {};
+  var all = [], rows = [], shown = 0, lastDay = null, dayCounts = {}, view = 'articles', topics = [], byStory = {};
 
   function isoDay(offset) {
     var d = new Date(); d.setUTCDate(d.getUTCDate() - offset);
@@ -158,20 +185,89 @@ __MODAL_JS__
       if (q && (a.title + ' ' + a.source + ' ' + (a.context || '') + ' ' + (a.id || '')).toLowerCase().indexOf(q) === -1) return false;
       return true;
     });
-    dayCounts = {};
-    rows.forEach(function (a) { var k = a.date ? a.date.slice(0, 10) : 'undated'; dayCounts[k] = (dayCounts[k] || 0) + 1; });
+    var topicsView = view === 'topics';
+    if (topicsView) {
+      buildTopics();
+    } else {
+      dayCounts = {};
+      rows.forEach(function (a) { var k = a.date ? a.date.slice(0, 10) : 'undated'; dayCounts[k] = (dayCounts[k] || 0) + 1; });
+    }
     $('list').textContent = ''; shown = 0; lastDay = null;
     renderMore();
-    $('summary').textContent = rows.length.toLocaleString() + ' of ' + all.length.toLocaleString() +
-      ' articles, newest first';
+    $('summary').textContent = topicsView
+      ? topics.length.toLocaleString() + ' topic' + (topics.length === 1 ? '' : 's') + ' from ' + rows.length.toLocaleString() + ' matching articles'
+      : rows.length.toLocaleString() + ' of ' + all.length.toLocaleString() + ' articles, newest first';
     $('btn-json').disabled = $('btn-csv').disabled = rows.length === 0;
-    setStatus(rows.length ? '' : 'No articles match these filters.');
+    setStatus((topicsView ? topics.length : rows.length) ? '' : (topicsView ? 'No topics match these filters.' : 'No articles match these filters.'));
+  }
+
+  var TEMPLATED = ['Exploit-DB', 'ZDI Published Advisories', 'CIRCL KEV (exploited CVEs)'];
+  function isTemplated(a) { return TEMPLATED.indexOf(a.source) !== -1 || a.source.indexOf('CISA') === 0; }
+
+  function buildTopics() {
+    var map = {}, multi = $('topic-multi').checked;
+    rows.forEach(function (a) { var k = a.story || a.id; (map[k] = map[k] || []).push(a); });
+    topics = [];
+    Object.keys(map).forEach(function (k) {
+      var matched = map[k], total = byStory[k] || matched;
+      if (multi && total.length < 2) return;
+      var ordered = matched.slice().sort(function (a, b) { return (a.date || '9').localeCompare(b.date || '9'); });
+      var lead = ordered.filter(function (m) { return !isTemplated(m); })[0] || ordered[0];
+      var sources = {};
+      matched.forEach(function (m) { sources[m.source] = 1; });
+      var latest = matched.reduce(function (acc, m) { return m.date && m.date > acc ? m.date : acc; }, '');
+      topics.push({ id: k, lead: lead, matched: matched, total: total, sources: Object.keys(sources).sort(), latest: latest });
+    });
+    var byNewest = $('topic-sort').value === 'newest';
+    topics.sort(function (a, b) {
+      return byNewest ? b.latest.localeCompare(a.latest) : (b.sources.length - a.sources.length || b.latest.localeCompare(a.latest));
+    });
+  }
+
+  function toArticle(a) {
+    return { id: a.id, story: a.story || a.id, shareUrl: location.origin + location.pathname + '#' + a.id, title: a.title, link: a.link,
+      source: a.source, date: a.date, category: a.category, color: COLORS[a.category] || '', modules: a.modules || [],
+      podcast: !!a.podcast, transcript: !!a.transcript, context: a.context || '' };
+  }
+
+  function buildTopicItem(t) {
+    var a = t.lead, el = document.createElement('article'); el.className = 'item topic';
+    var meta = document.createElement('div'); meta.className = 'meta';
+    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
+    chip.style.background = COLORS[a.category] || '#555a70';
+    var cnt = document.createElement('span'); cnt.className = 'src';
+    cnt.textContent = t.sources.length + ' source' + (t.sources.length === 1 ? '' : 's') + ' · ' + t.total.length + ' article' + (t.total.length === 1 ? '' : 's');
+    var when = document.createElement('time'); when.textContent = t.latest ? 'latest ' + t.latest.slice(0, 10) : '';
+    meta.appendChild(chip); meta.appendChild(cnt); meta.appendChild(when);
+    if (t.matched.some(function (m) { return /actively exploited|exploited in the wild|zero-?day|known exploited/i.test(m.title + ' ' + (m.context || '')); })) {
+      var hot = document.createElement('span'); hot.className = 'hot'; hot.textContent = 'Exploited'; meta.appendChild(hot);
+    }
+    var title = document.createElement('a'); title.className = 'title'; title.href = a.link; title.target = '_blank';
+    title.rel = 'noopener noreferrer'; title.textContent = a.title;
+    el.appendChild(meta); el.appendChild(title);
+    var counts = {};
+    t.matched.forEach(function (m) { (m.modules || []).forEach(function (x) { if (x !== 'Other/General' && x !== 'N/A') counts[x] = (counts[x] || 0) + 1; }); });
+    var mods = Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x]; }).slice(0, 3);
+    if (mods.length) { var mp = document.createElement('div'); mp.className = 'mods'; mp.textContent = mods.join(' · '); el.appendChild(mp); }
+    var shownSources = t.sources.slice(0, 6), more = t.sources.length - shownSources.length;
+    var sp = document.createElement('p'); sp.className = 'ctx';
+    sp.textContent = 'Covered by ' + shownSources.join(' · ') + (more > 0 ? ' +' + more + ' more' : '');
+    el.appendChild(sp);
+    var actions = document.createElement('div'); actions.className = 'topic-actions';
+    var open = document.createElement('button'); open.type = 'button'; open.className = 'btn ghost small topic-open';
+    open.textContent = 'View all ' + t.total.length + ' articles' + (t.matched.length < t.total.length ? ' (' + t.matched.length + ' match your filters)' : '');
+    open.__topic = t;
+    var lead = document.createElement('a'); lead.className = 'lead-link'; lead.href = a.link; lead.target = '_blank';
+    lead.rel = 'noopener noreferrer'; lead.textContent = 'Read first article ↗';
+    actions.appendChild(open); actions.appendChild(lead); el.appendChild(actions);
+    return el;
   }
 
   function renderMore() {
-    var list = $('list'), end = Math.min(shown + PAGE, rows.length);
+    var list = $('list'), topicsView = view === 'topics', items = topicsView ? topics : rows, end = Math.min(shown + PAGE, items.length);
     for (; shown < end; shown++) {
-      var a = rows[shown], day = a.date ? a.date.slice(0, 10) : 'undated';
+      if (topicsView) { list.appendChild(buildTopicItem(items[shown])); continue; }
+      var a = items[shown], day = a.date ? a.date.slice(0, 10) : 'undated';
       if (day !== lastDay) {
         var h = document.createElement('h2'); h.className = 'day'; h.textContent = dayLabel(day);
         var n = document.createElement('small'); n.textContent = dayCounts[day] + ' article' + (dayCounts[day] === 1 ? '' : 's');
@@ -179,8 +275,8 @@ __MODAL_JS__
       }
       list.appendChild(buildItem(a));
     }
-    $('more').hidden = shown >= rows.length;
-    $('more').textContent = 'Show more (' + (rows.length - shown).toLocaleString() + ' remaining)';
+    $('more').hidden = shown >= items.length;
+    $('more').textContent = 'Show more (' + (items.length - shown).toLocaleString() + ' remaining)';
   }
 
   function buildItem(a) {
@@ -249,7 +345,7 @@ __MODAL_JS__
     try {
       if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
       var recs = rows.map(function (a) {
-        var rec = { id: a.id, date: a.date, category: a.category, modules: a.modules || [], podcast: !!a.podcast, source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        var rec = { id: a.id, story: a.story || a.id, date: a.date, category: a.category, modules: a.modules || [], podcast: !!a.podcast, source: a.source, title: a.title, link: a.link, context: a.context || '' };
         if (withText) rec.full_text = texts[a.id] || '';
         return rec;
       });
@@ -262,10 +358,10 @@ __MODAL_JS__
           filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, module: mod, source: $('source').value, search: $('q').value },
           count: recs.length, articles: recs }, null, 2));
       } else {
-        var head = ['ID', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var head = ['ID', 'Story', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
         var lines = [head.join(',')];
         recs.forEach(function (x) {
-          var cells = [x.id, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.podcast ? 'Podcast' : 'Article', x.source, x.title, x.link, x.context];
+          var cells = [x.id, x.story, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.podcast ? 'Podcast' : 'Article', x.source, x.title, x.link, x.context];
           if (withText) {
             var t = x.full_text;
             cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
@@ -287,6 +383,7 @@ __MODAL_JS__
 
   function init(data) {
     all = data.articles;
+    all.forEach(function (a) { var k = a.story || a.id; (byStory[k] = byStory[k] || []).push(a); });
     var cats = {}, srcs = {}, mods = {};
     all.forEach(function (a) {
       cats[a.category] = (cats[a.category] || 0) + 1;
@@ -320,8 +417,24 @@ __MODAL_JS__
     }
     $('list').addEventListener('click', function (e) {
       var btn = e.target.closest('.card-details');
-      if (btn && btn.__article) openArticle(btn.__article);
+      if (btn && btn.__article) { openArticle(btn.__article); return; }
+      var open = e.target.closest('.topic-open');
+      if (open && open.__topic) {
+        var t = open.__topic;
+        window.StoryModal.open({ title: t.lead.title, members: t.total.map(toArticle) }, { fullTextBase: 'fulltext/' });
+      }
     });
+    function setView(next) {
+      view = next;
+      $('view-articles').setAttribute('aria-pressed', next === 'articles' ? 'true' : 'false');
+      $('view-topics').setAttribute('aria-pressed', next === 'topics' ? 'true' : 'false');
+      $('topic-options').hidden = next !== 'topics';
+      applyFilters();
+    }
+    $('view-articles').addEventListener('click', function () { setView('articles'); });
+    $('view-topics').addEventListener('click', function () { setView('topics'); });
+    $('topic-sort').addEventListener('change', applyFilters);
+    $('topic-multi').addEventListener('change', applyFilters);
     $('btn-json').addEventListener('click', function () { doExport('json'); });
     $('btn-csv').addEventListener('click', function () { doExport('csv'); });
     window.addEventListener('hashchange', openFromHash);
