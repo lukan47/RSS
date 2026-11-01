@@ -2851,6 +2851,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     <h1><span>CI</span> Overwatch</h1>
     <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
+  <a class="back" href="{EXPLORER_URL}" title="Browse every stored article by period, category, vendor and module, then export">All articles &rarr;</a>
 </div>
 
 {trending_html}
@@ -2858,7 +2859,6 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period, category, vendor and module, then export">All articles &rarr;</a>
       <button type="button" id="group-toggle" class="export-btn explorer-link" aria-pressed="true" title="Show one card per story in each row, with a +N related badge">Group same topic: on</button>
       <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
       <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
@@ -2965,6 +2965,12 @@ MODAL_HTML = """
     </div>
     <div class="am-meta" id="sm-meta"></div>
     <div class="am-tags" id="sm-tags"></div>
+    <div class="am-actions sm-actions">
+      <button type="button" class="am-btn secondary" id="sm-json">&darr; JSON</button>
+      <button type="button" class="am-btn secondary" id="sm-csv">&darr; CSV</button>
+      <label class="am-chk"><input type="checkbox" id="sm-ft"> Include full article text</label>
+    </div>
+    <div class="am-status" id="sm-status" role="status" aria-live="polite"></div>
     <ul class="sm-list" id="sm-list"></ul>
   </div>
 </div>
@@ -3046,10 +3052,10 @@ MODAL_JS = r"""
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
-  async function savedText(a) {
+  async function savedText(a, root) {
     var month = a.date ? a.date.slice(0, 7) : 'undated';
     if (!shards[month]) {
-      var res = await fetch(base + month + '.json');
+      var res = await fetch((root !== undefined ? root : base) + month + '.json');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       shards[month] = await res.json();
     }
@@ -3121,7 +3127,7 @@ MODAL_JS = r"""
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
-  window.ArticleModal = { open: openModal, close: closeModal };
+  window.ArticleModal = { open: openModal, close: closeModal, kit: { savedText: savedText, csvCell: csvCell, download: download, csvLimit: CSV_CELL_LIMIT } };
 })();
 
 (function () {
@@ -3129,12 +3135,63 @@ MODAL_JS = r"""
   var overlay = document.getElementById('sm-overlay');
   if (!overlay) return;
   var $ = function (id) { return document.getElementById(id); };
-  var el = { title: $('sm-title'), meta: $('sm-meta'), tags: $('sm-tags'), list: $('sm-list'), close: $('sm-close'), dialog: $('sm-dialog') };
-  var opts = {}, lastFocus = null;
+  var el = { title: $('sm-title'), meta: $('sm-meta'), tags: $('sm-tags'), list: $('sm-list'), close: $('sm-close'), dialog: $('sm-dialog'),
+             json: $('sm-json'), csv: $('sm-csv'), ft: $('sm-ft'), status: $('sm-status') };
+  var opts = {}, lastFocus = null, shown = { id: '', title: '', members: [] };
+
+  function setStatus(msg, isError) { el.status.textContent = msg || ''; el.status.style.color = isError ? '#ff7b72' : ''; }
+
+  // Export every article in the story (newest first), optionally with the saved full text
+  async function exportStory(fmt) {
+    var kit = window.ArticleModal && window.ArticleModal.kit;
+    if (!kit || !shown.members.length) return;
+    var withText = el.ft.checked, list = shown.members, failed = 0, missing = 0, recs = [];
+    el.json.disabled = el.csv.disabled = true;
+    try {
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i];
+        var rec = { id: m.id || '', story: m.story || shown.id || '', date: m.date, category: m.category || '', vendor: m.vendor || '', modules: m.modules || [],
+                    source: m.source, podcast: !!m.podcast, title: m.title, link: m.link, context: m.context || '' };
+        if (withText) {
+          setStatus('Loading saved article text ' + (i + 1) + ' of ' + list.length + '…');
+          try { rec.full_text = await kit.savedText(m, opts.fullTextBase); } catch (e) { rec.full_text = ''; failed++; }
+          if (!rec.full_text) missing++;
+        }
+        recs.push(rec);
+      }
+      var slug = (shown.title || 'story').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'story';
+      if (fmt === 'json') {
+        kit.download('story_' + slug + '.json', 'application/json',
+                     JSON.stringify({ exported: new Date().toISOString(), story: { id: shown.id, title: shown.title }, count: recs.length, articles: recs }, null, 2));
+      } else {
+        var head = ['ID', 'Story', 'Date', 'Category', 'Vendor', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var lines = [head.join(',')];
+        recs.forEach(function (r) {
+          var cells = [r.id, r.story, r.date ? r.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', r.category, r.vendor, r.modules.join('; '), r.podcast ? 'Podcast' : 'Article',
+                       r.source, r.title, r.link, r.context];
+          if (withText) {
+            var t = r.full_text;
+            cells.push(t.length > kit.csvLimit ? t.slice(0, kit.csvLimit) + ' [truncated for CSV - use JSON for the full text]' : t);
+          }
+          lines.push(cells.map(kit.csvCell).join(','));
+        });
+        kit.download('story_' + slug + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n') + '\r\n');
+      }
+      setStatus('Exported ' + recs.length + ' article' + (recs.length === 1 ? '' : 's') + ' as ' + fmt.toUpperCase() +
+                (withText ? (failed ? ' (could not load saved text for some months)' : missing ? ' (' + missing + ' without saved text)' : ' with full text') : '') + '.', failed > 0);
+    } catch (e) {
+      setStatus('Export failed: ' + e.message, true);
+    } finally {
+      el.json.disabled = el.csv.disabled = false;
+    }
+  }
 
   function openStory(story, o) {
     opts = o || {};
     var members = (story.members || []).slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    shown = { id: story.id || '', title: story.title || (members[0] && members[0].title) || '', members: members };
+    el.ft.checked = false; setStatus('');
+    el.json.disabled = el.csv.disabled = !members.length;
     var sources = {};
     members.forEach(function (m) { sources[m.source] = 1; });
     var dated = members.filter(function (m) { return m.date; });
@@ -3177,12 +3234,14 @@ MODAL_JS = r"""
   }
 
   el.close.addEventListener('click', closeStory);
+  el.json.addEventListener('click', function () { exportStory('json'); });
+  el.csv.addEventListener('click', function () { exportStory('csv'); });
   overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closeStory(); });
   document.addEventListener('keydown', function (e) {
     if (overlay.hidden || e.defaultPrevented) return;
     if (e.key === 'Escape') { e.preventDefault(); closeStory(); return; }
     if (e.key !== 'Tab') return;
-    var f = Array.prototype.filter.call(el.dialog.querySelectorAll('a[href], button'), function (n) { return !n.disabled; });
+    var f = Array.prototype.filter.call(el.dialog.querySelectorAll('a[href], button, input'), function (n) { return !n.disabled; });
     if (!f.length) return;
     var first = f[0], last = f[f.length - 1];
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -3291,6 +3350,9 @@ CAROUSEL_JS = r"""
 """
 
 DASH_VIEW_CSS = r"""
+  .back { font-size: 0.78rem; font-weight: 600; text-decoration: none; color: #fff; background: #1e2030;
+          border: 1px solid #2a2d3e; border-radius: 4px; padding: 6px 12px; white-space: nowrap; }
+  .back:hover, .back:focus-visible { border-color: #DA291C; outline: none; }
   .card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
   .card-tags .tag { font-size: 0.66rem; font-weight: 600; color: #fff; border-radius: 3px; padding: 1px 7px; line-height: 1.5; background: #555a70; }
   .grid.view-category .tag-category, .grid.view-vendor .tag-vendor { display: none; }

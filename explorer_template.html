@@ -58,6 +58,24 @@
   .seg button:focus-visible { outline: 2px solid #DA291C; outline-offset: -2px; }
   #topic-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
   #topic-options[hidden] { display: none; }
+  #baseline-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  #baseline-options[hidden] { display: none; }
+  table.bl { width: 100%; border-collapse: collapse; background: #1a1d27; border-radius: 7px; overflow: hidden; margin-top: 4px; }
+  .bl th { text-align: left; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8fa3; font-weight: 600; padding: 10px 14px; background: #171a26; }
+  .bl td { padding: 8px 14px; border-top: 1px solid #242736; font-size: .84rem; vertical-align: middle; }
+  .bl .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bl .up { color: #ff8a80; }
+  .bl .down { color: #7fb4ff; }
+  .bl-group { background: transparent; border: none; border-left: 4px solid #555a70; color: #e0e0e0; font: inherit; font-weight: 600; padding: 2px 0 2px 10px; cursor: pointer; text-align: left; }
+  .bl-group:hover, .bl-group:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .bl-chip { display: inline-block; border-radius: 3px; padding: 1px 8px; font-size: .68rem; font-weight: 700; color: #fff; background: #555a70; }
+  .bl-spike { background: #DA291C; }
+  .bl-up { background: #e67e22; }
+  .bl-down { background: #3b6fb5; }
+  .bl-new { background: #8e6bd6; }
+  .bl-normal, .bl-na { background: #3a3e52; color: #c9cbd6; }
+  .spark { display: block; }
+  #period:disabled { opacity: .4; cursor: not-allowed; }
   .topic-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
   .btn.small { padding: 5px 12px; font-size: .72rem; }
   .lead-link { font-size: .74rem; color: #8a8fa3; text-decoration: none; }
@@ -120,7 +138,39 @@
   <div class="seg" role="group" aria-label="View">
     <button type="button" id="view-articles" aria-pressed="true">Articles</button>
     <button type="button" id="view-topics" aria-pressed="false">Topics</button>
+    <button type="button" id="view-baseline" aria-pressed="false">Baseline</button>
   </div>
+  <span id="baseline-options" hidden>
+    <label class="field">Group by
+      <select id="bl-by">
+        <option value="category">Category</option>
+        <option value="vendor">Vendor</option>
+        <option value="module">Module</option>
+      </select>
+    </label>
+    <label class="field">Window
+      <select id="bl-window">
+        <option value="7">Last 7 days</option>
+        <option value="14">Last 14 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+    </label>
+    <label class="field">Compared with
+      <select id="bl-weeks">
+        <option value="4">Previous 4 weeks</option>
+        <option value="8" selected>Previous 8 weeks</option>
+        <option value="12">Previous 12 weeks</option>
+      </select>
+    </label>
+    <label class="field">Sort
+      <select id="bl-sort">
+        <option value="increase">Biggest increase</option>
+        <option value="drop">Biggest drop</option>
+        <option value="volume">Most articles</option>
+        <option value="name">Name</option>
+      </select>
+    </label>
+  </span>
   <span id="topic-options" hidden>
     <label class="field">Sort
       <select id="topic-sort">
@@ -172,14 +222,14 @@ __MODAL_JS__
   function applyFilters() {
     var r = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
     var type = $('type').value;
-    rows = all.filter(function (a) {
+    var pass = function (a, usePeriod) {
       if (type === 'podcast' && !a.podcast) return false;
       if (type === 'article' && a.podcast) return false;
       if (cat && a.category !== cat) return false;
       if (vend && (a.vendor || NO_VENDOR) !== vend) return false;
       if (mod && (a.modules || []).indexOf(mod) === -1) return false;
       if (src && a.source !== src) return false;
-      if (r.from || r.to) {
+      if (usePeriod && (r.from || r.to)) {
         if (!a.date) return false;
         var d = a.date.slice(0, 10);
         if (r.from && d < r.from) return false;
@@ -187,7 +237,13 @@ __MODAL_JS__
       }
       if (q && (a.title + ' ' + a.source + ' ' + (a.context || '') + ' ' + (a.id || '')).toLowerCase().indexOf(q) === -1) return false;
       return true;
-    });
+    };
+    rows = all.filter(function (a) { return pass(a, true); });
+    if (view === 'baseline') {
+      $('list').textContent = ''; shown = 0; $('more').hidden = true;
+      buildBaseline(all.filter(function (a) { return pass(a, false); }));
+      return;
+    }
     var topicsView = view === 'topics';
     if (topicsView) {
       buildTopics();
@@ -225,6 +281,144 @@ __MODAL_JS__
     topics.sort(function (a, b) {
       return byNewest ? b.latest.localeCompare(a.latest) : (b.sources.length - a.sources.length || b.latest.localeCompare(a.latest));
     });
+  }
+
+  // ── Historical baseline: this window against the same-length average of the weeks before it ──
+  var DAY_MS = 86400000, SPARK_WEEKS = 12, DAYS_KEPT = 120, baselineRows = [], baselineMeta = {};
+  function dayNum(iso) { return Math.floor(Date.parse(iso.slice(0, 10) + 'T00:00:00Z') / DAY_MS); }
+  function isoOfDay(n) { return new Date(n * DAY_MS).toISOString().slice(0, 10); }
+  function groupKeys(a, by) {
+    if (by === 'category') return [a.category || 'Uncategorised'];
+    if (by === 'vendor') return [a.vendor || NO_VENDOR];
+    return (a.modules || []).filter(function (m) { return m !== 'Other/General' && m !== 'N/A'; });
+  }
+  function baselineStatus(cur, exp, base, z) {
+    if (base === 0 && cur >= 3) return 'New';
+    var d = exp > 0 ? (cur - exp) / exp : 0;
+    if (cur >= 5 && d >= 0.5 && z >= 2) return 'Spike';
+    if (cur >= 3 && d >= 0.25 && z >= 1) return 'Up';
+    if (d <= -0.25 && z <= -1) return 'Down';
+    return 'Normal';
+  }
+  function computeBaseline(list) {
+    var by = $('bl-by').value, W = parseInt($('bl-window').value, 10), N = parseInt($('bl-weeks').value, 10);
+    var dated = list.filter(function (a) { return a.date; });
+    var allDays = all.filter(function (a) { return a.date; }).map(function (a) { return dayNum(a.date); }).sort(function (x, y) { return x - y; });
+    if (!allDays.length) return { rows: [], meta: { by: by, W: W, N: N, days: 0 } };
+    var anchor = allDays[allDays.length - 1];
+    var dataStart = allDays[Math.floor(allDays.length * 0.01)];
+    var baseDays = Math.min(N * 7, anchor - dataStart + 1 - W);
+    // Keep the comparison fair: ignore feeds that were not being collected yet, and weeks where collection had a gap
+    var baseStart = anchor - W - baseDays + 1, first = {};
+    all.forEach(function (a) {
+      if (!a.date) return;
+      var dn = dayNum(a.date);
+      if (first[a.source] === undefined || dn < first[a.source]) first[a.source] = dn;
+    });
+    var comparable = function (a) { return first[a.source] <= baseStart + 14; };
+    var excludedSources = Object.keys(first).filter(function (s) { return first[s] > baseStart + 14; }).length;
+    var totals = new Array(DAYS_KEPT).fill(0);
+    all.forEach(function (a) {
+      if (!a.date || !comparable(a)) return;
+      var ti = anchor - dayNum(a.date);
+      if (ti >= 0 && ti < DAYS_KEPT) totals[ti]++;
+    });
+    var weekSums = [];
+    for (var wk = 0; wk * 7 + 7 <= baseDays; wk++) {
+      var ws = 0; for (var q = 0; q < 7; q++) ws += totals[W + wk * 7 + q];
+      weekSums.push(ws);
+    }
+    var ordered = weekSums.slice().sort(function (x, y) { return x - y; }), median = ordered.length ? ordered[Math.floor(ordered.length / 2)] : 0;
+    var useDay = new Array(DAYS_KEPT).fill(true), gapWeeks = 0, usedDays = baseDays;
+    weekSums.forEach(function (ws, wi) {
+      if (ws >= 0.4 * median) return;
+      gapWeeks++; usedDays -= 7;
+      for (var q = 0; q < 7; q++) useDay[W + wi * 7 + q] = false;
+    });
+    var daily = {};
+    dated.forEach(function (a) {
+      if (!comparable(a)) return;
+      var idx = anchor - dayNum(a.date);
+      if (idx < 0 || idx >= DAYS_KEPT) return;
+      groupKeys(a, by).forEach(function (k) { (daily[k] = daily[k] || new Array(DAYS_KEPT).fill(0))[idx]++; });
+    });
+    var out = [];
+    Object.keys(daily).forEach(function (k) {
+      var d = daily[k], cur = 0, base = 0, i;
+      for (i = 0; i < W; i++) cur += d[i];
+      var vals = [];
+      for (i = W; i < W + baseDays; i++) { if (!useDay[i]) continue; base += d[i]; vals.push(d[i]); }
+      var mean = usedDays > 0 ? base / usedDays : 0, exp = mean * W;
+      var variance = vals.length ? vals.reduce(function (s, v) { return s + (v - mean) * (v - mean); }, 0) / vals.length : 0;
+      var sd = Math.max(Math.sqrt(variance), Math.sqrt(Math.max(mean, 0.05))) * Math.sqrt(W);
+      var z = (cur - exp) / sd;
+      var weekly = [];
+      for (var w = SPARK_WEEKS - 1; w >= 0; w--) {
+        var c = 0; for (i = w * 7; i < w * 7 + 7; i++) c += d[i];
+        weekly.push(c);
+      }
+      if (cur === 0 && base === 0) return;
+      out.push({ group: k, current: cur, expected: exp, base: base, delta: exp > 0 ? (cur - exp) / exp : null, z: z,
+                 status: usedDays >= 7 ? baselineStatus(cur, exp, base, z) : 'n/a', weekly: weekly });
+    });
+    var sort = $('bl-sort').value;
+    out.sort(function (x, y) {
+      if (sort === 'drop') return (x.current - x.expected) - (y.current - y.expected);
+      if (sort === 'volume') return y.current - x.current;
+      if (sort === 'name') return x.group.localeCompare(y.group);
+      return (y.current - y.expected) - (x.current - x.expected);
+    });
+    return { rows: out, meta: { by: by, W: W, N: N, baseDays: baseDays, usedDays: usedDays, gapWeeks: gapWeeks, excludedSources: excludedSources,
+             anchor: isoOfDay(anchor), from: isoOfDay(anchor - W + 1),
+             baseFrom: isoOfDay(anchor - W - baseDays + 1), baseTo: isoOfDay(anchor - W) } };
+  }
+  function sparkSvg(weekly) {
+    var max = Math.max.apply(null, weekly.concat([1])), w = 5, gap = 2, h = 22, bars = '';
+    weekly.forEach(function (v, i) {
+      var bh = Math.max(v ? 2 : 1, Math.round(v / max * h));
+      bars += '<rect x="' + i * (w + gap) + '" y="' + (h - bh) + '" width="' + w + '" height="' + bh + '" rx="1" fill="' + (i === weekly.length - 1 ? '#DA291C' : '#4b5068') + '"/>';
+    });
+    return '<svg class="spark" width="' + weekly.length * (w + gap) + '" height="' + h + '" viewBox="0 0 ' + weekly.length * (w + gap) + ' ' + h + '" role="img" aria-label="Weekly counts, oldest to newest: ' + weekly.join(', ') + '">' + bars + '</svg>';
+  }
+  function buildBaseline(list) {
+    var res = computeBaseline(list); baselineRows = res.rows; baselineMeta = res.meta;
+    var host = $('list'), m = res.meta;
+    $('btn-json').disabled = $('btn-csv').disabled = !res.rows.length;
+    if (!res.rows.length || m.usedDays < 7) {
+      $('summary').textContent = 'Baseline';
+      setStatus(res.rows.length ? 'Not enough history before this window for a baseline. Pick a shorter window.' : 'No articles match these filters.');
+      return;
+    }
+    var plural = { category: 'categories', vendor: 'vendors', module: 'modules' }[m.by];
+    var notes = [];
+    if (m.baseDays < m.N * 7) notes.push('only ' + m.baseDays + ' days of history available');
+    if (m.gapWeeks) notes.push(m.gapWeeks + ' week' + (m.gapWeeks === 1 ? '' : 's') + ' skipped for missing collection');
+    if (m.excludedSources) notes.push(m.excludedSources + ' newer feed' + (m.excludedSources === 1 ? '' : 's') + ' left out');
+    $('summary').textContent = 'Baseline as of ' + m.anchor + ' · ' + res.rows.length + ' ' + (res.rows.length === 1 ? m.by : plural);
+    setStatus('Last ' + m.W + ' days (' + m.from + ' to ' + m.anchor + ') against the daily average of ' + m.baseFrom + ' to ' + m.baseTo +
+      (notes.length ? ' (' + notes.join('; ') + ')' : '') +
+      '. Period filter is ignored here. Spike: 50%+ above baseline and 2+ standard deviations; Up: 25%+ and 1+.');
+    var table = document.createElement('table'); table.className = 'bl';
+    var head = document.createElement('thead'); var hr = document.createElement('tr');
+    ['', 'Last ' + m.W + ' days', 'Baseline', 'Change', 'Last ' + SPARK_WEEKS + ' weeks', 'Status'].forEach(function (t, i) {
+      var th = document.createElement('th'); th.textContent = i === 0 ? m.by.charAt(0).toUpperCase() + m.by.slice(1) : t; if (i >= 1 && i <= 3) th.className = 'num'; hr.appendChild(th);
+    });
+    head.appendChild(hr); table.appendChild(head);
+    var body = document.createElement('tbody');
+    res.rows.forEach(function (r) {
+      var tr = document.createElement('tr'), td = document.createElement('td');
+      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bl-group'; btn.textContent = r.group; btn.__group = r.group;
+      btn.title = 'Show these articles'; if (COLORS[r.group]) btn.style.borderLeftColor = COLORS[r.group];
+      td.appendChild(btn); tr.appendChild(td);
+      function cell(text, cls) { var c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; tr.appendChild(c); return c; }
+      cell(String(r.current), 'num');
+      cell(r.expected.toFixed(r.expected < 10 ? 1 : 0), 'num');
+      cell(r.delta === null ? 'new' : (r.delta >= 0 ? '+' : '') + Math.round(r.delta * 100) + '%', 'num ' + (r.delta === null || r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : ''));
+      var sp = document.createElement('td'); sp.innerHTML = sparkSvg(r.weekly); tr.appendChild(sp);
+      var st = document.createElement('td'), chip = document.createElement('span'); chip.className = 'bl-chip bl-' + r.status.toLowerCase().replace('/', ''); chip.textContent = r.status; st.appendChild(chip); tr.appendChild(st);
+      body.appendChild(tr);
+    });
+    table.appendChild(body); host.appendChild(table);
   }
 
   function toArticle(a) {
@@ -349,7 +543,30 @@ __MODAL_JS__
     return { texts: texts, failed: failed };
   }
 
+  function exportBaseline(fmt) {
+    var m = baselineMeta, base = 'baseline_' + m.by + '_last' + m.W + 'd_vs_' + m.N + 'w_' + m.anchor;
+    var weekHead = baselineRows.length ? baselineRows[0].weekly.map(function (_, i, a) { return i === a.length - 1 ? 'This week' : 'Week -' + (a.length - 1 - i); }) : [];
+    var recs = baselineRows.map(function (r) {
+      return { group: r.group, current: r.current, baseline_expected: Math.round(r.expected * 100) / 100,
+               change_pct: r.delta === null ? null : Math.round(r.delta * 1000) / 10, z_score: Math.round(r.z * 100) / 100, status: r.status, weekly: r.weekly };
+    });
+    if (fmt === 'json') {
+      download(base + '.json', 'application/json', JSON.stringify({ exported: new Date().toISOString(), as_of: m.anchor, group_by: m.by,
+        window: { days: m.W, from: m.from, to: m.anchor }, baseline: { days: m.baseDays, from: m.baseFrom, to: m.baseTo },
+        filters: { category: $('category').value, vendor: $('vendor').value, module: $('module').value, source: $('source').value, type: $('type').value, search: $('q').value },
+        rows: recs }, null, 2));
+    } else {
+      var lines = [['Group', 'Last ' + m.W + ' days', 'Baseline (expected)', 'Change %', 'Z score', 'Status'].concat(weekHead).join(',')];
+      recs.forEach(function (x) {
+        lines.push([x.group, x.current, x.baseline_expected, x.change_pct === null ? 'new' : x.change_pct, x.z_score, x.status].concat(x.weekly).map(csvCell).join(','));
+      });
+      download(base + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n'));
+    }
+    setStatus('Exported ' + recs.length + ' baseline rows as ' + fmt.toUpperCase() + '.');
+  }
+
   async function doExport(fmt) {
+    if (view === 'baseline') { exportBaseline(fmt); return; }
     var withText = $('fulltext').checked, texts = {}, failed = [];
     $('btn-json').disabled = $('btn-csv').disabled = true;
     try {
@@ -438,13 +655,31 @@ __MODAL_JS__
     });
     function setView(next) {
       view = next;
-      $('view-articles').setAttribute('aria-pressed', next === 'articles' ? 'true' : 'false');
-      $('view-topics').setAttribute('aria-pressed', next === 'topics' ? 'true' : 'false');
+      ['articles', 'topics', 'baseline'].forEach(function (v) { $('view-' + v).setAttribute('aria-pressed', next === v ? 'true' : 'false'); });
       $('topic-options').hidden = next !== 'topics';
+      $('baseline-options').hidden = next !== 'baseline';
+      $('period').disabled = next === 'baseline';
       applyFilters();
     }
     $('view-articles').addEventListener('click', function () { setView('articles'); });
     $('view-topics').addEventListener('click', function () { setView('topics'); });
+    $('view-baseline').addEventListener('click', function () { setView('baseline'); });
+    ['bl-by', 'bl-window', 'bl-weeks', 'bl-sort'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    // Clicking a group in the baseline table shows its articles for the same window
+    function showGroup(group) {
+      var by = baselineMeta.by;
+      var target = by === 'category' ? 'category' : by === 'vendor' ? 'vendor' : 'module';
+      $('category').value = $('vendor').value = $('module').value = '';
+      $(target).value = group;
+      $('period').disabled = false;
+      $('period').value = 'custom'; $('from-wrap').hidden = $('to-wrap').hidden = false;
+      $('from').value = baselineMeta.from; $('to').value = '';
+      setView('articles');
+    }
+    $('list').addEventListener('click', function (e) {
+      var g = e.target.closest('.bl-group');
+      if (g && g.__group) showGroup(g.__group);
+    });
     $('topic-sort').addEventListener('change', applyFilters);
     $('topic-multi').addEventListener('change', applyFilters);
     $('btn-json').addEventListener('click', function () { doExport('json'); });
