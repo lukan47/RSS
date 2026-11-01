@@ -9,7 +9,13 @@ import sys
 
 SCRIPT = "daily_cybersecurity_digest.py"
 README = "README.md"
-SPECIAL_CATEGORIES = ("Zero-Day Exploits & Vulnerabilities", "Company & Service Acquisitions")
+CATEGORY_NOTES = {
+    "Vulnerabilities & Patching": "Zero-days, CVEs, PoCs, Patch Tuesday, advisories and patches",
+    "Business & Industry News": "M&A, funding, earnings, executive changes, partnerships, analyst recognition (acquisition keywords have false-positive exclusions)",
+    "Policy, Legal & Compliance": "Regulation, law enforcement, lawsuits and fines, privacy laws, standards and government guidance",
+    "Product & Roadmap": "Vendor launches, new features, GA / preview / beta, integrations, roadmap and end-of-life announcements",
+    "Attacks, Breaches & Threat Intel": "Ransomware, breaches and data leaks, cybercrime, malware analysis, threat actors and campaigns",
+}
 
 
 def load_script():
@@ -53,26 +59,33 @@ def feeds_block(digest, groups: dict) -> str:
 
 
 def categories_block(digest) -> str:
-    companies = [c for c in digest.CATEGORIES if c not in SPECIAL_CATEGORIES]
+    vendors = list(digest.VENDORS)
     out = [
-        "## Categories & Tracked Companies", "",
-        "Articles are categorized by title keywords in priority order — first match wins. Companies are defined in `CATEGORIES` in "
-        "`daily_cybersecurity_digest.py` (a keyword starting with `~` only matches as a whole word, e.g. `~armis` does not match \"alarmist\"). "
-        "An article from a company's own blog or news feed that matches no keyword is filed under that company (`SOURCE_COMPANY`). "
+        "## Categories & Vendors", "",
+        "Every article has one **category** (what it is about) and one **vendor** (who it is about, or none). The two are independent: "
+        "a CrowdStrike zero-day is *Vulnerabilities & Patching* and *CrowdStrike*. Both are decided from the title by keyword rules in "
+        "`daily_cybersecurity_digest.py` (`CATEGORIES`, `VENDORS`); a keyword starting with `~` only matches as a whole word, e.g. "
+        "`~armis` does not match \"alarmist\". The dashboard shows one row per category or per vendor (*Rows by* switch) and filters by both. "
         "Every run re-applies the current rules to the whole history.", "",
-        "| Priority | Category | Description |", "|---|---|---|",
-        "| 1 | Zero-Day Exploits & Vulnerabilities | CVEs, RCEs, patch Tuesday, PoCs, etc. |",
-        "| 2 | Company & Service Acquisitions | M&A, funding rounds, IPOs (with false-positive exclusions) |",
-        f"| 3 | Company rows ({len(companies)} total) | One row per tracked company — hidden when empty |",
-        "| 4 | General Security News | Catch-all for everything else |", "",
-        f"### Tracked Companies ({len(companies)})", "",
-        "| # | Company | # | Company |", "|---|---|---|---|",
+        "### Categories", "",
+        "Priority order — the first match wins. Titles that match nothing fall back to the category of the feed they came from "
+        "(`SOURCE_CATEGORY`, e.g. threat-research blogs → Attacks), then to *General Security News*.", "",
+        "| Priority | Category | Covers |", "|---|---|---|",
     ]
-    half = (len(companies) + 1) // 2
+    for i, name in enumerate(digest.CATEGORIES, 1):
+        out.append(f"| {i} | {name} | {CATEGORY_NOTES.get(name, '')} |")
+    out.append(f"| {len(digest.CATEGORIES) + 1} | {digest.FALLBACK_CATEGORY} | Catch-all for everything else |")
+    out += [
+        "", f"### Tracked Vendors ({len(vendors)})", "",
+        "An article from a vendor's own blog or news feed that names no vendor in its title is filed under that vendor (`SOURCE_VENDOR`). "
+        "Articles that name no tracked vendor show as *" + digest.NO_VENDOR + "*.", "",
+        "| # | Vendor | # | Vendor |", "|---|---|---|---|",
+    ]
+    half = (len(vendors) + 1) // 2
     for i in range(half):
-        left = f"| {i + 1} | {companies[i]} "
+        left = f"| {i + 1} | {vendors[i]} "
         j = i + half
-        right = f"| {j + 1} | {companies[j]} |" if j < len(companies) else "| | |"
+        right = f"| {j + 1} | {vendors[j]} |" if j < len(vendors) else "| | |"
         out.append(left + right)
     return "\n".join(out)
 
@@ -102,7 +115,7 @@ def main():
     text = replace_block(text, "modules", modules_block(digest))
     with open(README, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
-    print(f"README updated: {len(digest.FEEDS)} feeds, {len(digest.CATEGORIES) - 2} companies, {len(digest.MODULE_TYPES)} module types")
+    print(f"README updated: {len(digest.FEEDS)} feeds, {len(digest.CATEGORIES)} categories, {len(digest.VENDORS)} vendors, {len(digest.MODULE_TYPES)} module types")
 
 
 if __name__ == "__main__":

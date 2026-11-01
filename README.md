@@ -10,18 +10,18 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 ## Features
 
 - Pulls from security news, government advisories, threat intel and vendor blogs (full list below)
-- Dashboard shows the last 30 days, one row per company or topic, newest first — rows are only shown when there is news
+- Dashboard shows the last 30 days, newest first, with one row per **category** or one row per **vendor** (the *Rows by* switch) — rows are only shown when there is news
 - Article deduplication (URL match, string similarity, keyword overlap)
-- First-match categorization: Zero-Day → Acquisitions → Company rows → General News
+- **Categories and vendors are separate.** Every article has one category (what it is about: Vulnerabilities & Patching, Attacks / Breaches / Threat Intel, Business & Industry News, Policy / Legal / Compliance, Product & Roadmap) and one vendor (who it is about, if a tracked vendor is named). Both come from keyword rules on the title; see *Categories & Vendors* below
 - **Trending this week** — a carousel above the rows shows the stories covered by the most distinct sources in the last 7 days, three at a time (arrows, dots, or automatic rotation that pauses on hover). *View coverage* lists every article in the story
 - **Same-topic grouping** — articles about the same event form a *story*. A *Group same topic* button on the dashboard shows one card per story in each row with a *+N related* badge (click it to see the whole story); turning it off shows every article. The all-articles page has a *Topics* view with search, sort (most covered / newest) and an "only topics with 2+ articles" option. Nothing is deleted — grouping only changes what is shown
 - **Module tagging** — each article is tagged with one or more security module types by keyword rules (no AI), shown on cards and usable as a filter
-- **All-articles page** — every article ever collected, newest first, filterable by period, category, module, source and text; exports the filtered list as JSON or CSV
-- **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, every module, and *Podcast* / *Transcript available* where they apply
+- **All-articles page** — every article ever collected, newest first, filterable by period, category, vendor, module, source and text; exports the filtered list as JSON or CSV
+- **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, its vendor, every module, and *Podcast* / *Transcript available* where they apply
 - **Podcasts** — episodes carry a microphone icon on cards and a *Podcast* tag, can be filtered on the all-articles page (*Type*), and have a `podcast` field in JSON exports and a `Type` column in CSV exports. Where a transcript is published (feed transcript tag, or the show's own transcript page: SANS Stormcast, CyberWire, Security Now, Smashing Security), it is saved as the episode's text and the card's summary snippet and module tags are taken from it
 - **Exports are generated in the browser** when you click a button in the popup or on the all-articles page; nothing is saved per click (the `archive/exports/` files are written on every scheduled run)
 - **Full article text** is saved for export only (never shown on the dashboard) and can be included in any export
-- Search box (press `/`), category filter, module filter and a history dropdown of previous digests (last 30 runs)
+- Search box (press `/`), category, vendor and module filters and a history dropdown of previous digests (last 30 runs)
 - Updates automatically at **6:00 AM and 6:00 PM PHT** via GitHub Actions
 - Email notification via Gmail on each update
 
@@ -33,10 +33,10 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 |---|---|
 | `index.html` | The current dashboard (last 30 days) |
 | `archive/<date>.html` | A snapshot of each past dashboard |
-| `archive/data/articles.json` | Every article ever collected: ID, story ID, title, link, source, date, category, modules, summary, `podcast` / `transcript` flags |
+| `archive/data/articles.json` | Every article ever collected: ID, story ID, title, link, source, date, category, vendor, modules, summary, `podcast` / `transcript` flags |
 | `archive/data/fulltext/YYYY-MM.json` | Saved article text, one file per month, keyed by article ID |
 | `archive/data/explorer.html` | The all-articles page (built from `explorer_template.html`) |
-| `archive/exports/` | `digest.json` / `digest.csv` (last 30 days) and one file pair per category |
+| `archive/exports/` | `digest.json` / `digest.csv` (last 30 days) and one file pair per category (`digest__category__*`) and per vendor (`digest__vendor__*`) |
 
 **Article IDs.** Every article has a stable 12-character ID (the first 12 hex characters of a SHA-256 of its cleaned-up URL: no scheme, `www.`, `#fragment`, `utm_*`/`fbclid`/`gclid` tracking parameters or trailing slash). The same URL always produces the same ID, so nothing has to be stored to keep IDs stable. The ID is the first field in every JSON export and the first column in every CSV export. The Details popup shows it and has a *Copy link* button; opening `archive/data/explorer.html#<id>` jumps straight to that article, and the all-articles search also matches IDs. If a publisher moves an article to a different URL it is treated as a new article.
 
@@ -172,20 +172,28 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 ---
 
 <!-- categories:start -->
-## Categories & Tracked Companies
+## Categories & Vendors
 
-Articles are categorized by title keywords in priority order — first match wins. Companies are defined in `CATEGORIES` in `daily_cybersecurity_digest.py` (a keyword starting with `~` only matches as a whole word, e.g. `~armis` does not match "alarmist"). An article from a company's own blog or news feed that matches no keyword is filed under that company (`SOURCE_COMPANY`). Every run re-applies the current rules to the whole history.
+Every article has one **category** (what it is about) and one **vendor** (who it is about, or none). The two are independent: a CrowdStrike zero-day is *Vulnerabilities & Patching* and *CrowdStrike*. Both are decided from the title by keyword rules in `daily_cybersecurity_digest.py` (`CATEGORIES`, `VENDORS`); a keyword starting with `~` only matches as a whole word, e.g. `~armis` does not match "alarmist". The dashboard shows one row per category or per vendor (*Rows by* switch) and filters by both. Every run re-applies the current rules to the whole history.
 
-| Priority | Category | Description |
+### Categories
+
+Priority order — the first match wins. Titles that match nothing fall back to the category of the feed they came from (`SOURCE_CATEGORY`, e.g. threat-research blogs → Attacks), then to *General Security News*.
+
+| Priority | Category | Covers |
 |---|---|---|
-| 1 | Zero-Day Exploits & Vulnerabilities | CVEs, RCEs, patch Tuesday, PoCs, etc. |
-| 2 | Company & Service Acquisitions | M&A, funding rounds, IPOs (with false-positive exclusions) |
-| 3 | Company rows (67 total) | One row per tracked company — hidden when empty |
-| 4 | General Security News | Catch-all for everything else |
+| 1 | Vulnerabilities & Patching | Zero-days, CVEs, PoCs, Patch Tuesday, advisories and patches |
+| 2 | Business & Industry News | M&A, funding, earnings, executive changes, partnerships, analyst recognition (acquisition keywords have false-positive exclusions) |
+| 3 | Policy, Legal & Compliance | Regulation, law enforcement, lawsuits and fines, privacy laws, standards and government guidance |
+| 4 | Product & Roadmap | Vendor launches, new features, GA / preview / beta, integrations, roadmap and end-of-life announcements |
+| 5 | Attacks, Breaches & Threat Intel | Ransomware, breaches and data leaks, cybercrime, malware analysis, threat actors and campaigns |
+| 6 | General Security News | Catch-all for everything else |
 
-### Tracked Companies (67)
+### Tracked Vendors (67)
 
-| # | Company | # | Company |
+An article from a vendor's own blog or news feed that names no vendor in its title is filed under that vendor (`SOURCE_VENDOR`). Articles that name no tracked vendor show as *No Specific Vendor*.
+
+| # | Vendor | # | Vendor |
 |---|---|---|---|
 | 1 | Trend Micro | 35 | Aqua Security |
 | 2 | CrowdStrike | 36 | Snyk |

@@ -97,6 +97,7 @@
   <label class="field" id="from-wrap" hidden>From <input type="date" id="from"></label>
   <label class="field" id="to-wrap" hidden>To <input type="date" id="to"></label>
   <label class="field">Category <select id="category"></select></label>
+  <label class="field">Vendor <select id="vendor"></select></label>
   <label class="field">Module <select id="module"></select></label>
   <label class="field">Type
     <select id="type">
@@ -143,6 +144,7 @@ __MODAL_JS__
 (function () {
   'use strict';
   var COLORS = __CATEGORY_COLORS__;
+  var NO_VENDOR = __NO_VENDOR__;
   var POD_ICON = '__POD_ICON__';
   var PAGE = 100, CSV_CELL_LIMIT = 32000;
   var $ = function (id) { return document.getElementById(id); };
@@ -168,12 +170,13 @@ __MODAL_JS__
   }
 
   function applyFilters() {
-    var r = range(), cat = $('category').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
+    var r = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
     var type = $('type').value;
     rows = all.filter(function (a) {
       if (type === 'podcast' && !a.podcast) return false;
       if (type === 'article' && a.podcast) return false;
       if (cat && a.category !== cat) return false;
+      if (vend && (a.vendor || NO_VENDOR) !== vend) return false;
       if (mod && (a.modules || []).indexOf(mod) === -1) return false;
       if (src && a.source !== src) return false;
       if (r.from || r.to) {
@@ -226,19 +229,28 @@ __MODAL_JS__
 
   function toArticle(a) {
     return { id: a.id, story: a.story || a.id, shareUrl: location.origin + location.pathname + '#' + a.id, title: a.title, link: a.link,
-      source: a.source, date: a.date, category: a.category, color: COLORS[a.category] || '', modules: a.modules || [],
-      podcast: !!a.podcast, transcript: !!a.transcript, context: a.context || '' };
+      source: a.source, date: a.date, category: a.category, color: COLORS[a.category] || '', vendor: a.vendor || '', vendorColor: COLORS[a.vendor] || '',
+      modules: a.modules || [], podcast: !!a.podcast, transcript: !!a.transcript, context: a.context || '' };
+  }
+
+  function addChips(meta, a) {
+    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
+    chip.style.background = COLORS[a.category] || '#555a70';
+    meta.appendChild(chip);
+    if (a.vendor) {
+      var v = document.createElement('span'); v.className = 'chip'; v.textContent = a.vendor;
+      v.style.background = COLORS[a.vendor] || '#555a70';
+      meta.appendChild(v);
+    }
   }
 
   function buildTopicItem(t) {
     var a = t.lead, el = document.createElement('article'); el.className = 'item topic';
     var meta = document.createElement('div'); meta.className = 'meta';
-    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
-    chip.style.background = COLORS[a.category] || '#555a70';
     var cnt = document.createElement('span'); cnt.className = 'src';
     cnt.textContent = t.sources.length + ' source' + (t.sources.length === 1 ? '' : 's') + ' · ' + t.total.length + ' article' + (t.total.length === 1 ? '' : 's');
     var when = document.createElement('time'); when.textContent = t.latest ? 'latest ' + t.latest.slice(0, 10) : '';
-    meta.appendChild(chip); meta.appendChild(cnt); meta.appendChild(when);
+    addChips(meta, a); meta.appendChild(cnt); meta.appendChild(when);
     if (t.matched.some(function (m) { return /actively exploited|exploited in the wild|zero-?day|known exploited/i.test(m.title + ' ' + (m.context || '')); })) {
       var hot = document.createElement('span'); hot.className = 'hot'; hot.textContent = 'Exploited'; meta.appendChild(hot);
     }
@@ -282,13 +294,11 @@ __MODAL_JS__
   function buildItem(a) {
     var el = document.createElement('article'); el.className = 'item';
     var meta = document.createElement('div'); meta.className = 'meta';
-    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
-    chip.style.background = COLORS[a.category] || '#555a70';
     var src = document.createElement('span'); src.className = 'src';
     if (a.podcast) { var pb = document.createElement('span'); pb.className = 'pod-badge'; pb.title = 'Podcast'; pb.innerHTML = POD_ICON; src.appendChild(pb); }
     src.appendChild(document.createTextNode(a.source));
     var t = document.createElement('time'); t.textContent = a.date ? a.date.slice(11, 16) + ' UTC' : '';
-    meta.appendChild(chip); meta.appendChild(src); meta.appendChild(t);
+    addChips(meta, a); meta.appendChild(src); meta.appendChild(t);
     var details = document.createElement('button'); details.type = 'button'; details.className = 'card-details';
     details.setAttribute('aria-label', 'Details and export'); details.__article = a;
     meta.appendChild(details);
@@ -345,23 +355,23 @@ __MODAL_JS__
     try {
       if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
       var recs = rows.map(function (a) {
-        var rec = { id: a.id, story: a.story || a.id, date: a.date, category: a.category, modules: a.modules || [], podcast: !!a.podcast, source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        var rec = { id: a.id, story: a.story || a.id, date: a.date, category: a.category, vendor: a.vendor || '', modules: a.modules || [], podcast: !!a.podcast, source: a.source, title: a.title, link: a.link, context: a.context || '' };
         if (withText) rec.full_text = texts[a.id] || '';
         return rec;
       });
-      var rg = range(), cat = $('category').value, mod = $('module').value;
-      var base = 'articles_' + (cat || 'all-categories') + (mod ? '_' + mod : '') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
+      var rg = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value;
+      var base = 'articles_' + (cat || 'all-categories') + (vend ? '_' + vend : '') + (mod ? '_' + mod : '') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
       base = base.replace(/[^A-Za-z0-9_-]+/g, '_');
       if (fmt === 'json') {
         download(base + '.json', 'application/json', JSON.stringify({
           exported: new Date().toISOString(),
-          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, module: mod, source: $('source').value, search: $('q').value },
+          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, vendor: vend, module: mod, source: $('source').value, search: $('q').value },
           count: recs.length, articles: recs }, null, 2));
       } else {
-        var head = ['ID', 'Story', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var head = ['ID', 'Story', 'Date', 'Category', 'Vendor', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
         var lines = [head.join(',')];
         recs.forEach(function (x) {
-          var cells = [x.id, x.story, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.podcast ? 'Podcast' : 'Article', x.source, x.title, x.link, x.context];
+          var cells = [x.id, x.story, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.vendor, x.modules.join('; '), x.podcast ? 'Podcast' : 'Article', x.source, x.title, x.link, x.context];
           if (withText) {
             var t = x.full_text;
             cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
@@ -384,18 +394,20 @@ __MODAL_JS__
   function init(data) {
     all = data.articles;
     all.forEach(function (a) { var k = a.story || a.id; (byStory[k] = byStory[k] || []).push(a); });
-    var cats = {}, srcs = {}, mods = {};
+    var cats = {}, vends = {}, srcs = {}, mods = {};
     all.forEach(function (a) {
       cats[a.category] = (cats[a.category] || 0) + 1;
+      var vk = a.vendor || NO_VENDOR; vends[vk] = (vends[vk] || 0) + 1;
       srcs[a.source] = (srcs[a.source] || 0) + 1;
       (a.modules || []).forEach(function (m) { mods[m] = (mods[m] || 0) + 1; });
     });
     fillSelect('category', 'categories', cats, true);
+    fillSelect('vendor', 'vendors', vends, true);
     fillSelect('module', 'modules', mods, false);
     fillSelect('source', 'sources', srcs, false);
     $('to').max = $('from').max = isoDay(0);
     var timer;
-    ['category', 'module', 'type', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    ['category', 'vendor', 'module', 'type', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
     $('period').addEventListener('change', function () {
       var custom = $('period').value === 'custom';
       $('from-wrap').hidden = $('to-wrap').hidden = !custom;
@@ -406,7 +418,7 @@ __MODAL_JS__
     function openArticle(a) {
       window.ArticleModal.open({ id: a.id, shareUrl: location.origin + location.pathname + '#' + a.id,
         title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
-        color: COLORS[a.category] || '', modules: a.modules || [], podcast: !!a.podcast, transcript: !!a.transcript,
+        color: COLORS[a.category] || '', vendor: a.vendor || '', vendorColor: COLORS[a.vendor] || '', modules: a.modules || [], podcast: !!a.podcast, transcript: !!a.transcript,
         context: a.context || '' }, { fullTextBase: 'fulltext/' });
     }
     function openFromHash() {

@@ -160,26 +160,115 @@ HISTORY_FILE = "history.json"
 MAX_HISTORY  = 30
 PHT          = timezone(timedelta(hours=8))
 
-# Priority order: first match wins — Zero-Day > Acquisitions > Companies > General
+# Topic categories answer "what is this article about?"; vendors (VENDORS below) answer "who is it about?".
+# The two are independent: an article has one of each. Priority order = insertion order, first match wins:
+# Vulnerabilities > Business > Policy > Product & Roadmap > Attacks > fallback.
+# A keyword starting with "~" only matches as a whole word ("~rce" does not match "source").
+ACQUISITION_KEYWORDS = [
+    "acqui", "acquisition", "acquired", "acquires",
+    "merger", "merges with", "has merged",
+    "bought", "buys", "purchase of", "to purchase", "asset purchase", "deal worth",
+    "hostile takeover", "corporate takeover",
+    "investment round", "investor", "investing in",
+    "funding round", "series a", "series b", "series c", "seed round", "raises $", "raised $", "secures $",
+    "funding", "valuation", "~ipo", "goes public", "go private", "take-private", "private equity", "spin-off", "divest",
+]
+
+# Generic announcement verbs: only trusted when the title has no threat vocabulary ("Mustang Panda Adds Rootkit" is an attack).
+PRODUCT_VERBS = [
+    "launches", "unveils", "introduces", "introducing", "debuts", "announces", "rolls out", "rolling out",
+    "adds support", "now supports", "enhances", "unifies", "~expands", "~adds", "~extends", "now protects", "now offers", "now includes",
+]
+
 CATEGORIES = {
-    "Zero-Day Exploits & Vulnerabilities": [
+    "Vulnerabilities & Patching": [
         "zero-day", "zero day", "0-day", "0day",
         "exploit", "exploited", "exploitation",
-        "remote code execution", "rce", "arbitrary code",
-        "cve-", "nvd", "patch tuesday", "out-of-band patch",
-        "unpatched", "proof of concept", "poc",
-        "privilege escalation", "sql injection", "buffer overflow",
-        "use-after-free", "heap overflow",
+        "remote code execution", "~rce", "arbitrary code",
+        "cve-", "~nvd", "cvss", "known exploited", "~kev", "patch tuesday", "out-of-band patch",
+        "unpatched", "proof of concept", "proof-of-concept", "~poc",
+        "privilege escalation", "sql injection", "command injection", "code injection", "buffer overflow",
+        "use-after-free", "heap overflow", "out-of-bounds", "memory corruption", "authentication bypass", "auth bypass",
+        "path traversal", "cross-site scripting", "~xss", "~csrf", "deserialization",
+        "vulnerab", "flaw", "security update", "security patch", "security advisory", "hotfix",
+        "~patch", "~patches", "~patched", "~patching", "~bug", "~bugs", "bug bounty", "pwn2own",
+        "bypass", "sandbox escape", "cumulative update", "kb5", "secure boot",
     ],
-    "Company & Service Acquisitions": [
-        "acqui", "acquisition", "acquired", "acquires",
-        "merger", "merges with", "has merged",
-        "bought", "buys", "purchase of", "to purchase", "asset purchase", "deal worth",
-        "hostile takeover", "corporate takeover",
-        "investment round", "investor", "investing in",
-        "funding round", "series a", "series b", "series c",
-        "valuation", "ipo", "spin-off", "divest",
+    "Business & Industry News": [
+        *ACQUISITION_KEYWORDS,
+        "earnings", "quarterly results", "fiscal", "revenue", "layoffs", "lays off", "job cuts", "restructuring",
+        "appoints", "names new", "new ceo", "new cto", "new ciso", "new chief", "steps down", "resigns", "joins as", "promoted to",
+        "partnership", "partners with", "~teams up", "strategic alliance",
+        "magic quadrant", "forrester wave", "named a leader", "named leader", "idc marketscape", "market share", "market guide",
+        "wins award", "awards", "exits stealth", "emerges from stealth", "out of stealth", "launches with $", "m&a", "deals announced",
+        "as chief", "as ciso", "as cto", "as ceo", "appointed", "~hires", "~hired",
     ],
+    "Policy, Legal & Compliance": [
+        "regulat", "compliance", "gdpr", "hipaa", "ccpa", "cpra", "pci dss", "pci-dss", "~sox", "iso 27001", "soc 2",
+        "~nist", "cmmc", "fedramp", "nis2", "nis 2", "~dora", "cyber resilience act", "ai act",
+        "privacy law", "privacy act", "privacy regulation", "privacy commissioner", "data protection authority", "data protection commission",
+        "information commissioner", "~ico", "~ftc", "~sec", "securities and exchange",
+        "~doj", "department of justice", "justice department", "~fbi", "europol", "interpol", "law enforcement",
+        "arrest", "indict", "~charged", "~charges", "sentenced", "convicted", "pleads guilty", "pleaded guilty", "extradit", "prosecut",
+        "lawsuit", "~sues", "~sued", "class action", "class-action", "~court", "~judge", "settlement", "~settles",
+        "~fined", "~fines", "penalty", "penalties", "sanction", "ofac",
+        "legislation", "lawmakers", "~senate", "~congress", "executive order", "new bill", "senate bill", "house bill", "bill would",
+        "parliament", "european commission", "export controls", "~banned", "policymakers", "white house",
+        "takedown", "seized", "seizure", "dismantle", "operation endgame",
+        "online safety act", "chat control",
+        "guidance", "~mandate", "~mandates", "directive", "~cisa", "~ncsc", "~nsa", "~eu", "european union", "pentagon",
+        "national security", "~nato", "antitrust", "~appeal", "eu fine",
+    ],
+    "Product & Roadmap": [
+        "roadmap", "road map", "coming soon", "public preview", "private preview", "~beta", "early access",
+        "retire", "deprecat", "sunset", "end of support", "end-of-support", "end-of-life", "~eol", "later this year", "will begin", "to begin",
+        "general availability", "generally available", "now available", "~ga",
+        *PRODUCT_VERBS,
+        "new feature", "new features", "new capabilities", "release notes", "what's new", "integrates with", "~integration",
+    ],
+    "Attacks, Breaches & Threat Intel": [
+        "ransomware", "ransom", "breach", "data leak", "leak", "hack", "attack", "malware", "phishing", "spearphish", "smishing", "vishing",
+        "botnet", "backdoor", "trojan", "spyware", "stalkerware", "infostealer", "stealer", "~rat", "rootkit", "wiper", "~worm",
+        "ddos", "denial of service", "supply chain", "supply-chain",
+        "threat actor", "threat group", "threat intel", "threat report", "threat landscape", "threat research",
+        "state-sponsored", "nation-state", "nation state", "hacktivist", "~apt",
+        "apt28", "apt29", "apt41", "apt42", "apt37", "apt36", "apt10", "lazarus", "kimsuky", "sandworm", "turla",
+        "typhoon", "blizzard", "sandstorm", "scattered spider", "lockbit", "shinyhunters", "lapsus",
+        "cyberattack", "cybercrime", "cybercriminal", "cyber crime", "~campaign", "~campaigns",
+        "~targets", "~targeting", "compromise", "stolen", "~steal", "~steals", "stealing", "theft", "heist", "extortion",
+        "scam", "fraud", "impersonat", "deepfake", "espionage", "~spy", "~spies", "exfiltrat",
+        "credential", "account takeover", "hijack", "dark web", "darknet", "access broker", "~c2", "command-and-control",
+        "~ioc", "~iocs", "indicators of compromise", "~ttps", "mitre att&ck", "attack chain", "kill chain",
+        "~incident", "~incidents", "malicious", "~rogue", "typosquat", "poisoned", "trojanized", "weaponiz", "~abused", "~abuses",
+        "insider threat", "social engineering", "~fake", "harvest", "~targeted", "~exposed", "skimmer", "magecart", "drainer", "sim swap", "swatting", "cyberwar",
+    ],
+}
+
+# Threat-research feeds, investor-relations feeds and advisory feeds say what an article is even when the title does not.
+SOURCE_CATEGORY = {
+    "Talos Intelligence": "Attacks, Breaches & Threat Intel", "Palo Alto Unit 42": "Attacks, Breaches & Threat Intel",
+    "Google Threat Intel (Mandiant)": "Attacks, Breaches & Threat Intel", "Securelist (Kaspersky)": "Attacks, Breaches & Threat Intel",
+    "SentinelLabs": "Attacks, Breaches & Threat Intel", "Check Point Research": "Attacks, Breaches & Threat Intel",
+    "Fortinet Threat Research": "Attacks, Breaches & Threat Intel", "Trend Micro Research": "Attacks, Breaches & Threat Intel",
+    "Zscaler ThreatLabz": "Attacks, Breaches & Threat Intel", "Sophos News - Threat Research": "Attacks, Breaches & Threat Intel",
+    "ESET WeLiveSecurity": "Attacks, Breaches & Threat Intel", "Elastic Security Labs": "Attacks, Breaches & Threat Intel",
+    "Datadog Security Labs": "Attacks, Breaches & Threat Intel", "Malwarebytes Labs": "Attacks, Breaches & Threat Intel",
+    "Cyble": "Attacks, Breaches & Threat Intel", "Databreaches.net": "Attacks, Breaches & Threat Intel",
+    "Recorded Future": "Attacks, Breaches & Threat Intel", "VirusTotal Blog": "Attacks, Breaches & Threat Intel",
+    "CrowdStrike IR News": "Business & Industry News", "Fortinet IR News": "Business & Industry News",
+    "Palo Alto IR News": "Business & Industry News", "Qualys IR News": "Business & Industry News",
+    "Trend Micro Newsroom": "Business & Industry News",
+    "CISA Advisories": "Vulnerabilities & Patching", "Exploit-DB": "Vulnerabilities & Patching",
+    "ZDI Published Advisories": "Vulnerabilities & Patching", "Zero Day Initiative Blog": "Vulnerabilities & Patching",
+    "CIRCL KEV (exploited CVEs)": "Vulnerabilities & Patching", "Google Project Zero": "Vulnerabilities & Patching",
+}
+FALLBACK_CATEGORY = "General Security News"
+
+NO_VENDOR = "No Specific Vendor"
+
+# Vendors answer "who is this article about?" (first match wins, matched on the title). Articles from a vendor's own feed
+# fall back to that vendor through SOURCE_VENDOR below.
+VENDORS = {
     "Trend Micro": [
         "trend micro", "trendmicro", "trendai", "trend ai",
     ],
@@ -1394,7 +1483,7 @@ def assign_stories(entries: list[dict]) -> None:
                       "cves": {c.upper() for c in _STORY_CVE_RX.findall(e["title"] + " " + e.get("context", ""))},
                       "templated": e["source"] in _STORY_TEMPLATED_SOURCES or e["source"].startswith("CISA")})
     df = collections.Counter(w for it in items for w in it["words"])
-    brand_words = {t for kws in CATEGORIES.values() for kw in kws for t in re.findall(r"[a-z0-9]+", kw.lower())} | _STORY_BRANDS
+    brand_words = {t for kws in (*CATEGORIES.values(), *VENDORS.values()) for kw in kws for t in re.findall(r"[a-z0-9]+", kw.lower())} | _STORY_BRANDS
     for it in items:
         it["names"] = {n for n in it["names"] if n not in brand_words and df[n] <= 80}
     word_index, cve_index = collections.defaultdict(list), collections.defaultdict(list)
@@ -1472,6 +1561,7 @@ def trending_stories(entries: list[dict], now=None, days: int = TRENDING_DAYS, l
         ranked.append({
             "id": sid, "title": lead["title"], "link": lead["link"], "source": lead["source"], "date": lead["date"],
             "context": lead.get("context", ""), "category": collections.Counter(m.get("category", "") for m in recent).most_common(1)[0][0],
+            "vendor": next(iter(collections.Counter(m["vendor"] for m in recent if m.get("vendor")).most_common(1)), ("",))[0],
             "modules": [m for m, _ in mod_count.most_common(3)], "sources": sorted(sources), "articles": len(members),
             "recent_articles": len(recent), "latest": latest.isoformat(), "exploited": exploited, "score": round(score, 1),
         })
@@ -1566,6 +1656,7 @@ def merge_into_master(master: dict, live: list[dict]) -> None:
         entry = master.setdefault(key, {"id": key, "source": a["source"], "title": a["title"], "link": link,
                                         "date": a["date"].isoformat() if a["date"] else None, "context": ""})
         entry["category"] = categorize(a)
+        entry["vendor"] = vendor_of(a)
         if a.get("context") and not entry.get("context"):
             entry["context"] = a["context"]
         if a.get("feed_text"):
@@ -1580,7 +1671,7 @@ def save_master(master: dict, label: str) -> None:
     items = sorted(master.values(), key=lambda a: a.get("date") or "", reverse=True)
     dated = [a for a in items if a.get("date")]
     items = dated + [a for a in items if not a.get("date")]
-    slim = [{"id": a["id"], "source": a["source"], "category": a.get("category", ""), "title": a["title"],
+    slim = [{"id": a["id"], "source": a["source"], "category": a.get("category", ""), "vendor": a.get("vendor", ""), "title": a["title"],
              "link": a["link"], "date": a.get("date"), "context": a.get("context", ""),
              "modules": a.get("modules", []), "podcast": bool(a.get("podcast")),
              "story": a.get("story", a["id"]), "transcript": a.get("text_source") == "transcript",
@@ -1655,11 +1746,20 @@ _ACQ_EXCLUSIONS = {
     "tactic", "threat", "hack", "hacked", "breach", "breached", "exploit", "vulnerability",
     "stolen", "theft", "criminal", "gang", "arrest", "indicted",
     "leak", "leaked", "compromised", "extortion", "ransom", "victim", "cyberattack",
+    "scams", "attacks", "attackers", "hackers", "breaches", "victims", "threats", "leaks", "criminals", "gangs", "arrests",
 }
+_THREAT_WORDS = {
+    "malware", "rootkit", "backdoor", "ransomware", "botnet", "trojan", "phishing", "campaign", "campaigns", "attack", "attacks",
+    "attackers", "hackers", "hacker", "apt", "actor", "actors", "spyware", "infostealer", "stealer", "wiper", "vulnerability",
+    "vulnerabilities", "exploit", "exploited", "zero-day", "breach", "breaches", "hack", "hacked", "scam", "scams", "fraud",
+    "leak", "leaked", "stolen", "targeting", "targets", "targeted", "espionage", "extortion",
+}
+# (keywords, words that cancel them): "Mustang Panda Adds Rootkit" is an attack, "Fake Merger & Acquisition Scams" is a scam.
+_KEYWORD_GUARDS = [(set(ACQUISITION_KEYWORDS), _ACQ_EXCLUSIONS), (set(PRODUCT_VERBS), _THREAT_WORDS)]
 
-# An article from a company's own blog or news feed that matches nothing else is filed under that company
-# (vendor posts rarely name the vendor in their titles).
-SOURCE_COMPANY = {
+# An article from a vendor's own blog or news feed that names no vendor in its title is filed under that vendor
+# (vendor posts rarely name themselves in their titles).
+SOURCE_VENDOR = {
     "Trend Micro Research": "Trend Micro", "Trend Micro SimplySecurity": "Trend Micro", "Trend Micro Newsroom": "Trend Micro",
     "CrowdStrike Blog": "CrowdStrike", "CrowdStrike IR News": "CrowdStrike",
     "Palo Alto Unit 42": "Palo Alto Networks", "Palo Alto IR News": "Palo Alto Networks",
@@ -1698,26 +1798,58 @@ def _keyword_in(keyword: str, haystack: str) -> bool:
     return keyword in haystack
 
 
+def _title_haystack(article: dict) -> str:
+    """Lower-cased title. Feeds that publish URL slugs as titles ("us-seizes-x.html") are read as words."""
+    title = article["title"].lower()
+    if " " not in title.strip():
+        title = re.sub(r"\.html?$", "", title).replace("-", " ").replace("_", " ")
+    return title
+
+
+def _title_words(haystack: str) -> set:
+    # Tokenize the same way as _keywords so trailing punctuation (e.g. "breach;") doesn't defeat the guard check.
+    return set(re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", haystack))
+
+
 def categorize(article: dict) -> str:
-    """Return the first matching category (priority order = CATEGORIES insertion order)."""
-    haystack = article["title"].lower()
-    # Tokenize the same way as _keywords so trailing punctuation (e.g. "breach;")
-    # doesn't defeat the whole-word exclusion check below.
-    words = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', haystack))
+    """Return the first matching topic category (priority order = CATEGORIES insertion order)."""
+    haystack = _title_haystack(article)
+    words = _title_words(haystack)
     for cat, kws in CATEGORIES.items():
-        if not any(_keyword_in(kw, haystack) for kw in kws):
-            continue
-        if cat == "Company & Service Acquisitions" and words & _ACQ_EXCLUSIONS:
-            continue
-        return cat
-    return SOURCE_COMPANY.get(article.get("source", ""), "General Security News")
+        for kw in kws:
+            if not _keyword_in(kw, haystack):
+                continue
+            if any(kw in guarded and words & guard for guarded, guard in _KEYWORD_GUARDS):
+                continue
+            return cat
+    return SOURCE_CATEGORY.get(article.get("source", ""), FALLBACK_CATEGORY)
 
 
-def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
-    buckets: dict[str, list[dict]] = {cat: [] for cat in CATEGORY_COLORS}
+def vendor_of(article: dict) -> str:
+    """The vendor a title names (first match in VENDORS), else the vendor whose own feed it came from, else ''."""
+    haystack = _title_haystack(article)
+    for vendor, kws in VENDORS.items():
+        if any(_keyword_in(kw, haystack) for kw in kws):
+            return vendor
+    return SOURCE_VENDOR.get(article.get("source", ""), "")
+
+
+def is_acquisition(article: dict) -> bool:
+    """M&A and funding news. The acquisition alert uses this because it cuts across the categories."""
+    haystack = _title_haystack(article)
+    return any(_keyword_in(kw, haystack) for kw in ACQUISITION_KEYWORDS) and not _title_words(haystack) & _ACQ_EXCLUSIONS
+
+
+def bucket_articles(articles: list[dict], by: str = "category") -> dict[str, list[dict]]:
+    """Group articles by topic category or by vendor, in dashboard order."""
+    if by == "vendor":
+        buckets: dict[str, list[dict]] = {name: [] for name in VENDOR_COLORS}
+        key = lambda a: vendor_of(a) or NO_VENDOR
+    else:
+        buckets = {name: [] for name in CATEGORY_COLORS}
+        key = categorize
     for a in articles:
-        cat = categorize(a)
-        buckets.setdefault(cat, []).append(a)
+        buckets.setdefault(key(a), []).append(a)
     return buckets
 
 # ---------------------------------------------------------------------------
@@ -1774,6 +1906,7 @@ def export_digest_json(articles: list[dict], label: str) -> str:
                 "id": article_id(a["link"]),
                 "story": a.get("story", article_id(a["link"])),
                 "podcast": bool(a.get("podcast")),
+                "vendor": vendor_of(a),
                 "source": a["source"],
                 "title": a["title"],
                 "link": a["link"],
@@ -1800,7 +1933,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     writer = csv_module.writer(output)
 
     # Write header
-    writer.writerow(["ID", "Story", "Date", "Category", "Modules", "Type", "Source", "Title", "Link", "Context", "Full Text"])
+    writer.writerow(["ID", "Story", "Date", "Category", "Vendor", "Modules", "Type", "Source", "Title", "Link", "Context", "Full Text"])
 
     # Write articles
     buckets = bucket_articles(articles)
@@ -1812,6 +1945,7 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
                 article.get("story", article_id(article["link"])),
                 date_str,
                 cat,
+                vendor_of(article),
                 "; ".join(article.get("modules", [])),
                 "Podcast" if article.get("podcast") else "Article",
                 article["source"],
@@ -1824,31 +1958,32 @@ def export_digest_csv(articles: list[dict], label: str) -> str:
     return output.getvalue()
 
 
-def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str, str]]:
-    """Export digest split by category as separate CSV and JSON files.
+def export_by_group(articles: list[dict], label: str, by: str = "category") -> dict[str, tuple[str, str]]:
+    """Export digest split by category or by vendor as separate CSV and JSON files.
 
-    Returns dict mapping category names to (csv_content, json_content) tuples.
+    Returns dict mapping group names to (csv_content, json_content) tuples.
     """
     import io
     import csv as csv_module
 
-    buckets = bucket_articles(articles)
+    buckets = bucket_articles(articles, by)
     exports = {}
 
-    for cat, items in buckets.items():
+    for name, items in buckets.items():
         if not items:
             continue
 
-        # CSV export for this category
         csv_output = io.StringIO()
         csv_writer = csv_module.writer(csv_output)
-        csv_writer.writerow(["ID", "Story", "Date", "Source", "Modules", "Type", "Title", "Link", "Context", "Full Text"])
+        csv_writer.writerow(["ID", "Story", "Date", "Category", "Vendor", "Source", "Modules", "Type", "Title", "Link", "Context", "Full Text"])
         for article in items:
             date_str = article["date"].strftime("%Y-%m-%d %H:%M UTC") if article["date"] else ""
             csv_writer.writerow([
                 article_id(article["link"]),
                 article.get("story", article_id(article["link"])),
                 date_str,
+                categorize(article),
+                vendor_of(article),
                 article["source"],
                 "; ".join(article.get("modules", [])),
                 "Podcast" if article.get("podcast") else "Article",
@@ -1859,9 +1994,8 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
             ])
         csv_content = csv_output.getvalue()
 
-        # JSON export for this category
         json_content = json.dumps({
-            "category": cat,
+            by: name,
             "generated": label,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "article_count": len(items),
@@ -1871,6 +2005,8 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
                     "story": a.get("story", article_id(a["link"])),
                     "podcast": bool(a.get("podcast")),
                     "date": a["date"].isoformat() if a["date"] else None,
+                    "category": categorize(a),
+                    "vendor": vendor_of(a),
                     "source": a["source"],
                     "title": a["title"],
                     "link": a["link"],
@@ -1882,7 +2018,7 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
             ]
         }, indent=2)
 
-        exports[cat] = (csv_content, json_content)
+        exports[name] = (csv_content, json_content)
 
     return exports
 
@@ -1891,8 +2027,15 @@ def export_by_category(articles: list[dict], label: str) -> dict[str, tuple[str,
 # ---------------------------------------------------------------------------
 
 CATEGORY_COLORS = {
-    "Zero-Day Exploits & Vulnerabilities": "#DA291C",  # red
-    "Company & Service Acquisitions":      "#3498db",  # blue
+    "Vulnerabilities & Patching":          "#DA291C",  # red
+    "Attacks, Breaches & Threat Intel":    "#e67e22",  # orange
+    "Business & Industry News":            "#3498db",  # blue
+    "Policy, Legal & Compliance":          "#8e6bd6",  # violet
+    "Product & Roadmap":                   "#1abc9c",  # teal
+    FALLBACK_CATEGORY:                     "#95a5a6",  # grey
+}
+
+VENDOR_COLORS = {
     "Trend Micro":                         "#DA291C",  # Trend red
     "CrowdStrike":                         "#e67e22",  # orange
     "Palo Alto Networks":                  "#00b4d8",  # cyan
@@ -1960,18 +2103,32 @@ CATEGORY_COLORS = {
     "Splunk":                              "#65a637",
     "Varonis":                             "#0d9bd7",
     "Veracode":                            "#00b0b9",
-    "General Security News":               "#95a5a6",  # grey
+    NO_VENDOR:                            "#95a5a6",  # grey
 }
 
 
 def _build_dropdown() -> str:
-    """Dropdown shell — options are populated at page-load via JS fetch of history.json."""
+    """Filter bar shell and its script. Rows are regrouped in the browser (by category or by vendor);
+    the group lists and colors come from window.CI_GROUPS / CI_COLORS, written by build_html()."""
     return """
   <div class="dropdown-bar">
+    <div class="dropdown-group">
+      <label>Rows by:</label>
+      <div class="view-switch" role="group" aria-label="Group rows by">
+        <button type="button" id="view-category" aria-pressed="true">Category</button>
+        <button type="button" id="view-vendor" aria-pressed="false">Vendor</button>
+      </div>
+    </div>
     <div class="dropdown-group">
       <label for="category-select">Category:</label>
       <select id="category-select" onchange="filterByCategory(this.value);">
         <option value="">-- All categories --</option>
+      </select>
+    </div>
+    <div class="dropdown-group">
+      <label for="vendor-select">Vendor:</label>
+      <select id="vendor-select" onchange="filterByVendor(this.value);">
+        <option value="">-- All vendors --</option>
       </select>
     </div>
     <div class="dropdown-group">
@@ -1988,23 +2145,36 @@ def _build_dropdown() -> str:
     </div>
   </div>
   <script>
-    // Populate category filter
-    function populateCategories() {
-      const cols = document.querySelectorAll('.col');
-      const categories = new Set();
-      cols.forEach(col => {
-        const h2 = col.querySelector('h2');
-        if (h2) categories.add(h2.textContent.trim());
-      });
+    const SHOWN = ':not(.hide-search):not(.hide-module):not(.hide-category):not(.hide-vendor)';
 
-      const sel = document.getElementById('category-select');
-      const sorted = Array.from(categories).sort();
-      sorted.forEach(cat => {
+    function store(key, value) {
+      try { if (value) localStorage.setItem(key, value); else localStorage.removeItem(key); } catch (err) { /* storage blocked */ }
+    }
+    function stored(key) {
+      try { return localStorage.getItem(key) || ''; } catch (err) { return ''; }
+    }
+
+    // Category and vendor filters: options come from the cards, ordered like the row lists
+    function fillGroupSelect(selectId, attr) {
+      const counts = {};
+      document.querySelectorAll('.card').forEach(card => {
+        const k = card.dataset[attr];
+        if (k) counts[k] = (counts[k] || 0) + 1;
+      });
+      const listed = (window.CI_GROUPS && window.CI_GROUPS[attr]) || [];
+      const names = listed.filter(k => counts[k]).concat(Object.keys(counts).filter(k => listed.indexOf(k) === -1));
+      const sel = document.getElementById(selectId);
+      names.forEach(name => {
         const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
+        opt.value = name;
+        opt.textContent = name + ' (' + counts[name] + ')';
         sel.appendChild(opt);
       });
+    }
+
+    function populateFilters() {
+      fillGroupSelect('category-select', 'category');
+      fillGroupSelect('vendor-select', 'vendor');
     }
 
     // Module filter: cards carry their modules in data-modules, separated by |
@@ -2036,12 +2206,12 @@ def _build_dropdown() -> str:
         if (b) b.hidden = true;
       });
       if (!groupOn) return;
-      const visible = document.querySelectorAll('.card:not(.hide-search):not(.hide-module)');
+      const visible = document.querySelectorAll('.card' + SHOWN);
       const perStory = {};
       visible.forEach(c => { const s = c.dataset.story; if (s) perStory[s] = (perStory[s] || 0) + 1; });
       document.querySelectorAll('.col').forEach(col => {
         const first = {};
-        col.querySelectorAll('.card:not(.hide-search):not(.hide-module)').forEach(card => {
+        col.querySelectorAll('.card' + SHOWN).forEach(card => {
           const s = card.dataset.story;
           if (!s) return;
           if (first[s]) card.classList.add('hide-group'); else first[s] = card;
@@ -2073,9 +2243,10 @@ def _build_dropdown() -> str:
     function updateRows() {
       applyGrouping();
       document.querySelectorAll('.col').forEach(col => {
-        const any = col.querySelector('.card:not(.hide-search):not(.hide-module):not(.hide-group)') !== null;
+        const any = col.querySelector('.card' + SHOWN + ':not(.hide-group)') !== null;
         col.classList.toggle('search-hidden', !any);
       });
+      refreshToggles();
     }
 
     function filterByModule(mod) {
@@ -2086,34 +2257,94 @@ def _build_dropdown() -> str:
       updateRows();
     }
 
-    // Filter columns by category
     function filterByCategory(category) {
-      const cols = document.querySelectorAll('.col');
-      cols.forEach(col => {
-        const h2 = col.querySelector('h2');
-        if (!h2) return;
-        const colCategory = h2.textContent.trim();
-        col.style.display = category === '' || colCategory === category ? 'block' : 'none';
+      document.querySelectorAll('.card').forEach(card => {
+        card.classList.toggle('hide-category', category !== '' && card.dataset.category !== category);
       });
-
-      // Save preference to localStorage
-      if (category) {
-        localStorage.setItem('selectedCategory', category);
-      } else {
-        localStorage.removeItem('selectedCategory');
-      }
+      store('ciCategory', category);
+      updateRows();
     }
 
-    // Restore saved category filter
+    function filterByVendor(vendor) {
+      document.querySelectorAll('.card').forEach(card => {
+        card.classList.toggle('hide-vendor', vendor !== '' && card.dataset.vendor !== vendor);
+      });
+      store('ciVendor', vendor);
+      updateRows();
+    }
+
+    // Restore saved filters (only if that option still exists)
     function restoreFilterPreference() {
-      const saved = localStorage.getItem('selectedCategory');
-      if (saved) {
-        const sel = document.getElementById('category-select');
-        if (sel) {
+      [['category-select', 'ciCategory', filterByCategory], ['vendor-select', 'ciVendor', filterByVendor]].forEach(item => {
+        const sel = document.getElementById(item[0]), saved = stored(item[1]);
+        if (!sel || !saved) return;
+        if (Array.from(sel.options).some(o => o.value === saved)) {
           sel.value = saved;
-          filterByCategory(saved);
+          item[2](saved);
         }
-      }
+      });
+    }
+
+    // Rows: one per category or one per vendor; the cards move between rows in the browser
+    let viewBy = stored('ciViewBy') === 'vendor' ? 'vendor' : 'category';
+
+    function buildRow(name, items) {
+      const col = document.createElement('div');
+      col.className = 'col';
+      const head = document.createElement('div');
+      head.className = 'col-header';
+      head.style.borderLeft = '4px solid ' + ((window.CI_COLORS && window.CI_COLORS[name]) || '#95a5a6');
+      const h2 = document.createElement('h2');
+      h2.textContent = name;
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = items.length + ' article(s)';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'col-toggle';
+      btn.hidden = true;
+      btn.textContent = 'Show all';
+      head.appendChild(h2);
+      head.appendChild(count);
+      head.appendChild(btn);
+      const body = document.createElement('div');
+      body.className = 'col-body';
+      items.forEach(card => body.appendChild(card));
+      col.appendChild(head);
+      col.appendChild(body);
+      return col;
+    }
+
+    function regroup(mode) {
+      viewBy = mode;
+      const grid = document.querySelector('.grid');
+      const cards = Array.from(document.querySelectorAll('.card'));
+      cards.sort((a, b) => Number(b.dataset.ts || 0) - Number(a.dataset.ts || 0));
+      const buckets = {};
+      cards.forEach(card => {
+        const k = card.dataset[mode] || '';
+        (buckets[k] = buckets[k] || []).push(card);
+      });
+      const listed = (window.CI_GROUPS && window.CI_GROUPS[mode]) || [];
+      const order = listed.filter(k => buckets[k]).concat(Object.keys(buckets).filter(k => listed.indexOf(k) === -1));
+      grid.textContent = '';
+      order.forEach(name => grid.appendChild(buildRow(name, buckets[name])));
+      grid.classList.toggle('view-category', mode === 'category');
+      grid.classList.toggle('view-vendor', mode === 'vendor');
+      ['category', 'vendor'].forEach(m => {
+        const b = document.getElementById('view-' + m);
+        if (b) b.setAttribute('aria-pressed', m === mode ? 'true' : 'false');
+      });
+      store('ciViewBy', mode === 'vendor' ? 'vendor' : '');
+      updateRows();
+    }
+
+    function initializeViewSwitch() {
+      ['category', 'vendor'].forEach(m => {
+        const b = document.getElementById('view-' + m);
+        if (b) b.addEventListener('click', () => { if (viewBy !== m) regroup(m); });
+      });
+      if (viewBy !== 'category') regroup(viewBy);
     }
 
     // Populate history dropdown
@@ -2161,7 +2392,7 @@ def _build_dropdown() -> str:
         searchClear.style.display = lowerQuery ? 'block' : 'none';
 
         // Update count
-        const totalVisible = document.querySelectorAll('.card:not(.hide-search):not(.hide-module)').length;
+        const totalVisible = document.querySelectorAll('.card' + SHOWN).length;
         return totalVisible;
       }
 
@@ -2185,44 +2416,47 @@ def _build_dropdown() -> str:
     }
 
     // Row expand/collapse: only offered when a row overflows sideways
-    function initializeRowToggles() {
-      const rows = Array.from(document.querySelectorAll('.col'));
-      function refresh() {
-        rows.forEach(col => {
-          const body = col.querySelector('.col-body');
-          const btn = col.querySelector('.col-toggle');
-          if (!body || !btn) return;
-          btn.hidden = !col.classList.contains('expanded') && body.scrollWidth <= body.clientWidth + 1;
-        });
-      }
-      rows.forEach(col => {
+    function refreshToggles() {
+      document.querySelectorAll('.col').forEach(col => {
+        const body = col.querySelector('.col-body');
         const btn = col.querySelector('.col-toggle');
-        if (!btn) return;
-        btn.addEventListener('click', () => {
-          const open = col.classList.toggle('expanded');
-          btn.textContent = open ? 'Collapse' : 'Show all';
-        });
+        if (!body || !btn) return;
+        btn.hidden = !col.classList.contains('expanded') && body.scrollWidth <= body.clientWidth + 1;
       });
-      refresh();
-      window.addEventListener('resize', refresh);
     }
 
-    // Category export: one option per category and format
+    function initializeRowToggles() {
+      const grid = document.querySelector('.grid');
+      grid.addEventListener('click', e => {
+        const btn = e.target.closest('.col-toggle');
+        if (!btn) return;
+        const open = btn.closest('.col').classList.toggle('expanded');
+        btn.textContent = open ? 'Collapse' : 'Show all';
+      });
+      window.addEventListener('resize', refreshToggles);
+      refreshToggles();
+    }
+
+    // Export: one option per category and per vendor, in both formats
     function initializeCategoryExports() {
       const exportSelect = document.getElementById('category-export-select');
       if (!exportSelect) return;
-      const seen = new Set();
-      document.querySelectorAll('.col h2').forEach(h2 => {
-        const cat = h2.textContent.trim();
-        if (!cat || seen.has(cat)) return;
-        seen.add(cat);
-        const safe = cat.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-        ['csv', 'json'].forEach(fmt => {
-          const option = document.createElement('option');
-          option.value = 'digest__' + safe + '.' + fmt;
-          option.textContent = cat + ' (' + fmt.toUpperCase() + ')';
-          exportSelect.appendChild(option);
+      [['category', 'By category'], ['vendor', 'By vendor']].forEach(kind => {
+        const present = {};
+        document.querySelectorAll('.card').forEach(card => { present[card.dataset[kind[0]]] = true; });
+        const group = document.createElement('optgroup');
+        group.label = kind[1];
+        ((window.CI_GROUPS && window.CI_GROUPS[kind[0]]) || []).forEach(name => {
+          if (!present[name]) return;
+          const safe = name.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+          ['csv', 'json'].forEach(fmt => {
+            const option = document.createElement('option');
+            option.value = 'digest__' + kind[0] + '__' + safe + '.' + fmt;
+            option.textContent = name + ' (' + fmt.toUpperCase() + ')';
+            group.appendChild(option);
+          });
         });
+        exportSelect.appendChild(group);
       });
 
       exportSelect.addEventListener('change', () => {
@@ -2241,7 +2475,7 @@ def _build_dropdown() -> str:
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      [populateCategories, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, restoreFilterPreference, initializeGrouping].forEach(fn => {
+      [populateFilters, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, initializeViewSwitch, restoreFilterPreference, initializeGrouping].forEach(fn => {
         try {
           fn();
         } catch (err) {
@@ -2281,13 +2515,22 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             if shown:
                 modules_html = '<div class="card-modules">' + " &middot; ".join(html.escape(m) for m in shown) + "</div>"
 
+            vendor = vendor_of(a) or NO_VENDOR
+            tags = [f'<span class="tag tag-category" style="background:{CATEGORY_COLORS.get(cat, "#555a70")}">{html.escape(cat)}</span>']
+            if vendor != NO_VENDOR:
+                tags.append(f'<span class="tag tag-vendor" style="background:{VENDOR_COLORS.get(vendor, "#555a70")}">{html.escape(vendor)}</span>')
+            tags_html = '<div class="card-tags">' + "".join(tags) + "</div>"
+            stamp = int(a["date"].timestamp()) if a["date"] else 0
+            safe_cat, safe_vendor = html.escape(cat), html.escape(vendor)
+
             cards.append(f"""
-            <div class="card" data-id="{article_id(a["link"])}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}" data-story="{a.get("story") or article_id(a["link"])}">
+            <div class="card" data-id="{article_id(a["link"])}" data-category="{safe_cat}" data-vendor="{safe_vendor}" data-ts="{stamp}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}" data-story="{a.get("story") or article_id(a["link"])}">
               <div class="card-meta">
                 <span class="source">{pod_badge}{safe_source}</span>
                 <span class="date">{date_str}<button type="button" class="story-badge" hidden></button><button type="button" class="card-details" aria-label="Details and export"></button></span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
+              {tags_html}
               {modules_html}
               {context_html}
             </div>""")
@@ -2308,6 +2551,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                      .replace("__EXPLORER_URL__", EXPLORER_URL)) + CAROUSEL_JS.replace(
         "__FULLTEXT_BASE_JS__", json.dumps(REPORT_URL + "archive/data/fulltext/"))
     trending_html = _trending_html(trending or [])
+    globals_js = ("window.CI_GROUPS=" + json.dumps({"category": list(CATEGORY_COLORS), "vendor": list(VENDOR_COLORS)})
+                  + ";window.CI_COLORS=" + json.dumps({**CATEGORY_COLORS, **VENDOR_COLORS})
+                  + ";window.CI_NO_VENDOR=" + json.dumps(NO_VENDOR) + ";")
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2497,11 +2743,12 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     overflow: hidden;
   }}
   .col.search-hidden {{ display: none !important; }}
-  .card.hide-search, .card.hide-module, .card.hide-group {{ display: none; }}
+  .card.hide-search, .card.hide-module, .card.hide-group, .card.hide-category, .card.hide-vendor {{ display: none; }}
   .card-meta .source {{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
   .card-meta .date {{ display: inline-flex; align-items: center; white-space: nowrap; }}
   {MODAL_CSS}
   {DASH_EXTRA_CSS}
+  {DASH_VIEW_CSS}
   .card-modules {{
     font-size: 0.7rem;
     color: #7d8299;
@@ -2600,6 +2847,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 </style>
 </head>
 <body>
+<script>{globals_js}</script>
 
 <div class="topbar">
   <div class="topbar-left">
@@ -2609,12 +2857,12 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
-      <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period, category and module, then export">All articles &rarr;</a>
+      <a href="{EXPLORER_URL}" class="export-btn explorer-link" title="Browse every stored article by period, category, vendor and module, then export">All articles &rarr;</a>
       <button type="button" id="group-toggle" class="export-btn explorer-link" aria-pressed="true" title="Show one card per story in each row, with a +N related badge">Group same topic: on</button>
       <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
       <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
       <select id="category-export-select" class="export-btn" style="padding: 5px 10px; font-size: 0.75rem; cursor: pointer;">
-        <option value="">⬇ Category</option>
+        <option value="">⬇ By group</option>
       </select>
     </div>
     <div class="search-bar">
@@ -2626,7 +2874,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
 
 {trending_html}
 <div class="content">
-  <div class="grid">
+  <div class="grid view-category">
     {"".join(columns)}
   </div>
 </div>
@@ -2673,7 +2921,7 @@ MODAL_CSS = r"""
   .am-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
   .am-tag { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; line-height: 1.5; border-radius: 999px;
             padding: 1px 10px; border: 1px solid #343850; color: #c9cbd6; background: #1b1e2d; }
-  .am-tag.category { color: #fff; border-color: transparent; font-weight: 600; background: #555a70; }
+  .am-tag.category, .am-tag.vendor { color: #fff; border-color: transparent; font-weight: 600; background: #555a70; }
   .am-tag.podcast { color: #ff8a80; border-color: #6b2a27; background: #2a1a1b; font-weight: 600; }
   .am-tag.transcript { color: #9fd3a8; border-color: #2c4a33; background: #17241b; }
   .am-tag.muted { color: #6b7088; font-style: italic; }
@@ -2774,6 +3022,7 @@ MODAL_JS = r"""
       return t;
     }
     if (a.category) { var c = addTag(a.category, 'category'); if (a.color) c.style.background = a.color; }
+    if (a.vendor) { var v = addTag(a.vendor, 'vendor'); if (a.vendorColor) v.style.background = a.vendorColor; }
     if (a.podcast) addTag('Podcast', 'podcast', POD_ICON);
     if (a.transcript) addTag('Transcript available', 'transcript');
     (a.modules || []).forEach(function (m) { addTag(m, m === 'Other/General' || m === 'N/A' ? 'muted' : ''); });
@@ -2822,7 +3071,7 @@ MODAL_JS = r"""
 
   async function exportAs(fmt) {
     var withText = el.ft.checked, note = '';
-    var rec = { id: current.id || '', story: current.story || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
+    var rec = { id: current.id || '', story: current.story || '', date: current.date, category: current.category || '', vendor: current.vendor || '', modules: current.modules || [], source: current.source,
                 podcast: !!current.podcast, title: current.title, link: current.link, context: current.context || '' };
     el.json.disabled = el.csv.disabled = true;
     try {
@@ -2836,8 +3085,8 @@ MODAL_JS = r"""
         download('article_' + slug + '.json', 'application/json',
                  JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
       } else {
-        var head = ['ID', 'Story', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
-        var cells = [rec.id, rec.story, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
+        var head = ['ID', 'Story', 'Date', 'Category', 'Vendor', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.id, rec.story, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.vendor, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
                      rec.source, rec.title, rec.link, rec.context];
         if (withText) {
           var t = rec.full_text;
@@ -2947,9 +3196,10 @@ MODAL_JS = MODAL_JS.replace("__POD_ICON__", POD_ICON_SVG)
 
 DASH_MODAL_JS = r"""
 function cardToArticle(card) {
-  var col = card.closest('.col'), title = card.querySelector('.card-title');
+  var title = card.querySelector('.card-title');
   var m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) UTC$/.exec((card.querySelector('.date').textContent || '').trim());
-  var header = col && col.querySelector('.col-header'), ctx = card.querySelector('.card-context');
+  var ctx = card.querySelector('.card-context'), colors = window.CI_COLORS || {}, vendor = card.dataset.vendor || '';
+  if (vendor === window.CI_NO_VENDOR) vendor = '';
   return {
     id: card.dataset.id || '',
     story: card.dataset.story || '',
@@ -2958,8 +3208,10 @@ function cardToArticle(card) {
     link: title.href,
     source: card.querySelector('.source').textContent.trim(),
     date: m ? m[1] + 'T' + m[2] + ':00+00:00' : null,
-    category: col ? col.querySelector('h2').textContent.trim() : '',
-    color: header ? getComputedStyle(header).borderLeftColor : '',
+    category: card.dataset.category || '',
+    color: colors[card.dataset.category] || '',
+    vendor: vendor,
+    vendorColor: colors[vendor] || '',
     modules: (card.dataset.modules || '').split('|').filter(Boolean),
     podcast: card.dataset.podcast === '1',
     transcript: card.dataset.transcript === '1',
@@ -3038,6 +3290,19 @@ CAROUSEL_JS = r"""
 })();
 """
 
+DASH_VIEW_CSS = r"""
+  .card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .card-tags .tag { font-size: 0.66rem; font-weight: 600; color: #fff; border-radius: 3px; padding: 1px 7px; line-height: 1.5; background: #555a70; }
+  .grid.view-category .tag-category, .grid.view-vendor .tag-vendor { display: none; }
+  .grid.view-category .card-tags:not(:has(.tag-vendor)) { display: none; }
+  .view-switch { display: inline-flex; border: 1px solid #2a2d3e; border-radius: 6px; overflow: hidden; }
+  .view-switch button { background: #1e2030; color: #aaa; border: 0; padding: 6px 12px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .view-switch button + button { border-left: 1px solid #2a2d3e; }
+  .view-switch button:hover { color: #fff; }
+  .view-switch button[aria-pressed="true"] { background: #DA291C; color: #fff; font-weight: 600; }
+  .view-switch button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+"""
+
 DASH_EXTRA_CSS = r"""
   .export-btn[aria-pressed="false"] { opacity: .65; }
   .story-badge { margin-left: 8px; background: #2a1a1b; color: #ff8a80; border: 1px solid #6b2a27; border-radius: 3px; padding: 0 7px;
@@ -3094,6 +3359,8 @@ def _trending_html(stories: list[dict]) -> str:
             chips.append('<span class="tr-chip hot">Exploited</span>')
         if st["category"]:
             chips.append(f'<span class="tr-chip">{esc(st["category"])}</span>')
+        if st.get("vendor"):
+            chips.append(f'<span class="tr-chip">{esc(st["vendor"])}</span>')
         chips += [f'<span class="tr-chip">{esc(m)}</span>' for m in st["modules"]]
         shown = st["sources"][:5]
         sources = "".join(f'<span class="tr-src">{esc(x)}</span>' for x in shown)
@@ -3127,7 +3394,8 @@ def write_explorer() -> None:
     except OSError as exc:
         print(f"  [WARN] explorer template missing: {exc}", file=sys.stderr)
         return
-    page = (template.replace("__CATEGORY_COLORS__", json.dumps(CATEGORY_COLORS))
+    page = (template.replace("__CATEGORY_COLORS__", json.dumps({**CATEGORY_COLORS, **VENDOR_COLORS}))
+            .replace("__NO_VENDOR__", json.dumps(NO_VENDOR))
             .replace("__MODAL_CSS__", MODAL_CSS)
             .replace("__MODAL_HTML__", MODAL_HTML)
             .replace("__MODAL_JS__", MODAL_JS)
@@ -3176,6 +3444,7 @@ def main() -> None:
             entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
         entry["category"] = categorize(entry)
+        entry["vendor"] = vendor_of(entry)
     assign_stories(entries)
     trending = trending_stories(entries)
     for article in recent:
@@ -3195,14 +3464,14 @@ def main() -> None:
     print(f"  Article store: {len(master)} article(s) -> {ARTICLES_FILE}", file=sys.stderr)
 
     # ── Export latest acquisition and top announcements to GitHub Actions env ───────────────────
-    buckets    = bucket_articles(recent)
-    acq_list   = buckets.get("Company & Service Acquisitions", [])
+    acq_list   = [a for a in recent if is_acquisition(a)]
 
-    # Find top vendor announcements (for GitHub Actions notifications)
+    # Find top vendor announcements (for GitHub Actions notifications): vendor news that is not an acquisition or a vulnerability
+    vendor_buckets = bucket_articles([a for a in recent if not is_acquisition(a) and categorize(a) != "Vulnerabilities & Patching"], "vendor")
     top_announcements = []
-    for cat in ["CrowdStrike", "Palo Alto Networks", "Microsoft Security", "Fortinet", "SentinelOne", "Trend Micro"]:
-        if cat in buckets and buckets[cat]:
-            top_announcements.append(buckets[cat][0])
+    for vendor in ["CrowdStrike", "Palo Alto Networks", "Microsoft Security", "Fortinet", "SentinelOne", "Trend Micro"]:
+        if vendor_buckets.get(vendor):
+            top_announcements.append(vendor_buckets[vendor][0])
 
     github_env = os.environ.get("GITHUB_ENV", "")
     if github_env:
@@ -3268,23 +3537,19 @@ def main() -> None:
         f.write(csv_export)
     print(f"Digest exported: {csv_file}", file=sys.stderr)
 
-    # ── Export by category (separate CSV and JSON for each) ────────────────
-    category_exports = export_by_category(recent, label)
-    for cat, (csv_content, json_content) in category_exports.items():
-        # Sanitize category name for filename
-        safe_cat = "".join(c if c.isalnum() or c in "-_" else "_" for c in cat).lower()
-
-        # Save CSV
-        csv_cat_file = os.path.join(EXPORT_DIR, f"digest__{safe_cat}.csv")
-        with open(csv_cat_file, "w", encoding="utf-8", newline="") as f:
-            f.write(csv_content)
-
-        # Save JSON
-        json_cat_file = os.path.join(EXPORT_DIR, f"digest__{safe_cat}.json")
-        with open(json_cat_file, "w", encoding="utf-8") as f:
-            f.write(json_content)
-
-    print(f"Category exports created: {len(category_exports)} categories", file=sys.stderr)
+    # ── Export by category and by vendor (separate CSV and JSON for each) ──
+    for name in os.listdir(EXPORT_DIR):
+        if name.startswith("digest__") and name.endswith((".csv", ".json")):
+            os.remove(os.path.join(EXPORT_DIR, name))  # rebuilt below; drops files of retired groups
+    for by in ("category", "vendor"):
+        group_exports = export_by_group(recent, label, by)
+        for group, (csv_content, json_content) in group_exports.items():
+            safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in group).lower()
+            with open(os.path.join(EXPORT_DIR, f"digest__{by}__{safe_name}.csv"), "w", encoding="utf-8", newline="") as f:
+                f.write(csv_content)
+            with open(os.path.join(EXPORT_DIR, f"digest__{by}__{safe_name}.json"), "w", encoding="utf-8") as f:
+                f.write(json_content)
+        print(f"{by.capitalize()} exports created: {len(group_exports)}", file=sys.stderr)
 
 
 def retry_text() -> None:
@@ -3322,6 +3587,7 @@ def retry_text() -> None:
             entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
         entry["category"] = categorize(entry)
+        entry["vendor"] = vendor_of(entry)
     assign_stories(entries)
     save_master(master, datetime.now(PHT).strftime("%Y-%m-%d %H:%M PHT"))
 
