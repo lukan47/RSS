@@ -109,16 +109,3 @@ The scanning model should also be the same wherever images live. When public clo
 Rescans should scale by doing only the work that is new. Reanalyzing an image that has not changed adds time without adding information, so a better approach checks unchanged images against new vulnerability intelligence and reserves deeper analysis for what has actually changed.
 
 Findings should be ranked by evidence, not severity alone. Consistent policy keeps a critical finding meaning the same thing in every team’s pipeline, while exploit intelligence and runtime evidence move the findings worth fixing to the top. When developers see that a blocked build reflects real risk, they start trusting the results again."
-a59d7db890d7,a59d7db890d7,2026-10-02 13:12 UTC,General Security News,Aqua Security,Aqua Security Blog,Identity Security Posture Management,Article,Integrate Aqua and Jira to Turn Security Findings Into Action,https://www.aquasec.com/blog/integrate-aqua-and-jira-to-turn-security-findings-into-action/,"According to the Aqua documentation, the integration can open Jira tickets when image scanning or rescanning discovers a vulnerability, sensitive data or malware","How does the Aqua and Jira integration work?
-
-The integration uses the Aqua Webhook Server to connect image scan results with Jira.
-
-An administrator first creates a jira.yaml configuration file on the host running the Aqua Webhook Server container. The configuration identifies the Jira environment, project and board where Aqua should create tickets. Required settings include the Jira URL, user credentials, project name, project ID and board. Administrators can also specify an issue type such as Bug or Task.
-
-Optional settings provide additional control over the resulting Jira issue. These include priority, assignee, affected versions, fix versions and labels. Aqua also supports custom description and summary values, although the documentation recommends leaving those values undefined in most cases because Aqua’s defaults include useful information about the finding, including the image name.
-
-For credentials, the configuration supports a Jira user and password. The documentation recommends using the JIRA_PASSWORD environment variable when starting the webhook container to avoid storing the password in clear text in jira.yaml.
-
-The Aqua Webhook Server container runs on the same host as the configuration file. The Aqua Server is then configured under Settings, Image Scan Results Webhook to send image scan results to the webhook server. The documented endpoints use /scan, with HTTPS on port 8444 or HTTP on port 8084.
-
-From there, the workflow is straightforward: Aqua scans or rescans an image, identifies a supported security issue and the integration opens a Jira ticket on the board defined in the configuration. The example shown on page 13 of the documentation illustrates a Jira vulnerability ticket populated from an Aqua image scan."
