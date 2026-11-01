@@ -1,0 +1,1773 @@
+ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+11d8d30eb6e0,ab7f13c85dc0,2026-10-31 01:02 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Endpoint Security; Server & Workload Protection; AI Security; Code Security,Article,Inside a malicious Claude Code-branded extension and its persistent SSH backdoor,https://www.microsoft.com/en-us/security/blog/2026/10/30/inside-malicious-claude-code-branded-cursor-extension-persistent-ssh-backdoor/,"Microsoft Defender XDR coordinates detection, prevention, investigation, and response across endpoints, identities, email, and apps to provide integrated protection against...","In this article
+
+Attack chain overview
+
+Attack chain
+
+Host reconnaissance collection
+
+SSH authorization and tunnel identities
+
+Protocol Tunneling (T1572): reverse SSH forwarding
+
+Platform-specific startup persistence
+
+Mitigation and protection guidance
+
+Immediate actions
+
+Remediation actions
+
+Follow-up Investigation and recovery
+
+Microsoft Defender XDR detections
+
+Threat intelligence reports
+
+Microsoft Defender XDR Threat analytics
+
+Advanced hunting queries
+
+MITRE ATT&CK techniques
+
+Indicators of compromise (IOCs)
+
+Learn More
+
+On October 29, 2026, Cursor reported that a tampered copy of Claude Code extension (anthropic.claude-code, versions 2.1.313 and 2.1.312) was available and served in the Cursor extension marketplace for a few hours to attempt a supply-chain attack on Cursor users. Cursor reports that it was live from about 2:27 AM to 1:35 PM Pacific Daylight Time (PDT). We have confirmed that the malicious packages found on Cursor marketplace were never published nor distributed from Microsoft Visual Studio Marketplace and from npm @antropic-ai/claude-code, which were not affected by this incident. Anthropic confirmed to Microsoft that their systems were not compromised and they did not develop the malicious package posted in Cursor marketplace. At this time, all evidence suggests that the incident is limited to Cursor marketplace.
+
+Microsoft Threat Intelligence analyzed the injected JavaScript embedded in the malicious extension package. The injected loader runs when the extension module loads and attempts to add an attacker-controlled Secure Shell (SSH) key, enable the local SSH service, establish reverse SSH forwarding, configure persistence, and report host details. Successful remote access depends on host privileges, SSH configuration, and the attacker’s server configuration; however, the loader may still write keys and persistence artifacts even when tunnel access fails.
+
+Organizations should identify systems that installed or automatically updated to this version from the Cursor marketplace, preserve evidence, remove confirmed malicious artifacts, review endpoint and network telemetry, and rotate credentials or revoke sessions when investigation indicates exposure. Microsoft customers can use the detections and hunting guidance in this post after the listed coverage and query validation gates are complete.
+
+Attack chain overview
+
+A malicious artifact associated with the Cursor Marketplace incident included a JavaScript function that executed before the extension’s expected code. When the module loads, this function can use Node.js APIs to collect host information, modify files, and execute operating-system commands. The following sections describe capabilities and attempted actions based on our analysis of the injected code.
+
+Attack chain
+
+The loader first collects host reconnaissance. It then attempts to install an SSH key, enable SSH, create a reverse tunnel, and configure persistence. A delayed callback subsequently attempts to send host details. The following sequence reflects code execution order; it does not prove that every step succeeded on every host.
+
+Module loading and reconnaissance collection. The injected function executes before normal extension initialization and collects host and user information.
+
+SSH access preparation. The loader appends an embedded public key and attempts to enable the local SSH service.
+
+Reverse forwarding. An embedded tunnel identity authenticates an outbound connection that requests forwarding to the workstation’s SSH port.
+
+Platform-specific persistence. Scripts and startup configuration are written to relaunch the connection.
+
+Host reconnaissance reporting. After the access and persistence setup attempts, a delayed callback attempts to transmit the previously collected host details and selected environment-variable names.
+
+Figure 1. Attack chain reconstructed from the injected code.
+
+The loader uses embedded components and built-in system tools to establish persistent access without downloading another executable. It suppresses command output and silently catches errors to conceal failures and malicious activity, while the extension continues functioning normally to avoid alerting users.
+
+Host reconnaissance collection
+
+The loader collects the hostname, username, operating system, architecture, home directory, working directory, and global Git email. It also looks for environment-variable names containing terms such as KEY, TOKEN, SECRET, PASS, AWS, or GCP, keeping up to forty matches.
+
+The callback sends matching environment-variable names, not values. This reveals potentially sensitive configuration categories but does not demonstrate theft of the secrets stored in those variables.
+
+Collection occurs during module loading. The collected details are retained for the delayed reporting callback described after the persistence stage.
+
+SSH authorization and tunnel identities
+
+The loader uses two SSH identities with distinct roles. One public key authorizes access to the workstation’s user account, while a separate private key authenticates the outbound connection to the tunnel server. First, the loader checks the user’s authorized_keys file for the comment svc-telemetry. If the marker is missing, it appends an embedded Ed25519 public key. That creates an authorization entry for whoever holds the corresponding private key, subject to the local SSH server’s configuration.
+
+Next, it decodes a separate private key for the outbound connection. The initial copy is written to a hidden temporary file named .stk_ followed by ten hexadecimal characters derived from the hostname and home directory. SSH receives that file through its -i option and connects using the remote account tunnel.
+
+The public-key material is redacted but the format is similar to the following:
+
+ssh-ed25519 [REDACTED PUBLIC KEY] svc-telemetry
+
+Protocol Tunneling (T1572): reverse SSH forwarding
+
+The tunneling SSH process is launched with the command line containing the following arguments:
+
+-N -R '*:0:localhost:22'
+
+It requests a listening port on the remote SSH server and forwards connections through the tunnel to port 22 on the victim’s loopback interface. The remote port value 0 asks the server to allocate a port; it does not change the local target from port 22. The -N option tells SSH not to run a command on the tunnel server.
+
+This design starts with an outbound connection from the workstation rather than waiting for a direct inbound connection to it. The loader disables ordinary host-key checking, bypasses the normal known-hosts file, sets keepalives, and avoids interactive prompts. On Unix-like systems it prefers autossh, falling back to ssh; on Windows it uses a hidden PowerShell loop. The loops wait sixty seconds after SSH exits before retrying.
+
+Figure 2. Terminal-style SSH command configuring an outbound reverse tunnel from a server-assigned remote port to the workstation’s local SSH service on port 22. Host-key verification is disabled, and the identity-file path is redacted.
+
+A running SSH process does not necessarily mean the attacker gained access. Both the attacker’s server and the victim’s workstation must allow the connection, and server settings determine whether the tunnel is publicly reachable. Cursor reports that errors and administrator-permission requirements blocked SSH access on most macOS and Windows hosts. However, the malware could still attempt to plant its SSH key, establish persistence, and report host information.
+
+Platform-specific startup persistence
+
+The loader writes platform-specific scripts and startup configuration outside the extension directory. The following table summarizes these mechanisms and their associated artifacts. The code attempts to configure persistence, but the presence of an artifact alone does not establish that the startup mechanism ran successfully.
+
+Platform
+
+Startup mechanism
+
+Key artifacts
+
+macOS
+
+User LaunchAgent with RunAtLoad and KeepAlive
+
+~/Library/LaunchAgents/com.apple.sysmond.plist, ~/.config/.smt,~/.config/.smtk
+
+Linux
+
+User-crontab @reboot entry
+
+~/.config/.smt, ~/.config/.smtk
+
+Windows
+
+Attempted SysMon scheduled task requesting SYSTEM execution
+
+%USERPROFILE%\.config\smt.cmd, %USERPROFILE%\.config\smtk
+
+Windows fallback
+
+Batch file in the user’s Startup folder
+
+%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\sysmon.cmd
+
+On Unix-like systems, the .smt script reconstructs the persistent .smtk identity when it runs, then starts its own SSH retry loop. On Windows, the loader writes the identity and batch script directly.
+
+The startup objects use names such as SysMon and com.apple.sysmond, which resemble monitoring components. Behind these names, their configured actions invoke the generated scripts that maintain reverse SSH forwarding.
+
+Mitigation and protection guidance
+
+Immediate actions
+
+Run advanced hunting queries below to identify affected systems and investigate systems where users installed or automatically updated anthropic.claude-code version 2.1.313 and 2.1.312 through the Cursor Extension Marketplace. Review extension-installation records and correlate endpoint, network, file, process, and authentication telemetry with the published indicators. Preserve the extension package, modified SSH authorization files, generated keys and scripts, and startup configuration before cleanup. Isolate devices with evidence of loader execution or backdoor installation.
+
+Remediation actions
+
+After evidence collection, check the affected user’s ~/.ssh/authorized_keys on macOS and Linux for the attacker-controlled key labeled svc-telemetry. On Windows, check both %USERPROFILE%\.ssh\authorized_keys and C:\ProgramData\ssh\administrators_authorized_keys, where present. Confirm the key against the fingerprint in Indicators of Compromise before removing the exact unauthorized entry. Preserve unrelated SSH keys and legitimate remote-development configuration. A missing marker alone should not replace review of the installation, process, network, and persistence evidence.
+
+Remove the trojanized extension and confirmed malicious persistence after evidence collection. Inspect each startup object’s configured action before removal; names alone are not sufficient to distinguish malicious objects from legitimate monitoring software.
+
+macOS: Unload and remove the malicious user LaunchAgent at ~/Library/LaunchAgents/com.apple.sysmond.plist and remove its associated ~/.config/.smt script and ~/.config/.smtk identity.
+
+Linux: Remove the malicious user-crontab @reboot entry referencing ~/.config/.smt, preserving unrelated entries, and remove the associated script and ~/.config/.smtk identity.
+
+Windows: Remove the malicious SysMon scheduled task, the Startup-folder sysmon.cmd fallback, and associated %USERPROFILE%\.config\smt.cmd and %USERPROFILE%\.config\smtk files.
+
+All applicable platforms: Stop confirmed malicious SSH and retry processes and remove their temporary .stk_ identity files after collection.
+
+Cursor published platform-specific checks and remediation scripts in its security notice. Review the scripts and execution requirements before use, then verify that no listed artifacts remain. Cleanup does not replace investigation of device activity during the exposure window.
+
+Removing or updating the extension does not remove artifacts written outside its installation directory. Remove confirmed unauthorized SSH keys, tunnel identities, scripts, and startup entries separately. Cursor’s reported server takedown does not remove artifacts already present on a device.
+
+Follow-up Investigation and recovery
+
+Review telemetry after the extension loaded for SSH key acceptance, tunnel processes, local SSH sessions, command execution, and file activity. Rotate credentials and revoke sessions from a known-clean device when telemetry indicates credential access or when device trust cannot be restored. Rebuild the device when required by the investigation and verify that the tunnel and startup artifacts do not return after login or restart.
+
+To reduce the risk of malicious extensions and extension-based supply chain attacks, organizations using Cursor should apply the relevant controls in Cursor’s security-hardening guidance, including restricting extensions to approved publishers and configuring an extension installation cooldown to delay installation of newly published versions. These measures can help limit exposure to malicious releases.
+
+Microsoft Defender XDR detections
+
+Microsoft Defender XDR customers can refer to the list of applicable detections below. Microsoft Defender XDR coordinates detection, prevention, investigation, and response across endpoints, identities, email, and apps to provide integrated protection against attacks like the threat discussed in this blog.
+
+Customers with provisioned access can also use Microsoft Security Copilot in Microsoft Defender to investigate and respond to incidents, hunt for threats, and protect their organization with relevant threat intelligence.
+
+Tactic
+
+Observed activity
+
+Microsoft Defender coverage
+
+Execution
+
+Execution of suspicious shell scripts to support backdoor activity.
+
+Microsoft Defender for Endpoint – Suspicious activity originating from a code editor Microsoft Defender Antivirus – Trojan:MacOS/SmtShellMal.A – Trojan:JS/CredTheft.MS!MTB
+
+Persistence
+
+Addition of SSH authorized keys or loading of macOS LaunchAgents to maintain unauthorized access and Scheduled Task on windows.
+
+Microsoft Defender for Endpoint – Suspicious addition of an SSH key – Suspicious launchctl tool activity – Suspicious scheduled task
+
+Defense Evasion
+
+Use of a macOS launch configuration that impersonates a legitimate Apple system service.
+
+Microsoft Defender for Endpoint – Suspicious Plist modifications Microsoft Defender Antivirus – Trojan:MacOS/MalPlistSysmond.A
+
+Command and Control
+
+Use of SSH reverse tunnels to enable backdoor access to a compromised device.
+
+Microsoft Defender for Endpoint – Suspicious SSH tunneling activity Microsoft Defender Antivirus – HackTool:MacOS/RevAnthShell.A
+
+Threat intelligence reports
+
+Microsoft customers can use the following reports in Microsoft products to get the most up-to-date information about the threat actor, malicious activity, and techniques discussed in this blog. These reports provide intelligence, protection information, and recommended actions to prevent, mitigate, or respond to associated threats found in customer environments.
+
+Microsoft Defender XDR Threat analytics
+
+Activity Profile: Malicious Claude Code branded extension v2.1.313 contains a persistent SSH backdoor
+
+Advanced hunting queries
+
+The following queries use the Microsoft Defender XDR advanced hunting schema and the time range selected in the portal. A result is an investigative lead, not proof of compromise.
+
+Connections to the reported infrastructure
+
+Find network events involving the reported IP address during the last 30 days, including the process responsible for each connection.
+
+DeviceNetworkEvents | where Timestamp > ago(30d) | where RemoteIP == ""134.209.82.225"" or RemoteUrl has ""134.209.82.225"" | project Timestamp, DeviceName, InitiatingProcessFileName, InitiatingProcessCommandLine, RemoteIP, RemotePort, RemoteUrl
+
+Reported malicious file and persistence artifacts
+
+Find file events matching the reported SHA-256 hash, artifact filenames, or filename prefix during the last 30 days. Filename matches are hunting leads and require investigation.
+
+DeviceFileEvents | where Timestamp > ago(30d) | where SHA256 == ""ecb58cb29078d9646ad1dcdbe51526f2d9cfea06be5fb2ab183e8ecc3ab6bf15"" or FileName in~ ( "".smt"", "".smtk"", ""smt.cmd"", ""smtk"", ""sysmon.cmd"", ""com.apple.sysmond.plist"" ) or FileName startswith "".stk_"" | project Timestamp, DeviceName, ActionType, FolderPath, FileName, SHA256, InitiatingProcessFileName, InitiatingProcessCommandLine
+
+SHA-256 values might not be populated for every file event. The filename and prefix conditions provide additional hunting leads.
+
+Possible Windows scheduled-task persistence
+
+Find scheduled-task creation events whose additional fields contain both reported terms, SysMon and smt, during the last 30 days.
+
+DeviceEvents | where Timestamp > ago(30d) | where ActionType == ""ScheduledTaskCreated"" | where AdditionalFields has ""SysMon"" and AdditionalFields has ""smt"" | project Timestamp, DeviceName, AccountName, AdditionalFields, InitiatingProcessFileName, InitiatingProcessCommandLine
+
+Possible macOS LaunchAgent persistence
+
+Find plist-property modification events whose FolderPath matches the reported com.apple.sysmond.plist artifact.
+
+DeviceEvents | where ActionType == ""PlistPropertyModified"" | where FolderPath has ""com.apple.sysmond.plist""
+
+MITRE ATT&CK techniques
+
+The following mappings describe behaviors implemented or attempted by the analyzed loader, not confirmed execution on every affected host. They do not establish attribution to a particular threat actor.
+
+Technique
+
+Code behavior
+
+T1098.004 – SSH Authorized Keys
+
+Adds an embedded public key to the user’s authorization file.
+
+T1572 – Protocol Tunneling
+
+Requests reverse SSH forwarding to the workstation’s local SSH service.
+
+T1053.003 – Cron
+
+Attempts a Linux user-crontab @reboot entry.
+
+T1053.005 – Scheduled Task
+
+Attempts a Windows startup task requesting SYSTEM execution.
+
+Indicators of compromise (IOCs)
+
+The following indicators are associated with the publicly analyzed JavaScript sample. The remote address is defanged. Contextual strings and paths require behavioral correlation and should not be treated as conclusive evidence of compromise on their own.
+
+Indicator
+
+Type
+
+Description
+
+134.209.82[.]225
+
+IP address
+
+Configured remote SSH and HTTP destination
+
+hxxp://134[.]209[.]82[.]225:8099/beacon
+
+URL
+
+Reconnaissance endpoint; correlate with the configured address
+
+svc-telemetry
+
+Key comment
+
+Installed authorization-key marker; verify the key material
+
+SHA256:0Z6R+DF64Do2nwQic8a7kkfDLNNk4IiK+2U2Rci4htk
+
+SSH key fingerprint
+
+Installed authorization-key fingerprint
+
+.stk_[0-9a-f]{10}
+
+Filename pattern
+
+Temporary tunnel identity; pattern rather than literal filename
+
+ecb58cb29078d9646ad1dcdbe51526f2d9cfea06be5fb2ab183e8ecc3ab6bf15
+
+SHA256
+
+JavaScript entry point; not a Visual Studio extension (VSIX) package hash
+
+7e0a52885fadee05544a9e99eb18c792bec05900a5e1a66d68f8383decb0e278
+
+SHA256
+
+Decoded tunnel private-key file
+
+~/Library/LaunchAgents/com.apple.sysmond.plist
+
+Filepath
+
+macOS persistence artifact; inspect its launch action
+
+References
+
+Cursor, Security notice — malicious version of Anthropic.claude-code (2.1.312 and 2.1.313) identified in the Cursor VS Code Extension Marketplace. Accessed October 30, 2026
+
+Learn More
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+Review our documentation to learn more about our real-time protection capabilities and see how to enable them within your organization.
+
+Learn more about securing Copilot Studio agents with Microsoft Defender
+
+Evaluate your AI readiness with our latest Zero Trust for AI workshop.
+
+Microsoft 365 Copilot AI security documentation
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails
+
+Prompt injection protection in Microsoft Defender for Office 365 – official documentation of the prompt injection protection in Microsoft Defender for Office 365.
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails | Microsoft Security Blog
+
+Manipulating AI memory for profit: The rise of AI Recommendation Poisoning | Microsoft Security Blog – a related example of an AI-era technique observed in email traffic
+
+Defending the inbox against prompt injection attacks | Microsoft Defender for Office 365 Blog – feature announcement introducing prompt injection protection in Microsoft Defender for Office 365.
+
+Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
+
+The post Inside a malicious Claude Code-branded extension and its persistent SSH backdoor appeared first on Microsoft Security Blog."
+42f7e9d009ac,42f7e9d009ac,2026-10-30 16:11 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Identity Security Posture Management; Threat Intelligence; Endpoint Security; Email and Collaboration Security,Article,From help desk impersonation to AD CS abuse: Investigating ESC1 and ESC8 intrusion paths,https://www.microsoft.com/en-us/security/blog/2026/10/30/help-desk-impersonation-ad-cs-abuse-investigating-esc1-esc8-intrusion-paths/,"Renewed phishing and ESC1 privilege expansion About 90 minutes after the first disrupted session, the attacker launched a larger Teams-phishing wave targeting 16 users and...","In this article
+
+Activity overview
+
+Attack chain overview
+
+Portable runtime staging and execution variants
+
+Host discovery and AD CS assessment
+
+Case 1: ESC1 abuse and the cost of an identity exclusion
+
+Case 2: PetitPotam and ESC8 turn a workstation into a domain-controller identity
+
+Why the response outcomes differed
+
+Actionable investigation methods
+
+References
+
+Learn More
+
+Microsoft Threat Intelligence investigated two human-operated intrusions in which threat actors used Microsoft Teams messages and calls to impersonate IT or help desk personnel and socially engineer users into granting interactive remote access, primarily through Quick Assist. Once connected, the threat actors staged portable Python, Bun, or Java runtimes, performed host and network discovery, and assessed Active Directory Certificate Services (AD CS) for certificate-based authentication paths.
+
+Although the incidents began with the same social-engineering and remote-access pattern, they diverged at the certificate layer. In Case 1, the threat actor abused an Enterprise CA Security Configuration 1 (ESC1) -vulnerable certificate template to obtain authentication certificates for privileged accounts and performed DCSync. In Case 2, the threat actor used PetitPotam, a technique that causes a Windows server to authenticate to an attacker-controlled system. The attacker relayed the domain controller’s New Technology (NT) LAN Manager (NTLM) authentication to AD CS Web Enrollment (ESC8), obtained a certificate for the domain-controller account, and used it for certificate-based Kerberos authentication (PKINIT – Public Key Cryptography for Initial Authentication).
+
+This intrusion pattern is high impact because a user-approved remote session can become certificate-backed access to privileged identities and domain infrastructure. In Case 1, Microsoft Defender attack disruption restricted covered identities and blocked substantial follow-on activity, but a privileged identity excluded from automated containment remained usable and later supported data exfiltration. In Case 2, Defender generated ESC8-related alerts, after which the customer isolated the associated workstation and no further progression was observed. The activity did not exploit a vulnerability in Microsoft Teams; instead, it relied on social engineering and insecure or overly permissive AD CS configurations.
+
+In this blog, we analyze the shared attack chain, the ESC1 and ESC8 certificate-abuse paths, and the different response outcomes. We also provide investigation methods, mitigation recommendations, Microsoft Defender detection guidance, and advanced hunting queries to help defenders identify and interrupt this access path. The activity described here is not attributed to a specific threat actor.
+
+Activity overview
+
+Risk to enterprise environments
+
+AD CS can turn a certificate request into a durable authentication path. An attacker who obtains an authentication certificate for a privileged user or machine account can use that certificate independently of the initially compromised password. Resetting the user’s password or reimaging the first workstation does not revoke an issued certificate or invalidate Kerberos tickets that have already been issued.
+
+Two AD CS abuse techniques are central to these incidents:
+
+ESC1 – certificate template abuse: A low-privileged requester abuses a misconfigured authentication-capable template that permits requester-supplied identity information and broad enrollment, allowing the requester to obtain a certificate for a privileged account.
+
+ESC8 – NTLM relay to Web Enrollment: An attacker relays a user or machine account’s NTLM authentication to an AD CS web enrollment endpoint that lacks relay protections, then requests a certificate as the relayed identity.
+
+Attackers can use Microsoft Teams to impersonate IT support personnel and persuade users to approve a remote session, gaining hands-on-keyboard access without a conventional malware attachment.
+
+Portable or renamed runtimes such as Python, Bun, and Java can execute attacker-controlled scripts from user-writable locations while retaining legitimate file metadata.
+
+Automated disruption is most effective when every compromised identity and device remains eligible for containment; exclusions can preserve the attacker’s path.
+
+Attack chain overview
+
+Both incidents followed the same initial sequence: help desk impersonation through Teams, a user-approved Quick Assist or other remote-support session, archive transfer and extraction, portable runtime execution, and host and AD CS discovery. The certificate technique and response outcome then split into two distinct branches.
+
+Figure 1. Both incidents followed a shared entry and execution pattern before diverging into two AD CS abuse paths. Case 1 used an ESC1-vulnerable certificate template to obtain certificates for privileged identities. Case 2 used PetitPotam to coerce domain-controller authentication and relay it to AD CS Web Enrollment through ESC8. The response outcomes differed based on containment coverage and removal of the active execution point.
+
+Shared initial access and execution pattern
+
+Teams helpdesk impersonation and remote access
+
+Both incidents began with Teams phishing messages and calls that impersonated support personnel. The social engineering persuaded a user to establish an attacker-controlled remote session, primarily by guiding the user to open Quick Assist and provide the connection code. This gave the attacker hands-on-keyboard access to the workstation. Across the broader activity, organization-themed onmicrosoft.com tenant names and support-oriented display names were used to make the external contact appear familiar.
+
+Figure 2. Example Teams call displaying External and Scam suspected indicators. These labels are important user-facing signals during support impersonation attempts.
+
+The remote session was the decisive transition in the attack. Immediately after the user granted control through Quick Assist, the attacker used the session to place an archive in the victim’s Downloads folder. Commands launched during the session created a KB-prefixed staging directory under the user’s profile, extracted the archive into that directory, and started the included payload with a portable Python, JavaScript, or Java runtime. The payload then performed host and network discovery and began assessing AD CS.
+
+Portable runtime staging and execution variants
+
+The runtime and packaging varied between deployments, but the execution pattern remained consistent: an archive was placed on the device during the remote session, extracted into a newly created user-profile directory, and used to launch attacker-controlled code. In one JavaScript variant, a renamed executable retained version metadata identifying it as the Bun runtime and launched the staged loader. A separate variant used a staged Java runtime to launch a Java source file.
+
+Figure 3. Sanitized Bun staging command. The update-themed path, renamed runtime, script operand, and remote-session context form the useful investigation pattern.
+
+File names alone are weak indicators. The actionable pattern is a portable runtime launched from a newly created, user-writable staging directory after an unauthorized remote session, followed by script execution, discovery commands, or connections to identity infrastructure.
+
+Figure 4. Sanitized Java staging variant. The campaign could substitute runtime and packaging choices while keeping the broader access pattern.
+
+The Java variant confirms that runtime choice can change between deployments. The AD CS behavior in each incident should be validated through the initiating process, account, device, and certificate records rather than assumed from the presence of Bun or Java alone.
+
+Host discovery and AD CS assessment
+
+The staged components queried Windows version information, network configuration, and running processes. These commands are common in administration, but they become high-value signals when it is launched by a renamed runtime from an uncommon location and follow an unexpected remote-support session.
+
+Figure 5. Host-discovery commands from the first draft. Their value comes from the initiating staged runtime, user-writable path, and preceding unauthorized remote session.
+
+The compromised workstation also connected to domain infrastructure using LDAPS and SMB.
+
+From this shared workstation foothold, the incidents followed different certificate-abuse paths. In Case 1, the attacker exploited an ESC1-vulnerable certificate template. In Case 2, the attacker used PetitPotam to coerce domain-controller authentication and relay it to AD CS Web Enrollment through ESC8.
+
+Case 1: ESC1 abuse and the cost of an identity exclusion
+
+ESC1 certificate requests expand privilege
+
+The first Teams-phishing wave targeted three user accounts and compromised one workstation. From the shared foothold described above, the attacker examined AD CS for a privilege-escalation path.
+
+Figure 6. Case 1: Help desk impersonation led to ESC1 certificate abuse. Attack disruption restricted most compromised identities, but an excluded privileged account remained usable and later supported data exfiltration.
+
+The attacker found a certificate template vulnerable to ESC1. ESC1 describes a template configuration in which a requester can supply identity information in the certificate request and obtain a certificate that supports authentication. When broad enrollment rights and weak issuance controls are combined with that setting, a low-privileged account can request a certificate representing a privileged identity.
+
+In the first wave, the attacker obtained certificates for three highly privileged accounts. Microsoft Defender attack disruption targeted the initially compromised user and those three certificate-compromised identities. Remote logons and Server Message Block (SMB) access were restricted and active sessions were disconnected. One privileged account was excluded from automated response, so containment did not apply to that identity.
+
+Renewed phishing and ESC1 privilege expansion
+
+About 90 minutes after the first disrupted session, the attacker launched a larger Teams-phishing wave targeting 16 users and compromised another workstation. The attacker again abused the ESC1-vulnerable template, this time obtaining certificates for eight additional privileged accounts.
+
+Attack disruption targeted the newly compromised user and the eight certificate-compromised identities. More than 1,000 subsequent SMB file-access attempts and additional logon attempts were blocked, limiting the attacker’s ability to reuse those accounts for lateral movement.
+
+DCSync, the excluded account, and data theft
+
+Within seconds of obtaining one privileged certificate, the attacker authenticated to a domain controller and performed DCSync while containment was taking effect. Attack disruption limited additional replication and follow-on use, but the operation had already begun.
+
+The privileged account excluded during the first disruption remained available. The attacker continued to use it for network and remote-interactive logons, reached a file server, and launched a renamed copy of Rclone using the filename SearchApp.exe. The command recursively copied data from a file-server share to an external Secure File Transfer Protocol (SFTP) destination, used 20 concurrent transfers, selected files up to three years old, and excluded several executable, database, virtual-disk, media, temporary, and log file types.
+
+Figure 7. Sanitized Rclone command used to copy data from a file-server share to an external SFTP destination.
+
+The incident demonstrates that partial identity containment can reduce attack activity while still leaving a viable privileged route.
+
+Case 2: PetitPotam and ESC8 turn a workstation into a domain-controller identity
+
+PetitPotam coerces domain-controller authentication
+
+The ESC1 path used in the first case was not available in this environment. Instead, the attacker used PetitPotam to send requests over the Encrypting File System Remote Protocol (EFSRPC), causing the domain controller to authenticate to an attacker-controlled system using its machine account. The attacker then relayed that NTLM authentication to AD CS Web Enrollment without knowing the domain controller’s password.
+
+Figure 8. Case 2: Help desk impersonation led to PetitPotam authentication coercion, ESC8 relay to AD CS, certificate-based Kerberos authentication, and customer-led device isolation.
+
+NTLM relay reaches AD CS Web Enrollment
+
+The attacker relayed the domain controller’s NTLM authentication to AD CS Web Enrollment. This technique is known as ESC8. It targets an enrollment web endpoint that accepts NTLM without sufficient relay protection, allowing the attacker to submit a certificate request as the relayed account.
+
+The AD CS server authenticated the domain-controller machine account even though the connection originated from another device. That identity-to-source mismatch is a strong investigation pivot: correlate the machine account, source device, Web Enrollment request, Certification Authority (CA) issuance record, and subsequent Kerberos activity.
+
+After authenticating to Web Enrollment as the domain controller, the attacker requested and retrieved a certificate using the Domain Controller template. The important service paths are the certificate submission and retrieval endpoints under /certsrv; isolated URL access is not malicious by itself and must be correlated with the authenticated identity, source device, process, and CA request.
+
+Figure 9. Sanitized view of AD CS Web Enrollment activity involving certificate submission and retrieval through /certsrv, used during ESC8 certificate issuance for a relayed domain-controller identity.
+
+Certificate-based Kerberos authentication
+
+The attacker used the newly issued domain-controller certificate for Kerberos PKINIT and obtained a ticket-granting ticket (TGT) for the domain controller. This step converted a relayed NTLM authentication into a certificate-backed Kerberos identity.
+
+PKINIT success is the response threshold: responders should investigate the requesting device, authenticated account, issued certificate, active Kerberos sessions, and any service-ticket use. Certificate revocation and Kerberos ticket review are separate containment actions.
+
+Customer-led device isolation and observed outcome
+
+Microsoft Defender generated ESC8-related alerts, after which the customer isolated the workstation associated with the certificate-enrollment and Kerberos activity. The documented containment action in this case was customer-led device isolation. No further attack progression was observed following isolation.
+
+Why the response outcomes differed
+
+In Case 1, an exclusion left a compromised privileged account available to the attacker despite disruption of other identities. In Case 2, customer-led device isolation followed Defender alerts, and no further attack progression was observed.
+
+Response element
+
+Case 1: ESC1
+
+Case 2: ESC8
+
+Response mechanism
+
+Microsoft Defender automated attack disruption targeting compromised identities.
+
+Microsoft Defender alerts followed by customer-led device isolation.
+
+Measured effect
+
+Covered identities were restricted; more than 1,000 SMB attempts and additional logons were blocked; further DCSync activity was limited.
+
+The workstation associated with certificate enrollment and Kerberos activity was isolated.
+
+Containment follow-up
+
+One privileged account was excluded from automated response and remained available to the attacker.
+
+No further progression was observed after isolation;
+
+Observed outcome
+
+The excluded identity was later used for file-server access and data exfiltration.
+
+No subsequent attack progression was documented after customer isolation.
+
+Actionable investigation methods
+
+The most useful artifacts are not individual commands or ports in isolation. Investigators should reconstruct the chain across collaboration, endpoint, identity, and certificate systems.
+
+Teams and remote access: identify the external tenant, user interaction, call or chat timing, remote-session start, approved remote monitoring and management (RMM) process, and child processes created during the session.
+
+Runtime staging: inspect newly created KB-prefixed or application-like folders, archive extraction, runtime metadata, script operands, parent-child relationships, and subsequent network activity.
+
+Directory interaction: use network data to identify LDAPS and SMB connections, then use endpoint and directory logs to determine what the initiating process did. TLS intentionally hides LDAP query content from passive network inspection.
+
+ESC1: review certificate request and issuance events, requester identity, subject and Subject Alternative Names (SAN) values, template name, enrollment permissions, and the first authentication performed with the issued certificate.
+
+PetitPotam and ESC8: correlate EFSRPC activity, outbound authentication by the domain controller, the device that relayed the authentication, Web Enrollment access, CA request and issuance records, and PKINIT from the originating workstation.
+
+Disruption and containment: enumerate every compromised identity and device, review exclusions before and during response, revoke unauthorized certificates, and assess active Kerberos tickets separately
+
+Reduce support impersonation and unauthorized remote access
+
+Require users to verify unsolicited support requests through a known internal channel before joining a call, sharing a screen, or starting a remote-control session.
+
+Encourage users to pay attention to warnings in incoming messages and calls when impersonation is detected.
+
+Review Teams external-access and federation policies. Limit external domains to business requirements and investigate newly observed organization-themed or helpdesk-themed tenants in context.
+
+Restrict remote-support software to approved products, operators, and workflows. Alert when approved RMM tools extract archives, create interpreters, or launch scripts from user-writable paths.
+
+Constrain runtime-based execution
+
+Use App Control for Business or equivalent application control to restrict unapproved portable runtimes and script execution from user-writable locations.
+
+Evaluate file identity through signer, original filename, product metadata, path, parent process, and behavior. A renamed executable can retain legitimate version information.
+
+Test relevant attack surface reduction rules and endpoint protection policies. Do not assume controls for Windows script hosts automatically cover JavaScript executed through Bun or source files launched through Java.
+
+Harden AD CS against ESC1 and ESC8
+
+Follow Microsoft’s secure configuration guidance for mitigating NTLM relay against AD CS: https://support.microsoft.com/help/5005413
+
+Review authentication-capable templates for requester-supplied subject information, broad enrollment permissions, weak issuance requirements, and excessive certificate purpose. Remove unnecessary enrollment rights and require approval where appropriate.
+
+Inventory AD CS Web Enrollment and Certificate Enrollment Web Service endpoints. Remove endpoints that are not required.
+
+Require HTTPS and enforce Extended Protection for Authentication (EPA) on enrollment web endpoints. HTTPS protects confidentiality; EPA provides the channel binding needed to resist NTLM relay.
+
+Disable NTLM on enrollment services where operationally feasible and validate Kerberos-only authentication before broad enforcement.
+
+Use Defender for Identity AD CS security posture assessments to identify ESC1-related template exposure and insecure enrollment Internet Information Services (IIS) endpoints associated with ESC8: https://learn.microsoft.com/defender-for-identity/security-posture-assessments/certificates
+
+Enable certificate auditing and prepare certificate-aware response
+
+Enable the Certification Services advanced audit subcategory for success and failure, and configure the Certification Authority audit filter to record request and issuance activity.
+
+Preserve CA security events, CA database records, IIS or Web Enrollment logs, endpoint process lineage, identity alerts, and Teams interaction records.
+
+If an unauthorized certificate was issued, identify its serial number and thumbprint, revoke it, publish updated revocation information, and confirm that relying systems can obtain the update.
+
+Review certificate-based Kerberos activity and active tickets. Revoking a certificate does not retroactively invalidate TGTs or service tickets that were already issued.
+
+Treat containment exclusions as incident decisions. If an account or device cannot be automatically contained, assign a compensating manual action and verify completion.
+
+Microsoft Defender XDR detections and disruption
+
+Microsoft Defender XDR can connect collaboration, endpoint, identity, certificate, and Kerberos signals. Alert names and availability depend on product configuration and enabled sensors.
+
+Tactic
+
+Observed activity
+
+Microsoft Defender coverage
+
+Initial access
+
+External Teams contact impersonates IT support and initiates a remote session.
+
+Microsoft Defender for Cloud Applications / Office 365 – Microsoft Teams chat initiated by a suspicious external user – IT Support Teams Voice phishing following mail bombing activity – A user clicked through to a potentially malicious URL. – A potentially malicious URL click was detected. – Suspicious Teams Chat likely involved in remote management and dangerous commands – Possible Teams phishing affecting more than two usersMicrosoft Defender for Endpoint – Possible initial access from an emerging threat
+
+Execution
+
+Bun, or Java runs staged scripts from user-writable paths.
+
+Microsoft Defender for Endpoint – Possible initial access from an emerging threat – Suspicious JavaScript process
+
+Discovery
+
+Staged runtimes query host configuration and interact with domain infrastructure.
+
+Microsoft Defender for Identity – Possible Active Directory Certificate Services enumeration – Suspicious Active Directory Certificate Services (AD CS) certificate request
+
+Credential access
+
+ESC1 certificate requests target privileged identities.
+
+Microsoft Defender for Endpoint – Suspicious Domain Controller authentication to Active Directory Certificate Services server Microsoft Defender for Identity – Suspicious Active Directory Certificate Services (AD CS) misconfigured certificate template abuse (ESC1)
+
+Credential access
+
+Domain-controller NTLM authentication reaches AD CS from another device.
+
+Microsoft Defender for Endpoint – Possible NTLM relay attack
+
+Credential access
+
+ESC8 Web Enrollment issues a machine certificate after NTLM relay.
+
+Microsoft Defender for Endpoint – Suspicious Active Directory Certificate Services (AD CS) machine certificate issuance abuse (ESC8)
+
+Credential access
+
+PKINIT succeeds and a TGT is issued.
+
+Microsoft Defender for Identity – Suspicious certificate usage over Kerberos protocol (PKINIT) – Suspected suspicious Kerberos ticket request
+
+Impact prevention
+
+Compromised identities or devices are restricted during an active incident.
+
+Microsoft Defender for Endpoint – Possible source of DCSync attack Microsoft Defender for Identity – Suspected DCSync attack (replication of directory services)
+
+Microsoft Security Copilot
+
+Security Copilot can help analysts summarize the Teams-to-remote-access sequence, review staged runtime behavior, correlate certificate alerts with affected identities, and prepare containment tasks. Useful prompts should ask for the initiating device, remote-session context, certificate request, issued identity, PKINIT activity, and any response exclusions. Results depend on connected plugins, permissions, and the evidence available to the incident.
+
+Threat intelligence reports
+
+Microsoft customers can use Microsoft Defender XDR Threat Analytics to review relevant reports, related incidents, impacted assets, and recommended actions. Search for Teams support impersonation, portable Bun or Java runtimes, AD CS certificate abuse, NTLM relay, ESC1, ESC8, and certificate-based Kerberos authentication. Campaign-specific report.
+
+Advanced hunting
+
+Use these queries to investigate related activity. Tune time windows and filters for your environment. Matches require investigation.
+
+Teams external contact and available impersonation signals
+
+Use these queries as investigation starting points. Validate field availability and expected values in your tenant, tune for legitimate activity, and correlate matches with incidents rather than treating a single result as proof of compromise.
+
+Teams external contact and available impersonation signals
+
+Find external Teams chats and available impersonation signals.
+
+CloudAppEvents | where Timestamp > ago(7d) | where Application == ""Microsoft Teams"" | where (ActionType == ""ChatCreated"" and IsExternalUser == true) or ActionType in~ ( ""TeamsImpersonationDetected"", ""SecurityRiskInCallDetected"") | order by Timestamp desc
+
+Bun or Java execution from KB-prefixed staging paths
+
+Find Bun or Java running scripts from KB-prefixed AppData folders.
+
+DeviceProcessEvents | where Timestamp > ago(7d) | where ProcessVersionInfoOriginalFileName =~ ""bun.exe"" or FileName in~ (""bun.exe"", ""java.exe"", ""javaw.exe"") | where ProcessCommandLine contains "".js"" or ProcessCommandLine contains "".java"" | where FolderPath matches regex @""(?i)\\AppData\\Roaming\\KB[0-9]+\\"" | order by Timestamp desc
+
+Network activity initiated by the staged runtime
+
+Find network connections initiated by the staged runtime.
+
+DeviceNetworkEvents | where Timestamp > ago(7d) | where InitiatingProcessVersionInfoOriginalFileName =~ ""bun.exe"" or InitiatingProcessFileName in~ ( ""bun.exe"", ""java.exe"", ""javaw.exe"") | where RemotePort in (80, 445, 636, 88) | where InitiatingProcessFolderPath matches regex @""(?i)\\AppData\\Roaming\\KB[0-9]+\\"" | order by Timestamp desc
+
+Enrollment, relay, and PKINIT alerts with their evidence
+
+Find relay, AD CS, and PKINIT alerts with their related evidence.
+
+AlertInfo | where Timestamp > ago(7d) | where Title contains ""NTLM relay"" or Title contains ""Certificate Services"" or Title contains ""PKINIT"" or Title contains ""Kerberos ticket request"" | join kind=inner ( AlertEvidence | where Timestamp > ago(7d) ) on AlertId
+
+MITRE ATT&CK techniques observed
+
+This threat has exhibited use of the following attack techniques. For standard industry documentation, refer to the MITRE ATT&CK framework.
+
+Initial Access
+
+T1566.003 Phishing: Spearphishing via Service | Teams messages used for support impersonation.
+
+T1566.004 Phishing: Spearphishing Voice | A Teams call formed part of the social-engineering interaction.
+
+Command and Control
+
+T1219 Remote Access Software | An attacker-controlled remote monitoring and management session provided interactive access.
+
+Execution
+
+T1059.003 Command and Scripting Interpreter: Windows Command Shell | Shell commands staged archives, launched the runtime, and initiated native discovery commands.
+
+T1059.007 Command and Scripting Interpreter: JavaScript/JScript | Bun executed attacker-supplied JavaScript modules.
+
+Defense Evasion
+
+T1036 Masquerading | The activity used update-themed staging and a renamed Bun executable.
+
+Discovery
+
+T1082 System Information Discovery | The runtime initiated a Windows version registry query.
+
+T1016 System Network Configuration Discovery | The runtime initiated ipconfig /all.
+
+T1057 Process Discovery | The runtime initiated tasklist.
+
+Credential Access
+
+T1557 Adversary-in-the-Middle | Certificate authority telemetry showed a domain-controller identity authenticating from another device, supporting NTLM relay; no name-resolution poisoning was established.
+
+T1649 Steal or Forge Authentication Certificates | The activity involved abusive machine-certificate issuance through Certificate Services Web Enrollment and subsequent certificate-based authentication.
+
+Indicators of compromise (IOC)
+
+Indicator
+
+Type
+
+Role
+
+85b6c424117494d3056e88689dbc94c75e9afdb187a339714043aec0da109f17
+
+SHA-256
+
+Initial Access Java Script
+
+f326201269f1ee2f803ae435317507263bb6e0dbfdeb70bd1bb5446e2e46f001
+
+SHA-256
+
+Initial Access python script
+
+06c5c14f043aee3bcc5843b5f50909623d5c9a6239a7c1fba9cddad4111469e7
+
+SHA-256
+
+Initial Access python script
+
+References
+
+Teams security best practices for safer messaging. Microsoft Learn (accessed 2026-10-29)
+
+Microsoft Defender for Office 365 support for Microsoft Teams. Microsoft Learn (accessed 2026-10-29)
+
+Application Control for Windows. Microsoft Learn (accessed 2026-10-29)
+
+Attack surface reduction rules reference. Microsoft Learn (accessed 2026-10-29)
+
+KB5005413: Mitigating NTLM relay attacks on Active Directory Certificate Services. Microsoft Support (accessed 2026-10-29)
+
+Defender for Identity security assessment: Insecure AD CS certificate enrollment IIS endpoints (ESC8). Microsoft Learn (accessed 2026-10-29)
+
+Learn More
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+Review our documentation to learn more about our real-time protection capabilities and see how to enable them within your organization.
+
+Learn more about securing Copilot Studio agents with Microsoft Defender
+
+Evaluate your AI readiness with our latest Zero Trust for AI workshop.
+
+Microsoft 365 Copilot AI security documentation
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails
+
+Prompt injection protection in Microsoft Defender for Office 365 – official documentation of the prompt injection protection in Microsoft Defender for Office 365.
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails | Microsoft Security Blog
+
+Manipulating AI memory for profit: The rise of AI Recommendation Poisoning | Microsoft Security Blog – a related example of an AI-era technique observed in email traffic
+
+Defending the inbox against prompt injection attacks | Microsoft Defender for Office 365 Blog – feature announcement introducing prompt injection protection in Microsoft Defender for Office 365.
+
+Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
+
+The post From help desk impersonation to AD CS abuse: Investigating ESC1 and ESC8 intrusion paths appeared first on Microsoft Security Blog."
+bbca6b63c44d,bbca6b63c44d,2026-10-29 16:00 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Threat Intelligence; AI Security,Article,Tracking AI adoption in North Korean threat actor tradecraft,https://www.microsoft.com/en-us/security/blog/2026/10/29/tracking-ai-adoption-in-north-korean-threat-actor-tradecraft/,Enable Zero-hour auto purge (ZAP) in Defender for Office 365 to quarantine sent mail in response to newly acquired threat intelligence and retroactively neutralize malicious...,"In this article
+
+Stages of AI adoption by North Korean threat actors
+
+AI use across North Korean threat operations
+
+AI-assisted targeting and reconnaissance
+
+AI-assisted social engineering and identity deception
+
+AI-assisted software and tooling development
+
+AI-assisted operational scaling and analysis
+
+Mitigation and protection guidance
+
+Microsoft Defender detections
+
+As Microsoft Threat Intelligence continues to track how threat actors operationalize AI to increase the speed, efficiency, and complexity of attacks, we’ve identified North Korean threat actors expanding their use of AI with varying levels of adoption. Threat actors use AI as a force multiplier across their operations, particularly to accelerate and scale established workflows.
+
+Recent activities illustrate this AI-enabled acceleration and scaling: Jade Sleet launched campaigns through three front companies in a single week, Onyx Sleet generated dozens of tailored lures in minutes, Coral Sleet rapidly built a new capability to trojanize private source code repositories, and Diamond Sleet used AI to enhance tailored targeting workflows, including persona development and front company creation. Further, Onyx Sleet and Pearl Sleet are leveraging the open-source agentic AI penetration testing framework ARTEX to conduct operations, further indicating North Korea’s willingness to quickly adopt new AI technologies for their operations.
+
+The Democratic People’s Republic of Korea operates under extensive international sanctions and uses cyber operations and other illicit mechanisms to evade these restrictions and advance state objectives. Within this operating environment, North Korean threat actors have adopted new technologies that help sustain or advance existing operations. AI adoption by North Korean threat actors therefore largely supports existing goals and targeting priorities rather than representing a shift in actor motivations. North Korean threat actors conduct cyber operations primarily to generate revenue for the regime, collect strategic intelligence, and, in some cases, pursue politically motivated disruptive or destructive objectives. Across these objectives, North Korean threat actor tradecraft remains grounded in social engineering, malware delivery, and the abuse of legitimate tools. These operations commonly target cryptocurrency and financial organizations, information technology companies and software supply chains, government entities, and education-related organizations. Despite threat actors’ adoption of AI, Microsoft Threat Intelligence assesses that AI-enabled operations remain human-directed and have not become fully autonomous.
+
+Microsoft Threat Intelligence assesses the overall adoption of AI across North Korean threat actors as high, with threat actors such as Jade Sleet, Coral Sleet, and Jasper Sleet demonstrating an established use of AI across all operational workflows, alongside increasing adoption across the broader North Korean threat actor set. This blog breaks down how North Korean threat actors are utilizing AI across their operations, reflecting a broader trend of threat actors incorporating AI into their attack chains. We also provide mitigation guidance and Microsoft Defender detections to help organizations defend against these threats.
+
+Stages of AI adoption by North Korean threat actors
+
+North Korean threat actors are increasingly integrating generative and agentic AI platforms into their operations, but the rate and maturity of adoption vary. Based on identified AI use, Microsoft Threat Intelligence assesses high-impact North Korean threat actors across four stages of adoption: emerging, expanding, accelerating, and operationalized. Across these actors, AI use spans research, content generation, development, malware and tooling, infrastructure, and broader operational activities.
+
+Mapping high-impact North Korean threat actors by stages of AI adoption
+
+Operationalized: Threat actors at this stage have embedded AI into routine operational workflows, using it as an established part of their existing processes. Microsoft Threat Intelligence assesses that the North Korean threat actors Jade Sleet, Coral Sleet, and Jasper Sleet have operationalized AI across their entire operations, which frequently encompass identity-based attacks built on deceptive social engineering. These attacks can be accelerated with AI capabilities that tailor lures or personas to the intended audience.
+
+Accelerating: Threat actors at this stage demonstrate rapid adoption of AI across multiple operational functions. Microsoft Threat Intelligence assesses that Diamond Sleet, Onyx Sleet, Pearl Sleet, and Sapphire Sleet are at the accelerating stage of AI adoption.
+
+Expanding: Threat actors at this stage are expanding their use of AI across selected operational activities, but adoption is not yet embedded across broader workflows. Microsoft Threat Intelligence assesses that Emerald Sleet is at the expanding stage of AI adoption. While evidence suggests Emerald Sleet has incorporated AI into some workflows, Microsoft Threat Intelligence has not identified the same level of adoption and impact as other North Korean threat actors.
+
+Emerging: Threat actors at this stage demonstrate limited or experimental use of AI. At this time, Microsoft Threat Intelligence has not assessed any North Korean threat actors as operating at the emerging stage.
+
+AI use across North Korean threat operations
+
+Microsoft Threat Intelligence has identified North Korean threat actors using AI platforms to support a range of operational activities, from reconnaissance to developing social engineering content, maintaining fraudulent identities, supporting tool development, and scaling repetitive operational tasks. Current evidence indicates that these actors primarily use AI to enhance existing tradecraft and operator productivity rather than to enable autonomous operations. Microsoft Threat Intelligence has identified North Korean threat actors leveraging the following AI-enabled tactics as part of their threat operations.
+
+AI-assisted targeting and reconnaissance
+
+Based on industry reporting and changes in targeting activity in 2026, North Korean threat actors are scaling reconnaissance capabilities by using generative AI platforms, including gathering information on target organizations prior to launching social engineering operations. Microsoft Threat Intelligence has identified that these actors:
+
+Research organizations and employees, then use information from this research to craft highly bespoke and convincing lures, target-specific infrastructure, and job applications
+
+Research wallets, exchanges, and decentralized finance (DeFi) and blockchain workflows, accelerating the development of domain knowledge needed to support targeted operations
+
+Explore vulnerabilities, APIs, security products, and cloud services, leading to a demonstrated change in the speed and sophistication of threat activity against specific technologies
+
+Research software development roles, job requirements, and technology organizations to support job searching, resume development, and persona alignment, resulting in rapid tailored persona or lure creation, application to newly posted job roles, or spear-phishing operations
+
+For example, between June 8 and June 12, 2026, Microsoft Threat Intelligence identified Jade Sleet conducting job-themed targeting against individuals across various organizations, including those involved in cybersecurity, AI, blockchain, and talent recruitment companies. The actor leveraged tailored domains, social media profiles, and industry-specific knowledge to pose as recruiters for a spoofed AI-powered blockchain intelligence company, using software engineer-themed opportunities to initiate contact and schedule interviews with individuals who engaged with the outreach. Within this short time frame, Jade Sleet conducted similar job-themed targeting using two additional front companies, supported by comparable infrastructure and relevant domain knowledge. Microsoft Threat Intelligence assesses that the pace and breadth of this activity demonstrate how Jade Sleet is using generative AI to accelerate operational workflows, including rapidly developing target- and industry-specific knowledge, tailoring reconnaissance and targeting, and scaling outreach to target individuals.
+
+Jasper Sleet also continues to leverage generative AI platforms to build fake digital personas. The actor’s suspected use of generative and agentic AI-assisted resume workflows demonstrates an improvement in the speed, scale, and relevance of persona preparation over the past year. Identified application activity indicates that the actor has invested in repeatable tooling to support employment-themed operations, ultimately helping the actor scale application activity and interact more credibly with the hiring processes of impacted organizations.
+
+Since August 2026, Microsoft Threat Intelligence has observed Diamond Sleet returning to targeting the oil and gas sector for the first time since 2023, expanding their focus on communications and internet policy-related organizations, and continuing to target defense-related organizations. Further, Diamond Sleet has created fake communications technology companies, complete with supporting websites and tailored personas, to target telecommunications companies under the guise of legitimate business partnerships. These shifts have occurred alongside Diamond Sleet’s increased use of generative AI platforms to support reconnaissance and technical development, suggesting that AI could be improving the efficiency of existing operational workflows.
+
+AI-assisted social engineering and identity deception
+
+Several North Korean threat actors leverage job-themed social engineering techniques to gain access to target environments. For example, Sapphire Sleet, Jade Sleet, and Coral Sleet use employment- and interview-themed social engineering to target users and organizations, while Jasper Sleet uses fraudulent identities to obtain legitimate remote employment. These actors leverage AI to improve the process of creating convincing lures, aid in the development of fake personas, and evade detection when interacting with targets. Specifically, these actors use AI to:
+
+Produce tailored phishing, recruiter, and investment lures
+
+Create job-themed payload-delivery content and malicious repository lures
+
+Translate content and adjust tone to support foreign-language impersonation and more natural communications
+
+Build resumes, biographies, and realistic interview responses
+
+Support coding assessments, job-related tasks, and the management of multiple worker personas
+
+Enhance profile images and other identity artifacts
+
+Alter profile images, video, voice, and backgrounds
+
+Sustain recruiter, developer, investor, and other social identities across interactions and platforms
+
+Microsoft Threat Intelligence has identified over 100 PDF lure files attributed to Onyx Sleet that were created in August and September 2026 with target-specific details. Metadata indicated that the actor created dozens of files at a time in rapid succession within minutes, highly likely to be the output of an AI platform. This automation supports the actor’s high-volume phishing campaigns against South Korean users and could make disruption and detection efforts more difficult given the rapid regeneration or modification of additional lures.
+
+Microsoft Threat Intelligence has also identified possible synthetic media generation, focused on AI-created voice and video, by Emerald Sleet. While we have not been able to determine the full operational impact of such tooling, it is highly likely that synthetic media creation is valued by multiple North Korean threat actors, as it significantly enhances existing social engineering capabilities.
+
+AI-assisted software and tooling development
+
+Microsoft Threat Intelligence has identified evidence indicating that North Korean threat actors are leveraging AI-enabled software and tools to assist in malware development. These tools include AI-assisted development platforms, such as Cursor, which have likely enabled Jade Sleet, Coral Sleet, Pearl Sleet, and Sapphire Sleet to:
+
+Generate, convert, debug, and refactor code
+
+Assist with scripts, commands, persistence mechanisms, and obfuscation
+
+Troubleshoot errors and help operators diagnose tool behavior
+
+Support the adaptation or reimplementation of functionality across languages, libraries, and environments
+
+Additionally, AI-enabled development cycles further allow threat actors to circumvent detection and blocking efforts, as AI platforms streamline retooling, helping enable threat actors to rapidly pivot in reaction to defensive measures.
+
+For example, Microsoft Threat Intelligence has identified evidence indicating that Sapphire Sleet, who has conducted several supply chain attacks, likely incorporated AI during the August 2026 Rust software compromise. The activity spanned from initial stages targeting Rust developers to development and deployment of malware. Notably, Sapphire Sleet’s malware in this campaign was a marked improvement compared with other attributed campaigns, as the malware used dynamic .NET compilation during post-exploitation, most likely for defense evasion.
+
+And, since April 2026, Coral Sleet has operationalized a workflow to trojanize private GitHub repositories, integrating them into their existing malware chain. This new capability, its breadth and scale, and its rapid implementation were highly likely engineered using an AI-enabled development platform.
+
+AI-assisted operational scaling and analysis
+
+North Korean threat actors are leveraging AI platforms to scale and manage diverse operations. For example, Jasper Sleet’s AI tooling helps maintain consistent communication and performance across multiple fraudulent worker personas. We have also seen evidence of AI use for automating repetitive tasks, summarizing collected information from victim organizations, and accelerating post-compromise decision making while human operators likely continue to direct intent and objectives. This operational adoption extends to emerging agentic AI technologies. Since late October 2026, Microsoft Threat Intelligence has identified Onyx Sleet and Pearl Sleet leveraging open-source agentic AI penetration testing ARTEX in operations, highlighting how North Korean threat actors are adopting new AI technologies as they become available.
+
+Mitigation and protection guidance
+
+Threat actor misuse of AI accelerates risk across enterprise environments by amplifying existing threats such as phishing, malware threats, and insider activity. To help organizations stay ahead of AI-enabled threat activity, Microsoft has introduced the Security Dashboard for AI. The dashboard provides users with a unified view of AI security posture by aggregating security, identity, and data risk across Microsoft Defender, Microsoft Entra, and Microsoft Purview. This allows organizations to understand what AI assets exist in their environment, recognize emerging risk patterns, and prioritize governance and security across AI agents, applications, and platforms. To learn more about the Microsoft Security Dashboard for AI see: Assess your organization’s AI risk with Microsoft Security Dashboard for AI.
+
+Additionally, Microsoft Agent 365 serves as a control plane for AI agents in enterprise environments, allowing users to manage, govern, and secure AI agents and workflows while monitoring emerging risks of agentic AI use. Agent 365 supports a growing ecosystem of agents, including Microsoft agents, broader ecosystems of agents such as Adobe and Databricks, and open-source agents published on GitHub.
+
+As the AI-enabled operations conducted by North Korean threat actors vary across tactics, techniques, and procedures (TTPs), the following guidance can help organizations harden their networks against multiple classes of threats.
+
+Vulnerability and exposure management
+
+Use Microsoft Defender Vulnerability Management to identify, assess, remediate, and track vulnerabilities across critical assets. Use the exposure score to reduce your vulnerability exposure and the Microsoft Secure Score to identify and remediate security misconfigurations in your environment.
+
+Use a perimeter scanning tool like Microsoft Defender External Attack Surface Management to understand your organization’s digital footprint and potential attack surface. Targeting web-facing vulnerabilities continues to be one of the most effective attack methods for initial access.
+
+Ensure any web-facing systems are isolated from the public internet with a secure network boundary and access them with a virtual private network (VPN). If certain servers must be accessible on the public internet, position them behind a web application firewall (WAF), reverse proxy, or perimeter network (also known as a DMZ), which can reduce the risk of vulnerability exploitation in some cases.
+
+Consider automating patching where possible. Windows Update client policies offer automated patching, which can greatly reduce the amount of time IT admins must spend identifying, configuring, and deploying updates.
+
+To help manage infrastructure distributed across cloud, on-premises, and hybrid networks, use a centralized patching solution like Azure Update Manager.
+
+Protecting against social engineering and phishing
+
+Educate users about protecting personal and business information on social media, filtering unsolicited communication, identifying lures in spear-phishing emails and watering holes, and reporting reconnaissance attempts and other suspicious activity.
+
+Educate users about preventing malware infections, such as ignoring or deleting unsolicited and unexpected emails or attachments sent through instant messaging applications or social networks.
+
+Review the recommended settings for Exchange Online Protection and Microsoft Defender for Office 365 to ensure your organization has established essential defenses and knows how to monitor and respond to threat activity.
+
+Invest in user awareness training and phishing simulations. Attack simulation training in Microsoft Defender for Office 365, which also includes simulating phishing messages in Microsoft Teams, is one approach to running realistic attack scenarios in your organization.
+
+Enable Zero-hour auto purge (ZAP) in Defender for Office 365 to quarantine sent mail in response to newly acquired threat intelligence and retroactively neutralize malicious phishing, spam, or malware messages that have already been delivered to mailboxes.
+
+Responders could also manually check for and purge unwanted emails containing URLs and/or Subject fields that are similar, but not identical, to those of known bad messages.
+
+Investigate malicious email that was delivered in Microsoft 365 and use Threat Explorer to find and delete phishing emails.
+
+Turn on Safe Links and Safe Attachments in Microsoft Defender for Office 365.
+
+Only allow device code flow where necessary. Microsoft recommends blocking device code flow wherever possible. Where necessary, configure Microsoft Entra ID’s device code flow in your Conditional Access policies.
+
+Vetting potential employees
+
+Exercise greater scrutiny for employees of staffing companies, since this is the easiest avenue for North Korean workers to infiltrate target companies.
+
+Check to make sure a potential employee’s social media/professional accounts are not highly similar to the accounts of other individuals. In addition, check that a contact phone number listed on a potential employee’s account is unique and not also used by other accounts.
+
+Scrutinize resumes and background checks for consistency of names, addresses, and dates. Consider contacting references by phone or video-teleconference rather than email only.
+
+Search whether a potential employee is employed at multiple companies using the same persona.
+
+Ensure the potential employee is seen on camera during multiple video telecommunication sessions. If the potential employee reports video and/or microphone issues that prohibit participation, this should be considered a red flag.
+
+Confirm the potential employee has a digital footprint. This includes a real phone number (not VOIP), a residential address, and social media accounts.
+
+Defending against malware
+
+Turn on cloud-delivered protection in Microsoft Defender Antivirus or the equivalent for your antivirus product to cover rapidly evolving attacker tools and techniques. Cloud-based machine learning protections block a majority of new and unknown variants.
+
+Ensure Microsoft Defender Antivirus definitions are up to date and real-time protection is turned on.
+
+Run endpoint detection and response (EDR) in block mode so that Microsoft Defender for Endpoint can block malicious artifacts, even when your non-Microsoft antivirus does not detect the threat or when Microsoft Defender Antivirus is running in passive mode. EDR in block mode works behind the scenes to remediate malicious artifacts that are detected post-breach.
+
+Configure investigation and remediation in full automated mode to let Microsoft Defender for Endpoint take immediate action on alerts to resolve breaches, significantly reducing alert volume.
+
+Configure automatic attack disruption in Microsoft Defender XDR. Automatic attack disruption is designed to contain attacks in progress, limit the impact on an organization’s assets, and provide more time for security teams to remediate the attack fully.
+
+Enable network protection in Microsoft Defender for Endpoint.
+
+Microsoft Defender XDR customers can turn on attack surface reduction rules to prevent several of the infection vectors of this threat. These rules, which can be configured by users with administrator rights, offer significant hardening against targeted attacks. In observed attacks, Microsoft customers who had the following rules turned on could mitigate the attack in the initial stages and prevent hands-on-keyboard activity:
+
+Block executable content from email client and webmail
+
+Block executable files from running unless they meet a prevalence, age, or trusted list criterion
+
+Block execution of potentially obfuscated scripts
+
+Use advanced protection against ransomware
+
+Microsoft Defender detections
+
+Microsoft Defender customers can refer to the list of applicable detections below. Microsoft Defender coordinates detection, prevention, investigation, and response across endpoints, identities, email, and apps to provide integrated protection against attacks like the threat discussed in this blog.
+
+Tactic
+
+Observed activity
+
+Microsoft Defender coverage
+
+Actor-specific alerts
+
+Known threat actor activity
+
+Microsoft Defender for Endpoint – Emerald Sleet threat actor activity– Diamond Sleet Actor activity detected– Onyx Sleet activity group– Pearl Sleet actor activity detected– Sapphire Sleet actor activity– Jade Sleet threat actor activity detected– Coral Sleet activity
+
+Reconnaissance
+
+AI-assisted research of target organizations
+
+Microsoft Defender for Cloud – Possible AI Tools Reconnaissance Detected– Possible Secret Reconnaissance Detected
+
+Initial access
+
+Sign-in activity; phishing
+
+Microsoft Defender XDR – Sign-in activity by a suspected North Korean entity Jasper SleetMicrosoft Entra ID Protection – Atypical travelImpossible travel– Microsoft Entra threat intelligence (sign-in)Microsoft Defender for Office 365 – A potentially malicious URL click was detected– A user clicked through to a potentially malicious URL– Suspicious email sending patterns detected– Email messages containing malicious URL removed after delivery– Email messages removed after delivery– Email reported by user as malware or phish
+
+Execution
+
+Backdoors observed in Sapphire Sleet Rust software compromise
+
+Microsoft Defender Antivirus – Trojan:Linux/ProcmacSteal – Trojan:PowerShell/ProcmacSteal – Trojan:MacOS/ProcmacSteal – Trojan:Cargo/ProcmacSteal
+
+Microsoft Security Copilot
+
+Microsoft Security Copilot is embedded in Microsoft Defender and provides security teams with AI-powered capabilities to summarize incidents, analyze files and scripts, summarize identities, use guided responses, and generate device summaries, hunting queries, and incident reports.
+
+Customers can also deploy AI agents, including the following Microsoft Security Copilot agents, to perform security tasks efficiently:
+
+Threat Intelligence Briefing agent
+
+Phishing Triage agent
+
+Threat Hunting agent
+
+Dynamic Threat Detection agent
+
+Security Copilot is also available as a standalone experience where customers can perform specific security-related tasks, such as incident investigation, user analysis, and vulnerability impact assessment. In addition, Security Copilot offers developer scenarios that allow customers to build, test, publish, and integrate AI agents and plugins to meet unique security needs.
+
+Threat intelligence reports
+
+Microsoft Defender XDR customers can use the following threat analytics reports in the Defender portal (requires license for at least one Defender XDR product) to get the most up-to-date information about the activity and techniques discussed in this blog. These reports provide intelligence, protection information, and recommended actions to prevent, mitigate, or respond to associated threats found in customer environments.
+
+Threat overview profile: Threat actors operationalizing AI
+
+Actor profile: Coral Sleet
+
+Actor profile: Diamond Sleet
+
+Actor profile: Emerald Sleet
+
+Actor profile: Jade Sleet
+
+Actor profile: Jasper Sleet
+
+Actor profile: Onyx Sleet
+
+Actor profile: Pearl Sleet
+
+Actor profile: Sapphire Sleet
+
+Microsoft Security Copilot customers can also use the Microsoft Security Copilot integration in Microsoft Defender Threat Intelligence, either in the Security Copilot standalone portal or in the embedded experience in the Microsoft Defender portal to get more information about this threat.
+
+Learn more
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+The post Tracking AI adoption in North Korean threat actor tradecraft appeared first on Microsoft Security Blog."
+4f3ae90ea839,4f3ae90ea839,2026-10-29 16:00 UTC,Business & Industry News,Microsoft Security,Microsoft Security Blog,Endpoint Security; AI Security; Identity Security Posture Management,Article,IDC MarketScape names Microsoft a Leader in the 2026 Worldwide Modern Endpoint Security for Enterprises Vendor Assessment,https://www.microsoft.com/en-us/security/blog/2026/10/29/idc-marketscape-names-microsoft-a-leader-in-the-2026-worldwide-modern-endpoint-security-for-enterprises-vendor-assessment/,The most critical moment in any attack is when it moves from access to action,"Today, we’re proud to share thatMicrosoft has been named a Leader in the 2026 IDC MarketScape for Worldwide Modern Endpoint Security for Enterprises (Doc #US54123526, September 2026). The IDC Marketscape calls out three strengths that we believe matter most in endpoint security today:
+
+Autonomous attack disruption and predictive shielding contain ransomware and identity attacks in minutes, at a meaningful scale.
+
+Agentic AI through Security Copilot is now generally available, with measured gains in alert accuracy and analyst time saved.
+
+The company offers broad native cross-platform coverage plus sovereign cloud and data residency options for regulated and multinational customers.
+
+Read the IDC report
+
+IDC MarketScape vendor analysis model is designed to provide an overview of the competitive fitness of technology and suppliers in a given market. The research methodology utilizes a rigorous scoring methodology based on both qualitative and quantitative criteria that results in a single graphical illustration of each supplier’s position within a given market. The Capabilities score measures supplier product, go-to-market and business execution in the short-term. The Strategy score measures alignment of supplier strategies with customer requirements in a 3-5-year timeframe. Supplier market share is represented by the size of the icons.
+
+The most critical moment in any attack is when it moves from access to action. That’s when ransomware detonates, stolen credentials are put to work, and, increasingly, a manipulated AI agent turns a user’s own data and tools against them. And threat actors are now using teams of AI agents to execute attacks faster and more relentlessly. Between 2025 and 2026, Microsoft Security researchers observed a more than 15% increase in ransomware detonations against enterprises.1 When an attacker can move from first foothold to encryption in minutes, protection on the endpoint must act at the same speed, without waiting for a person to connect the dots.
+
+Protection that acts while the attack is still unfolding
+
+The IDC MarketScape highlights that “Automatic attack disruption contains compromised devices, users, and IP addresses in near real time, and predictive shielding proactively hardens likely next attacker moves.” Built into Microsoft Defender, attack disruption uses AI and signals from the endpoint and across identities, email, and cloud to recognize multistage attacks, such as ransomware, as they happen. It then automatically contains the affected devices and users to stop the attacker from moving laterally. Against attacks that move in minutes, protection has to work autonomously, while the attack is still in progress and before it can spread.
+
+QNET, a global direct-selling company, saw this firsthand. Defender identified an active ransomware attack, isolated the compromised device, and stopped the second-stage payload within 128 seconds of the first high-severity alert.
+
+A foundation built for agentic security
+
+Stopping an attack like QNET’s in seconds starts with the right foundation. Attack disruption succeeds because Defender can see activity across endpoints, identities, email, and cloud, understand what that activity means, and act on it natively. The IDC MarketScape highlights that “the Defender portal unifies incident and alert queues, graph-based incident views, and advanced hunting, correlating signals from endpoint, identity, email, SaaS, and cloud sources into a single incident.”
+
+That foundation depends on three layers working as one. Signals and sensors give the system awareness across the entire environment. Context turns those signals into understanding: what is happening, what is exposed, how an attacker could move, and what matters most. Actuators, like attack disruption, turn that understanding into protective action. To protect against the latest AI-based threats, these layers need to work in unison.
+
+That’s why, on September 23, 2026, we announced the integrated security operations center (ISOC) in Microsoft Defender. ISOC brings security information and event management (SIEM) and Defender’s threat protection together, giving people and agents shared signals, shared context, and shared controls to see, understand, and act across the environment as one. On top of that foundation, we continue to strengthen what Defender can see:
+
+Richer endpoint signals: Defender provides more than 200 native event types for threat hunting. Custom data collection extends that visibility by letting security teams collect specialized telemetry to support tailored detections and advanced hunting.
+
+Comprehensive signals across your environment: Microsoft Sentinel now provides more than 500 connectors to ingest security-relevant data from across your organization’s digital estate. This breadth gives defenders the context to connect activity across otherwise fragmented systems, detect threats that no single signal would reveal, and investigate and respond with greater confidence.
+
+Agentic AI built into the flow of work
+
+With signals, context, and actuators working as one in Microsoft Defender, agents have what they need to be effective: the visibility to see what’s happening, the context to understand it, and the controls to act on it. IDC notes that AI is deeply embedded across the Defender platform, with agentic AI now generally available and delivering “measured gains in alert accuracy and analyst time saved.”
+
+One platform to see, understand, and protect local AI agents
+
+The same visibility, context, and controls that make agents effective for defenders also make it possible to secure the agents employees use every day. Developers and knowledge workers now run local agents, from coding assistants to agentic development environments, with access to data, credentials, tools, and Model Context Protocol (MCP) servers. IDC advises buyers to ask how vendors secure AI on the endpoint, including visibility into local models and agent activity. With Defender, security teams can see those agents, understand their reach, and protect them as they operate.
+
+See every local agent: Discovery of local agents and their configured MCP servers is available on Windows and macOS, covering more than 50 supported agents and MCP servers, including claw-based agents such as OpenClaw.
+
+Understand their reach: The exposure graph in Defender maps each agent’s blast radius across devices, identities, and MCP connections, and teams can investigate agent activity in advanced hunting alongside data from endpoints, identities, email, and cloud.
+
+Protect agents as they operate: Runtime protection, in preview on Windows, stops malicious instructions, such as prompt injection hidden in a file or web page, before an agent acts on them, and raises an alert with agent and session context.
+
+In a threat landscape being reshaped by AI, Microsoft Defender will continue to deliver leading endpoint security for any platform with a focus on reducing exposure, disrupting active attacks in your environment, and strengthening resilience across the entire organization.
+
+To see where security operations are headed next, join Rob Lefferts at Microsoft Ignite for the session: The Alert Is Dead. The Blueprint for the Agentic SOC.
+
+Microsoft named a Leader by IDC
+
+Read the 2026 IDC MarketScape to learn why IDC named Microsoft a Leader in Worldwide Modern Endpoint Security for Enterprises.
+
+Read the report
+
+To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
+
+1Microsoft 2026 Digital Defense Report
+
+The post IDC MarketScape names Microsoft a Leader in the 2026 Worldwide Modern Endpoint Security for Enterprises Vendor Assessment appeared first on Microsoft Security Blog."
+6ca0eaaa8a26,6ca0eaaa8a26,2026-10-28 16:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Identity Security Posture Management; Phishing Simulations,Article,The CISO’s evolving role: Protecting and defending in the agentic era,https://www.microsoft.com/en-us/security/blog/2026/10/28/the-cisos-evolving-role-protecting-and-defending-in-the-agentic-era/,And we have to rethink how we defend that enterprise as attackers use AI to move faster and operate at greater scale,"October is Cybersecurity Awareness Month, and it’s a good time to think about how much the world has changed for chief information security officers (CISOs) in the last 12 months.
+
+A year ago, we thought we were already in the thick of AI and starting to understand it. Since then, agents have spread across the enterprise faster than most organizations anticipated. According to our Work Trend Index Annual Report, the number of active agents in the Microsoft 365 ecosystem grew 15-fold year over year and 18-fold in large enterprises. Employees are building and deploying AI systems that can access company data, interact with applications, and take actions on their behalf. These systems are built with good intentions, but even well-intentioned agents can introduce risk when access and behavior are not appropriately governed.
+
+At the same time, more people inside our companies are building with AI. Many of them haven’t written code in years, if ever, and they aren’t necessarily thinking about security the way a security team would. That isn’t a criticism. It’s how quickly the technology has expanded who can build and what they can accomplish.
+
+For CISOs, this creates two fundamental shifts. We have to protect an enterprise that increasingly operates through AI and agents. And we have to rethink how we defend that enterprise as attackers use AI to move faster and operate at greater scale. When I talk with CISOs, these are the two challenges I keep coming back to. We need to enable innovation without introducing unmanaged risk, and we need to modernize defense without losing the security fundamentals that still matter.
+
+Get the 2026 Work Trend Index report
+
+For builders: Build securely in the agentic era
+
+Cybersecurity awareness has always been about people. This year, it has to include the people building agents. If you’re a developer, a builder, or someone who has just realized that AI can help you design and build things, this part is for you.
+
+Give your agents their own identities. Where supported and appropriate, assign agents governed identities rather than personal or shared credentials. When something goes wrong, you need to know which agent did it and be able to shut it off.
+
+Protect the data your agents touch. If an agent can reach information, assume it will use it. Make sure the right data protections are in place before you connect it. And remember that the agent will not think like you. It doesn’t share your judgment or your sense of what is appropriate. If you give it access to information or systems, it will act on that access, and that can quickly become a problem.
+
+Your CISO wants you to build. They also need to know what’s being built, so they can help you do it safely. The best thing you can do for your security leader is to have the identity and data conversation early, before you build, not after.
+
+For CISOs: Protect the enterprise as agent adoption grows
+
+Your first job is to put guardrails in place so people can innovate carefully, without slowing them down. Good guardrails help teams move faster because they know where the lines are.
+
+Start with observability, and make it deep. You need to know which agents exist, who owns them, what they can reach, and what they’re doing. You can’t protect what you can’t see. Deep observability also means knowing when an agent’s behavior changes, so your team can step in before a small issue becomes a big one.
+
+Then hold people’s feet to the fire on identity and data. These are the two areas where I wouldn’t give any ground. Every agent needs a governed identity with only the access it needs, and the data it can reach needs to be classified and protected. When those two are in place, most other decisions get easier. Here’s how we’re approaching agent governance.
+
+For CISOs: Defending differently
+
+Your second job is to defend differently than you have historically done.
+
+Attackers are using AI to move faster, and our latest Microsoft Digital Defense Report shows how much that is compressing the time defenders have to respond. But defending differently isn’t simply about adopting faster tools. It’s about changing how security teams turn information into action. The more integrated your environment is, the faster you’ll be able to see an attack and respond to it. An attack rarely shows up in just one place. Signals across identity, endpoints, applications, and cloud environments need to come together with threat intelligence and organizational context so defenders can understand what’s happening and respond before an incident escalates. When your tools work together, your team sees the full picture instead of pieces of it. It also requires a security approach built to continuously assess risk, make decisions, and act at the speed threats are developing.
+
+You also need the right threat intelligence and the right partner. Threat intelligence helps organizations understand how threats are changing, which ones matter to their environment, and where to focus their defenses. Working with partners that have visibility across industries and organizations can provide broader context than an individual organization may have on its own. And you’re not going to operate at this speed without agents helping you. The same capabilities that make attacks faster can make defense faster, with agents working alongside your analysts to investigate and respond. That’s why we’re bringing integrated security operations and agentic defense together.
+
+Two jobs, one goal
+
+The pace of change over the last year has been significant, and it is likely to continue. None of this means slowing down. The CISOs I talk with want their companies to innovate. They need to protect the enterprise as it uses AI and the increasing speed of AI-enabled threats.
+
+Prepare for an agent-driven workplace
+
+Explore Work Trend Index insights on the changing role of agents at work and the trends shaping how organizations operate.
+
+Explore the Work Trend Index
+
+If you’re building with AI, bring your security team in early and have the identity and data conversation. If you’re a CISO, focus on those two jobs and make sure you have the right partners for both.
+
+To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
+
+The post The CISO’s evolving role: Protecting and defending in the agentic era appeared first on Microsoft Security Blog."
+5220751be12e,f930d079f3dd,2026-10-23 18:12 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Code Security; Identity Security Posture Management; Endpoint Security,Article,Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks,https://www.microsoft.com/en-us/security/blog/2026/10/23/inside-the-litellm-1-107-0-supply-chain-compromise-credential-theft-through-python-startup-hooks/,Attack overview LiteLLM is commonly deployed as a gateway between applications and model providers,"In this article
+
+Attack overview
+
+Technical details
+
+Mitigation and protection guidance
+
+Indicators of compromise
+
+References
+
+Learn More
+
+On October 21, 2026, a compromised LiteLLM 1.107.0 release was published to the Python Package Index (PyPI) and distributed through official container images. The malicious package added files that Python could execute during normal interpreter initialization. An application did not need to import LiteLLM for the payload to run: starting Python in an affected environment could be enough.
+
+Microsoft analyzed two execution paths in the affected wheels: a credential collector launched through a path extension, and a Unix-oriented loader persisted through site-specific configuration. The collector targeted authentication material across developer tools, AI applications, cloud environments, browsers, and infrastructure. A separate database module attempted to read selected credential and model-configuration records from the LiteLLM proxy.
+
+Endpoint observations on Windows and macOS matched the recovered collector’s discovery, encryption, and outbound-connection behavior. In one Windows example, a routine Python invocation to install an unrelated dependency activated the collector. This distinction matters for response: investigators should not start Python or pip inside a suspect environment to determine whether the malicious package is present.
+
+This blog explains the startup mechanisms, the credentials the payload could reach, and the evidence defenders can use to investigate exposure. It also provides Microsoft Defender detection information, advanced hunting queries, and recovery guidance. Removing the package or a release tag is not sufficient recovery. Organizations must address the affected Python environment, any surviving processes, and credentials accessible to the compromised identity.
+
+Attack overview
+
+LiteLLM is commonly deployed as a gateway between applications and model providers. In that position it may have access to model-provider API keys, database connection strings, workload identities, routing configuration, and tenant policy data. The same package is also used on developer workstations, build agents, test systems, and containers, which widened the set of environments that could be exposed by the compromised release.
+
+According to LiteLLM maintainers, stolen developer GitHub credentials were used to alter the release workflow and redirect it to the lookalike repository Berri-AI/litellm rather than the legitimate BerriAI/litellm repository. A credential associated with another developer account was then used to satisfy a production approval step. Microsoft has not independently determined how the attacker first accessed the upstream environment or obtained those credentials.
+
+The compromised package used Python startup mechanisms to execute malicious code automatically, meaning exposure was not limited to systems actively using a LiteLLM gateway. Developer workstations, continuous integration and continuous delivery/deployment (CI/CD) agents, test environments, containers, and other systems that started Python with the affected package installed could also execute the payload. The malicious code supported credential collection and, on Unix-based systems, retrieval and execution of additional Python code.
+
+Figure 1: Compromised LiteLLM 1.107.0 execution flow.
+
+1. Compromised package distribution
+
+The compromised LiteLLM 1.107.0 release delivered malicious Python startup files to environments where the package was installed.
+
+2. Automatic payload execution
+
+Python startup processing launched the credential collector without requiring the application to actively use LiteLLM gateway functionality.
+
+3. Credential and sensitive-data collection
+
+The collector targeted developer credentials, cloud credentials, browser data, SSH material, environment variables, and LiteLLM database data accessible to the affected process.
+
+4. Encryption and exfiltration
+
+Collected data was encrypted and transmitted to an attacker-controlled endpoint.
+
+5. Conditional retrieval and execution of additional code
+
+On Unix-based systems, the payload supported retrieving and executing additional Python code, although this activity was not confirmed.
+
+Technical details
+
+Compromised package distribution and automatic payload execution
+
+The compromised wheel packaged cook.pth, cook.py, and sitecustomize.py under litellm-1.107.0.data/purelib/. During installation, these files were relocated into the Python environment’s library directory, outside the normal litellm application directory. This placement enabled execution through Python’s normal site initialization, which processes executable import statements in .pth files and later attempts to import the sitecustomize module.
+
+The first execution path began with the single executable line in cook.pth: “import cook”. This loaded cook.py, whose wrapper Base64-decoded and zlib-decompressed an embedded Python program before executing the recovered source. The program identified itself as PRIVCOLLECT and performed credential collection in a daemon thread.
+
+Figure 2. The executable .pth line imports cook, and the recovered collector starts a daemon thread after checking its inherited environment flag.
+
+Before starting the thread, the collector checked the inherited PRIVCOLLECT_ACTIVE environment variable. A nonempty value caused it to return; otherwise, it set the flag, limiting duplicate collection in descendant processes. After an upload returned HTTP 200, it attempted to write /tmp/.pc_once_72129118c59f5636c0bb. These duplicate-suppression gates were not containment controls: startup alone did not prove collection or upload completed, because a short-lived process could exit before the thread finished, while write failures or temporary-storage changes could leave the marker absent.
+
+Figure 3. Encode Cook.py file and decoded PRIVCOLLECT credential Stealer configuration.
+
+A second startup mechanism used sitecustomize.py, providing a separate Unix-oriented execution path with an embedded collector and functionality to retrieve and execute additional Python code from a remote host. Remote retrieval and execution through this path were not confirmed.
+
+Together, these mechanisms extended potential exposure beyond active LiteLLM deployments: simply starting Python in an affected environment could activate the malicious code, even when LiteLLM itself was never imported. Because the startup files resided outside the litellm application directory, removing only the application files could leave the malicious startup components behind.
+
+Credential and sensitive-data collection
+
+The recovered collector was designed to gather sensitive authentication material across developer tools, AI applications, cloud environments, browsers, and infrastructure. It runs multiple collection modules sequentially with independent error handling, allowing collection to continue even when individual targets are unavailable or inaccessible.
+
+Target
+
+Recovered collection behavior
+
+Developer and AI tools
+
+Reads selected authentication and configuration files for AI assistants, integrated development environments (IDEs) , GitHub Copilot, VS Code, and MCP integrations. Collects fixed paths and top-level JSON files in selected tool directories under a collection budget.
+
+Source control and package ecosystems
+
+Searches Git credentials, package-manager configuration, selected dotenv files, and private-key extensions. Shallow directory walks and file-size limits constrain these searches.
+
+Cloud and workload credentials
+
+Reads AWS, Azure CLI, and Google Cloud configuration or credential caches; Kubernetes service-account files; Docker configuration; and mounted secrets. It also attempts AWS and GCP metadata credential retrieval.
+
+Browsers and user histories
+
+Accesses Chromium-family and Firefox credential-related data and browsing history, plus shell, database-client, and interactive-tool histories. Password decryption is platform- and format-dependent.
+
+Process environments
+
+Collects its own environment and, on Linux, other process environments readable through procfs. This can expose secrets beyond variables explicitly configured for the LiteLLM process.
+
+Private keys and infrastructure
+
+Targets readable Secure Shell (SSH) material and selected GNU Privacy Guard (GPG), Transport Layor Security (TLS), CI/CD, Vault, and infrastructure-tool configuration. A target appearing in the code does not establish successful access.
+
+LiteLLM proxy data
+
+When its prerequisites are satisfied, starts a Python child using Prisma to read selected fields from two proxy database tables, with a 500-row limit for each query
+
+Encryption and exfiltration
+
+After collection, the payload serializes module results and host metadata as JSON. Each run generates a 32-byte AES key and a 16-byte initialization vector. AES-256-CBC encrypts the collection document; an embedded 4,096-bit RSA public key wraps the AES key using OAEP. The OpenSSL path tries SHA-256 and then SHA-1 for OAEP, and the resulting metadata records the selected digest.
+
+Figure 4. The collector generates a fresh AES key and IV, wraps the key with RSA, and packages the encrypted collection in a gzip tar archive before attempting upload. Selected code excerpts are wrapped for readability.
+
+The collector places three members in a gzip-compressed tar archive: data.bin, containing the initialization vector (IV) and encrypted collection; key.bin, containing the wrapped AES key; and hdr.json, containing plaintext envelope metadata. It then attempts an HTTP POST to hxxp://www[.]litellm[.]dev/healthcheck, using application/octet-stream, a fixed browser-like User-Agent, and a body checksum in an X-SHA256 header. The upload routine retries and treats only HTTP 200 as success.
+
+The OpenSSL backend creates temporary directories beginning with .pc_e_, stages input and output files and removes them after use.
+
+Conditional retrieval and execution of additional code
+
+In addition to the credential collector, the compromised package contained a separate Unix-oriented loader in sitecustomize.py, designed to retrieve and execute additional Python code. When Python starts, the loader takes an exclusive lock on /tmp/remote_code_loader.lock so that only one instance runs per host and detaches into the background. Each cycle reads a GitHub-hosted domain.txt file, which acts as a mutable pointer to an attacker-controlled server.
+
+Figure 5. The remote-loader path checks the pointer and DNS before retrieving code, then compiles and executes the response without a content-signature check.
+
+If a valid server address is returned and successfully resolved, the loader is designed to request /codepy from that server, compile the returned content, and execute it as Python code within the affected environment. This gives the attacker a mechanism to change the second-stage payload without publishing another compromised LiteLLM package. This loader is separate from the credential collector delivered directly in the compromised package.
+
+At the time the cited researchers examined domain.txt, it was empty and no second-stage retrieval or execution was confirmed. Because the file could be changed, the loader remained a re-armable remote-code execution mechanism.
+
+Mitigation and protection guidance
+
+Microsoft recommends the following actions for organizations that installed, mirrored, or built images with LiteLLM 1.107.0:
+
+Find and contain every affected copy. Identify LiteLLM 1.107.0 across installed environments, uv and pip caches, internal package mirrors, lock files, build outputs, and container images. Scope mutable container tags and the relevant exposure windows once validated and compare artifacts with the customer-ready hashes in the indicators of compromise section. For background, see secure software supply chain practices and Docker image digests. Digests are preferable to mutable tags because they identify immutable image content.
+
+Prevent Python execution and investigate from outside the environment. Isolate affected developer workstations, build agents, test systems, containers, and AI gateway hosts. Where operationally safe, stop running Python processes and prevent automation from restarting them. Do not run python, pip, or other commands that invoke the affected interpreter during evidence collection; inspect the environment with trusted tools from a known-clean system. Python normally processes site configuration, including executable import lines in .pth files, during initialization.
+
+Rebuild from verified artifacts. Confirm that cook.pth, cook.py, and sitecustomize.py were removed from the environment library path. Rebuilding is more reliable than assuming that deleting the litellm directory cleaned the top-level startup files.
+
+Rotate reachable credentials from a known-clean machine. Include model-provider keys, cloud and workload credentials, CI/CD secrets, source-control and registry tokens, SSH and GPG keys, AI coding-tool tokens, and browser sessions available to the affected identity. On proxy hosts, include stored provider credentials and DATABASE_URL. Revoke affected identity sessions rather than assuming password or key rotation immediately invalidates every active token or application session. See revoke user access in Microsoft Entra ID.
+
+Correlate before declaring compromise. Combine file hashes, Python process ancestry, .pc_e_ cryptographic staging, network destination, workload identity, and subsequent cloud or identity use. Do not use package presence or a generic filename as the sole verdict.
+
+Strengthen dependency controls. Use hash-pinned lock files, verify package and image provenance, use container digests instead of floating tags, and admit packages to internal mirrors only after review. See best practices for a secure software supply chain and dependency scanning in Azure DevOps.
+
+Restrict outbound access. Developer workstations, build agents, test systems, containers, and AI gateway hosts should not have unrestricted outbound HTTP access unless required. Route outbound traffic through managed egress controls, deny unnecessary destinations, and allowlist required services. See control outbound internet access from Azure.
+
+Enable Microsoft Defender for Endpoint protections. Onboard supported developer workstations, build agents, and AI gateway servers to Microsoft Defender for Endpoint, and enable Microsoft Defender Antivirus real-time and cloud-delivered protection where supported. See configure always-on protection and configure cloud protection.
+
+Microsoft Defender XDR detections
+
+As of October 22, 2026, the following Microsoft Defender Antivirus signatures and Microsoft Defender for Endpoint alerts were available for activity associated with the compromised LiteLLM 1.107.0 release. Detection names and availability may change as protection is updated.
+
+Tactic
+
+Observed activity
+
+Microsoft Defender coverage
+
+Initial Access / Execution
+
+Malicious components associated with the compromised package are detected and blocked; related suspicious script and network activity is identified across endpoints and cloud workloads.
+
+Microsoft Defender Antivirus – Trojan:PyPI/Stealer.SA – Trojan:PyPI/LiteLlmSupplyChain.A – Trojan:PyPI/LiteLlmSupplyChain.B – Backdoor:PyPI/LiteLlmSupplyChain.C Microsoft Defender for Endpoint– Suspicious script launched – Suspicious network connection observed
+
+Command and Control / Credential Access
+
+Credential-like data is staged by Python and followed by network activity to a public destination, including malicious-domain lookups and OpenSSL activity associated with the compromise.
+
+Microsoft Defender for Endpoint – Possible theft of passwords and other sensitive web browser information – Suspicious OpenSSL command launch Microsoft Defender for Cloud Microsoft Defender for Cloud triggers below detections for related activity in Azure App Service and Kubernetes workloads:– OpenSSL activity associated with possible LiteLLM compromise detected – DNS lookup of a known malicious domain
+
+Vulnerability Management
+
+Devices vulnerable to this security issue are surfaced for remediation.
+
+Microsoft Defender Vulnerability Management– Endpoints exposure tab in the Microsoft Defender portal: TVM-2026-0003
+
+Threat intelligence reports
+
+Microsoft customers can use the following reports in Microsoft products to get the most up-to-date information about the threat actor, malicious activity, and techniques discussed in this blog. This report provides intelligence, protection information, and recommended actions to prevent, mitigate, or respond to associated threats found in customer environments.
+
+Microsoft Defender XDR Threat analytics
+
+Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks
+
+Advanced hunting
+
+These queries support investigation of the stages discussed above. Select the appropriate lookback in Defender XDR and correlate results with environment, process and identity evidence. They are investigation leads, not standalone verdicts.
+
+Connections to the collector domain
+
+Normalize URL/hostname observations before matching the campaign domain. The query rejects suffix lookalikes such as www[.]litellm[.]dev[.]example; a match still needs process and workload context.
+
+DeviceNetworkEvents | extend UrlForParsing = iff(RemoteUrl contains ""://"", RemoteUrl, strcat(""http://"", RemoteUrl)) | extend RemoteHost = trim_end(@""\."", tolower(tostring(parse_url(UrlForParsing).Host))) | where RemoteHost in (""www.litellm.dev"", ""litellm.dev"") | project Timestamp, DeviceId, DeviceName, ActionType, RemoteUrl, RemoteIP, RemotePort, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
+
+Known startup-file hashes
+
+The four hashes cover LF and CRLF variants. A missing SHA-256 field limits this hunt; a generic filename is not an equivalent match.
+
+DeviceFileEvents | where SHA256 in~ ( ""9dd0a3926f96a37eb86cf1ee2310d9be93139cc4ebef3ef9e2efe9531390be25"", ""03ac2a8b752605d1d7710979c17ff18b03dd978203ba23ba97fd8ce3d6f897ea"", ""34bef04fe88ac9d0aae0475630b1738681d15b94f233ac8aa46eacf5968305fa"", ""b6122440d0d9cb1eb1ade9933f49214da8c31288de7710c076c2680dfa528465"", ""7f191632e7320705d154b85204f1ae546b543acbd7e8861229b76f5042b92bdb"", ""84dc8c82c0a4a4a62552ef826b49fcc86d1a5c4a5d0f2c06665723f93d129d7d"") | project Timestamp, DeviceId, DeviceName, ActionType, FileName, FolderPath, SHA256, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
+
+Inline database-collection program
+
+Look for the sensitive table/field pair together with the query API, serialization and complete output-suppression pattern. Legitimate exports may overlap. The recovered parent’s /proc prerequisite limits its applicability; raw arguments are omitted because they can contain a database secret.
+
+DeviceProcessEvents | where FileName startswith ""python"" or FileName startswith ""platform-python"" | where strlen(ProcessCommandLine) <= 4096 | where ProcessCommandLine contains_cs ""-c "" | where (ProcessCommandLine contains_cs ""LiteLLM_CredentialsTable"" and ProcessCommandLine contains_cs ""credential_values"") or (ProcessCommandLine contains_cs ""LiteLLM_ProxyModelTable"" and ProcessCommandLine contains_cs ""litellm_params"") | where ProcessCommandLine contains_cs ""query_raw"" | where ProcessCommandLine contains_cs ""json.dumps("" or ProcessCommandLine contains_cs ""json.dump("" | where ProcessCommandLine contains_cs ""os.devnull"" and ProcessCommandLine contains_cs ""os.dup2"" | project Timestamp, DeviceId, DeviceName, FileName, ProcessId, ProcessCreationTime, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
+
+Collector-like encryption staging
+
+The staging prefix plus encryption operation identifies a behavioral lead, not an upload or a uniquely malicious OpenSSL invocation. Alternate backends are outside this query, and key-bearing arguments are not projected.
+
+DeviceProcessEvents | where FileName in~ (""openssl"", ""openssl.exe"") | where ProcessCommandLine contains_cs "".pc_e_"" | where (ProcessCommandLine contains_cs "" enc "" and ProcessCommandLine contains_cs ""-aes-256-cbc"") or ProcessCommandLine contains_cs "" pkeyutl "" or ProcessCommandLine contains_cs "" rsautl "" | extend CryptoOperation = iff( ProcessCommandLine contains_cs "" enc "", ""AES packaging"", ""RSA wrapping"") | project Timestamp, DeviceId, DeviceName, FileName, CryptoOperation, ProcessId, ProcessCreationTime, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
+
+Vulnerability/Posture Check | Is the device potentially exposed to the affected Litellm?
+
+Use this query to identify devices potentially exposed to TVM-2026-0003. A match indicates potential exposure, not confirmed exploitation or compromise.
+
+DeviceTvmSoftwareVulnerabilities | where CveId == ""TVM-2026-0003""
+
+CloudProcessEvents query to detect encryption before exfiltration
+
+Identifies OpenSSL public-key encryption using /tmp/.pc_ staging paths, consistent with key wrapping before potential exfiltration.
+
+CloudProcessEvents | where ProcessName == 'openssl' and ProcessCurrentWorkingDirectory has_any ('/runner/','/app','/tmp/') and ProcessCommandLine has_all ('pkeyutl','-encrypt','-pubin') and ProcessCommandLine contains '/tmp/.pc_'
+
+MITRE ATT&CK techniques observed
+
+Microsoft mapped the following techniques based on observed activity and analysis of the recovered malicious components; individual entries note where behavior was not confirmed. For standard industry documentation, refer to the MITRE ATT&CK framework.
+
+Initial Access
+
+T1195.001 Compromise Software Dependencies and Development Tools | Malicious files shipped in LiteLLM 1.107.0 wheels and images; upstream release abuse reported by the maintainer.
+
+Persistence
+
+T1546.018 Event Triggered Execution: Python Startup Hooks | cook.pth and sitecustomize.py run during Python site initialization.
+
+Execution
+
+T1059.006 Command and Scripting Interpreter: Python | The collector runs in the interpreter; an inline Python child performs database queries.
+
+Defense Evasion
+
+T1027.013 Obfuscated Files or Information: Encrypted/Encoded File | Collector source is embedded as Base64-encoded, zlib-compressed content.
+
+T1140 Deobfuscate/Decode Files or Information | cook.py decodes and decompresses the collector at runtime.
+
+Credential Access
+
+T1552.001 Unsecured Credentials: Credentials In Files | Reads authentication and configuration files for developer, AI, and cloud tools.
+
+T1552.004 Unsecured Credentials: Private Keys | Reads selected SSH, GPG, and TLS key material.
+
+T1552.005 Unsecured Credentials: Cloud Instance Metadata API | Requests AWS and GCP credentials from metadata services; returned credentials were not confirmed in Microsoft telemetry.
+
+T1555.003 Credentials from Password Stores: Credentials from Web Browsers | Copies browser databases and supports selected Chromium password recovery on Windows.
+
+Discovery
+
+T1082 System Information Discovery | systeminfo was launched by Python in an observed Windows sequence.
+
+T1016 System Network Configuration Discovery | ipconfig, route, arp, and netstat were launched by the same Python process.
+
+Collection
+
+T1005 Data from Local System | Collects selected local histories, environment variables, and configuration.
+
+Command and Control
+
+T1102.001 Web Service: Dead Drop Resolver | The loader reads its server address from a specific GitHub-hosted file.
+
+T1105 Ingress Tool Transfer | The loader can retrieve Python code from /codepy; retrieval and execution were not confirmed.
+
+Indicators of compromise
+
+URLs are defanged. Use precise roles and context rather than blocking shared infrastructure indiscriminately.
+
+Indicator
+
+Type
+
+Role
+
+www[.]litellm[.]dev
+
+Domain
+
+Exfiltration Domain
+
+hxxp://www[.]litellm[.]dev/healthcheck
+
+URL
+
+Exfiltration URL
+
+hxxps://raw[.]githubusercontent[.]com/letters9813/pythonclient-test/main/domain.txt
+
+URL
+
+C2 dead-drop URL
+
+9dd0a3926f96a37eb86cf1ee2310d9be93139cc4ebef3ef9e2efe9531390be25
+
+SHA-256
+
+cook.py, variant
+
+03ac2a8b752605d1d7710979c17ff18b03dd978203ba23ba97fd8ce3d6f897ea
+
+SHA-256
+
+cook.py, Windows wheel variant
+
+34bef04fe88ac9d0aae0475630b1738681d15b94f233ac8aa46eacf5968305fa
+
+SHA-256
+
+sitecustomize.py, variant
+
+b6122440d0d9cb1eb1ade9933f49214da8c31288de7710c076c2680dfa528465
+
+SHA-256
+
+sitecustomize.py, Windows wheel variant
+
+7f191632e7320705d154b85204f1ae546b543acbd7e8861229b76f5042b92bdb
+
+SHA-256
+
+cook.pth
+
+84dc8c82c0a4a4a62552ef826b49fcc86d1a5c4a5d0f2c06665723f93d129d7d
+
+SHA-256
+
+cook.pth, variant
+
+/tmp/remote_code_loader.lock
+
+file
+
+Lock file created by the background loader.
+
+/tmp/.pc_once_72129118c59f5636c0bb
+
+file
+
+Marker written after stolen data was sent.
+
+7598727f209d717041db37f7dca271d3a7d328a279890e0e1d55375729aeb86d
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-macosx_10_12_x86_64.whl
+
+0aaf7ba346d41ef2f40390436738b001180d5a1c03aa093f121078a9969d9a1a
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-macosx_11_0_arm64.whl
+
+668169d35b87bf51324080390b1b1c5ab12bd335cfe5f1a99e3689abd5e02ae6
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-manylinux_2_28_aarch64.whl
+
+462d0c9f67ca522d9e0e4acd245e90b36ce0d5353604a66bb7c43a1ec4a6fcf7
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-manylinux_2_28_x86_64.whl
+
+c2e32d0ce2548aa662c18bf5001911a79fe5b30cf8357132275add02fdcde054
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-musllinux_1_2_aarch64.whl
+
+1bbce8caa94f01c0aaa0b7ddae51553a8a32e1ce53d96d44fe583272aff7ad00
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-musllinux_1_2_x86_64.whl
+
+12d4ccc5c6f8d35cf4f2cf233b7f3e418e863e657d81ff5f5fc9e210005b9484
+
+SHA-256
+
+litellm-1.107.0-cp310-abi3-win_amd64.whl
+
+References
+
+LiteLLM, Contained: Oct 21, 2026 LiteLLM release v1.107.0 Compromised
+
+Python Software Foundation, Site-specific configuration hook.
+
+Learn More
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+Review our documentation to learn more about our real-time protection capabilities and see how to enable them within your organization.
+
+Learn more about securing Copilot Studio agents with Microsoft Defender
+
+Evaluate your AI readiness with our latest Zero Trust for AI workshop.
+
+Microsoft 365 Copilot AI security documentation
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails
+
+Prompt injection protection in Microsoft Defender for Office 365 – official documentation of the prompt injection protection in Microsoft Defender for Office 365.
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails | Microsoft Security Blog
+
+Manipulating AI memory for profit: The rise of AI Recommendation Poisoning | Microsoft Security Blog – a related example of an AI-era technique observed in email traffic
+
+Defending the inbox against prompt injection attacks | Microsoft Defender for Office 365 Blog – feature announcement introducing prompt injection protection in Microsoft Defender for Office 365.
+
+Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
+
+The post Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks appeared first on Microsoft Security Blog."
+71c0914c344c,71c0914c344c,2026-10-19 13:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Identity Security Posture Management,Article,Agents are your newest insiders. Security must move at their speed.,https://www.microsoft.com/en-us/security/blog/2026/10/19/agents-are-your-newest-insiders-security-must-move-at-their-speed/,With that capability can come insider risk,"Agents are rapidly becoming part of how work gets done. They can support a range of activities from writing code and researching products to analyzing revenue, processing expenses, and acting across the systems that run the business. To be most useful, they often need access to company data, applications, tools, and other agents. That access is what makes agents more capable. With that capability can come insider risk.
+
+This does not mean agents are inherently malicious. It means they are capable tools that can be granted access to important systems by users. They can make mistakes, be manipulated, or be compromised. Their models can produce variable outputs, their context can change, and their plans can evolve as they work. An agent that operates as intended when a task begins may respond differently as context or inputs change. Depending on how they are designed and deployed, agents can operate continuously, at machine speed and scale.
+
+Learn how to secure your agentic estate at speed and scale
+
+Satya Nadella, Chairman and Chief Executive Officer of Microsoft, recently described the trust architecture this new era requires: we must separate the supply of intelligence from the authority over it. We should not ask a model to be its own security authority. The controls that determine what it can access, what actions it can take, and whether it should continue operating must sit outside the model, where the model cannot bypass or tamper with them.
+
+“The most trustworthy agentic system will not be the one with the model we trust most. It will be the one designed that enables us to trust the model least.”
+
+Satya Nadella
+
+Project Perception—Securing your agentic insider
+
+We introduced Project Perception and the Microsoft cyber stack to help organizations defend with agents. Today, we are extending Perception to secure the agentic insider. Guardian Agents help security teams operate continuously, at machine speed and scale, while sensors, context, and actuators across the cyber stack help understand changing agent risk and continuously adapt protection in response. Project Perception and Microsoft Agent 365 share signals, context, and a unified registry giving IT and security teams a consistent view of agents and risk, with the controls each needs.
+
+This builds on a simple security principle: surround non-deterministic intelligence with deterministic controls, independent evidence, and containment boundaries. Assume an agent can fail or be compromised. Observe it continuously. Minimize and tailor its authority before it acts. And continuously adjust that authority as risk changes.
+
+This requires protection across identity, permissions, data, endpoints, network, cloud, and runtime. The system has four continuous responsibilities:
+
+Know which agents exist, who owns them, why they exist, and what they are doing.
+
+Contain what each agent can access and do before it acts.
+
+Protect the data, tools, runtime, resources, and systems in the agent’s path.
+
+Adapt protection continuously as behavior, context, and risk change.
+
+These are not four products or sequential phases. They operate together. Evidence changes risk. Risk changes policy. Policy changes what the agent is allowed to do. Consider an expense-approval agent. It may need to read expense submissions, check policy, and approve routine reimbursements, but it should not inherit every permission of the employee who sponsors it. Its identity, runtime, access paths, and task-scoped authority should be explicit from the start. If it later encounters a prompt injection or attempts an action outside that task, the system should respond proportionately: preserve safe reads while blocking writes, narrow the resources it can reach, require provable human approval for a consequential step, or isolate and stop the agent when the risk warrants it. This is what continuous containment looks like in practice.
+
+Know every agent and give it an accountable identity
+
+You cannot secure what you cannot see. Agents can be created through Microsoft platforms, integrated through partner platforms and software development kits (SDKs), or introduced locally without a central deployment process. Microsoft Security uses native integrations, connectors, and sensors across the cyber stack to discover more of the agent estate.
+
+We are expanding discovery to 35 additional types of local agents, bringing the total to 60 supported local agents, including Claude Code, OpenAI Codex, and GitHub Copilot. Organizations can bring these agents into a unified registry, regardless of how they were discovered, to understand ownership, activity, and risk.
+
+Discovery tells you that an agent exists. Identity gives security and governance systems a durable anchor for controlling it.
+
+Every agent should have a first-class identity distinct from the person using or sponsoring it. We are extending Microsoft Entra Agent ID with identity types for additional agent patterns, including local and previously unknown agents discovered through security sensors. This means an agent can become a policy target even when it was not originally integrated with Microsoft Security. Agent identity anchors attribution, ownership, lifecycle, risk, permissions, authorization, and policy, so the enterprise can distinguish what a person did from what an agent did on that person’s behalf.
+
+Contain what the agent can do before it acts
+
+Being able to find and identify an agent is necessary, but it is just the start. We need to understand the potential impact the agent can have in the enterprise environment. The next step is to bound the agent across its runtime, its paths to tools and resources, and the authority it can exercise.
+
+Contain the runtime
+
+The model and harness should execute inside a controlled environment rather than inherit fully-privileged access to the device. Sandboxes such as Microsoft Execution Container (MXC) provide policy-controlled access to resources the agent needs to complete its task. They also create an enforcement boundary where security controls and observability can operate outside the agent’s reach. If the agent or harness is compromised, it should not be able to disable the controls watching it.
+
+Control the action space
+
+An agent should not be free to call any tool, API, Model Context Protocol (MCP) server, resource, or other agent it can find. Local and network and data controls must mediate those paths, observe the calls, and enforce enterprise policy. Controlling the destination alone is not enough. Security must also understand the content flowing into and out of the agent, including its sensitivity, provenance, and whether untrusted data may be influencing the agent’s behavior.
+
+Start with no permissions, or least privilege
+
+We have spent decades applying Zero Trust and least privilege to people. Agents make those principles even more important. An agent should not automatically inherit all the standing access of its user. It should begin with no authority and receive only what it needs for the approved task, for only as long as the task requires.
+
+To enable this, we are introducing Dynamic Permissions. Organization-wide policy sets the outer boundary, including preventing an agent from obtaining authority its user does not have. Permissions can then be scoped to the task, made time-bound, and contracted or removed as the task changes or completes. Higher-impact actions can require verified human approval.
+
+The employee retains the employee’s access. The agent receives its own identity, permissions and its own authority scoped to its current task and for the duration of the task only.
+
+Adapt protection as agent risk changes
+
+Least privilege reduces exposure, but it does not eliminate risk. An expense-approval agent may begin a task with the right access and then encounter a prompt injection in an external document. Its configuration has not changed, but its behavior and risk have.
+
+For human users, a delay between detection and response may be manageable. For an agent operating at machine speed, it can be the difference between containment and impact. The security system must be able to understand what changed and act before a person can manually investigate every signal.
+
+That is why we are introducing Dynamic Agent Risk and Dynamic Conditional Access for agents.
+
+Dynamic Agent Risk
+
+Dynamic Agent Risk combines signals from identity, data, endpoints, cloud, network, runtime, and the agent’s own activity. It considers how securely the agent is configured, what resources it can reach, the potential impact if something goes wrong, and whether its actions are drifting from the user’s or organization’s intent.
+
+The result is not a one-time score assigned at onboarding. It is a continuously updated understanding of the agent’s current risk and whether its current authority still matches that risk. The question is not simply whether the agent should run or stop. It is what the agent should be allowed to read, change, invoke, or approve at that moment.
+
+Dynamic Conditional Access
+
+Dynamic Conditional Access extends Microsoft Entra Conditional Access for agents so a change in risk can drive coordinated action across multiple enforcement points. The response is graduated, not binary. Policy can reduce permissions, preserve reads while blocking writes, narrow the data and resources the agent can reach, restrict network paths, shorten or revoke time-bound access, or require provable human approval before a consequential action proceeds. At the highest levels of risk, it can isolate the runtime or stop execution entirely.
+
+Return to the expense agent. It begins with narrowly scoped permission to review and approve expenses within policy. When it encounters untrusted content and attempts an unrelated action, new evidence raises its Dynamic Agent Risk. Policy responds proportionately: it can preserve read access while removing the ability to approve or write, block access to sensitive resources, and require cryptographically provable human approval for a high-impact step. If the risk continues to rise, the system can isolate the runtime or stop execution. The employee remains productive. The agent is constrained without treating every risk change as a kill-switch event.
+
+Secure agentic systems at scale with Guardian Agents
+
+As organizations deploy thousands or hundreds of thousands of agents, manually triaging every alert and coordinating every response will not scale. Securing agents must itself become agentic, while remaining inside boundaries people set.
+
+That is why we are introducing new Playbooks and a team of Guardian Agents in Project Perception. People define policy, approval boundaries, and delegation rules. Playbooks define the desired security outcome and coordinate protective actions. Guardian Agents carry out the work at machine speed, adapting as agent activity, risk, security context, and organizational policy change.
+
+Guardian Agents can help teams understand why risk changed, investigate the relevant evidence, recommend or apply containment, and use what they learn to harden policy. This is not about outsourcing judgment. People retain control over objectives and consequential decisions. The system carries the continuous work that does not scale through manual operations.
+
+Agents will only be adopted at scale if they can be trusted at scale. At Microsoft, we are already operating in a world of hundreds of thousands of agents. As Customer Zero, we have learned that securing agents requires continuous visibility into agent activity, proactive protection of access and data, and adaptive protection that keeps pace with evolving threats. Those lessons directly inform the innovations we are delivering to help every organization adopt agents with confidence.”
+
+—Terrell Cox, Corporate Vice President (CVP) and Deputy Chief Information Security Officer (CISO), Customer Security, Microsoft
+
+Extending containment to the model
+
+As model transparency increases, it creates a new source of security evidence. Chain-of-thought and other model-level signals can help identify intent drift, understand whether untrusted information is influencing reasoning, and detect when an agent’s planned actions are diverging from the task it was given.
+
+We are bringing this deeper evidence into Dynamic Agent Risk, together with signals from across the cyber stack. This builds on Satya Nadella’s principle: increase transparency into the model while keeping security decisions and enforcement independent of it.
+
+Greater model transparency gives security systems deeper evidence to detect suspicious behavior and inform Dynamic Agent Risk. But the core security principle does not change: the model cannot be its own security boundary. Independent systems must observe every layer, including the model itself, and ultimately determine and enforce what the system is allowed to do.
+
+These are not separate pillars. They make the same containment architecture stronger: better evidence, stronger assurance, more accurate risk, and more effective protection.
+
+Confidence to move faster
+
+Organizations are adopting agents to serve customers better, solve problems faster, and give people more time for the work that matters most. The goal is not to make every model perfectly predictable before it can be useful. The goal is to build systems that remain secure even when the model is not.
+
+That requires a clear division of responsibility. Models supply intelligence. People and organizations retain authority. Independent controls establish identity, limit privilege, protect data, preserve evidence, and contain unsafe action. Security continuously reassesses risk and adapts protection as the agent works.
+
+You should not have to choosebetween innovation and safety.
+
+That is what we are working toward: an agentic world where organizations can put intelligence to work with confidence because security can observe it, govern it, and contain it at the same speed.
+
+Learn more here and join us at Microsoft Ignite.
+
+To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
+
+The post Agents are your newest insiders. Security must move at their speed. appeared first on Microsoft Security Blog."
+78ea2205134a,78ea2205134a,2026-10-16 16:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security,Article,Managing open-weight model risk in enterprise deployments,https://www.microsoft.com/en-us/security/blog/2026/10/16/managing-open-weight-model-risk-in-enterprise-deployments/,"Today, Microsoft and NVIDIA are publishing Risk Management for Open-Weight Models in Enterprise, the first in a planned series of joint resources intended to help enterprises...","The growing AI landscape is giving enterprises more choice in how they build, customize, and deploy increasingly capable models. Open-weight models are an important part of that landscape. They give enterprises access to model weights and greater flexibility to inspect, evaluate, modify, and run models within their own environments.
+
+While that flexibility can be valuable, it also affects how enterprises evaluate models, where they implement safeguards, and who is responsible for maintaining those safeguards over time.
+
+As enterprises choose which models to deploy, the relevant question is broader than whether a model is open-weight or closed-weight. Enterprises need to understand what they are using the model for, what could go wrong in that context, and what evidence and controls they need to manage risks.
+
+Today, Microsoft and NVIDIA are publishing Risk Management for Open-Weight Models in Enterprise, the first in a planned series of joint resources intended to help enterprises address those questions. The paper introduces a shared risk taxonomy and an approach to managing model risks grounded in established standards and frameworks, including International Organization for Standardization (ISO) standards and the National Institute of Standards and Technology (NIST) AI Risk Management Framework.
+
+The paper reflects a core idea: weight openness alone does not determine an AI system’s risk. Risk depends on the model, use case, deployment, and safeguards.
+
+Read the whitepaper: Risk Management for Open-Weight Models in Enterprise
+
+Understanding risk in the deployment context
+
+Open- and closed-weight models can share many of the same underlying risks, but how those risks materialize depends on the deployment. A model used to help an employee draft a document presents different considerations than the same model used in a customer-facing workflow, just as a standalone inference endpoint differs from a system connected to external data or tools.
+
+The architecture matters too. A risk may originate in the model, while the most effective control may sit in the inference environment, application, or surrounding operational processes. The joint guidance looks beyond the model label to factors including provenance, intended use, users, deployment conditions, and surrounding controls. This first paper focuses primarily on model-layer risks. Evaluating a model alone does not establish the safety of an agent or application: teams must also assess its permissions, data access, tools, runtime, and operational controls.
+
+Establishing a common language
+
+Managing these risks consistently also requires a common vocabulary across engineering, security, legal, safety, and business teams.
+
+The initial Microsoft and NVIDIA taxonomy organizes risks into five broad categories: Cybersecurity, Data Protection, Content, Human-AI Interaction, and Bias. It is not a policy or deployment checklist, but instead it should be used by enterprises to adapt it to their own systems, use cases, and risk criteria, then connect relevant risks to evaluations, mitigations, and accountable owners.
+
+Using evaluations as risk evidence
+
+Evaluations help turn the taxonomy into something enterprises can use. The paper maps evaluations to a selection of risks across the five categories, giving teams a way to start with a risk that matters for their deployment and identify evaluations that can produce relevant evidence about it.
+
+Microsoft Foundry helps enterprises assess quality, groundedness, and safety with built-in and custom evaluations and automated red teaming. Its configurable content-safety controls help detect and mitigate harmful inputs and outputs and prompt attacks. Teams should validate control availability for their model and deployment, including preview status, and combine these capabilities with application-specific testing, monitoring, and human oversight.
+
+Evaluations still need to be interpreted in the context of a particular deployment and the goal is to make it easier for teams to connect the risks they identify with useful evidence, while building a broader set of evaluation resources that can evolve alongside models, deployment patterns, and emerging risks. Microsoft and NVIDIA plan to use the joint repository to share additional evaluations and point to existing resources that can help enterprises assess specific risks.
+
+Accounting for changes in control and responsibility
+
+Open-weight access gives enterprises greater control over how a model is evaluated, modified, and deployed. Model access and deployment are separate choices: open-weight models can also be used through managed platforms. Responsibility for safeguards depends on the service and deployment configuration; enterprises that operate their own model deployments may take on controls otherwise provided by a managed service.
+
+Those safeguards can operate at different layers, and (depending on the risk) enterprises might use model changes, access controls, input and output filtering, monitoring, or human review. The important step is connecting each identified risk to controls that can effectively address it within the deployed system. Those decisions need to be revisited as models and deployments change.
+
+Building on this work
+
+Risk Management for Open-Weight Models in Enterprise focuses primarily on the model layer. Future work from Microsoft and NVIDIA is intended to extend this approach across the runtime, harness, and application layers, with additional technical guidance on evaluation and mitigation.
+
+We also expect the resources supporting this work to evolve as new models, evaluations, and deployment patterns emerge. The joint repository will provide a place to share additional evaluation resources, including contributions from the broader community.
+
+For enterprises deploying open-weight models today, the paper provides guidance they can begin applying to their own use cases. We encourage developers, security practitioners, researchers, and others working in this space to read the paper, explore the evaluations, and contribute evaluations that can help strengthen this shared body of work.
+
+Read the joint Microsoft-NVIDIA paper, Risk Management for Open-Weight Models in Enterprise.
+
+Explore the joint repository and technical resources.
+
+Risk Management for Open-Weight Models in Enterprise was developed jointly by Microsoft and NVIDIA, with Andrew Berkley and April Chen of Microsoft and Michael Boone, Eileen Long, and Arun Rao of NVIDIA leading the development and editing of the paper.
+
+Explore Microsoft Foundry evaluations and content-safety controls for implementation guidance.
+
+To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
+
+The post Managing open-weight model risk in enterprise deployments appeared first on Microsoft Security Blog."

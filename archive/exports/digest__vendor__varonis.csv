@@ -1,0 +1,1000 @@
+ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+d9b66f9c35f2,d9b66f9c35f2,2026-10-23 13:18 UTC,Vulnerabilities & Patching,Varonis,Varonis Blog,Vulnerability Management; Cloud Risk Management,Article,Go With the Flow: How a Shadow Dependency Led to a Cross-Tenant Vulnerability in GCP Dataflow,https://www.varonis.com/blog/shadow-dependency-in-gcp-dataflow-cross-tenant,Varonis Threat Labs uncovered a cross-tenant Google Cloud Dataflow vulnerability that potentially allowed attackers to exploit predictable bucket names and achieve remote code...,"Varonis Threat Labs uncovered a cross-tenant Google Cloud Dataflow vulnerability that potentially allowed attackers to exploit predictable bucket names and achieve remote code execution (RCE) on another organization's Dataflow workers, without any access to the victim's project. Under the right conditions, the attack started from just the target's GCP project ID.
+
+After our Dataflow Rider research, we examined Apache Beam, the open-source SDK behind Dataflow, and found that under certain conditions, attackers could run code in projects they could not access directly. By pairing a predictable bucket-naming scheme with a flag already used by many Dataflow jobs, they could exploit the same service account compromised in Dataflow Rider, without requiring any initial access to the victim's environment.
+
+The victim had to be running a pipeline built with Beam's Python SDK, and it had to be the project's first Dataflow job in that region to use the default staging bucket. Google has since mitigated the issue, with fixes rolled out globally that protect even older or pinned SDK versions.
+
+The predictable staging bucket
+
+Inside gcsio.py we learned how Beam decides where a pipeline's staging bucket lives when the pipeline doesn't specify one.
+
+If a pipeline doesn't configure an explicit --staging_location, Beam computes a default bucket name deterministically from the project ID and region:
+
+GCP project IDs are not secrets. They show up in URLs, IAM bindings, error messages, support tickets, and are often guessable from a company's name. MD5 provides no protection here either, as it's purely used to shorten the string into a valid bucket-name component, and it's trivial to precompute for any project ID an attacker wants to target.
+
+That predictable name is then used to look the bucket up and create it if it doesn't exist:
+
+GCS bucket names are a global namespace. Only one project in the world can own dataflow-staging-<region>-<hash> at a time. Whoever creates it first, wins. This is textbook bucket squatting: an attacker computes the victim's future staging bucket name ahead of time, creates it in their own project, and grants AllUsers access to it.
+
+When the victim later runs its first Dataflow job in that region without a dedicated staging bucket, get_or_create_default_gcs_bucket() finds the attacker's bucket already sitting at that name and simply reuses it. Unlike Beam's Java SDK, which already verified that the bucket belonged to the project, the Python SDK never checked who owned it.
+
+The victim's own pipeline stages its code into infrastructure the attacker controls, and the attacker doesn't need a single IAM permission on the victim's project to pull it off. The same first-come rule also limits the attack: once a project has created its default bucket in a region, it owns that name for good. The opening exists only for projects that haven't yet run a default-bucket Dataflow job in that region.
+
+A squatted bucket by itself is only a foothold. The second piece, the one that turns it into code execution, is what a lot of pipelines upload into that bucket without a second thought: --save_main_session.
+
+From a guessable bucket to code execution
+
+Every Dataflow pipeline is just a Python script. When that script relies on global state, such as imported modules, helper functions, or constants defined at the top level, the workers that execute the pipeline need a copy of that state too.
+
+--save_main_session is Beam's shortcut for this, which serializes the entire __main__ module's global namespace, including every import, function, and variable in scope, into a single file. The runner code names this artifact consistently across the codebase:
+
+During staging, Beam builds that file using its pickler abstraction (dill or cloudpickle under the hood) and uploads it straight into the job's staging bucket, which may already be squatted by an attacker:
+
+Every worker that boots for the job then downloads that file and loads it back by unpickling it:
+
+At the time of our research, Dataflow trusted staged artifacts pulled from storage without validating them, as we saw in Dataflow Rider (Google has since added integrity verification, covered below). However, this artifact isn't a YAML template or a UDF whose logic the pipeline merely interprets. It's a raw pickle stream, and unpickling a pickle stream in Python doesn't just restore data, it can execute code. Any object that defines __reduce__ gets to decide what runs the moment it's deserialized:
+
+Put the predictable bucket name and the pickled session together, and a bucket an attacker squats before the victim ever runs a job becomes a delivery mechanism for arbitrary code execution on that victim's Dataflow workers.
+
+Chaining it together: squat, watch, and swap
+
+Put bucket squatting and code execution together, and you get an attack path that looks like this:
+
+Prepare a malicious staging bucket in the attacker's organization. For a target project ID and one or more likely regions, precompute dataflow-staging-{region}-{md5(project_id)} and create each bucket in an attacker-owned project, with public access prevention disabled and AllUsers granted read/write.
+
+Generate a malicious pickle payload in the attacker's organization. Build a Python object whose __reduce__ method reaches out to the instance metadata server, retrieves the worker service account's identity and access token, and exfiltrates both to an attacker-controlled endpoint.
+
+Wait for the victim to run a --save_main_session job without an explicit staging bucket configured, in a region where the project hasn't yet created its default bucket. Dataflow creates the job's working folder inside the attacker's squatted bucket and uploads the legitimate pickled_main_session into it.
+
+Detect and swap. The attacker polls the bucket for new job-prefixed folders, and the moment pickled_main_session appears, deletes it and re-uploads the malicious pickle from step 2, racing the workers that are about to start.
+
+Wait for execution. Every worker that boots for that job, including new workers spun up by autoscaling, downloads and unpickles the swapped file, running the attacker's code with the permissions of the Dataflow worker's service account. By default, that service account can be broadly privileged, such as the Compute Engine default service account.
+
+Attack flow video
+
+The video below walks through the full attack flow, from squatting the predictable staging bucket to swapping the pickled session and executing code on Dataflow workers.
+
+Impact
+
+The impact here depends on the privileges of the job's runtime service account, but can include:
+
+Credential theft: exfiltration of the Dataflow worker service account's OAuth token via the instance metadata endpoint.
+
+Code execution: arbitrary code execution on every Dataflow worker for the job, including workers spun up later by autoscaling.
+
+Privilege escalation / lateral movement: using the stolen token to pivot to other GCP resources the service account can reach.
+
+Data manipulation or exfiltration: since the payload runs inside the same worker process handling the pipeline's data, and because the attacker-controlled staging bucket may expose staged artifacts and job outputs written there for exfiltration as well.
+
+The fix
+
+We reported our bucket-squatting discovery to the Apache Beam project, and a fix was implemented in June 2026. We debuted our research and insights at DEF CON 2026 in the Cloud Village. Google was fast, responsive, and professional throughout the disclosure process, and the Google Cloud VRP team thanked us for our report and partnership and for helping keep Google safe.
+
+Google addressed the issue in three layers, all of which are now rolled out globally.
+
+Layer 1: An ownership check in the Beam Python SDK
+
+Google contributed a client-side check to the Apache Beam Python SDK (apache/beam PR #39008, released in Beam 2.75.0). It adds an explicit ownership check before Beam trusts a bucket it didn't just create itself.
+
+get_or_create_default_gcs_bucket() now calls _validate_bucket_project() on any pre-existing bucket it finds at the predictable default name, resolving the caller's project ID to a project number via the Cloud Resource Manager API and comparing it to the bucket's actual owning project number.
+
+If an attacker has already squatted the predictable bucket name in their own project, the ownership check causes the project numbers to differ, so Beam raises a ValueError instead of silently staging the job’s code into attacker-controlled storage.
+
+This closes the bucket-squatting path on the client side for jobs running Beam 2.75.0 or later.
+
+Layer 2: Server-side enforcement in the Dataflow service
+
+Google also deployed the same kind of check directly in the Dataflow service backend. Whenever a job is submitted using a default staging bucket, the Dataflow control plane independently verifies that the bucket is owned by the submitting project and rejects the job with FAILED_PRECONDITION if it belongs to another project. Because this is enforced server-side, customers running older or pinned Beam SDK versions are protected against default-bucket squatting too, without needing to upgrade.
+
+Layer 3: End-to-end integrity checks for staged artifacts
+
+Finally, Google rolled out SHA-256 integrity verification for staged files across Dataflow and Apache Beam. During staging, the SDK computes SHA-256 hashes of staged artifacts, including pickled_main_session, and records them. Dataflow workers verify the digest of every downloaded artifact on startup and abort if any file in GCS was modified or swapped after staging. That shuts down the ""detect and swap"" race from step 4 of the attack.
+
+Two important things to keep in mind:
+
+Explicit buckets are your call. The ownership checks apply to the auto-selected default staging bucket. Buckets you configure explicitly with --staging_location or --temp_location are intentionally allowed to live in a shared or centralized project, so make sure that project and its bucket permissions are locked down.
+
+Pickle is still pickle. --save_main_session still serializes your session with pickle, which can execute code by design. Integrity verification now stops staged files from being swapped after upload, but the staging bucket is still part of your code supply chain. Treat write access to it like write access to your source code.
+
+Closing thoughts
+
+Cloud services are full of invisible assumptions. A bucket with the right name is assumed to belong to the right project, just like a staged artifact is assumed to be the one the job intended to run. By themselves, those assumptions can look harmless. Chained together, they can turn a predictable name into a cross-tenant execution path.
+
+That is the larger lesson from this research. Trust is often inherited through defaults, naming conventions, and automation in cloud environments, not just through explicit permissions. Attackers look for those seams to scale and learn predictable patterns. Don’t let them linger in your infrastructure to complete the chain."
+1e167d415bab,72375819775f,2026-10-22 19:44 UTC,General Security News,Varonis,Varonis Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,"PHP2Shell: One Upload, Full Server",https://www.varonis.com/blog/php2shell,PHP2Shell is a pair of critical flaws that let unauthenticated attackers run code remotely on PHP installations serving web requests,"How many servers are one malformed upload away from leaking your secrets?
+
+PHP2Shell is a pair of critical flaws that let unauthenticated attackers run code remotely on PHP installations serving web requests. Because PHP runs roughly 70% of the world’s websites and the bugs fire before any application code executes, even a fully patched WordPress, Drupal, or Joomla site is exposed until the PHP underneath is updated, and attackers are probing for it.
+
+Calif, a security research firm working under OpenAI’s Patch the Planet initiative, found the bugs first on August 1 and reported them to PHP on August 11. Wiz Research found them separately.
+
+What we know so far
+
+Two critical flaws in PHP itself. CVE-2026-109618 and CVE-2026-109619 sit in the core engine, so even secure application code can’t protect a vulnerable server. An unauthenticated remote attacker can read a PHP worker’s memory (passwords, tokens, API keys) and, in some cases, run code on the server.
+
+Wide reach. Every PHP version back to 5.4 is affected, across PHP-FPM, Apache modphp, php-cgi, FrankenPHP and LiteSpeed, with modphp carrying the greatest risk.
+
+Proven on real platforms. Remote code execution was demonstrated against the latest WordPress, Drupal and Joomla container images. Even a ""Hello World"" PHP app can be vulnerable.
+
+A fix is out, but the leak came first. Patched releases shipped on October 21: PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35. PHP 8.1 and older have no official release.
+
+Why this matters
+
+Most teams will log this as two PHP bugs, now patched. The exposure behind it is bigger than that.
+
+The flaws sit beneath the application. CVE-2026-109618 and CVE-2026-109619 live in the PHP runtime, so the framework, CMS, or custom code on top is irrelevant. Exploitation can occur before any application code executes, which means app-level logging may capture little or nothing.
+
+No application mistake is required. The attack doesn’t depend on a vulnerable plugin, a weak login flow, or sloppy session handling. A site with clean code can still be exposed if the PHP underneath is not updated.
+
+It can be abused unauthenticated. An attacker needs no account, no password and no foothold, just the ability to send a request to your server.
+
+The cost of building an exploit has dropped. The researchers report that AI models compressed what used to take months of specialist work into days. Decade-old bug classes once considered impractical to weaponize are now within reach, and attackers have access to the same tooling.
+
+With PHP running a vast portion of the web, from WordPress and Drupal to the internal tool nobody has touched in years, the question isn’t whether you run it. It’s where, and whether, you can find every instance.
+
+Actions to take this week
+
+Detection
+
+Look for the setup phase. Malformed or unusual multipart upload requests, followed by memory-limit errors or bursts of HTTP 500 responses, are the pattern to hunt for.
+
+Inspect outbound cookies. An oversized or malformed PHPSESSID in a response can indicate that process memory is leaking back to the client.
+
+Flag process creation during upload handling. A PHP worker should never spawn a child process while it is still parsing an upload, before application code has run. Treat it as a high-confidence signal.
+
+These signals guide an investigation. They do not replace patching.
+
+Remediation
+
+Inventory every PHP install. Go beyond the obvious web apps. Bundled software, appliances, and forgotten internal tools all count.
+
+Patch internet-facing systems first. Move to PHP 8.5.12, 8.4.27, 8.3.36, or 8.2.35, depending on your branch.
+
+Rotate secrets on exposed servers. If an attacker could have read worker memory before you patched, assume the credentials, tokens, and API keys resident in that memory are compromised.
+
+Want to know how a single out-of-memory crash turns into code execution? Keep reading.
+
+A deep dive on what we know about PHP2Shell
+
+The PHP disclosure describes four bugs, classified as two CVEs. Together, they are the PHP2Shell. The first three share a common ""pre-phase"" that sets them up for success and essentially allows the final target of the desired RCE (remote code execution). The fourth is a more internal process, and how it was abused was not disclosed.
+
+To see how they affect the server, we first need a few concepts.
+
+PHP who? A short glossary
+
+PHP web server worker. A process that handles an HTTP request and is reused for later requests rather than restarted each time.
+
+Multipart request parsing. PHP reading an incoming multipart/form-data request (a file upload) and breaking it into labeled parts. This starts very early in the request.
+
+Session upload-progress handling. A PHP feature that tracks a file upload's progress so a page can show a progress bar. It runs while the server is parsing the multipart request.
+
+Session. PHP's way to remember a user across requests (the PHPSESSID cookie).
+
+Memory limit. The maximum memory a single request may use.
+
+Engine-global pointers. Internal bookkeeping variables the PHP engine uses to track global execution state. Three matter here:
+
+PS(id): the session ID.
+
+BG(unserialize): the unserializer state (the state of rebuilding the original array or object from a serialized string).
+
+EG(last_fatal_error_backtrace): stores information about the last error.
+
+Worker cleanup. A normal teardown process in PHP is supposed to run between requests on a reused worker, resetting the engine-global pointers so the next request starts clean. The bug chain exists because out-of-memory fatal errors abort the request before this cleanup runs, leaving those pointers stale.
+
+OPcache. Shared memory holding precompiled script bytecode that all workers can read, which removes the need to re-read and recompile the same PHP file.
+
+Now that we have the vocabulary, let's move to the part that makes it all possible.
+
+The pre-phase
+
+The core concept being abused is a use-after-free (UAF): memory is freed, but a pointer to it is still kept and later used. If an attacker gets new data placed into that freed memory, PHP treats the attacker's bytes as its own trusted structure.
+
+The attacker sends a crafted multipart upload that causes PHP to run out of memory during session upload-progress handling early in the request. The request ends unexpectedly, worker cleanup is skipped, and stale pointers remain. That can lead to memory disclosure or corruption.
+
+Attacker flow:
+
+Craft an arming request. The attacker sends a multipart/form-data upload with session upload-progress data sized to run out of memory while still parsing.
+
+Early, pre-app parsing. Upload-progress handling runs before normal PHP startup finishes, so the engine-global pointers are set up early.
+
+Out-of-memory fatal error. The request exceeds memory_limit; PHP aborts and frees the request heap.
+
+Cleanup is skipped. The pointers are never reset.
+
+The worker survives and is reused. The same worker handles the next request, still holding the stale pointers.
+
+Memory usage. The attacker's data reclaims one of the freed allocations (each pointer has its own separate allocation).
+
+This is the setup the first three bugs depend on.
+
+Bug 1: Remote process-memory disclosure
+
+After the pre-phase, another multipart request on the same worker still trusts the freed allocation of PS(id). PHP reads the reclaimed bytes as a live session ID and URL-encodes them into the PHPSESSID response cookie. An attacker can simply read the cookie to get leaked worker's memory. That lets them defeat address uncertainty, which is what makes the next step toward RCE practical.
+
+Bug 2: Unserializer use-after-free
+
+Here, the freed allocation of BG (unserialize) is trusted to trigger memory corruption. PHP keeps ""unserializing"" using attacker-reclaimed memory as if it were still valid, becoming a memory-corruption primitive. Combined with Bug 1's leak, this bug exploited address uncertainty to achieve an unauthenticated RCE and was demonstrated on WordPress, Drupal, and Joomla.
+
+Bug 3: Fatal-error backtrace use-after-free
+
+Another pointer abuse of the EG(last_fatal_error_backtrace). If the same worker sends out a diagnostic event (any subsequent error or warning) after the failed cleanup it can access the freed pointer before the reinitialization of the state. PHP will update or destroy pointer backtrace and will follow the attacker-reclaimed memory. This use-after-free could be developed into memory corruption that can lead to RCE.
+
+Bug 4: OPcache type confusion (a separate flow, across workers)
+
+The Wiz disclosure does not describe specific requests or steps for this bug, only an internal mechanism flaw. So, in short:
+
+Shared compiled-code cache. OPcache stores precompiled bytecode in shared memory so every worker can reuse it instead of recompiling (php.net: ""removes the need for PHP to load and parse scripts on each request"").
+
+Two trackers. A process-local tracker (CG(map_ptr_last)) and a shared tracker (ZCSG(map_ptr_last)) both track how far the shared memory has been filled.
+
+Allocation failure mid-update. In the window between the two trackers being updated, an allocation failure can leave the shared tracker out of sync with what was written.
+
+Cross-worker reuse. Wiz says this can allow a different worker to reuse that memory slot, it will resolve to a pointer of the wrong type. This causes a type confusion and corrupts the shared OPcache state, which was later leveraged to an RCE. Exactly how and when this happens is not spelled out, so treat this as the general shape of the bug rather than a precise sequence.
+
+Varonis product impact
+
+Varonis proactively assessed the potential impact of PHP2Shell across its product portfolio and completed the necessary remediation measures. We have found no evidence of compromise related to these vulnerabilities. Customers do not need to take any additional action specific to Varonis products.
+
+References
+
+PHP Official Security Advisory
+
+CVE-2026-109618
+
+CVE-2026-109619
+
+How Varonis can help
+
+Varonis helps customers address PHP2Shell and other threats by detecting suspicious lateral movement and abnormal data access, then automatically contains compromised accounts to protect sensitive data.
+
+Managed Data Detection and Response (MDDR) provides an added layer of protection alongside patching, with Varonis experts monitoring data activity 24x7x365, investigating threats such as stolen credentials accessing sensitive data, and taking action to contain them. Customers gain around-the-clock expert coverage without having to staff their own 24x7 team.
+
+Summary
+
+PHP2Shell is a chain born from one unglamorous event: a request that runs out of memory and skips its cleanup. From that single stale pointer, researchers got memory disclosure, two flavors of use-after-free, and a separate OPcache type confusion, all below the application layer and present since PHP 5.4."
+e97bdfec3fad,e97bdfec3fad,2026-10-22 13:00 UTC,"Attacks, Breaches & Threat Intel",Varonis,Varonis Blog,Endpoint Security; Identity Security Posture Management,Article,"StealC Is Back, and This Time It's a RAT",https://www.varonis.com/blog/stealc-returns,"The RAT’s features include hidden desktop control, a live command shell, a file explorer, a process manager and an in-memory loader, with StealC's stealer welded on as one...","In June, Europol tore down StealC, a prominent infostealer, as part of Operation Endgame. International authorities seized 326 servers and 142 domains, recovered more than 25 million stolen credentials from 385,000 infected machines, and pulled the plug on one of the most widely sold infostealers of the last three years.
+
+Four months later, on October 16, the seller behind StealC resurfaced with Stadia. This time it's not a stealer: it's a full remote access trojan. The RAT’s features include hidden desktop control, a live command shell, a file explorer, a process manager and an in-memory loader, with StealC's stealer welded on as one module among six. The actor behind Stadia is working hard to win back original StealC customers: every former StealC customer is offered a free month on the top ($900) tier.
+
+Varonis Threat Labs obtained the build shortly after it was listed, reversed it, and watched its panel operate against a machine of our own. The code inside it is StealC's.
+
+Operation Endgame forced the seller to rebuild its infrastructure and start again with a new name, new servers and a new panel. This blog walks through that rebuild from the inside: the listing, the panel running against a host of our own, the agent's code, and the detections that catch it.
+
+The listing
+
+The listing is titled [RAT] Stadia - Stealer, Log Restore, Loader, HVNC, File Explorer (HVNC is Hidden Virtual Network Computing, remote desktop control the victim cannot see), and the seller pitches it as an agent that embeds itself in the system and hands the operator a full toolkit from a web panel.
+
+The module list reads like a remote administration suite rather than a stealer:
+
+Module
+
+What it does
+
+HVNC
+
+with two modes, a shared desktop and a hidden desktop, described as self-written and not based on public sources
+
+Stealer
+
+a custom solution on the base of their stealc v3.5
+
+Remote CMD
+
+cmd.exe access with input/output streaming
+
+Loader
+
+a resident loader that runs files from disk or from memory
+
+File Explorer
+
+remote disk access to browse, download, upload and run files
+
+Process Manager
+
+a process tree with the ability to kill a competitor's process
+
+The stealer collects from 50+ browsers, 120+ crypto plugins, 50+ desktop wallets, messengers (Telegram, Discord, Tox, Pidgin), Steam, Battle.net, Uplay and Roblox sessions, Outlook and Thunderbird, and ProtonVPN and OpenVPN clients. A wallet brute covers MetaMask, TronLink, Trust, Phantom, Rabby, OKX and others.
+
+The seller's own screenshots in the listing show the product in use. Their demo dashboard reports 596 hosts and 496 logs, with a world map of infections concentrated in South and Southeast Asia, Africa and Latin America.
+
+The logs view carries the StealC heritage on its face: per-victim rows with wallet and extension tags, country, OS and a download button for the archive.
+
+The HVNC screenshot is a live remote-desktop session on an infected Windows 11 machine, with a Spanish-language runtime error dialog sitting on the victim's desktop. The seller's toolbar offers Ctrl+Alt+Del, Win+R, quality settings and a full-screen mode.
+
+Pricing and the StealC pipeline
+
+Stadia sells on a monthly subscription, tiered by how many modules and builds you get.
+
+Tier
+
+Price / month
+
+Modules
+
+Limits
+
+Basic
+
+$300
+
+Loader, Stealer
+
+1 build, 1 account
+
+Team
+
+$550
+
+Loader, Stealer
+
+up to 5 builds, up to 5 accounts
+
+Pro
+
+$900
+
+HVNC, Remote CMD, Stealer, Loader, File Explorer, Process Manager
+
+no build or account limit
+
+A second post, added a minute after the listing, offers every StealC customer a free month on the Pro tier. Customers whose panels and servers went down in June get the fuller toolkit at no cost, and the seller keeps the install base.
+
+Inside the panel
+
+Buyers run everything from a web panel. It brands itself Stadia and runs at version 1.1.2, matching the agent version baked into the sample. Its news tab is a short changelog. Update 1.0.0 (10 Sep 2026) is the first beta release. Update 1.1.0 (29 Sep 2026) records the Stealer module code updated to stealc 3.5.0.
+
+The builder tab compiles agents from the current published version. Operators create a build, download the .exe, and deploy it. Our sample is one such build.
+
+The sidebar organizes stolen data by type: passwords, credit cards, messengers, software, session tokens for Chrome, Discord, Steam, Roblox, and Azure, and a crypto section for seed phrases.
+
+To see the agent and panel as a pair, we stood up one disposable Windows host of our own and let it register. It appeared in the panel's host inventory within a minute, tagged online.
+
+The host overview is a full remote-administration console: live status and heartbeat, the install path under C:\ProgramData\, counters for passwords, cookies, wallets, cards and files, related tasks and logs, and a Start Module menu offering Remote CMD, File Explorer, Process Manager, Remote Desktop, Loader and Stealer.
+
+Starting a module opens a confirmation dialog first. Remote Desktop offers a current-desktop or isolated virtual-desktop session.
+
+The Loader accepts EXE, PowerShell, CMD and MSI, with disk or in-memory execution for each. A job targets selected hosts or every matching host.
+
+The log it produced for our host carried a system profile, a desktop screenshot and build metadata, with zero credentials because the host was clean. The archive layout (build.txt, copyright.txt, screenshot.jpg, system_info.txt) is the StealC log format.
+
+What the binary is
+
+The sample we pulled from that builder is a 560,128-byte 32-bit Windows executable, native Microsoft Visual C++ (MSVC), no .NET, no Authenticode signature. It decrypts its own build marker to STADIA_BETA and reports agent version 1.1.2, so the file and the panel agree on what it is.
+
+Property
+
+Value
+
+Filename
+
+stadia_x32.exe
+
+Size
+
+560,128 bytes
+
+SHA-256
+
+ea928494fd30d88b98141d39a502a4324889fb732e74b44bfee12c72137dd73e
+
+Imphash
+
+028afae8b5e9953e1cd84a003c42fd85
+
+Format
+
+PE32 GUI, Intel 80386
+
+Build marker
+
+STADIA_BETA
+
+Agent version
+
+1.1.2
+
+There is no packer. The outer file imports only KERNEL32.dll and resolves nearly every operational application programming interface (API) at runtime, so the static picture stays thin until you decrypt the strings.
+
+The string scheme
+
+Almost every meaningful literal (module names, command-and-control (C2) fields, the config) is stored under one scheme:
+
+The outer Rivest Cipher 4 (RC4) key sits at file offset 0x6B1A0. Recovering the table is a few lines of Python once you have the key: Base64-decode each candidate, RC4 it with the key, keep anything that comes out printable.
+
+That pass returns 542 strings: the command vocabulary, the browser targets, the scheduled-task template and the C2 config. The message key and access token were recovered but are omitted from this write-up.
+
+Startup and the locale gate
+
+Entry is ordinary MSVC startup into a WinMain-like routine. Early on, the agent calls GetUserDefaultLangID and exits for Russian, Ukrainian, Belarusian, Kazakh, and Uzbek system languages (0x0419, 0x0422, 0x0423, 0x043F, 0x0443), the standard do-not-run-at-home guard. It then checks whether its own path sits under C:\ProgramData\. If not, it installs; if so, it takes a single-instance mutex Local\<username>.<computername> and enters the agent loop.
+
+That branch is why our one dynamic run went nowhere. Launched under a Low-integrity token from outside ProgramData, the sample took the installer path, could not create its directory, and exited silently. That result reflects our lab setup and says nothing about whether the sample works.
+
+How it talks to the server
+
+Once installed, the agent calls home. The config carries three hard-coded C2 bases, all plain HTTP on the root path:
+
+http://93.152.213.215/http://91.92.43.45/http://193.148.56.97/
+
+The agent tries its three C2 addresses in a fixed order, starting with the first every time it reconnects. To test each one, it sends a set_online message with a host_token of 72 zeroes and waits up to eight seconds for any reply that contains an opcode. If none of the three answers, it waits 300 seconds and starts again.
+
+The traffic is not what its header claims. Each message starts as JSON, is encrypted with RC4 using the embedded message key, and is then Base64-encoded before being sent as the HTTP body. The request still declares Content-Type: application/json, so anything inspecting the header expects JSON and receives ciphertext.
+
+Persistence, modules and injection
+
+Installation drops the agent under a randomized 12-character directory below C:\ProgramData\ and picks a filename from a fixed list of nine that impersonate legitimate updaters:
+
+RuntimeBroker.exe
+
+SecurityHealthHost.exe
+
+SearchHost.exe
+
+TextInputHost.exe
+
+MicrosoftEdgeUpdate.exe
+
+GoogleUpdate.exe
+
+OneDriveStandaloneUpdater.exe
+
+nvcontainer.exe
+
+AdobeARM.exe.
+
+The scheduled task name is selected separately from the same nine names, so the task label and the executable need not match. The task is hidden, runs at logon and every 15 minutes for 3,650 days. When the agent is elevated, it also issues a hidden PowerShell Add-MpPreference -ExclusionPath for its install directory. Our test host confirms the scheme: it installed to C:\ProgramData\wzoHcrvZt9RX\MicrosoftEdgeUpdate.exe, a 12-character directory and one of the nine names.
+
+The decrypted module vocabulary matches the panel one-to-one:
+
+Module
+
+What it does
+
+Remote command
+
+hidden shell, bidirectional stdin/stdout
+
+File explorer
+
+list, read, write, pull, push, run; chunked transfer
+
+Process manager
+
+process tree, CPU/RAM, kill, protected-process list
+
+Desktop (HVNC)
+
+current or virtual desktop, JPEG frames, full input injection
+
+Loader
+
+EXE, PowerShell, BAT/CMD, MSI; disk or memory; hidden or runas
+
+Grabber
+
+browser profiles, cookies, logins, wallets
+
+The StealC fingerprint
+
+The seller says the stealer is built on StealC 3.5. The binary proves the two share code at the byte level.
+
+Inside stadia_x32.exe, at file offset 0x77D48, sits a complete 26,112-byte (0x6600) 64-bit Chromium App-Bound Encryption helper, a mapped portable executable (PE) plus a short reflective loader. That exact blob appears once in each of the StealC v3.5 x86 and x64 builds we hold, byte for byte:
+
+Sample
+
+Helper offset
+
+Blob SHA-256
+
+stadia_x32.exe
+
+0x77D48
+
+0e5337a4cc8ebc772bc50f6e79befd1e8efad3410022e050d08d5269733c4ea4
+
+StealC v3.5 build_x32.exe
+
+0x6A328
+
+0e5337a4cc8ebc772bc50f6e79befd1e8efad3410022e050d08d5269733c4ea4
+
+StealC v3.5 build_x64.exe
+
+0x8B120
+
+0e5337a4cc8ebc772bc50f6e79befd1e8efad3410022e050d08d5269733c4ea4
+
+Detection and hunting
+
+Stadia's C2 addresses, RC4 key and access token change with every build. What stays the same is how the agent talks to its server and what it does on the host, and that is where detection should focus.
+
+On the network, the agent sends HTTP POST requests to the root path of a bare IP address. The Content-Type header claims the body is JSON, but the body is Base64-encoded ciphertext. That mismatch is a useful signal on its own. The build we analyzed calls 93.152.213.215, 91.92.43.45 and 193.148.56.97 on port 80, and blocking those addresses covers that build only.
+
+On the host, the clearest signal is the browser credential theft. An unsigned process running from C:\ProgramData\ starts a genuine Chrome, Edge or Brave process in a suspended state and writes a 26 KB block of code into it. Moments later, a .txt file with a GUID-style name appears in C:\ProgramData\, holds a 64-character hex string, and is deleted. That file carries the key the browser uses to protect saved cookies and passwords.
+
+Persistence leaves its own trail. Within a few minutes of infection, look for a new executable in a random folder under C:\ProgramData\, a hidden scheduled task that repeats every 15 minutes, and a Windows Defender exclusion added for that folder through PowerShell's Add-MpPreference command. This Sigma rule flags the scheduled task:
+
+The implant registers the task through the Component Object Model (COM) API, so a rule scoped to schtasks.exe would miss it. Start the behavioral rules in alert mode and tune them against your own telemetry before you block on them.
+
+Where this leaves things
+
+Stadia is the StealC operation rebuilding after Operation Endgame. The servers, domains and stolen data are gone, and the response has been to come back under a new name with a broader product and a free month to pull former customers across. The stealer is still there, now as one module in a remote access trojan that adds hidden VNC, a command shell, a file explorer, a process manager and in-memory loading.
+
+StealC took credentials and left. Stadia stays, watches the screen, runs commands, moves files and loads whatever comes next, and it is priced for teams rather than individuals. A disrupted stealer has come back as a platform, and the four-month turnaround shows how quickly a seller with an existing customer base can rebuild once the code survives the takedown.
+
+Indicators of compromise
+
+Type
+
+Value
+
+Notes
+
+SHA-256
+
+ea928494fd30d88b98141d39a502a4324889fb732e74b44bfee12c72137dd73e
+
+stadia_x32.exe, agent 1.1.2
+
+SHA-1
+
+1ba76d2029744cc6e2f7209c96a696b32962b1f1
+
+same sample
+
+MD5
+
+7739a8d0d101ca82b93bbd0acdb6d9af
+
+same sample
+
+Imphash
+
+028afae8b5e9953e1cd84a003c42fd85
+
+outer PE
+
+SHA-256
+
+0e5337a4cc8ebc772bc50f6e79befd1e8efad3410022e050d08d5269733c4ea4
+
+0x6600-byte App-Bound helper blob, shared with StealC 3.5
+
+C2
+
+http://93.152.213.215/
+
+primary, HTTP POST /
+
+C2
+
+http://91.92.43.45/
+
+second in failover order
+
+C2
+
+http://193.148.56.97/
+
+third in failover order
+
+Domain
+
+stadiadev.cc
+
+operator panel
+
+String
+
+eepkTOgSwdNCgrhITR
+
+outer RC4 string key, per build
+
+String
+
+STADIA_BETA
+
+decrypted build marker
+
+String
+
+StadiaVnc%d
+
+desktop-session object name
+
+Mutex
+
+Local\<username>.<computername>
+
+single-instance guard
+
+Path
+
+C:\ProgramData\<12 alphanumeric>\<name>.exe
+
+install location
+
+Filename
+
+RuntimeBroker.exe, SecurityHealthHost.exe, SearchHost.exe, TextInputHost.exe, MicrosoftEdgeUpdate.exe, GoogleUpdate.exe, OneDriveStandaloneUpdater.exe, nvcontainer.exe, AdobeARM.exe
+
+nine candidate install and task names
+
+Scheduled task
+
+hidden, PT15M interval, P3650D duration, InteractiveToken
+
+COM-registered, not schtasks
+
+Command line
+
+powershell.exe ... Add-MpPreference -ExclusionPath C:\ProgramData\...
+
+elevated runs only
+
+File
+
+C:\ProgramData\<GUID>.txt containing 64 lowercase hex
+
+transient App-Bound key drop
+
+Handle
+
+plymouth
+
+seller alias, signed stealc / stadia"
+da8741ed0705,da8741ed0705,2026-10-20 12:45 UTC,General Security News,Varonis,Varonis Blog,Data Security Posture Management; AI Security,Article,Varonis and Collibra: Improving Data Governance for Trusted AI,https://www.varonis.com/blog/varonis-and-collibra-integration,"These insights can support security, governance, exposure analysis, threat detection, and automated remediation across the Varonis platform","As organizations move faster to integrate AI, datasets are connected to models, agents, and analytics pipelines based on their metadata and lineage. But pressing questions often go unanswered: what’s sensitive, and who has access to it?
+
+Successful AI initiatives depend on trusted data that teams can find, understand, and use safely. That’s why Varonis now integrates with Collibra to bring continuously updated sensitive data context directly into Collibra’s data catalog.
+
+Collibra provides unified governance across data and AI, while Varonis identifies sensitive and regulated information across the data estate. Together, the integration helps organizations make better-informed decisions about which data to use for analytics, data science, and AI and agent development.
+
+Add sensitive data context to Collibra
+
+Collibra helps organizations discover data, understand its meaning and lineage, establish ownership and policies, and connect trusted datasets to business and AI use cases.
+
+The Varonis integration enriches Collibra catalog assets with classification insights that identify sensitive and regulated data. Users can review this sensitivity context alongside metadata, ownership, lineage, policies, and other governance information available in Collibra.
+
+With this additional context, data consumers, governance teams, and security teams gain a more complete understanding of the information they are evaluating, making it easier to govern sensitive data, comply with regulations, and maintain privacy.
+
+Identify sensitive and regulated data
+
+Varonis surfaces classifications for information, such as personally identifiable information, protected health information, financial information, credentials, secrets, and regulated data, within Collibra governance workflows.
+
+Varonis AI classification combines content understanding with business context, permissions intelligence, activity data, and explainable reasoning to identify what data is, why it matters, who it relates to, and the risk it creates. These insights can support security, governance, exposure analysis, threat detection, and automated remediation across the Varonis platform.
+
+Make better-informed decisions about data and AI
+
+Data users — from analysts to data scientists and AI engineers — can see what is sensitive directly within Collibra and use that context to make better decisions about which data is safe and appropriate to use.
+
+For example, teams can more effectively evaluate:
+
+Which datasets should be made available to marketing teams for campaign analysis.
+
+Whether customer data is appropriate for training or grounding a customer-facing AI application.
+
+Where data scientists can find governed data for analytics and model development.
+
+How regulated or sensitive information relates to internal policies and compliance requirements.
+
+Build trusted AI on governed data
+
+AI can only be trusted when organizations understand the data that powers it. Connecting Varonis classification with Collibra governance helps teams find appropriate data, identify sensitive information, and make informed decisions before that data is used for analytics or AI.
+
+With Varonis and Collibra, organizations can bring security and governance context together to accelerate data and AI initiatives without losing visibility or control."
+648cbd2b3839,648cbd2b3839,2026-10-14 14:21 UTC,"Attacks, Breaches & Threat Intel",Varonis,Varonis Blog,Data Security Posture Management; AI Security,Article,IBM’s Cost of a Data Breach Report 2026: AI Is Now the Attacker and the Target,https://www.varonis.com/blog/ibm-cost-of-a-data-breach-report-2026,"Varonis Threat Labs has also documented this pattern — its SearchLeak research found that a Copilot exploit let an attacker inherit the victim’s full permissions, not because...","Key takeaways
+
+AI-driven attacks rose 56% since last year's Report, with shadow AI incidents more than doubling to 43%.
+
+The majority of AI-related breaches (92%) involved no proper AI access controls, making access and governance gaps the real driver of AI breach costs.
+
+Organizations that applied AI and automation extensively across their security lifecycle cut breach costs by $1.93 million.
+
+What is the IBM Cost of a Data Breach Report?
+
+IBM's Cost of a Data Breach Report 2026, researched independently by Ponemon Institute, is the security industry's longest-running benchmark for breach economics.
+
+This year's edition studied 602 organizations across 17 industries, drawing on interviews with 3,558 security and C-suite leaders with firsthand knowledge of a breach at their organization between March 2025 and February 2026.
+
+The global average cost of a data breach reached a new record this year — $4.99 million, up 12% from last year.
+
+The rise of machine-speed attacks
+
+The rise of AI has brought about the rise of AI-driven attacks, which increased by 56%. More than one in four organizations that experienced a malicious attack this year said it resulted from AI.
+
+Deepfake impersonation and AI-generated malware were behind most of that volume, and the financial consequence was direct, adding an average of $1 million per breach.
+
+How AI lowered the bar for a convincing attack
+
+Generative AI has lowered the cost, time, and skill required to launch a convincing attack, and attackers are now running them continuously and at scale rather than as isolated attempts.
+
+It's a pattern Varonis Threat Labs has been tracking this year, including Reprompt, a single-click Copilot exploit that silently exfiltrated data, and CoSnitch, which showed how a compromised AI assistant could be turned into its own data leak. Both attacks required a single click to succeed, and neither relied on stolen credentials or custom malware — a sign of how little technical skill a modern AI exploit now demands.
+
+The most expensive attacks target what surrounds the model
+
+Among organizations that reported an AI-related breach, the root cause was rarely the model itself. Instead, it turned out to be the environment around it: compromised APIs, connected applications, and cloud misconfigurations.
+
+The costliest security incidents were inversion attacks, which averaged $6.07 million, and prompt injection attacks, which averaged $5.89 million. These are attacks on trust in the system itself, which pushes remediation past technical recovery into governance and disclosure.
+
+Varonis Threat Labs has also documented this pattern — its SearchLeak research found that a Copilot exploit let an attacker inherit the victim’s full permissions, not because the model was flawed, but because of what it was connected to.
+
+Most AI-related breaches had no AI access controls
+
+This year's report found that 92% of AI-related breaches involved no proper AI access controls, and only 40% of organizations reported using access controls on AI models and data at all. That gap should carry the most weight with security leadership, since it points to the single clearest driver of AI breach costs.
+
+Still, it persists despite identity and access management being reported as one of the most effective cost reducers across breaches overall, suggesting the issue has more to do with execution than awareness.
+
+Governance gaps compound the access control problem
+
+AI governance — covering access controls for models, agents, and applications, plus monitoring for data leaks — was absent at 68% of breached organizations this year (up from 63% last year). Only about a third of organizations with any AI policy had strict approval processes for deploying it, and just 19% reported that governance and security teams actually coordinate with each other.
+
+AI systems have outpaced the access models meant to govern them. But it's access control that determines whether an AI system can reach sensitive data in the first place — which is exactly the gap Varonis’ guidance on least privilege for AI agents is built to close.
+
+Shadow AI incidents more than doubled
+
+Security incidents involving shadow AI — employees using AI tools that were never approved or reviewed — more than doubled to 43% this year (up from 20% last year), and these incidents also got more expensive, averaging $5.39 million compared to $4.63 million last year. Nearly half led to data loss or compromise, and regulators are starting to respond: about one in five shadow AI incidents this year resulted in a reported fine.
+
+Shadow AI is less an AI problem than a visibility problem AI has made urgent. The fix isn’t a policy memo telling employees to stop — it’s visibility into what’s touching sensitive data, approved or not, paired with the ability to act on that in real time.
+
+Critical infrastructure and on-premises data remain high-risk targets
+
+By industry, financial services and energy accounted for 62% of all AI-driven breaches studied, with average costs of $6.29 million and $5.2 million respectively. Both sectors identify and contain breaches roughly four weeks faster than the global average, but their deep interdependence with the rest of the economy means a disruption in one doesn’t stay contained to a single balance sheet.
+
+Breaches involving on-premises data storage also grew this year, now present in 30% of breaches, up from 28% last year and 20% in 2024. Although many organizations still treat on-premises storage as inherently safer than the cloud, this year’s data doesn’t support that belief. On-prem environments place the full burden of patching, physical security, and access management on internal IT with no shared responsibility model to offset it.
+
+AI and automation remain the most effective cost reducer
+
+Combating AI-driven attacks requires AI and automation. Organizations that used both extensively across their security lifecycle shortened breach timelines by 65 days and reduced average costs by $1.93 million compared to those that did not — the strongest cost-reduction signal in this year's report.
+
+But the catch is “extensively.” Only 36% of breached organizations applied these tools across prevention, detection, investigation, and response, and most of that use clustered in detection and investigation.
+
+Half of breached organizations have deployed AI agents in their SOC, yet only 18% have applied them to vulnerability scanning and management — exactly where frontier model capabilities are shifting the advantage toward attackers. Varonis’ own Triage Agent research points to the same conclusion: Agentic AI delivers the most value when it’s applied across the full investigation lifecycle, not merely one stage of it.
+
+What this means for security teams building AI programs
+
+Taken together, these findings point to one conclusion: control over where AI systems run, how they process data, and who can access them has become a baseline security requirement.
+
+More than half of organizations now plan to invest in AI security and governance tools following a breach — an 88% increase from last year — and 85% plan to increase security spending specifically in response to frontier AI model threats.
+
+How Varonis helps close the AI access control gap
+
+The report’s clearest signal is also its most actionable: access control, not model sophistication, is what separates costly AI breaches from contained ones. Varonis addresses that gap directly, treating AI security as data security, so access decisions account for both what an AI system can do and what sensitive data it can reach:
+
+Varonis Atlas continuously discovers every AI model, agent, and tool in your environment — including shadow AI — and enforces real-time policy through an inline AI Gateway, closing the visibility gap behind this year’s doubling in shadow AI incidents.
+
+Agent intent-based access control compares what an agent was asked to do against what it actually reaches for, enforcing least privilege at runtime rather than only at provisioning — directly addressing the 92% access-control gap behind this year’s costliest AI breaches.
+
+The Varonis Data Security Platform discovers and classifies sensitive data, maps blast radius, and automatically remediates excessive and stale permissions, so access controls are grounded in what data an identity — human or AI — can actually reach.
+
+Varonis automatically executes more than 200 million remediation actions every month, giving security teams the automated, continuous enforcement this report shows most organizations still lack."
+3cf367905b78,3cf367905b78,2026-10-07 18:59 UTC,General Security News,Varonis,Varonis Blog,AI Security; Zero Trust Secure Access; Identity Security Posture Management,Article,Least Privilege for AI Agents: A Practical Guide for Security Leaders,https://www.varonis.com/blog/least-privilege-for-ai-agents,"Varonis Threat Labs' SearchLeak research found that because Copilot Enterprise operates with the user's full graph permissions, ""the attacker effectively inherits the victim's...","Key takeaways
+
+Least privilege for AI agents gives each agent its own identity and only the access a specific task needs, for only as long as that task runs.
+
+Human-centric access models break down for agents, which inherit user permissions, run on shared service accounts, and act at machine speed. OWASP names excessive permissions as a root cause of excessive agency.
+
+Scoping access at provisioning is only the start. Pair it with runtime enforcement, human approval for high-impact actions, and continuous right-sizing of the data each agent can reach.
+
+As AI agents further integrate into day-to-day workflows, the question of access becomes a critical one. Currently, adoption is moving faster than governance. A SailPoint survey of 353 professionals, conducted by Dimensional Research, found that only 44% of organizations reported having policies in place to secure agents.
+
+Most identity and access controls were built for people, and agents are non-human identities created in code that can act independently at machine speed. For an agent, the access it inherits is the exposure.
+
+What is least privilege for AI agents?
+
+Least privilege for AI agents is the practice of granting every agent, tool, and connection only the minimum access necessary to perform its operation. In practice, each agent has its own identity, access scoped to a specific task, permissions that expire when the task ends, and runtime checks on high-impact actions.
+
+Guidance around AI systems already outlines the importance of least privilege. Deploying AI Systems Securely guidance, developed with multi-country agencies including the FBI and the National Security Agency, recommends that organizations ""Enforce strict access controls and API security for the AI system, employing the concepts of least privilege and defense-in-depth.""
+
+Given that AI security starts with data security, it's important to add a data dimension to that definition: An agent's least privilege needs to be measured by the sensitive data it can reach, as well as by the tools it can call. As David Gibson has written, ""AI doesn't create data risk. It finds it, surfaces it, and acts on it — faster and more thoroughly than any human ever could.""
+
+Taken together, these pieces point to the same conclusion: least privilege for agents isn't just about limiting what they can do — it's about limiting what they can reach.
+
+How least privilege for agents differs from least privilege for employees
+
+Least privilege is one principle now applied to two different identities. While employees sign in as themselves, agents often run on shared credentials that don't map cleanly to any individual. Here's how that gap plays out:
+
+What it looks like in practice: Consider an internal IT help desk agent connected through a shared admin service account. The agent was built to reset passwords and troubleshoot login issues, but that service account also has standing access to the company's HR system and finance records. The agent was never designed to touch either. But now it can, and because it reasons over whatever data it's handed, it's only a matter of time before it does.
+
+The risk least privilege addresses
+
+The OWASP GenAI Security Project lists excessive agency as its sixth most critical LLM risk, stating that the root cause is often ""excessive functionality; excessive permissions; excessive autonomy"":
+
+Excessive functionality: The agent has tools the task doesn't need.
+
+Excessive permissions: Limit extension permissions to other systems.
+
+Excessive autonomy: Require a human to approve any high-impact actions prior to execution.
+
+These controls matter most under prompt injection. Varonis Threat Labs' SearchLeak research found that because Copilot Enterprise operates with the user's full graph permissions, ""the attacker effectively inherits the victim's access to the organization's data."" In that case, least privilege limits what an attacker who has manipulated the agent can reach.
+
+Why AI agents break traditional access controls
+
+The risk of agentic access isn't a hypothetical concern. In the SailPoint survey, 80% of respondents said their AI agents had taken unintended actions. Token Security commissioned a Cloud Security Alliance survey of 418 IT and security professionals, which found that 65% had experienced AI agent-related incidents in the past year.
+
+Varonis' 2025 State of Data Security Report measured the data layer directly, examining the blast radius of 1,000 organizations. It found that ""1 in 10 user or service accounts can freely export any and all data."" Put an agent on one of those accounts, and you've effectively hired a new employee — one with no onboarding and no sense of what it shouldn't touch.
+
+Human-centric identity and access management wasn't built for that, and it breaks down for agents in the following ways:
+
+Inherited permissions: An agent acting for a user inherits that user's full access, including any excessive permissions that have sat dormant.
+
+Shared service accounts and API keys: Actions can't be traced to one accountable identity.
+
+Standing access that outlives its purpose: Consider a service account that was provisioned years ago with broad read access for a reporting tool, but the tool has since been decommissioned even though access was never revoked.
+
+Unknown agents: You can't scope access for agents you haven't found. The CSA finding on unknown agents shows how common that blind spot is.
+
+Agents need controls that account for what they do, as well as what they can reach.
+
+4 best practices for scoping agentic AI access
+
+Four controls keep an agent in check: identity, task scope, runtime enforcement, and human approval for high-impact actions. Here's how each one works.
+
+1. Give every agent its own identity and an accountable owner
+
+Every agent needs a distinct identity. Shared tokens and reused human credentials make it hard to tell one agent's actions from another's — or from the user's.
+
+Identity gets harder in multi-agent and MCP setups, where a human's broad access shouldn't automatically extend to the agent acting on their behalf. MCP servers should enforce per-agent authentication rather than shared tokens, apply explicit role boundaries for each agent, and require continuous reauthentication in long-running sessions.
+
+Because agents aren't accountable, a named human owner has to be. That owner approves the agent's scope and answers for what it does.
+
+2. Scope access to the task, then let it expire
+
+Task scoping sets how much access an agent gets. The OWASP AI Agent Security Cheat Sheet advises: ""Grant agents the minimum tools required for their specific task. Implement per-tool permission scoping (read-only vs. write, specific resources).""
+
+Ephemeral access sets how long the agent keeps it. Access is granted for a task or session and ends when the task does, so no standing grants remain. Standing grants are the wrong default because stale access accumulates. A summarization agent needs read access to one account's records — it doesn't need the full customer database, and it doesn't need write access at all.
+
+3. Enforce least privilege at runtime
+
+Static permissions can't stop an agent that finds ways to work around them — for example, by elevating its own privileges or acting on data it was never meant to touch.
+
+Intent-based access control compares what an agent was asked to do with what it reaches for. Say a user asks an agent to summarize a customer account, and the agent starts pulling records for a much larger set of accounts. Runtime enforcement can flag that scope creep for human approval before it proceeds. But monitoring also requires context to answer whether an agent should be allowed to take action on the data it accesses.
+
+4. Require human approval for high-impact actions
+
+The OWASP cheat sheet says to ""Require explicit approval for high-impact or irreversible actions."" It also says to ""Set autonomy boundaries based on action risk levels."" This aligns with OWASP's guidance around excessive autonomy.
+
+Good candidates for approval include scenarios like deleting data, changing permissions, and creating roles and grants. Exporting sensitive records and sending data to external destinations belong on the list, too, because those types of incidents continue to occur.
+
+Keep the approval set small so agents stay useful. Approval tiers work best when they follow data sensitivity as well as the type of action.
+
+How to implement least privilege for AI agents
+
+The steps below are a sequence, rather than a checklist, so skipping ahead leaves gaps later steps can't close.
+
+Discover and inventory every agent, including unsanctioned ones: You can't scope access for agents you haven't found.
+
+Map what each agent's identity can reach: Measure access by the data behind it.
+
+Assign a unique identity and an accountable owner to each agent: Retire shared service accounts and API keys. Every action should trace to one agent and one responsible person.
+
+Remove excessive and stale permissions, and automate it: Agents often create exposures faster than teams can address them. Use automated least privilege enforcement to keep pace.
+
+Scope access per task, time-box it, and gate high-impact actions: Grant per-tool access, read-only by default, and let it expire when the task ends. Require approval for deletions, permission changes, and exports.
+
+Monitor at runtime, re-certify continuously, and test revocation: Log every prompt, response, and tool call, with data context. Revisit scopes whenever an agent's tools, data connections, or model change. Confirm you can quarantine or revoke an agent's identity quickly.
+
+Common mistakes that undermine least privilege for AI agents
+
+Watch out for the following five mistakes:
+
+Using the invoking user's permissions as the agent's ceiling: Consider a Claude agent connected to a company's file storage through an MCP server. The agent was set up to answer questions about open projects, but the MCP server grants access to every file the connecting service account can reach, including HR and legal documents.
+
+Sharing service accounts and API keys across agents: Shared credentials remove attribution. No one can tell which agent took which action.
+
+Scoping once and never revisiting: Because AI components change so frequently, their configurations drift out of date faster than traditional infrastructure does.
+
+Treating logs as governance: Logs record activity without stopping it. Monitoring that lacks context can't tell friend from threat, and context that can't trigger a response can't stop one.
+
+Securing the AI layer but not the data: When a fully authorized agent reaches millions of customer records, that data was simply exposed and available in the first place.
+
+How Varonis helps enforce least privilege for AI agents
+
+Least privilege for AI agents depends on two kinds of context: what the agent is doing, and which data it can reach. Varonis Atlas secures AI and the data that powers it.
+
+Here's what it covers on the agent side:
+
+Continuous discovery of all AI models, agents, and tools, both approved and unsanctioned
+
+Visibility into what sensitive data they can access and which identities use them
+
+Real-time policy enforcement through an inline AI Gateway
+
+Audit trails and lineage graphs
+
+Agent IBAC, with intent drift detection, quarantine, and runtime guardrails that can ""alert, block, modify, log, or route an action to a person for approval""
+
+The other half of that context is the data itself — what's sensitive, who can reach it, and how it's being used. That's where the Varonis Data Security Platform comes in, with:
+
+Discovery and classification of sensitive data
+
+Blast radius mapping
+
+Automated removal of excessive permissions and fixes for misconfigurations
+
+Monitoring of all data activity, with normalized, searchable audit trails
+
+Together, automated remediation and inline runtime enforcement let you apply least privilege continuously — not just at the moment an agent is provisioned, but for as long as it keeps running."
+7f40c2703649,7f40c2703649,2026-10-05 14:10 UTC,"Attacks, Breaches & Threat Intel",Varonis,Varonis Blog,AI Security; Data Security Posture Management; Vulnerability Management; Identity Security Posture Management,Article,Access Governance: Reducing Attacker Reach in the Age of AI-Accelerated Threats,https://www.varonis.com/blog/ai-access-governance,Why reframing the foundation matters now AI-assisted vulnerability discovery is increasing the volume of findings entering patch pipelines while the interval between disclosure...,"Key takeaways
+
+You won't patch your way out of AI-accelerated threats. Reducing attacker reach matters more than ever.
+
+Blast radius is the metric that matters. The less an identity can access, the less damage an attacker can do.
+
+Every AI agent is an identity problem. New AI-powered access paths require the same visibility, governance, and control as human users.
+
+Why data security and access governance are foundational to modern resilience
+
+AI is reshaping what adversaries can accomplish in a short period of time. Models that help defenders write code, summarize logs, and triage alerts can also help adversaries discover vulnerabilities, generate exploit paths, and orchestrate campaigns across multiple targets. The pace of attack is no longer constrained by human effort alone.
+
+Organizations are rightly investing in vulnerability, exposure, and patch management. Closing the window between disclosure and exploitation is increasingly important, but no program can address each exposure before it is tested. The defining question is not only whether an identity can be compromised, but what it can reach afterward. Leaders should therefore strengthen the zero-trust foundation beneath resilience: a current view of sensitive data, disciplined access, and visibility into its use.
+
+Why reframing the foundation matters now
+
+AI-assisted vulnerability discovery is increasing the volume of findings entering patch pipelines while the interval between disclosure and exploitation shrinks. Backlogs will likely remain a reality and a priority for security leaders.
+
+When an exposure yields a credential, access governance often determines whether the exploit becomes an incident. That layer is shaped by three questions each executive team should be prepared to answer:
+
+Locate: Where does our sensitive data live across cloud, SaaS, on-premises, and AI training and retrieval stores? Establish a current baseline of sensitive data and exposure.
+
+Govern: Who, human or non-human, has access to it, and is that access still justified today? Identify stale, excessive, or inherited access before it expands into an incident.
+
+Detect: Would we know quickly if someone began accessing it in a way that did not fit normal patterns? Connect data-layer behavior to timely investigation and containment.
+
+What the reframed foundation means in practice
+
+Sensitive data moves continuously into collaboration platforms, SaaS, AI training sets, vector stores, and third-party integrations, often faster than inventories can keep up. Continuous discovery creates a defensible baseline of where that data lives, who can reach it, and how exposed it is, frequently surfacing enough risk to justify prompt action.
+
+Visibility also enables data minimization. Removing duplicated, outdated, or no-longer-relevant data lowers risk before additional controls are applied: less data to safeguard, govern, and lose.
+
+Access is the next layer of leverage. At machine speed, what a compromised identity can reach may matter more than how it was compromised. Reducing excess access to high-risk data stores can deliver early gains and should extend to service accounts, API keys, non-human identities, and AI agents, an area that often remains under-addressed.
+
+AI agents make access governance more dynamic because they may operate through delegated user permissions, service identities, APIs, and connected tools. As agentic use cases expand, programs should govern the agent’s identity, authorization scope and duration, and audit trail. When agents retrieve enterprise information, the effective boundary reflects both what the user requests and what the agent and its tools may access or act upon.
+
+Endpoint and network telemetry remain important, but they are stronger when paired with data-layer signals such as anomalous reads, unusual sharing, exfiltration patterns, and permission changes outside approved windows. Feeding these signals into the SOC with pre-authorized, reversible containment can shift the measure of progress from patch velocity toward exposure reduction.
+
+Together, these capabilities allow the foundation to do its job so that if an exposure does occur, the blast radius is as small as possible.
+
+Let's look at an exa mple, with an AI agent operating through delegated user permissions that retrieves information from enterprise stores . If its service identity or connected tools have broader access than intended, the effecti ve boundary is shaped not only by what the user requests, but also by what the agent and its tools are permitted to retrieve and act upon. Authorization scope, duration, and auditability, therefore, belong in the same access-governance program.
+
+A practical operating sequence includes:
+
+Discover: Maintain a live inventory of sensitive data and exposure.
+
+Minimize: Reduce duplicated, outdated, or no-longer-relevant data.
+
+Govern: Remove excess access for human and non-human identities.
+
+Detect and Contain: Monitor data-layer behavior and prepare reversible response.
+
+Where Varonis comes in
+
+Visibility is foundational, but the current threat environment also rewards platforms that can act on what they see. Varonis combines both the ability to find, fix, and alert on risks at the data layer quickly enough to matter.
+
+As AI agents and copilots increasingly read, write, and act on enterprise data, the line between AI security and data security is disappearing. Varonis extends this same find-fix-alert model to AI: discovering each AI system, tying that usage back to the sensitive data, and applying runtime guardrails to help address risk before it becomes exposure.
+
+Four contributions stand out within a layered defense program:
+
+Continuous discovery and classification: Sensitive data across cloud, SaaS, on-premises, and AI systems, operating as a real-time inventory rather than a quarterly exercise.
+
+Automated reduction of excess access: At a pace that complements human-led entitlement reviews, turning least privilege for humans and agents from a policy statement into a measurable, sustained state.
+
+Data-centric threat detection: With behavioral analytics tuned to ransomware staging, insider exfiltration, account compromise, non-human identity misuse, and out-of-policy behavior, broadening the SOC’s line of sight into data-layer activity.
+
+Managed data detection and response: For organizations seeking to operationalize data detection and response without building a continuous data-layer practice in-house.
+
+PwC helps clients shape the operating approach, frame risk for board engagement, and bring the program to life, often in collaboration with Varonis. This combination is resonating with organizations navigating the shift.
+
+In early phases of remediation, clients often see meaningful reductions in over-exposed data and excess access. Results vary by environment, and they are more useful when measured against a tailored baseline.
+
+A baseline can surface overexposed sensitive data, unjustified access, broad non-human permissions, and gaps in data-layer monitoring, a defensible starting point for prioritized remediation.
+
+At Varonis, we believe AI makes visibility and control at the data layer critical. Agents, chatbots, and models introduce new access paths that attackers can use to compromise data at machine speed. Without continuous visibility and control, sensitive data may be exposed the moment an agent or AI system touches it.
+
+A closing note
+
+Data security and access governance have moved from supporting disciplines to foundations of resilience.
+
+Organizations that establish clear ownership, maintain a live view of sensitive data, enforce disciplined access, and operationalize data-centric detection can be better positioned for the next phase of attacker capability. PwC and Varonis are helping organizations put this foundation into practice.
+
+Continue the conversation with Varonis and PwC by watching our on-demand webinar where our experts explored how organizations can identify, prioritize, integrate, and define their data security strategies moving forward. Watch now."

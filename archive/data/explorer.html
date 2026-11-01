@@ -70,7 +70,7 @@
   .am-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
   .am-tag { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; line-height: 1.5; border-radius: 999px;
             padding: 1px 10px; border: 1px solid #343850; color: #c9cbd6; background: #1b1e2d; }
-  .am-tag.category { color: #fff; border-color: transparent; font-weight: 600; background: #555a70; }
+  .am-tag.category, .am-tag.vendor { color: #fff; border-color: transparent; font-weight: 600; background: #555a70; }
   .am-tag.podcast { color: #ff8a80; border-color: #6b2a27; background: #2a1a1b; font-weight: 600; }
   .am-tag.transcript { color: #9fd3a8; border-color: #2c4a33; background: #17241b; }
   .am-tag.muted { color: #6b7088; font-style: italic; }
@@ -150,6 +150,7 @@
   <label class="field" id="from-wrap" hidden>From <input type="date" id="from"></label>
   <label class="field" id="to-wrap" hidden>To <input type="date" id="to"></label>
   <label class="field">Category <select id="category"></select></label>
+  <label class="field">Vendor <select id="vendor"></select></label>
   <label class="field">Module <select id="module"></select></label>
   <label class="field">Type
     <select id="type">
@@ -253,6 +254,7 @@
       return t;
     }
     if (a.category) { var c = addTag(a.category, 'category'); if (a.color) c.style.background = a.color; }
+    if (a.vendor) { var v = addTag(a.vendor, 'vendor'); if (a.vendorColor) v.style.background = a.vendorColor; }
     if (a.podcast) addTag('Podcast', 'podcast', POD_ICON);
     if (a.transcript) addTag('Transcript available', 'transcript');
     (a.modules || []).forEach(function (m) { addTag(m, m === 'Other/General' || m === 'N/A' ? 'muted' : ''); });
@@ -301,7 +303,7 @@
 
   async function exportAs(fmt) {
     var withText = el.ft.checked, note = '';
-    var rec = { id: current.id || '', story: current.story || '', date: current.date, category: current.category || '', modules: current.modules || [], source: current.source,
+    var rec = { id: current.id || '', story: current.story || '', date: current.date, category: current.category || '', vendor: current.vendor || '', modules: current.modules || [], source: current.source,
                 podcast: !!current.podcast, title: current.title, link: current.link, context: current.context || '' };
     el.json.disabled = el.csv.disabled = true;
     try {
@@ -315,8 +317,8 @@
         download('article_' + slug + '.json', 'application/json',
                  JSON.stringify({ exported: new Date().toISOString(), article: rec }, null, 2));
       } else {
-        var head = ['ID', 'Story', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
-        var cells = [rec.id, rec.story, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
+        var head = ['ID', 'Story', 'Date', 'Category', 'Vendor', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var cells = [rec.id, rec.story, rec.date ? rec.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', rec.category, rec.vendor, rec.modules.join('; '), rec.podcast ? 'Podcast' : 'Article',
                      rec.source, rec.title, rec.link, rec.context];
         if (withText) {
           var t = rec.full_text;
@@ -426,7 +428,8 @@
 <script>
 (function () {
   'use strict';
-  var COLORS = {"Zero-Day Exploits & Vulnerabilities": "#DA291C", "Company & Service Acquisitions": "#3498db", "Trend Micro": "#DA291C", "CrowdStrike": "#e67e22", "Palo Alto Networks": "#00b4d8", "Fortinet": "#c0392b", "SentinelOne": "#8e44ad", "Microsoft Security": "#0078d4", "Mandiant": "#e74c3c", "Sophos": "#2980b9", "ESET": "#00a9e0", "Bitdefender": "#ed1c24", "Check Point": "#27ae60", "Recorded Future": "#16a085", "Cisco Security": "#1ba0d7", "Wiz": "#4fc3f7", "Orca Security": "#0288d1", "Trellix": "#7cb342", "Darktrace": "#37474f", "ExtraHop": "#f4511e", "Vectra AI": "#6a1b9a", "Proofpoint": "#0277bd", "Broadcom / Symantec": "#fdd835", "Kaspersky": "#006d5b", "Cybereason": "#e91e63", "Barracuda": "#e65100", "Falco / Sysdig": "#00acc1", "Okta": "#00297a", "CyberArk": "#cb2d3e", "BeyondTrust": "#f57c00", "Delinea": "#e91e8c", "IBM Security": "#1f70c1", "Elastic Security": "#f04e98", "Rubrik": "#ffb900", "Arctic Wolf": "#1a73e8", "Abnormal Security": "#00c2a8", "Huntress": "#e84545", "Lacework": "#5c2d91", "Aqua Security": "#00adef", "Snyk": "#4c4a73", "Rapid7": "#e67e22", "Tenable": "#9b59b6", "Qualys": "#1abc9c", "Zscaler": "#f1c40f", "Netskope": "#0aa5a8", "Cato Networks": "#5b6ef5", "Dragos": "#ff6f00", "Claroty": "#009688", "WithSecure": "#ff4a3d", "Secureworks": "#b71c1c", "Blackberry / Cylance": "#00a94f", "1Password": "#0572ec", "Akamai Technologies": "#0099cc", "Armis": "#d6336c", "Automox": "#f26522", "Bitwarden": "#175ddc", "Checkmarx": "#54b848", "Cloudflare": "#f6821f", "Cohesity": "#6cc24a", "F5": "#e4002b", "Flashpoint": "#005eb8", "Forescout": "#ef4136", "Juniper Networks": "#84b135", "Mimecast": "#e8590c", "Nozomi Networks": "#00a3e0", "Ping Identity": "#b3282d", "Splunk": "#65a637", "Varonis": "#0d9bd7", "Veracode": "#00b0b9", "General Security News": "#95a5a6"};
+  var COLORS = {"Vulnerabilities & Patching": "#DA291C", "Attacks, Breaches & Threat Intel": "#e67e22", "Business & Industry News": "#3498db", "Policy, Legal & Compliance": "#8e6bd6", "Product & Roadmap": "#1abc9c", "General Security News": "#95a5a6", "Trend Micro": "#DA291C", "CrowdStrike": "#e67e22", "Palo Alto Networks": "#00b4d8", "Fortinet": "#c0392b", "SentinelOne": "#8e44ad", "Microsoft Security": "#0078d4", "Mandiant": "#e74c3c", "Sophos": "#2980b9", "ESET": "#00a9e0", "Bitdefender": "#ed1c24", "Check Point": "#27ae60", "Recorded Future": "#16a085", "Cisco Security": "#1ba0d7", "Wiz": "#4fc3f7", "Orca Security": "#0288d1", "Trellix": "#7cb342", "Darktrace": "#37474f", "ExtraHop": "#f4511e", "Vectra AI": "#6a1b9a", "Proofpoint": "#0277bd", "Broadcom / Symantec": "#fdd835", "Kaspersky": "#006d5b", "Cybereason": "#e91e63", "Barracuda": "#e65100", "Falco / Sysdig": "#00acc1", "Okta": "#00297a", "CyberArk": "#cb2d3e", "BeyondTrust": "#f57c00", "Delinea": "#e91e8c", "IBM Security": "#1f70c1", "Elastic Security": "#f04e98", "Rubrik": "#ffb900", "Arctic Wolf": "#1a73e8", "Abnormal Security": "#00c2a8", "Huntress": "#e84545", "Lacework": "#5c2d91", "Aqua Security": "#00adef", "Snyk": "#4c4a73", "Rapid7": "#e67e22", "Tenable": "#9b59b6", "Qualys": "#1abc9c", "Zscaler": "#f1c40f", "Netskope": "#0aa5a8", "Cato Networks": "#5b6ef5", "Dragos": "#ff6f00", "Claroty": "#009688", "WithSecure": "#ff4a3d", "Secureworks": "#b71c1c", "Blackberry / Cylance": "#00a94f", "1Password": "#0572ec", "Akamai Technologies": "#0099cc", "Armis": "#d6336c", "Automox": "#f26522", "Bitwarden": "#175ddc", "Checkmarx": "#54b848", "Cloudflare": "#f6821f", "Cohesity": "#6cc24a", "F5": "#e4002b", "Flashpoint": "#005eb8", "Forescout": "#ef4136", "Juniper Networks": "#84b135", "Mimecast": "#e8590c", "Nozomi Networks": "#00a3e0", "Ping Identity": "#b3282d", "Splunk": "#65a637", "Varonis": "#0d9bd7", "Veracode": "#00b0b9", "No Specific Vendor": "#95a5a6"};
+  var NO_VENDOR = "No Specific Vendor";
   var POD_ICON = '<svg class="pod-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>';
   var PAGE = 100, CSV_CELL_LIMIT = 32000;
   var $ = function (id) { return document.getElementById(id); };
@@ -452,12 +455,13 @@
   }
 
   function applyFilters() {
-    var r = range(), cat = $('category').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
+    var r = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
     var type = $('type').value;
     rows = all.filter(function (a) {
       if (type === 'podcast' && !a.podcast) return false;
       if (type === 'article' && a.podcast) return false;
       if (cat && a.category !== cat) return false;
+      if (vend && (a.vendor || NO_VENDOR) !== vend) return false;
       if (mod && (a.modules || []).indexOf(mod) === -1) return false;
       if (src && a.source !== src) return false;
       if (r.from || r.to) {
@@ -510,19 +514,28 @@
 
   function toArticle(a) {
     return { id: a.id, story: a.story || a.id, shareUrl: location.origin + location.pathname + '#' + a.id, title: a.title, link: a.link,
-      source: a.source, date: a.date, category: a.category, color: COLORS[a.category] || '', modules: a.modules || [],
-      podcast: !!a.podcast, transcript: !!a.transcript, context: a.context || '' };
+      source: a.source, date: a.date, category: a.category, color: COLORS[a.category] || '', vendor: a.vendor || '', vendorColor: COLORS[a.vendor] || '',
+      modules: a.modules || [], podcast: !!a.podcast, transcript: !!a.transcript, context: a.context || '' };
+  }
+
+  function addChips(meta, a) {
+    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
+    chip.style.background = COLORS[a.category] || '#555a70';
+    meta.appendChild(chip);
+    if (a.vendor) {
+      var v = document.createElement('span'); v.className = 'chip'; v.textContent = a.vendor;
+      v.style.background = COLORS[a.vendor] || '#555a70';
+      meta.appendChild(v);
+    }
   }
 
   function buildTopicItem(t) {
     var a = t.lead, el = document.createElement('article'); el.className = 'item topic';
     var meta = document.createElement('div'); meta.className = 'meta';
-    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
-    chip.style.background = COLORS[a.category] || '#555a70';
     var cnt = document.createElement('span'); cnt.className = 'src';
     cnt.textContent = t.sources.length + ' source' + (t.sources.length === 1 ? '' : 's') + ' · ' + t.total.length + ' article' + (t.total.length === 1 ? '' : 's');
     var when = document.createElement('time'); when.textContent = t.latest ? 'latest ' + t.latest.slice(0, 10) : '';
-    meta.appendChild(chip); meta.appendChild(cnt); meta.appendChild(when);
+    addChips(meta, a); meta.appendChild(cnt); meta.appendChild(when);
     if (t.matched.some(function (m) { return /actively exploited|exploited in the wild|zero-?day|known exploited/i.test(m.title + ' ' + (m.context || '')); })) {
       var hot = document.createElement('span'); hot.className = 'hot'; hot.textContent = 'Exploited'; meta.appendChild(hot);
     }
@@ -566,13 +579,11 @@
   function buildItem(a) {
     var el = document.createElement('article'); el.className = 'item';
     var meta = document.createElement('div'); meta.className = 'meta';
-    var chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = a.category || 'Uncategorised';
-    chip.style.background = COLORS[a.category] || '#555a70';
     var src = document.createElement('span'); src.className = 'src';
     if (a.podcast) { var pb = document.createElement('span'); pb.className = 'pod-badge'; pb.title = 'Podcast'; pb.innerHTML = POD_ICON; src.appendChild(pb); }
     src.appendChild(document.createTextNode(a.source));
     var t = document.createElement('time'); t.textContent = a.date ? a.date.slice(11, 16) + ' UTC' : '';
-    meta.appendChild(chip); meta.appendChild(src); meta.appendChild(t);
+    addChips(meta, a); meta.appendChild(src); meta.appendChild(t);
     var details = document.createElement('button'); details.type = 'button'; details.className = 'card-details';
     details.setAttribute('aria-label', 'Details and export'); details.__article = a;
     meta.appendChild(details);
@@ -629,23 +640,23 @@
     try {
       if (withText) { var r = await loadTexts(); texts = r.texts; failed = r.failed; }
       var recs = rows.map(function (a) {
-        var rec = { id: a.id, story: a.story || a.id, date: a.date, category: a.category, modules: a.modules || [], podcast: !!a.podcast, source: a.source, title: a.title, link: a.link, context: a.context || '' };
+        var rec = { id: a.id, story: a.story || a.id, date: a.date, category: a.category, vendor: a.vendor || '', modules: a.modules || [], podcast: !!a.podcast, source: a.source, title: a.title, link: a.link, context: a.context || '' };
         if (withText) rec.full_text = texts[a.id] || '';
         return rec;
       });
-      var rg = range(), cat = $('category').value, mod = $('module').value;
-      var base = 'articles_' + (cat || 'all-categories') + (mod ? '_' + mod : '') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
+      var rg = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value;
+      var base = 'articles_' + (cat || 'all-categories') + (vend ? '_' + vend : '') + (mod ? '_' + mod : '') + '_' + (rg.from || 'start') + '_to_' + (rg.to || 'now');
       base = base.replace(/[^A-Za-z0-9_-]+/g, '_');
       if (fmt === 'json') {
         download(base + '.json', 'application/json', JSON.stringify({
           exported: new Date().toISOString(),
-          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, module: mod, source: $('source').value, search: $('q').value },
+          filters: { period: $('period').value, from: rg.from, to: rg.to, category: cat, vendor: vend, module: mod, source: $('source').value, search: $('q').value },
           count: recs.length, articles: recs }, null, 2));
       } else {
-        var head = ['ID', 'Story', 'Date', 'Category', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
+        var head = ['ID', 'Story', 'Date', 'Category', 'Vendor', 'Modules', 'Type', 'Source', 'Title', 'Link', 'Context'].concat(withText ? ['Full Text'] : []);
         var lines = [head.join(',')];
         recs.forEach(function (x) {
-          var cells = [x.id, x.story, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.modules.join('; '), x.podcast ? 'Podcast' : 'Article', x.source, x.title, x.link, x.context];
+          var cells = [x.id, x.story, x.date ? x.date.slice(0, 16).replace('T', ' ') + ' UTC' : '', x.category, x.vendor, x.modules.join('; '), x.podcast ? 'Podcast' : 'Article', x.source, x.title, x.link, x.context];
           if (withText) {
             var t = x.full_text;
             cells.push(t.length > CSV_CELL_LIMIT ? t.slice(0, CSV_CELL_LIMIT) + ' [truncated for CSV - use JSON for the full text]' : t);
@@ -668,18 +679,20 @@
   function init(data) {
     all = data.articles;
     all.forEach(function (a) { var k = a.story || a.id; (byStory[k] = byStory[k] || []).push(a); });
-    var cats = {}, srcs = {}, mods = {};
+    var cats = {}, vends = {}, srcs = {}, mods = {};
     all.forEach(function (a) {
       cats[a.category] = (cats[a.category] || 0) + 1;
+      var vk = a.vendor || NO_VENDOR; vends[vk] = (vends[vk] || 0) + 1;
       srcs[a.source] = (srcs[a.source] || 0) + 1;
       (a.modules || []).forEach(function (m) { mods[m] = (mods[m] || 0) + 1; });
     });
     fillSelect('category', 'categories', cats, true);
+    fillSelect('vendor', 'vendors', vends, true);
     fillSelect('module', 'modules', mods, false);
     fillSelect('source', 'sources', srcs, false);
     $('to').max = $('from').max = isoDay(0);
     var timer;
-    ['category', 'module', 'type', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    ['category', 'vendor', 'module', 'type', 'source', 'from', 'to'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
     $('period').addEventListener('change', function () {
       var custom = $('period').value === 'custom';
       $('from-wrap').hidden = $('to-wrap').hidden = !custom;
@@ -690,7 +703,7 @@
     function openArticle(a) {
       window.ArticleModal.open({ id: a.id, shareUrl: location.origin + location.pathname + '#' + a.id,
         title: a.title, link: a.link, source: a.source, date: a.date, category: a.category,
-        color: COLORS[a.category] || '', modules: a.modules || [], podcast: !!a.podcast, transcript: !!a.transcript,
+        color: COLORS[a.category] || '', vendor: a.vendor || '', vendorColor: COLORS[a.vendor] || '', modules: a.modules || [], podcast: !!a.podcast, transcript: !!a.transcript,
         context: a.context || '' }, { fullTextBase: 'fulltext/' });
     }
     function openFromHash() {
