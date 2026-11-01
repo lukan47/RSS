@@ -2593,6 +2593,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     color: #666;
     margin-top: 3px;
   }}
+  .filterbar {{
+    padding: 18px 24px 0;
+  }}
   .topbar-right {{
     display: flex;
     flex-direction: row;
@@ -2600,14 +2603,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     align-items: center;
     flex-wrap: wrap;
   }}
-  @media (max-width: 1600px) {{
-    .topbar {{
-      grid-template-columns: 1fr;
-    }}
-    .topbar-right {{
-      width: 100%;
-      margin-top: 12px;
-    }}
+  @media (max-width: 640px) {{
+    .filterbar {{ padding: 14px 16px 0; }}
   }}
 
   /* ── Filter dropdowns ── */
@@ -2854,6 +2851,10 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     <h1><span>CI</span> Overwatch</h1>
     <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
+</div>
+
+{trending_html}
+<div class="filterbar">
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
@@ -2872,7 +2873,6 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   </div>
 </div>
 
-{trending_html}
 <div class="content">
   <div class="grid view-category">
     {"".join(columns)}
