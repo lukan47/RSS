@@ -75,7 +75,33 @@
   .bl-new { background: #8e6bd6; }
   .bl-normal, .bl-na { background: #3a3e52; color: #c9cbd6; }
   .spark { display: block; }
-  #period:disabled { opacity: .4; cursor: not-allowed; }
+  #period:disabled, #category:disabled { opacity: .4; cursor: not-allowed; }
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .saved { display: inline-flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  #roadmap-options { display: inline-flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  #roadmap-options[hidden], #watch-wrap[hidden] { display: none; }
+  .star { color: #f1c40f; font-weight: 700; }
+  .rm-vendor { background: #1a1d27; border-radius: 7px; margin-bottom: 14px; overflow: hidden; }
+  .rm-head { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px; background: #171a26; border-left: 4px solid #555a70; }
+  .rm-head h2 { font-size: .92rem; color: #fff; }
+  .rm-head small { color: #6b7088; font-size: .72rem; }
+  .tl { list-style: none; padding: 6px 16px 10px 28px; margin: 0; position: relative; }
+  .tl::before { content: ""; position: absolute; left: 20px; top: 14px; bottom: 16px; width: 2px; background: #2a2d3e; }
+  .tl li { position: relative; padding: 7px 0 7px 14px; display: grid; grid-template-columns: 78px auto 1fr; gap: 4px 12px; align-items: baseline; }
+  .tl li::before { content: ""; position: absolute; left: -12px; top: 15px; width: 8px; height: 8px; border-radius: 50%; background: #4b5068; }
+  .tl li.k-retirement::before { background: #DA291C; }
+  .tl li.k-launch::before, .tl li.k-general-availability::before { background: #2e7d4f; }
+  .tl time { font-size: .72rem; color: #8a8fa3; font-variant-numeric: tabular-nums; }
+  .tl .kind { font-size: .66rem; font-weight: 700; border-radius: 3px; padding: 1px 7px; background: #3a3e52; color: #c9cbd6; white-space: nowrap; }
+  .tl .kind.k-retirement { background: #DA291C; color: #fff; }
+  .tl .kind.k-launch, .tl .kind.k-general-availability { background: #2e7d4f; color: #fff; }
+  .tl .kind.k-preview-roadmap { background: #8e6bd6; color: #fff; }
+  .tl .kind.k-integration { background: #3b6fb5; color: #fff; }
+  .tl a { color: #d8d8d8; text-decoration: none; font-size: .86rem; line-height: 1.45; }
+  .tl a:hover, .tl a:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .tl small { grid-column: 3; color: #6b7088; font-size: .7rem; margin-top: -2px; }
+  .rm-more { margin: 0 16px 12px 28px; }
+  @media (max-width: 640px) { .tl li { grid-template-columns: 1fr; } .tl small { grid-column: 1; } .saved { margin-left: 0; } }
   .topic-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
   .btn.small { padding: 5px 12px; font-size: .72rem; }
   .lead-link { font-size: .74rem; color: #8a8fa3; text-decoration: none; }
@@ -99,7 +125,10 @@
     <h1><span>CI</span> Overwatch &mdash; All Articles</h1>
     <p id="summary">Loading articles&hellip;</p>
   </div>
-  <a class="back" href="../../">&larr; Dashboard</a>
+  <div class="links">
+    <a class="back" href="sources.html" title="Which feeds work, which are failing or stale">Source health</a>
+    <a class="back" href="../../">&larr; Dashboard</a>
+  </div>
 </div>
 
 <form class="filters" id="filters" onsubmit="return false">
@@ -126,8 +155,11 @@
   </label>
   <label class="field">Source <select id="source"></select></label>
   <label class="field">Search <input type="search" id="q" placeholder="Title, source or summary"></label>
+  <label class="chk" id="watch-wrap" hidden title="Only articles that match watchlist.json"><input type="checkbox" id="watch"> &#9733; Watchlist only</label>
   <div class="spacer"></div>
   <div class="export">
+    <button type="button" class="btn ghost" id="btn-brief-md" disabled title="Last 7 days: top stories, spikes, vulnerabilities, deals, product news, policy, watchlist">&darr; Briefing .md</button>
+    <button type="button" class="btn ghost" id="btn-brief-doc" disabled title="Same briefing as a Word document">&darr; Briefing .doc</button>
     <label class="chk"><input type="checkbox" id="fulltext"> Include full article text</label>
     <button type="button" class="btn" id="btn-json" disabled>&darr; JSON</button>
     <button type="button" class="btn" id="btn-csv" disabled>&darr; CSV</button>
@@ -139,7 +171,21 @@
     <button type="button" id="view-articles" aria-pressed="true">Articles</button>
     <button type="button" id="view-topics" aria-pressed="false">Topics</button>
     <button type="button" id="view-baseline" aria-pressed="false">Baseline</button>
+    <button type="button" id="view-roadmap" aria-pressed="false">Roadmap</button>
   </div>
+  <span id="roadmap-options" hidden>
+    <label class="field">Kind
+      <select id="rm-kind">
+        <option value="">All</option>
+        <option value="Launch">Launch</option>
+        <option value="Preview / roadmap">Preview / roadmap</option>
+        <option value="General availability">General availability</option>
+        <option value="Integration">Integration</option>
+        <option value="Retirement">Retirement</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="rm-untracked"> Include untracked vendors</label>
+  </span>
   <span id="baseline-options" hidden>
     <label class="field">Group by
       <select id="bl-by">
@@ -180,6 +226,14 @@
     </label>
     <label class="chk"><input type="checkbox" id="topic-multi" checked> Only topics with 2+ articles</label>
   </span>
+  <span class="saved">
+    <label class="field">Saved views
+      <select id="saved-views"><option value="">Choose&hellip;</option></select>
+    </label>
+    <button type="button" class="btn ghost small" id="view-save" title="Remember the current filters and view in this browser">Save view</button>
+    <button type="button" class="btn ghost small" id="view-delete" disabled>Delete</button>
+    <button type="button" class="btn ghost small" id="view-link" title="Copy a link that opens exactly this view">Copy link</button>
+  </span>
 </div>
 <div id="status" role="status" aria-live="polite"></div>
 <main id="list"></main>
@@ -199,6 +253,22 @@ __MODAL_JS__
   var PAGE = 100, CSV_CELL_LIMIT = 32000;
   var $ = function (id) { return document.getElementById(id); };
   var all = [], rows = [], shown = 0, lastDay = null, dayCounts = {}, view = 'articles', topics = [], byStory = {};
+  var ROADMAP_CAT = 'Product & Roadmap', watchlist = { vendors: [], keywords: [] }, roadmapRows = [];
+
+  // Watchlist (watchlist.json at the site root): a vendor, or a keyword in the title ("~word" matches whole words only)
+  function watchActive() { return watchlist.vendors.length > 0 || watchlist.keywords.length > 0; }
+  function watchReason(a) {
+    if (!watchActive()) return '';
+    if (a.vendor && watchlist.vendors.indexOf(a.vendor) !== -1) return a.vendor;
+    var t = (a.title || '').toLowerCase();
+    for (var i = 0; i < watchlist.keywords.length; i++) {
+      var kw = watchlist.keywords[i];
+      if (kw.charAt(0) === '~') {
+        if (new RegExp('(^|[^a-z0-9])' + kw.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])').test(t)) return kw.slice(1);
+      } else if (t.indexOf(kw) !== -1) return kw;
+    }
+    return '';
+  }
 
   function isoDay(offset) {
     var d = new Date(); d.setUTCDate(d.getUTCDate() - offset);
@@ -220,9 +290,10 @@ __MODAL_JS__
   }
 
   function applyFilters() {
-    var r = range(), cat = $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
-    var type = $('type').value;
+    var r = range(), cat = view === 'roadmap' ? '' : $('category').value, vend = $('vendor').value, mod = $('module').value, src = $('source').value, q = $('q').value.trim().toLowerCase();
+    var type = $('type').value, watchOnly = $('watch').checked;
     var pass = function (a, usePeriod) {
+      if (watchOnly && !watchReason(a)) return false;
       if (type === 'podcast' && !a.podcast) return false;
       if (type === 'article' && a.podcast) return false;
       if (cat && a.category !== cat) return false;
@@ -242,6 +313,11 @@ __MODAL_JS__
     if (view === 'baseline') {
       $('list').textContent = ''; shown = 0; $('more').hidden = true;
       buildBaseline(all.filter(function (a) { return pass(a, false); }));
+      return;
+    }
+    if (view === 'roadmap') {
+      $('list').textContent = ''; shown = 0; $('more').hidden = true;
+      buildRoadmap(rows);
       return;
     }
     var topicsView = view === 'topics';
@@ -300,8 +376,9 @@ __MODAL_JS__
     if (d <= -0.25 && z <= -1) return 'Down';
     return 'Normal';
   }
-  function computeBaseline(list) {
-    var by = $('bl-by').value, W = parseInt($('bl-window').value, 10), N = parseInt($('bl-weeks').value, 10);
+  function computeBaseline(list, opts) {
+    opts = opts || {};
+    var by = opts.by || $('bl-by').value, W = opts.W || parseInt($('bl-window').value, 10), N = opts.N || parseInt($('bl-weeks').value, 10);
     var dated = list.filter(function (a) { return a.date; });
     var allDays = all.filter(function (a) { return a.date; }).map(function (a) { return dayNum(a.date); }).sort(function (x, y) { return x - y; });
     if (!allDays.length) return { rows: [], meta: { by: by, W: W, N: N, days: 0 } };
@@ -361,7 +438,7 @@ __MODAL_JS__
       out.push({ group: k, current: cur, expected: exp, base: base, delta: exp > 0 ? (cur - exp) / exp : null, z: z,
                  status: usedDays >= 7 ? baselineStatus(cur, exp, base, z) : 'n/a', weekly: weekly });
     });
-    var sort = $('bl-sort').value;
+    var sort = opts.sort || $('bl-sort').value;
     out.sort(function (x, y) {
       if (sort === 'drop') return (x.current - x.expected) - (y.current - y.expected);
       if (sort === 'volume') return y.current - x.current;
@@ -419,6 +496,162 @@ __MODAL_JS__
       body.appendChild(tr);
     });
     table.appendChild(body); host.appendChild(table);
+  }
+
+  // ── Roadmap: product news per vendor as a timeline (launches, previews, GA, integrations, retirements) ──
+  function roadmapKind(a) {
+    var t = (a.title || '').toLowerCase();
+    if (/retire|deprecat|sunset|end[ -]of[ -](support|life)|\beol\b|discontinu/.test(t)) return 'Retirement';
+    if (/roadmap|road map|coming soon|preview|\bbeta\b|early access|later this year|will begin|to begin/.test(t)) return 'Preview / roadmap';
+    if (/general availability|generally available|now available|\bga\b/.test(t)) return 'General availability';
+    if (/integrat/.test(t)) return 'Integration';
+    return 'Launch';
+  }
+  function kindClass(kind) { return 'k-' + kind.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, ''); }
+
+  function buildRoadmap(list) {
+    var kindSel = $('rm-kind').value, untracked = $('rm-untracked').checked;
+    var items = list.filter(function (a) { return a.category === ROADMAP_CAT && a.date && (untracked || a.vendor); })
+      .map(function (a) { return { vendor: a.vendor || NO_VENDOR, date: a.date.slice(0, 10), kind: roadmapKind(a), a: a }; })
+      .filter(function (x) { return !kindSel || x.kind === kindSel; });
+    items.sort(function (x, y) { return y.a.date.localeCompare(x.a.date); });
+    roadmapRows = items;
+    $('btn-json').disabled = $('btn-csv').disabled = !items.length;
+    var byVendor = {};
+    items.forEach(function (x) { (byVendor[x.vendor] = byVendor[x.vendor] || []).push(x); });
+    var vendors = Object.keys(byVendor).sort(function (p, q) {
+      if (p === NO_VENDOR) return 1; if (q === NO_VENDOR) return -1;
+      return byVendor[q][0].a.date.localeCompare(byVendor[p][0].a.date);
+    });
+    $('summary').textContent = items.length.toLocaleString() + ' product & roadmap items from ' + vendors.length + ' vendor' + (vendors.length === 1 ? '' : 's');
+    setStatus(items.length ? 'Newest first. The kind is read from the title. The period, vendor, module, type and source filters apply; the category filter does not.'
+                           : 'No product or roadmap news matches these filters.');
+    var host = $('list');
+    vendors.forEach(function (v) {
+      var group = byVendor[v], sec = document.createElement('section'); sec.className = 'rm-vendor';
+      var head = document.createElement('div'); head.className = 'rm-head'; head.style.borderLeftColor = COLORS[v] || '#555a70';
+      var h = document.createElement('h2'); h.textContent = v;
+      var sm = document.createElement('small'); sm.textContent = group.length + ' item' + (group.length === 1 ? '' : 's') + ' · latest ' + group[0].date;
+      head.appendChild(h); head.appendChild(sm); sec.appendChild(head);
+      var ul = document.createElement('ul'); ul.className = 'tl';
+      function addItem(x) {
+        var li = document.createElement('li'); li.className = kindClass(x.kind);
+        var tm = document.createElement('time'); tm.textContent = x.date;
+        var kd = document.createElement('span'); kd.className = 'kind ' + kindClass(x.kind); kd.textContent = x.kind;
+        var a = document.createElement('a'); a.href = x.a.link; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = x.a.title;
+        var sr = document.createElement('small'); sr.textContent = x.a.source;
+        li.appendChild(tm); li.appendChild(kd); li.appendChild(a); li.appendChild(sr); ul.appendChild(li);
+      }
+      group.slice(0, 8).forEach(addItem);
+      sec.appendChild(ul);
+      if (group.length > 8) {
+        var more = document.createElement('button'); more.type = 'button'; more.className = 'btn ghost small rm-more';
+        more.textContent = 'Show ' + (group.length - 8) + ' more';
+        more.addEventListener('click', function () { group.slice(8).forEach(addItem); more.remove(); });
+        sec.appendChild(more);
+      }
+      host.appendChild(sec);
+    });
+  }
+
+  function exportRoadmap(fmt) {
+    var base = 'roadmap_' + (isoDay(0));
+    var recs = roadmapRows.map(function (x) { return { vendor: x.vendor, date: x.date, kind: x.kind, title: x.a.title, link: x.a.link, source: x.a.source, id: x.a.id }; });
+    if (fmt === 'json') {
+      download(base + '.json', 'application/json', JSON.stringify({ exported: new Date().toISOString(), view: 'roadmap', count: recs.length, items: recs }, null, 2));
+    } else {
+      var lines = [['Vendor', 'Date', 'Kind', 'Title', 'Link', 'Source', 'ID'].join(',')];
+      recs.forEach(function (x) { lines.push([x.vendor, x.date, x.kind, x.title, x.link, x.source, x.id].map(csvCell).join(',')); });
+      download(base + '.csv', 'text/csv;charset=utf-8', '﻿' + lines.join('\r\n'));
+    }
+    setStatus('Exported ' + recs.length + ' roadmap items as ' + fmt.toUpperCase() + '.');
+  }
+
+  // ── Weekly briefing: the newest 7 days as Markdown or a Word document ──
+  var BRIEF_CATS = ['Vulnerabilities & Patching', 'Attacks, Breaches & Threat Intel', 'Business & Industry News', 'Policy, Legal & Compliance', 'Product & Roadmap'];
+  function briefingDoc() {
+    var cat = computeBaseline(all, { by: 'category', W: 7, N: 8, sort: 'increase' });
+    var ven = computeBaseline(all, { by: 'vendor', W: 7, N: 8, sort: 'increase' });
+    var from = cat.meta.from, to = cat.meta.anchor;
+    if (!from) return null;
+    var prevFrom = isoOfDay(dayNum(from) - 7);
+    var inWin = function (a) { var d = a.date && a.date.slice(0, 10); return d && d >= from && d <= to; };
+    var win = all.filter(inWin);
+    var prev = all.filter(function (a) { var d = a.date && a.date.slice(0, 10); return d && d >= prevFrom && d < from; }).length;
+    var srcs = {}; win.forEach(function (a) { srcs[a.source] = 1; });
+    var pct = prev ? Math.round((win.length - prev) / prev * 100) : null;
+    var blocks = [{ h: 'At a glance', items: [{ text: win.length.toLocaleString() + ' articles from ' + Object.keys(srcs).length + ' sources ('
+      + (pct === null ? 'no previous week to compare' : (pct >= 0 ? '+' : '') + pct + '% on the previous 7 days') + ').' }] }];
+    var movers = [];
+    function addMovers(res, skip, take) {
+      res.rows.filter(function (r) { return ['Spike', 'Up', 'New'].indexOf(r.status) !== -1 && r.group !== skip; }).slice(0, take).forEach(function (r) {
+        var exp = r.expected < 10 ? r.expected.toFixed(1) : String(Math.round(r.expected));
+        movers.push({ text: r.group + ' — ' + r.status.toLowerCase(), note: r.current + ' articles against ' + exp + ' expected' + (r.delta === null ? '' : ' (' + (r.delta >= 0 ? '+' : '') + Math.round(r.delta * 100) + '%)') });
+      });
+    }
+    addMovers(ven, NO_VENDOR, 6); addMovers(cat, 'General Security News', 3);
+    if (movers.length) blocks.push({ h: 'Spikes against the baseline', intro: 'This week against the daily average of the previous 8 weeks.', items: movers });
+    var stories = {};
+    win.forEach(function (a) { var k = a.story || a.id; (stories[k] = stories[k] || []).push(a); });
+    var ranked = Object.keys(stories).map(function (k) {
+      var m = stories[k].slice().sort(function (x, y) { return x.date.localeCompare(y.date); }), s = {};
+      m.forEach(function (x) { s[x.source] = 1; });
+      return { m: m, n: Object.keys(s).length, lead: m.filter(function (x) { return !isTemplated(x); })[0] || m[0] };
+    }).filter(function (x) { return x.n >= 2; }).sort(function (x, y) { return y.n - x.n || y.m.length - x.m.length; }).slice(0, 8);
+    if (ranked.length) blocks.push({ h: 'Top stories', intro: 'Covered by the most sources this week.', items: ranked.map(function (x) {
+      return { text: x.lead.title, link: x.lead.link, note: x.n + ' sources · ' + x.m.length + ' articles' + (x.lead.vendor ? ' · ' + x.lead.vendor : '') };
+    }) });
+    var hot = /actively exploited|exploited in the wild|zero-?day|known exploited/i;
+    function section(title, pool, limit) {
+      var seen = {}, picked = [];
+      pool.slice().sort(function (x, y) { return (hot.test(y.title) - hot.test(x.title)) || y.date.localeCompare(x.date); }).forEach(function (a) {
+        var k = a.story || a.id; if (seen[k] || picked.length >= limit) return; seen[k] = 1; picked.push(a);
+      });
+      if (picked.length) blocks.push({ h: title, items: picked.map(function (a) {
+        return { text: a.title, link: a.link, note: [a.vendor, a.source, a.date.slice(0, 10)].filter(Boolean).join(' · ') };
+      }) });
+    }
+    BRIEF_CATS.forEach(function (c) {
+      var pool = win.filter(function (a) { return a.category === c; });
+      if (c !== 'Vulnerabilities & Patching') pool.sort(function (x, y) { return y.date.localeCompare(x.date); });
+      section(c + ' (' + pool.length + ')', pool, c === 'Attacks, Breaches & Threat Intel' ? 8 : 10);
+    });
+    if (watchActive()) {
+      var wl = win.filter(function (a) { return watchReason(a); });
+      if (wl.length) blocks.push({ h: 'Watchlist (' + wl.length + ')', items: wl.slice().sort(function (x, y) { return y.date.localeCompare(x.date); }).slice(0, 15).map(function (a) {
+        return { text: a.title, link: a.link, note: [watchReason(a), a.source, a.date.slice(0, 10)].join(' · ') };
+      }) });
+    }
+    return { title: 'CI Overwatch weekly briefing', sub: from + ' to ' + to, blocks: blocks };
+  }
+  function briefingMd(d) {
+    var out = ['# ' + d.title, '', '*' + d.sub + ' · generated ' + new Date().toISOString().slice(0, 10) + '*', ''];
+    d.blocks.forEach(function (b) {
+      out.push('## ' + b.h, ''); if (b.intro) out.push(b.intro, '');
+      b.items.forEach(function (i) { out.push('- ' + (i.link ? '[' + i.text.replace(/[\[\]]/g, '') + '](' + i.link + ')' : i.text) + (i.note ? ' — ' + i.note : '')); });
+      out.push('');
+    });
+    return out.join('\n');
+  }
+  function briefingHtml(d, forWord) {
+    var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var body = '<h1>' + esc(d.title) + '</h1><p><i>' + esc(d.sub) + ' &middot; generated ' + new Date().toISOString().slice(0, 10) + '</i></p>';
+    d.blocks.forEach(function (b) {
+      body += '<h2>' + esc(b.h) + '</h2>' + (b.intro ? '<p>' + esc(b.intro) + '</p>' : '') + '<ul>' + b.items.map(function (i) {
+        return '<li>' + (i.link ? '<a href="' + esc(i.link) + '">' + esc(i.text) + '</a>' : esc(i.text)) + (i.note ? ' &mdash; <span style="color:#666">' + esc(i.note) + '</span>' : '') + '</li>';
+      }).join('') + '</ul>';
+    });
+    var style = 'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#222} h1{color:#DA291C;font-size:20pt} h2{font-size:14pt;border-bottom:1px solid #ccc;padding-bottom:2px;margin-top:18pt} li{margin-bottom:3pt}';
+    return (forWord ? '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' : '<html>') +
+      '<head><meta charset="utf-8"><title>' + esc(d.title) + '</title><style>' + style + '</style></head><body>' + body + '</body></html>';
+  }
+  function exportBriefing(kind) {
+    var d = briefingDoc();
+    if (!d) { setStatus('There are no dated articles to build a briefing from.', true); return; }
+    var name = 'ci_overwatch_briefing_' + d.sub.slice(-10);
+    if (kind === 'md') download(name + '.md', 'text/markdown;charset=utf-8', briefingMd(d));
+    else download(name + '.doc', 'application/msword', '﻿' + briefingHtml(d, true));
+    setStatus('Weekly briefing for ' + d.sub + ' exported as ' + (kind === 'md' ? 'Markdown' : 'a Word document') + '.');
   }
 
   function toArticle(a) {
@@ -492,7 +725,10 @@ __MODAL_JS__
     if (a.podcast) { var pb = document.createElement('span'); pb.className = 'pod-badge'; pb.title = 'Podcast'; pb.innerHTML = POD_ICON; src.appendChild(pb); }
     src.appendChild(document.createTextNode(a.source));
     var t = document.createElement('time'); t.textContent = a.date ? a.date.slice(11, 16) + ' UTC' : '';
-    addChips(meta, a); meta.appendChild(src); meta.appendChild(t);
+    addChips(meta, a); meta.appendChild(src);
+    var why = watchReason(a);
+    if (why) { var star = document.createElement('span'); star.className = 'star'; star.title = 'Watchlist: ' + why; star.textContent = '★'; meta.appendChild(star); }
+    meta.appendChild(t);
     var details = document.createElement('button'); details.type = 'button'; details.className = 'card-details';
     details.setAttribute('aria-label', 'Details and export'); details.__article = a;
     meta.appendChild(details);
@@ -567,6 +803,7 @@ __MODAL_JS__
 
   async function doExport(fmt) {
     if (view === 'baseline') { exportBaseline(fmt); return; }
+    if (view === 'roadmap') { exportRoadmap(fmt); return; }
     var withText = $('fulltext').checked, texts = {}, failed = [];
     $('btn-json').disabled = $('btn-csv').disabled = true;
     try {
@@ -655,10 +892,12 @@ __MODAL_JS__
     });
     function setView(next) {
       view = next;
-      ['articles', 'topics', 'baseline'].forEach(function (v) { $('view-' + v).setAttribute('aria-pressed', next === v ? 'true' : 'false'); });
+      ['articles', 'topics', 'baseline', 'roadmap'].forEach(function (v) { $('view-' + v).setAttribute('aria-pressed', next === v ? 'true' : 'false'); });
       $('topic-options').hidden = next !== 'topics';
       $('baseline-options').hidden = next !== 'baseline';
+      $('roadmap-options').hidden = next !== 'roadmap';
       $('period').disabled = next === 'baseline';
+      $('category').disabled = next === 'roadmap';
       applyFilters();
     }
     $('view-articles').addEventListener('click', function () { setView('articles'); });
@@ -684,9 +923,89 @@ __MODAL_JS__
     $('topic-multi').addEventListener('change', applyFilters);
     $('btn-json').addEventListener('click', function () { doExport('json'); });
     $('btn-csv').addEventListener('click', function () { doExport('csv'); });
-    window.addEventListener('hashchange', openFromHash);
-    applyFilters();
-    openFromHash();
+    $('view-roadmap').addEventListener('click', function () { setView('roadmap'); });
+    ['rm-kind', 'rm-untracked', 'watch'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+    $('btn-brief-md').disabled = $('btn-brief-doc').disabled = false;
+    $('btn-brief-md').addEventListener('click', function () { exportBriefing('md'); });
+    $('btn-brief-doc').addEventListener('click', function () { exportBriefing('doc'); });
+
+    // Shareable and saved views: the view and its filters as URL parameters
+    var FIELDS = { period: 'period', from: 'from', to: 'to', category: 'category', vendor: 'vendor', module: 'module', type: 'type', source: 'source', q: 'q',
+                   by: 'bl-by', win: 'bl-window', weeks: 'bl-weeks', sort: 'bl-sort', kind: 'rm-kind' };
+    var defaults = {};
+    Object.keys(FIELDS).forEach(function (k) { defaults[k] = $(FIELDS[k]).value; });
+    function viewParams() {
+      var p = new URLSearchParams(); p.set('view', view);
+      Object.keys(FIELDS).forEach(function (k) { var v = $(FIELDS[k]).value; if (v && v !== defaults[k]) p.set(k, v); });
+      if ($('watch').checked) p.set('watch', '1');
+      if ($('rm-untracked').checked) p.set('untracked', '1');
+      return p;
+    }
+    function applyParams(p) {
+      Object.keys(FIELDS).forEach(function (k) {
+        var el = $(FIELDS[k]), v = p.has(k) ? p.get(k) : defaults[k];
+        if (el.tagName === 'SELECT') el.value = Array.prototype.some.call(el.options, function (o) { return o.value === v; }) ? v : defaults[k];
+        else el.value = v;
+      });
+      $('watch').checked = p.get('watch') === '1';
+      $('rm-untracked').checked = p.get('untracked') === '1';
+      var custom = $('period').value === 'custom'; $('from-wrap').hidden = $('to-wrap').hidden = !custom;
+      var v = p.get('view');
+      setView(['articles', 'topics', 'baseline', 'roadmap'].indexOf(v) !== -1 ? v : 'articles');
+    }
+    var SAVED_KEY = 'ciSavedViews';
+    function loadSaved() { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}') || {}; } catch (e) { return {}; } }
+    function storeSaved(o) { try { localStorage.setItem(SAVED_KEY, JSON.stringify(o)); return true; } catch (e) { return false; } }
+    function paintSaved(select) {
+      var o = loadSaved(), sel = $('saved-views'); sel.textContent = '';
+      var first = document.createElement('option'); first.value = ''; first.textContent = 'Choose…'; sel.appendChild(first);
+      Object.keys(o).sort().forEach(function (n) { var op = document.createElement('option'); op.value = n; op.textContent = n; sel.appendChild(op); });
+      if (select && o[select]) sel.value = select;
+      $('view-delete').disabled = !sel.value;
+    }
+    $('saved-views').addEventListener('change', function () {
+      var o = loadSaved(), n = $('saved-views').value;
+      $('view-delete').disabled = !n;
+      if (n && o[n]) applyParams(new URLSearchParams(o[n]));
+    });
+    $('view-save').addEventListener('click', function () {
+      var name = (window.prompt('Name this view:') || '').trim();
+      if (!name) return;
+      var o = loadSaved(); o[name] = viewParams().toString();
+      if (storeSaved(o)) { paintSaved(name); setStatus('Saved view "' + name + '" (kept in this browser).'); }
+      else setStatus('This browser would not save the view. Use Copy link instead.', true);
+    });
+    $('view-delete').addEventListener('click', function () {
+      var n = $('saved-views').value, o = loadSaved();
+      if (!n) return;
+      delete o[n]; storeSaved(o); paintSaved(''); setStatus('Deleted view "' + n + '".');
+    });
+    $('view-link').addEventListener('click', async function () {
+      var link = location.origin + location.pathname + '#' + viewParams().toString();
+      try { await navigator.clipboard.writeText(link); setStatus('Link to this view copied.'); }
+      catch (e) { setStatus('Could not copy automatically. Link: ' + link, true); }
+    });
+    function applyHash() {
+      var h = location.hash.replace(/^#/, '');
+      if (h.indexOf('=') === -1) return false;
+      applyParams(new URLSearchParams(h));
+      return true;
+    }
+    window.addEventListener('hashchange', function () { if (!applyHash()) openFromHash(); });
+    paintSaved('');
+
+    // The watchlist is optional; the page works without it. The first view is drawn once it has loaded (or failed to).
+    fetch('../../watchlist.json', { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (w) {
+        if (w) watchlist = { vendors: (w.vendors || []).map(String), keywords: (w.keywords || []).map(function (k) { return String(k).toLowerCase(); }) };
+      })
+      .catch(function () {})
+      .then(function () {
+        $('watch-wrap').hidden = !watchActive();
+        if (!applyHash()) applyFilters();
+        openFromHash();
+      });
   }
 
   fetch('articles.json', { cache: 'no-cache' })

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Source Health — CI Overwatch</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0d0e17; color: #e0e0e0; }
+  a { color: inherit; }
+  .topbar { background: #13141f; border-bottom: 3px solid #DA291C; padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .topbar h1 { font-size: 1.4rem; color: #fff; font-weight: 700; letter-spacing: .3px; }
+  .topbar h1 span { color: #DA291C; }
+  .topbar p { font-size: .82rem; color: #8a8fa3; margin-top: 3px; }
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .back { font-size: .78rem; font-weight: 600; text-decoration: none; color: #fff; background: #1e2030;
+          border: 1px solid #2a2d3e; border-radius: 4px; padding: 6px 12px; white-space: nowrap; }
+  .back:hover, .back:focus-visible { border-color: #DA291C; outline: none; }
+  .summary { display: flex; flex-wrap: wrap; gap: 10px; padding: 18px 24px 0; }
+  .tile { background: #1a1d27; border: 1px solid #242736; border-radius: 7px; padding: 10px 16px; min-width: 120px; }
+  .tile b { display: block; font-size: 1.5rem; color: #fff; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8fa3; }
+  .tile.bad b { color: #ff7b72; }
+  .tile.warn b { color: #f0b84a; }
+  .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px 24px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: .7rem; color: #8a8fa3; text-transform: uppercase; letter-spacing: .06em; }
+  select, input[type="search"] { background: #1e2030; color: #e0e0e0; border: 1px solid #2a2d3e; border-radius: 4px; padding: 6px 10px;
+                                 font-size: .8rem; font-family: inherit; min-width: 160px; }
+  input[type="search"] { min-width: 240px; }
+  select:focus-visible, input:focus-visible, th button:focus-visible { outline: 2px solid #DA291C; outline-offset: 1px; }
+  #note { padding: 0 24px 10px; font-size: .78rem; color: #8a8fa3; min-height: 24px; }
+  #note.error { color: #ff7b72; }
+  .wrap { padding: 0 24px 40px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: #1a1d27; border-radius: 7px; overflow: hidden; }
+  th { text-align: left; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: #8a8fa3; font-weight: 600; background: #171a26; padding: 0; }
+  th button { background: transparent; border: none; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; padding: 10px 14px;
+              cursor: pointer; width: 100%; text-align: inherit; }
+  th button:hover { color: #fff; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td { padding: 8px 14px; border-top: 1px solid #242736; font-size: .84rem; vertical-align: top; }
+  td.name { font-weight: 600; }
+  td.name small { display: block; font-weight: 400; color: #6b7088; font-size: .7rem; word-break: break-all; }
+  td.err { color: #ff9b94; font-size: .76rem; max-width: 360px; }
+  .chip { display: inline-block; border-radius: 3px; padding: 1px 8px; font-size: .68rem; font-weight: 700; color: #fff; background: #3a3e52; }
+  .st-ok { background: #2e7d4f; }
+  .st-failing { background: #DA291C; }
+  .st-stale { background: #b8860b; }
+  .st-retired { background: #3a3e52; color: #c9cbd6; }
+  .muted { color: #6b7088; }
+  @media (max-width: 640px) { .topbar, .summary, .filters, #note, .wrap { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1><span>CI</span> Overwatch &mdash; Source Health</h1>
+    <p id="updated">Loading&hellip;</p>
+  </div>
+  <div class="links">
+    <a class="back" href="explorer.html">All articles</a>
+    <a class="back" href="../../">&larr; Dashboard</a>
+  </div>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<form class="filters" onsubmit="return false">
+  <label class="field">Status
+    <select id="status">
+      <option value="">All</option>
+      <option value="problems" selected>Needs attention (Failing + Stale)</option>
+      <option value="OK">OK</option>
+      <option value="Failing">Failing</option>
+      <option value="Stale">Stale</option>
+      <option value="Retired">Retired</option>
+    </select>
+  </label>
+  <label class="field">Search <input type="search" id="q" placeholder="Feed name or error"></label>
+</form>
+<div id="note" role="status" aria-live="polite"></div>
+
+<div class="wrap">
+  <table>
+    <thead><tr>
+      <th><button type="button" data-sort="name">Feed</button></th>
+      <th><button type="button" data-sort="status">Status</button></th>
+      <th><button type="button" data-sort="last_article">Latest article</button></th>
+      <th class="num"><button type="button" data-sort="d7" style="text-align:right">7 days</button></th>
+      <th class="num"><button type="button" data-sort="d30" style="text-align:right">30 days</button></th>
+      <th class="num"><button type="button" data-sort="total" style="text-align:right">Stored</button></th>
+      <th><button type="button" data-sort="checked">Last check</button></th>
+      <th>Problem</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var ORDER = { Failing: 0, Stale: 1, OK: 2, Retired: 3 };
+  var data = [], sortKey = 'status', sortDir = 1, stale = 14;
+
+  function day(iso) { return iso ? iso.slice(0, 10) : ''; }
+  function ago(iso) {
+    if (!iso) return 'never';
+    var d = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+    return day(iso) + (d <= 0 ? ' (today)' : ' (' + d + 'd ago)');
+  }
+  function problem(s) {
+    if (s.status === 'Failing') {
+      var bits = [s.error || 'Fetch failed'];
+      if (s.never_worked) bits.push('has never worked');
+      else if (s.failures > 1) bits.push('failed ' + s.failures + ' runs in a row');
+      return bits.join(' · ');
+    }
+    if (s.status === 'Stale') return s.last_article ? 'No new article since ' + day(s.last_article) + ' (over ' + stale + ' days)' : 'Feed loads but no article has ever been stored';
+    if (s.status === 'Retired') return 'No longer in the feed list';
+    return '';
+  }
+
+  function render() {
+    var st = $('status').value, q = $('q').value.trim().toLowerCase();
+    var rows = data.filter(function (s) {
+      if (st === 'problems' && s.status !== 'Failing' && s.status !== 'Stale') return false;
+      if (st && st !== 'problems' && s.status !== st) return false;
+      if (q && (s.name + ' ' + (s.error || '')).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    rows.sort(function (a, b) {
+      var x, y;
+      if (sortKey === 'status') { x = ORDER[a.status]; y = ORDER[b.status]; if (x === y) return a.name.localeCompare(b.name); }
+      else if (sortKey === 'name') { return sortDir * a.name.localeCompare(b.name); }
+      else if (sortKey === 'last_article' || sortKey === 'checked') { x = a[sortKey] || ''; y = b[sortKey] || ''; return sortDir * x.localeCompare(y); }
+      else { x = a[sortKey] || 0; y = b[sortKey] || 0; }
+      return sortDir * (x < y ? -1 : x > y ? 1 : 0);
+    });
+    var body = $('rows'); body.textContent = '';
+    rows.forEach(function (s) {
+      var tr = document.createElement('tr');
+      function cell(text, cls) { var td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
+      var n = cell(s.name, 'name');
+      if (s.url) { var small = document.createElement('small'); small.textContent = s.url; n.appendChild(small); }
+      var stc = document.createElement('td'), chip = document.createElement('span');
+      chip.className = 'chip st-' + s.status.toLowerCase(); chip.textContent = s.status; stc.appendChild(chip); tr.appendChild(stc);
+      cell(s.last_article ? ago(s.last_article) : (s.total ? 'no dated articles' : 'never'), s.last_article ? '' : 'muted');
+      cell(String(s.d7), 'num'); cell(String(s.d30), 'num'); cell(String(s.total), 'num');
+      cell(s.checked ? day(s.checked) : '—', 'muted');
+      cell(problem(s), 'err');
+      body.appendChild(tr);
+    });
+    $('note').className = '';
+    $('note').textContent = rows.length + ' of ' + data.length + ' feeds shown.' + (st === 'problems' && !rows.length ? ' Nothing needs attention.' : '');
+  }
+
+  function tiles() {
+    var c = { OK: 0, Failing: 0, Stale: 0, Retired: 0 };
+    data.forEach(function (s) { c[s.status]++; });
+    var s = $('summary'); s.textContent = '';
+    [['OK', c.OK, ''], ['Failing', c.Failing, c.Failing ? 'bad' : ''], ['Stale', c.Stale, c.Stale ? 'warn' : ''], ['Retired', c.Retired, ''], ['Feeds', data.length, '']].forEach(function (t) {
+      var d = document.createElement('div'); d.className = 'tile ' + t[2];
+      var b = document.createElement('b'); b.textContent = t[1]; var sp = document.createElement('span'); sp.textContent = t[0];
+      d.appendChild(b); d.appendChild(sp); s.appendChild(d);
+    });
+  }
+
+  document.querySelectorAll('th button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.dataset.sort;
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = (k === 'name' || k === 'status') ? 1 : -1; }
+      render();
+    });
+  });
+  $('status').addEventListener('change', render);
+  $('q').addEventListener('input', render);
+
+  fetch('source_health.json', { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (j) {
+      data = j.sources; stale = j.stale_days || 14;
+      $('updated').textContent = 'Checked ' + j.generated.slice(0, 16).replace('T', ' ') + ' UTC · a feed is Stale after ' + stale + ' days without a new article';
+      tiles(); render();
+    })
+    .catch(function (e) {
+      $('updated').textContent = 'Could not load source_health.json';
+      $('note').className = 'error';
+      $('note').textContent = e.message + '. Open this page from the published site, not from a file.';
+    });
+})();
+</script>
+</body>
+</html>

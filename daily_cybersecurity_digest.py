@@ -20,10 +20,10 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
-from urllib.parse import urlsplit, parse_qsl, urlencode
+from urllib.parse import urlsplit, parse_qsl, urlencode, quote
 import subprocess
 import json as json_lib
 from html.parser import HTMLParser
@@ -145,6 +145,15 @@ FULLTEXT_DIR       = os.path.join(DATA_DIR, "fulltext")
 EXPLORER_FILE      = os.path.join(DATA_DIR, "explorer.html")
 EXPLORER_TEMPLATE  = "explorer_template.html"
 EXPLORER_URL       = REPORT_URL + "archive/data/explorer.html"
+SOURCES_TEMPLATE   = "sources_template.html"
+SOURCES_FILE       = os.path.join(DATA_DIR, "sources.html")
+SOURCES_URL        = REPORT_URL + "archive/data/sources.html"
+SOURCE_HEALTH_FILE = os.path.join(DATA_DIR, "source_health.json")
+MOVERS_FILE        = os.path.join(DATA_DIR, "movers.json")
+WATCHLIST_FILE     = "watchlist.json"
+WATCH_ALERT_HOURS  = 13       # a watchlist match this recent goes in the e-mail (runs are 12 hours apart)
+STALE_SOURCE_DAYS  = 14       # a feed with no new article for this long is flagged Stale
+FEED_STATUS: dict = {}        # source name -> {"ok", "error", "items"} for this run (filled by fetch_feed)
 LEGACY_FULLTEXT_CACHE = os.path.join(ARCHIVE_DIR, "_cache", "fulltext_cache.json")
 FULLTEXT_BUDGET_S  = int(os.environ.get("FULLTEXT_BUDGET_S", "420"))  # stop starting new downloads after this many seconds
 FULLTEXT_WORKERS   = 12
@@ -596,6 +605,7 @@ def fetch_feed(name: str, url: str) -> list[dict]:
             raw = resp.read()
     except (URLError, OSError) as exc:
         print(f"  [WARN] {name}: {exc}", file=sys.stderr)
+        FEED_STATUS[name] = {"ok": False, "error": str(exc)[:160], "items": 0}
         return []
 
     try:
@@ -605,6 +615,7 @@ def fetch_feed(name: str, url: str) -> list[dict]:
             root = ET.fromstring(_sanitize_xml(raw))
         except ET.ParseError as exc:
             print(f"  [WARN] {name}: XML parse error - {exc}", file=sys.stderr)
+            FEED_STATUS[name] = {"ok": False, "error": ("XML parse error - " + str(exc))[:160], "items": 0}
             return []
 
     articles = []
@@ -660,6 +671,7 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 article["podcast"] = True
             articles.append(article)
 
+    FEED_STATUS[name] = {"ok": True, "error": "", "items": len(articles)}
     return articles
 
 
@@ -2145,7 +2157,7 @@ def _build_dropdown() -> str:
     </div>
   </div>
   <script>
-    const SHOWN = ':not(.hide-search):not(.hide-module):not(.hide-category):not(.hide-vendor)';
+    const SHOWN = ':not(.hide-search):not(.hide-module):not(.hide-category):not(.hide-vendor):not(.hide-watch)';
 
     function store(key, value) {
       try { if (value) localStorage.setItem(key, value); else localStorage.removeItem(key); } catch (err) { /* storage blocked */ }
@@ -2347,6 +2359,20 @@ def _build_dropdown() -> str:
       if (viewBy !== 'category') regroup(viewBy);
     }
 
+    // Watchlist: show only the cards that match watchlist.json
+    function initializeWatch() {
+      const btn = document.getElementById('watch-toggle');
+      if (!btn) return;
+      let on = stored('ciWatch') === '1';
+      function apply() {
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        document.querySelectorAll('.card').forEach(card => card.classList.toggle('hide-watch', on && card.dataset.watch !== '1'));
+        updateRows();
+      }
+      btn.addEventListener('click', () => { on = !on; store('ciWatch', on ? '1' : ''); apply(); });
+      if (on) apply();
+    }
+
     // Populate history dropdown
     fetch('https://lukan47.github.io/RSS/history.json')
       .then(r => r.json())
@@ -2475,7 +2501,7 @@ def _build_dropdown() -> str:
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      [populateFilters, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, initializeViewSwitch, restoreFilterPreference, initializeGrouping].forEach(fn => {
+      [populateFilters, populateModules, initializeCategoryExports, initializeSearch, initializeRowToggles, initializeViewSwitch, restoreFilterPreference, initializeWatch, initializeGrouping].forEach(fn => {
         try {
           fn();
         } catch (err) {
@@ -2486,10 +2512,14 @@ def _build_dropdown() -> str:
   </script>"""
 
 
-def build_html(articles: list[dict], label: str, history: list[dict] | None = None, trending: list[dict] | None = None) -> str:
+def build_html(articles: list[dict], label: str, history: list[dict] | None = None, trending: list[dict] | None = None,
+               watchlist: dict | None = None, movers: list[dict] | None = None) -> str:
     buckets  = bucket_articles(articles)
     columns  = []
     dropdown = _build_dropdown()
+    wl = watchlist if watchlist is not None else load_watchlist()
+    watching = bool(wl["vendors"] or wl["keywords"])
+    n_watch = 0
 
     for cat, items in buckets.items():
         if not items:
@@ -2522,11 +2552,14 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
             tags_html = '<div class="card-tags">' + "".join(tags) + "</div>"
             stamp = int(a["date"].timestamp()) if a["date"] else 0
             safe_cat, safe_vendor = html.escape(cat), html.escape(vendor)
+            why = watch_reason(a, wl) if watching else ""
+            n_watch += bool(why)
+            watch_star = f'<span class="watch-star" title="Watchlist: {html.escape(why)}">&#9733;</span>' if why else ""
 
             cards.append(f"""
-            <div class="card" data-id="{article_id(a["link"])}" data-category="{safe_cat}" data-vendor="{safe_vendor}" data-ts="{stamp}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}" data-story="{a.get("story") or article_id(a["link"])}">
+            <div class="card{" watched" if why else ""}" data-watch="{"1" if why else "0"}" data-id="{article_id(a["link"])}" data-category="{safe_cat}" data-vendor="{safe_vendor}" data-ts="{stamp}" data-modules="{modules_attr}" data-podcast="{"1" if a.get("podcast") else "0"}" data-transcript="{"1" if a.get("text_source") == "transcript" else "0"}" data-story="{a.get("story") or article_id(a["link"])}">
               <div class="card-meta">
-                <span class="source">{pod_badge}{safe_source}</span>
+                <span class="source">{pod_badge}{safe_source}{watch_star}</span>
                 <span class="date">{date_str}<button type="button" class="story-badge" hidden></button><button type="button" class="card-details" aria-label="Details and export"></button></span>
               </div>
               <a class="card-title" href="{safe_link}" target="_blank">{safe_title}</a>
@@ -2551,6 +2584,9 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                      .replace("__EXPLORER_URL__", EXPLORER_URL)) + CAROUSEL_JS.replace(
         "__FULLTEXT_BASE_JS__", json.dumps(REPORT_URL + "archive/data/fulltext/"))
     trending_html = _trending_html(trending or [])
+    movers_html = _movers_html(movers or [])
+    watch_btn = (f'<button type="button" id="watch-toggle" class="export-btn explorer-link" aria-pressed="false" '
+                 f'title="Show only articles that match watchlist.json">&#9733; Watchlist ({n_watch})</button>') if watching else ""
     globals_js = ("window.CI_GROUPS=" + json.dumps({"category": list(CATEGORY_COLORS), "vendor": list(VENDOR_COLORS)})
                   + ";window.CI_COLORS=" + json.dumps({**CATEGORY_COLORS, **VENDOR_COLORS})
                   + ";window.CI_NO_VENDOR=" + json.dumps(NO_VENDOR) + ";")
@@ -2740,7 +2776,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     overflow: hidden;
   }}
   .col.search-hidden {{ display: none !important; }}
-  .card.hide-search, .card.hide-module, .card.hide-group, .card.hide-category, .card.hide-vendor {{ display: none; }}
+  .card.hide-search, .card.hide-module, .card.hide-group, .card.hide-category, .card.hide-vendor, .card.hide-watch {{ display: none; }}
   .card-meta .source {{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
   .card-meta .date {{ display: inline-flex; align-items: center; white-space: nowrap; }}
   {MODAL_CSS}
@@ -2851,14 +2887,19 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     <h1><span>CI</span> Overwatch</h1>
     <p>{label} &nbsp;·&nbsp; {len(articles)} article(s) in the last {LOOKBACK_HOURS // 24} day(s)</p>
   </div>
-  <a class="back" href="{EXPLORER_URL}" title="Browse every stored article by period, category, vendor and module, then export">All articles &rarr;</a>
+  <div class="topbar-links">
+    <a class="back" href="{EXPLORER_URL}" title="Browse every stored article by period, category, vendor and module, then export">All articles &rarr;</a>
+    <a class="back" href="{SOURCES_URL}" title="Which feeds work, which are failing or stale">Source health</a>
+  </div>
 </div>
 
 {trending_html}
+{movers_html}
 <div class="filterbar">
   <div class="topbar-right">
     {dropdown}
     <div class="export-buttons">
+      {watch_btn}
       <button type="button" id="group-toggle" class="export-btn explorer-link" aria-pressed="true" title="Show one card per story in each row, with a +N related badge">Group same topic: on</button>
       <a href="{REPORT_URL}archive/exports/digest.json" download="digest.json" class="export-btn export-json" title="Download all as JSON">⬇ JSON</a>
       <a href="{REPORT_URL}archive/exports/digest.csv" download="digest.csv" class="export-btn export-csv" title="Download all as CSV">⬇ CSV</a>
@@ -3350,6 +3391,27 @@ CAROUSEL_JS = r"""
 """
 
 DASH_VIEW_CSS = r"""
+  .topbar-links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .card.watched { box-shadow: inset 3px 0 0 #f1c40f; }
+  .watch-star { color: #f1c40f; margin-left: 5px; }
+  #watch-toggle[aria-pressed="true"] { background: #f1c40f; color: #1a1d27; border-color: #f1c40f; }
+  .movers { padding: 14px 24px 0; }
+  .mv-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .mv-head h2 { font-size: 0.9rem; color: #fff; font-weight: 700; }
+  .mv-head p { font-size: 0.74rem; color: #7d8299; }
+  .mv-all { margin-left: auto; font-size: 0.74rem; color: #8a8fa3; text-decoration: none; }
+  .mv-all:hover, .mv-all:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+  .mv-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mv { display: inline-flex; align-items: baseline; gap: 8px; background: #1a1d27; border: 1px solid #2a2d3e; border-left: 3px solid #e67e22;
+        border-radius: 6px; padding: 6px 10px; text-decoration: none; color: #e0e0e0; font-size: 0.8rem; }
+  .mv:hover, .mv:focus-visible { border-color: #DA291C; outline: none; }
+  .mv-spike { border-left-color: #DA291C; }
+  .mv-new { border-left-color: #8e6bd6; }
+  .mv-by { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7088; }
+  .mv-name { font-weight: 600; }
+  .mv b { color: #ff8a80; font-variant-numeric: tabular-nums; }
+  .mv-n { font-size: 0.7rem; color: #7d8299; font-variant-numeric: tabular-nums; }
+  @media (max-width: 640px) { .movers { padding: 12px 16px 0; } }
   .back { font-size: 0.78rem; font-weight: 600; text-decoration: none; color: #fff; background: #1e2030;
           border: 1px solid #2a2d3e; border-radius: 4px; padding: 6px 12px; white-space: nowrap; }
   .back:hover, .back:focus-visible { border-color: #DA291C; outline: none; }
@@ -3448,6 +3510,222 @@ def _trending_html(stories: list[dict]) -> str:
 
 
 
+# ---------------------------------------------------------------------------
+# Watchlist, historical baseline (movers) and source health
+# ---------------------------------------------------------------------------
+
+def load_watchlist() -> dict:
+    """watchlist.json: {"vendors": [...], "keywords": [...]}. Keywords match the title like the category rules do."""
+    try:
+        with open(WATCHLIST_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {"vendors": [], "keywords": []}
+    return {"vendors": [str(v) for v in data.get("vendors", [])], "keywords": [str(k).lower() for k in data.get("keywords", [])]}
+
+
+def watch_reason(article: dict, watchlist: dict) -> str:
+    """Why an article is on the watchlist: its vendor, else the first matching keyword ('' when it is not on it)."""
+    vendor = article.get("vendor") or vendor_of(article)
+    if vendor and vendor in watchlist["vendors"]:
+        return vendor
+    haystack = _title_haystack(article)
+    for kw in watchlist["keywords"]:
+        if _keyword_in(kw, haystack):
+            return kw.lstrip("~")
+    return ""
+
+
+def watch_alert(recent: list[dict], watchlist: dict) -> tuple[list, str, str]:
+    """Watchlist matches from the last WATCH_ALERT_HOURS hours, as (hits, plain text, html list) for the e-mail."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=WATCH_ALERT_HOURS)
+    hits = [(a, why) for a in recent if a.get("date") and a["date"] >= cutoff and (why := watch_reason(a, watchlist))]
+    flat = lambda s: " ".join(s.split())
+    text = " | ".join(f"{why}: {flat(a['title'])} ({a['link']})" for a, why in hits[:8]) or "No watchlist matches in the last %d hours." % WATCH_ALERT_HOURS
+    items = "".join(f'<li><b>{html.escape(why)}</b> &mdash; <a href="{html.escape(a["link"])}">{html.escape(flat(a["title"]))}</a> '
+                    f'<span style="color:#888">({html.escape(a["source"])})</span></li>' for a, why in hits[:8])
+    html_list = f'<ul style="font-family:Arial,sans-serif;font-size:14px;">{items}</ul>' if items else "<p>No watchlist matches in the last %d hours.</p>" % WATCH_ALERT_HOURS
+    return hits, text, html_list
+
+
+BASELINE_DAYS_KEPT = 120
+
+
+def _baseline_status(cur: float, exp: float, base: float, z: float) -> str:
+    if base == 0 and cur >= 3:
+        return "New"
+    d = (cur - exp) / exp if exp > 0 else 0
+    if cur >= 5 and d >= 0.5 and z >= 2:
+        return "Spike"
+    if cur >= 3 and d >= 0.25 and z >= 1:
+        return "Up"
+    if d <= -0.25 and z <= -1:
+        return "Down"
+    return "Normal"
+
+
+def _baseline_keys(entry: dict, by: str) -> list[str]:
+    if by == "category":
+        return [entry.get("category") or "Uncategorised"]
+    if by == "vendor":
+        return [entry.get("vendor") or NO_VENDOR]
+    return [m for m in entry.get("modules", []) if m not in (MODULE_OTHER, MODULE_NA)]
+
+
+def compute_baseline(entries: list[dict], by: str, window: int = 7, weeks: int = 8) -> dict | None:
+    """The last `window` days against the daily average of the `weeks` weeks before them, per category/vendor/module.
+
+    Python twin of computeBaseline() in explorer_template.html; keep the two in step. Feeds that were not yet being
+    collected during the baseline, and weeks where collection had a gap, are left out so the comparison stays fair.
+    """
+    dated = [(date.fromisoformat(e["date"][:10]).toordinal(), e) for e in entries if e.get("date")]
+    if not dated:
+        return None
+    ordinals = sorted(o for o, _ in dated)
+    anchor, data_start = ordinals[-1], ordinals[int(len(ordinals) * 0.01)]
+    base_days = min(weeks * 7, anchor - data_start + 1 - window)
+    if base_days < 7:
+        return None
+    base_start = anchor - window - base_days + 1
+    first: dict = {}
+    for o, e in dated:
+        first[e["source"]] = min(first.get(e["source"], o), o)
+    comparable = lambda e: first[e["source"]] <= base_start + 14
+    totals = [0] * BASELINE_DAYS_KEPT
+    for o, e in dated:
+        idx = anchor - o
+        if comparable(e) and 0 <= idx < BASELINE_DAYS_KEPT:
+            totals[idx] += 1
+    week_sums = [sum(totals[window + wk * 7 + q] for q in range(7)) for wk in range(base_days // 7)]
+    median = sorted(week_sums)[len(week_sums) // 2] if week_sums else 0
+    use, used, gaps = [True] * BASELINE_DAYS_KEPT, base_days, 0
+    for wi, ws in enumerate(week_sums):
+        if ws < 0.4 * median:
+            gaps, used = gaps + 1, used - 7
+            for q in range(7):
+                use[window + wi * 7 + q] = False
+    daily: dict = collections.defaultdict(lambda: [0] * BASELINE_DAYS_KEPT)
+    for o, e in dated:
+        idx = anchor - o
+        if comparable(e) and 0 <= idx < BASELINE_DAYS_KEPT:
+            for key in _baseline_keys(e, by):
+                daily[key][idx] += 1
+    rows = []
+    for key, d in daily.items():
+        cur = sum(d[:window])
+        vals = [d[i] for i in range(window, window + base_days) if use[i]]
+        base = sum(vals)
+        mean = base / used if used > 0 else 0
+        exp = mean * window
+        variance = sum((v - mean) ** 2 for v in vals) / len(vals) if vals else 0
+        sd = max(variance ** 0.5, max(mean, 0.05) ** 0.5) * window ** 0.5
+        z = (cur - exp) / sd
+        if cur == 0 and base == 0:
+            continue
+        rows.append({"group": key, "current": cur, "expected": round(exp, 2), "delta": (cur - exp) / exp if exp > 0 else None,
+                     "z": round(z, 2), "status": _baseline_status(cur, exp, base, z) if used >= 7 else "n/a"})
+    start = date.fromordinal(anchor - window + 1).isoformat()
+    return {"by": by, "window": window, "weeks": weeks, "anchor": date.fromordinal(anchor).isoformat(), "from": start,
+            "gap_weeks": gaps, "rows": rows}
+
+
+def build_movers(entries: list[dict]) -> list[dict]:
+    """The groups that rose furthest above their baseline this week, for the dashboard strip."""
+    picks = []
+    for by, take in (("vendor", 4), ("module", 3), ("category", 2)):
+        res = compute_baseline(entries, by)
+        if not res:
+            continue
+        rows = [r for r in res["rows"] if r["status"] in ("Spike", "Up", "New") and r["group"] not in (NO_VENDOR, FALLBACK_CATEGORY)]
+        rows.sort(key=lambda r: r["current"] - r["expected"], reverse=True)
+        picks += [{**r, "by": by, "from": res["from"], "anchor": res["anchor"], "window": res["window"], "weeks": res["weeks"]} for r in rows[:take]]
+    return picks  # vendors first (what competitive intelligence follows), then modules, then categories
+
+
+def _movers_html(movers: list[dict]) -> str:
+    """The 'Movers vs baseline' strip under the carousel; empty when nothing moved."""
+    if not movers:
+        return ""
+    esc = html.escape
+    chips = []
+    for m in movers:
+        pct = "new" if m["delta"] is None else f'{m["delta"] * 100:+.0f}%'
+        href = f'{EXPLORER_URL}#view=articles&{m["by"]}={quote(m["group"])}&period=custom&from={m["from"]}'
+        exp = f'{m["expected"]:.1f}' if m["expected"] < 10 else f'{m["expected"]:.0f}'
+        chips.append(f'<a class="mv mv-{m["status"].lower()}" href="{esc(href)}" title="{esc(m["by"])}: {m["current"]} articles in the last {m["window"]} days, usually {exp}">'
+                     f'<span class="mv-by">{esc(m["by"])}</span><span class="mv-name">{esc(m["group"])}</span>'
+                     f'<b>{pct}</b><span class="mv-n">{m["current"]} vs {exp}</span></a>')
+    first = movers[0]
+    return ('<section class="movers" aria-label="Movers against the historical baseline">'
+            '<div class="mv-head"><h2>Movers vs baseline</h2>'
+            f'<p>Last {first["window"]} days against the previous {first["weeks"]} weeks, as of {first["anchor"]}</p>'
+            f'<a class="mv-all" href="{EXPLORER_URL}#view=baseline">Full baseline &rarr;</a></div>'
+            f'<div class="mv-list">{"".join(chips)}</div></section>')
+
+
+def write_source_health(entries: list[dict]) -> None:
+    """archive/data/source_health.json: per-feed fetch result of this run (remembering failures across runs) plus article counts."""
+    try:
+        with open(SOURCE_HEALTH_FILE, encoding="utf-8") as f:
+            prev = {s["name"]: s for s in json.load(f)["sources"]}
+    except (OSError, ValueError, KeyError):
+        prev = {}
+    now = datetime.now(timezone.utc)
+    stats: dict = {}
+    for e in entries:
+        st = stats.setdefault(e["source"], {"total": 0, "last": None, "d7": 0, "d30": 0})
+        st["total"] += 1
+        if e.get("date"):
+            dt = datetime.fromisoformat(e["date"])
+            if st["last"] is None or dt > st["last"]:
+                st["last"] = dt
+            age = (now - dt).days
+            st["d7"] += age < 7
+            st["d30"] += age < 30
+    urls = dict(FEEDS)
+    rows = []
+    for name in list(urls) + sorted(set(stats) - set(urls)):
+        old, cur = prev.get(name, {}), FEED_STATUS.get(name)
+        st = stats.get(name, {"total": 0, "last": None, "d7": 0, "d30": 0})
+        if cur is None:  # not fetched this run (a retired feed): keep what we knew
+            ok, error, items = old.get("ok", True), old.get("error", ""), old.get("items", 0)
+            failures, last_ok, checked = old.get("failures", 0), old.get("last_ok"), old.get("checked")
+        else:
+            ok, error, items = cur["ok"], cur["error"], cur["items"]
+            failures = 0 if ok else old.get("failures", 0) + 1
+            last_ok = now.isoformat() if ok else old.get("last_ok")
+            checked = now.isoformat()
+        days_since = (now - st["last"]).days if st["last"] else None
+        if name not in urls:
+            status = "Retired"
+        elif not ok:
+            status = "Failing"
+        elif days_since is None or days_since > STALE_SOURCE_DAYS:
+            status = "Stale"
+        else:
+            status = "OK"
+        rows.append({"name": name, "url": urls.get(name, ""), "status": status, "error": error, "failures": failures,
+                     "never_worked": bool(not ok and not last_ok and st["total"] == 0), "items": items, "checked": checked, "last_ok": last_ok,
+                     "total": st["total"], "last_article": st["last"].isoformat() if st["last"] else None,
+                     "d7": st["d7"], "d30": st["d30"]})
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(SOURCE_HEALTH_FILE, "w", encoding="utf-8") as f:
+        json.dump({"generated": now.isoformat(), "stale_days": STALE_SOURCE_DAYS, "sources": rows}, f, ensure_ascii=False, indent=1)
+
+
+def write_sources_page() -> None:
+    """Copy sources_template.html to archive/data/sources.html (the page reads source_health.json beside it)."""
+    try:
+        with open(SOURCES_TEMPLATE, encoding="utf-8") as f:
+            page = f.read()
+    except OSError as exc:
+        print(f"  [WARN] sources template missing: {exc}", file=sys.stderr)
+        return
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(SOURCES_FILE, "w", encoding="utf-8", newline="\n") as f:
+        f.write(page)
+
+
 def write_explorer() -> None:
     """Render explorer_template.html into archive/data/explorer.html."""
     try:
@@ -3523,6 +3801,12 @@ def main() -> None:
                 article["context"] = stored.get("context", "")
     save_master(master, label)
     write_explorer()
+    write_sources_page()
+    write_source_health(entries)
+    movers = build_movers(entries)
+    with open(MOVERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(movers, f, ensure_ascii=False, indent=1)
+    print(f"  Movers vs baseline: {len(movers)}", file=sys.stderr)
     print(f"  Article store: {len(master)} article(s) -> {ARTICLES_FILE}", file=sys.stderr)
 
     # ── Export latest acquisition and top announcements to GitHub Actions env ───────────────────
@@ -3534,6 +3818,10 @@ def main() -> None:
     for vendor in ["CrowdStrike", "Palo Alto Networks", "Microsoft Security", "Fortinet", "SentinelOne", "Trend Micro"]:
         if vendor_buckets.get(vendor):
             top_announcements.append(vendor_buckets[vendor][0])
+
+    wl = load_watchlist()
+    watch_hits, watch_text, watch_html = watch_alert(recent, wl)
+    print(f"  Watchlist matches in the last {WATCH_ALERT_HOURS} hours: {len(watch_hits)}", file=sys.stderr)
 
     github_env = os.environ.get("GITHUB_ENV", "")
     if github_env:
@@ -3553,6 +3841,10 @@ def main() -> None:
             f.write(f"LATEST_ACQ_LINK={acq_link}\n")
             f.write(f"LATEST_ACQ_CONTEXT={acq_context}\n")
             f.write(f"LATEST_ACQ_FOUND={acq_found}\n")
+            f.write(f"WATCHLIST_FOUND={'true' if watch_hits else 'false'}\n")
+            f.write(f"WATCHLIST_COUNT={len(watch_hits)}\n")
+            f.write(f"WATCHLIST_TEXT={watch_text}\n")
+            f.write(f"WATCHLIST_HTML={watch_html}\n")
 
             # Export top vendor announcements with context
             if top_announcements:
@@ -3570,7 +3862,7 @@ def main() -> None:
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
     arch_path = os.path.join(ARCHIVE_DIR, arch_name)
     with open(arch_path, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, label, trending=trending))
+        f.write(build_html(recent, label, trending=trending, watchlist=wl, movers=movers))
     print(f"Archive saved: {arch_path}", file=sys.stderr)
 
     # ── Load history from archive dir (includes the file just written) ────
@@ -3581,7 +3873,7 @@ def main() -> None:
 
     # ── Save index.html ───────────────────────────────────────────────────
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
-        f.write(build_html(recent, label, trending=trending))
+        f.write(build_html(recent, label, trending=trending, watchlist=wl, movers=movers))
     print(f"Done. Published: {REPORT_URL}", file=sys.stderr)
 
     # ── Export digest as JSON for programmatic access ────────────────────

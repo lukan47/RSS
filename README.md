@@ -16,6 +16,12 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - **Trending this week** — a carousel above the rows shows the stories covered by the most distinct sources in the last 7 days, three at a time (arrows, dots, or automatic rotation that pauses on hover). *View coverage* lists every article in the story, and can export the whole story as JSON or CSV (optionally with the saved full text)
 - **Same-topic grouping** — articles about the same event form a *story*. A *Group same topic* button on the dashboard shows one card per story in each row with a *+N related* badge (click it to see the whole story); turning it off shows every article. The all-articles page has a *Topics* view with search, sort (most covered / newest) and an "only topics with 2+ articles" option. Nothing is deleted — grouping only changes what is shown
 - **Historical baseline** — the *Baseline* view on the all-articles page compares the last 7, 14 or 30 days with the daily average of the previous 4, 8 or 12 weeks, per category, vendor or module, and recalculates against the newest article every time the page loads. Each row shows the count, the expected count, the change, a 12-week sparkline and a status (Spike: 50%+ above baseline and 2+ standard deviations; Up: 25%+ and 1+; Down; New; Normal). Feeds that were not yet collected during the baseline period and weeks with no collection are left out, and the page says so. Click a row to see its articles; the export buttons export the table
+- **Movers strip** — under the carousel, the vendors, modules and categories that rose furthest above their baseline this week (same maths as the Baseline view, computed on every run into `archive/data/movers.json`). Each chip opens the matching articles
+- **Roadmap view** — on the all-articles page, *Product & Roadmap* news as a timeline per vendor, tagged Launch / Preview / General availability / Integration / Retirement from the title; filter by kind, include untracked vendors, export as JSON or CSV
+- **Weekly briefing** — *Briefing .md* and *Briefing .doc* on the all-articles page build a briefing for the newest 7 days: week-on-week volume, spikes against the baseline, top stories, each category's headlines, and watchlist hits. The Word file is an HTML document saved as `.doc`; Word opens it directly
+- **Saved views** — *Copy link* gives a URL that reopens the all-articles page with the same view and filters (for example `explorer.html#view=baseline&by=vendor&win=14`); *Save view* keeps named views in your browser
+- **Watchlist** — vendors and keywords in `watchlist.json` get a star on matching cards, a *Watchlist* filter on the dashboard and the all-articles page, a section in the briefing, and an alert in the e-mail (see below)
+- **Source health** — `archive/data/sources.html` lists every feed with its latest fetch result, failures in a row, latest article and 7 / 30-day counts, and flags feeds that are Failing, Stale (no new article for 14 days) or Retired
 - **Module tagging** — each article is tagged with one or more security module types by keyword rules (no AI), shown on cards and usable as a filter
 - **All-articles page** — every article ever collected, newest first, filterable by period, category, vendor, module, source and text; exports the filtered list as JSON or CSV
 - **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, its vendor, every module, and *Podcast* / *Transcript available* where they apply
@@ -25,6 +31,32 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - Search box (press `/`), category, vendor and module filters and a history dropdown of previous digests (last 30 runs)
 - Updates automatically at **6:00 AM and 6:00 PM PHT** via GitHub Actions
 - Email notification via Gmail on each update
+
+## Watchlist and e-mail alert
+
+`watchlist.json` (repository root) lists what to watch:
+
+```json
+{ "vendors": ["Trend Micro", "CrowdStrike"], "keywords": ["vision one", "~kev"] }
+```
+
+Vendors must be spelled as in the tracked-vendor list below. Keywords match the article title; a keyword starting with `~` only matches as a whole word. Edit the file on GitHub; the next run picks it up.
+
+Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and `WATCHLIST_HTML` (matches from the last 13 hours) to the workflow environment. To put them in the e-mail, edit `.github/workflows/notify.yml` on GitHub (the push token cannot change workflow files) and add to the *Send Gmail notification* step:
+
+```yaml
+          subject: "Cybersecurity Digest — ${{ env.TODAY }} (${{ env.WATCHLIST_COUNT }} watchlist)"
+          body: |
+            Your cybersecurity digest has been updated.
+            View it here: https://lukan47.github.io/RSS/
+            Watchlist matches: ${{ env.WATCHLIST_TEXT }}
+          html_body: |
+            <p style="font-family:Arial,sans-serif;font-size:15px;">Your cybersecurity digest has been updated.</p>
+            <p style="font-family:Arial,sans-serif;font-size:15px;"><b>Watchlist matches (${{ env.WATCHLIST_COUNT }}):</b></p>
+            ${{ env.WATCHLIST_HTML }}
+```
+
+(Keep the existing *View Digest* button in `html_body`.)
 
 ---
 
@@ -37,6 +69,9 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 | `archive/data/articles.json` | Every article ever collected: ID, story ID, title, link, source, date, category, vendor, modules, summary, `podcast` / `transcript` flags |
 | `archive/data/fulltext/YYYY-MM.json` | Saved article text, one file per month, keyed by article ID |
 | `archive/data/explorer.html` | The all-articles page (built from `explorer_template.html`) |
+| `archive/data/sources.html`, `source_health.json` | The source-health page (from `sources_template.html`) and its data |
+| `archive/data/movers.json` | The groups shown in the dashboard's movers strip |
+| `watchlist.json` | Vendors and keywords to watch (edited by hand) |
 | `archive/exports/` | `digest.json` / `digest.csv` (last 30 days) and one file pair per category (`digest__category__*`) and per vendor (`digest__vendor__*`) |
 
 **Article IDs.** Every article has a stable 12-character ID (the first 12 hex characters of a SHA-256 of its cleaned-up URL: no scheme, `www.`, `#fragment`, `utm_*`/`fbclid`/`gclid` tracking parameters or trailing slash). The same URL always produces the same ID, so nothing has to be stored to keep IDs stable. The ID is the first field in every JSON export and the first column in every CSV export. The Details popup shows it and has a *Copy link* button; opening `archive/data/explorer.html#<id>` jumps straight to that article, and the all-articles search also matches IDs. If a publisher moves an article to a different URL it is treated as a new article.
