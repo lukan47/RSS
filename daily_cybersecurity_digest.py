@@ -209,13 +209,13 @@ CATEGORIES = {
         "sophos", "naked security",
     ],
     "ESET": [
-        "eset", "welivesecurity", "we live security", "nod32",
+        "~eset", "welivesecurity", "we live security", "nod32",
     ],
     "Bitdefender": [
         "bitdefender", "gravityzone",
     ],
     "Check Point": [
-        "check point", "checkpoint", "harmony endpoint",
+        "check point", "~checkpoint", "harmony endpoint",
     ],
     "Recorded Future": [
         "recorded future",
@@ -259,13 +259,13 @@ CATEGORIES = {
         "barracuda", "barracuda networks",
     ],
     "Falco / Sysdig": [
-        "falco", "sysdig", "falcosecurity",
+        "~falco", "sysdig", "falcosecurity",
     ],
     "Okta": [
         "okta", "okta identity", "okta workforce",
     ],
     "CyberArk": [
-        "cyberark", "privileged access", "conjur",
+        "cyberark", "~privileged access", "conjur",
     ],
     "IBM Security": [
         "ibm security", "qradar", "ibm x-force", "security intelligence",
@@ -300,7 +300,7 @@ CATEGORIES = {
     ],
     "Tenable": [
         "tenable", "nessus", "tenable.io", "tenable.sc",
-        "tenable one", "lumin",
+        "tenable one", "~lumin",
     ],
     "Qualys": [
         "qualys", "qualysguard", "vmdr", "qualys cloud",
@@ -336,6 +336,61 @@ CATEGORIES = {
     ],
     "Claroty": [
         "claroty", "team82", "claroty research",
+    ],
+    # A keyword starting with "~" must match as a whole word ("~armis" does not match "alarmist").
+    "1Password": [
+        "1password",
+    ],
+    "Akamai Technologies": [
+        "akamai",
+    ],
+    "Armis": [
+        "~armis",
+    ],
+    "Automox": [
+        "automox",
+    ],
+    "Bitwarden": [
+        "bitwarden",
+    ],
+    "Checkmarx": [
+        "checkmarx",
+    ],
+    "Cloudflare": [
+        "cloudflare",
+    ],
+    "Cohesity": [
+        "cohesity",
+    ],
+    "F5": [
+        "~f5", "big-ip", "f5 networks", "f5 distributed cloud",
+    ],
+    "Flashpoint": [
+        "~flashpoint",
+    ],
+    "Forescout": [
+        "forescout",
+    ],
+    "Juniper Networks": [
+        "juniper networks", "~juniper", "junos",
+    ],
+    "Mimecast": [
+        "mimecast",
+    ],
+    "Nozomi Networks": [
+        "nozomi",
+    ],
+    "Ping Identity": [
+        "ping identity", "pingidentity", "pingone", "pingfederate",
+    ],
+    "Splunk": [
+        "splunk",
+    ],
+    "Varonis": [
+        "varonis",
+    ],
+    "Veracode": [
+        "veracode",
     ],
 }
 
@@ -1602,6 +1657,47 @@ _ACQ_EXCLUSIONS = {
     "leak", "leaked", "compromised", "extortion", "ransom", "victim", "cyberattack",
 }
 
+# An article from a company's own blog or news feed that matches nothing else is filed under that company
+# (vendor posts rarely name the vendor in their titles).
+SOURCE_COMPANY = {
+    "Trend Micro Research": "Trend Micro", "Trend Micro SimplySecurity": "Trend Micro", "Trend Micro Newsroom": "Trend Micro",
+    "CrowdStrike Blog": "CrowdStrike", "CrowdStrike IR News": "CrowdStrike",
+    "Palo Alto Unit 42": "Palo Alto Networks", "Palo Alto IR News": "Palo Alto Networks",
+    "Fortinet Threat Research": "Fortinet", "Fortinet IR News": "Fortinet",
+    "Microsoft Security Blog": "Microsoft Security",
+    "SentinelOne Blog": "SentinelOne", "SentinelLabs": "SentinelOne",
+    "Rapid7 Blog": "Rapid7", "Tenable Blog": "Tenable", "Qualys Blog": "Qualys", "Qualys IR News": "Qualys",
+    "Zscaler ThreatLabz": "Zscaler",
+    "Kaspersky Blog": "Kaspersky", "Securelist (Kaspersky)": "Kaspersky",
+    "Sophos News - Threat Research": "Sophos", "Sophos News - SecOps": "Sophos",
+    "ESET WeLiveSecurity": "ESET",
+    "Check Point Blog": "Check Point", "Check Point Research": "Check Point",
+    "Bitdefender Business Insights": "Bitdefender",
+    "Cybereason Blog": "Cybereason",
+    "Falco / Sysdig Blog": "Falco / Sysdig",
+    "Wiz Blog": "Wiz", "Orca Security Blog": "Orca Security",
+    "Darktrace Blog": "Darktrace", "Vectra AI Blog": "Vectra AI",
+    "Proofpoint Blog": "Proofpoint",
+    "Broadcom/Symantec Blog": "Broadcom / Symantec",
+    "Okta Blog": "Okta", "CyberArk Blog": "CyberArk",
+    "Elastic Security Labs": "Elastic Security",
+    "Rubrik Blog": "Rubrik", "Arctic Wolf Blog": "Arctic Wolf", "Huntress Blog": "Huntress",
+    "Aqua Security Blog": "Aqua Security", "Snyk Blog": "Snyk",
+    "BeyondTrust Blog": "BeyondTrust", "Delinea Blog": "Delinea",
+    "Cato Networks Blog": "Cato Networks",
+    "Google Threat Intel (Mandiant)": "Mandiant",
+    "Recorded Future": "Recorded Future",
+    "Talos Intelligence": "Cisco Security", "Talos Takes": "Cisco Security",
+    "Cloudflare Security": "Cloudflare", "Varonis Blog": "Varonis",
+}
+
+
+def _keyword_in(keyword: str, haystack: str) -> bool:
+    if keyword.startswith("~"):
+        return re.search(r"(?<![a-z0-9])" + re.escape(keyword[1:]) + r"(?![a-z0-9])", haystack) is not None
+    return keyword in haystack
+
+
 def categorize(article: dict) -> str:
     """Return the first matching category (priority order = CATEGORIES insertion order)."""
     haystack = article["title"].lower()
@@ -1609,12 +1705,12 @@ def categorize(article: dict) -> str:
     # doesn't defeat the whole-word exclusion check below.
     words = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', haystack))
     for cat, kws in CATEGORIES.items():
-        if not any(kw in haystack for kw in kws):
+        if not any(_keyword_in(kw, haystack) for kw in kws):
             continue
         if cat == "Company & Service Acquisitions" and words & _ACQ_EXCLUSIONS:
             continue
         return cat
-    return "General Security News"
+    return SOURCE_COMPANY.get(article.get("source", ""), "General Security News")
 
 
 def bucket_articles(articles: list[dict]) -> dict[str, list[dict]]:
@@ -1846,6 +1942,24 @@ CATEGORY_COLORS = {
     "WithSecure":                          "#ff4a3d",  # WithSecure coral
     "Secureworks":                         "#b71c1c",  # Secureworks deep red
     "Blackberry / Cylance":                "#00a94f",  # Cylance green
+    "1Password":                           "#0572ec",
+    "Akamai Technologies":                 "#0099cc",
+    "Armis":                               "#d6336c",
+    "Automox":                             "#f26522",
+    "Bitwarden":                           "#175ddc",
+    "Checkmarx":                           "#54b848",
+    "Cloudflare":                          "#f6821f",
+    "Cohesity":                            "#6cc24a",
+    "F5":                                  "#e4002b",
+    "Flashpoint":                          "#005eb8",
+    "Forescout":                           "#ef4136",
+    "Juniper Networks":                    "#84b135",
+    "Mimecast":                            "#e8590c",
+    "Nozomi Networks":                     "#00a3e0",
+    "Ping Identity":                       "#b3282d",
+    "Splunk":                              "#65a637",
+    "Varonis":                             "#0d9bd7",
+    "Veracode":                            "#00b0b9",
     "General Security News":               "#95a5a6",  # grey
 }
 
@@ -3061,6 +3175,7 @@ def main() -> None:
         if entry.get("podcast") and entry.get("text_source") == "transcript":
             entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
+        entry["category"] = categorize(entry)
     assign_stories(entries)
     trending = trending_stories(entries)
     for article in recent:
@@ -3206,6 +3321,7 @@ def retry_text() -> None:
         if entry.get("podcast") and entry.get("text_source") == "transcript":
             entry["context"] = podcast_context(entry["full_text"]) or entry["context"]
         entry["modules"] = classify_modules(entry)
+        entry["category"] = categorize(entry)
     assign_stories(entries)
     save_master(master, datetime.now(PHT).strftime("%Y-%m-%d %H:%M PHT"))
 

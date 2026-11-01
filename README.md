@@ -174,44 +174,53 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 <!-- categories:start -->
 ## Categories & Tracked Companies
 
-Articles are categorized by title keywords in priority order — first match wins.
+Articles are categorized by title keywords in priority order — first match wins. Companies are defined in `CATEGORIES` in `daily_cybersecurity_digest.py` (a keyword starting with `~` only matches as a whole word, e.g. `~armis` does not match "alarmist"). An article from a company's own blog or news feed that matches no keyword is filed under that company (`SOURCE_COMPANY`). Every run re-applies the current rules to the whole history.
 
 | Priority | Category | Description |
 |---|---|---|
 | 1 | Zero-Day Exploits & Vulnerabilities | CVEs, RCEs, patch Tuesday, PoCs, etc. |
 | 2 | Company & Service Acquisitions | M&A, funding rounds, IPOs (with false-positive exclusions) |
-| 3 | Company rows (49 total) | One row per tracked company — hidden when empty |
+| 3 | Company rows (67 total) | One row per tracked company — hidden when empty |
 | 4 | General Security News | Catch-all for everything else |
 
-### Tracked Companies (49)
+### Tracked Companies (67)
 
 | # | Company | # | Company |
 |---|---|---|---|
-| 1 | Trend Micro | 26 | Okta |
-| 2 | CrowdStrike | 27 | CyberArk |
-| 3 | Palo Alto Networks | 28 | IBM Security |
-| 4 | Fortinet | 29 | Elastic Security |
-| 5 | SentinelOne | 30 | Rubrik |
-| 6 | Microsoft Security | 31 | Arctic Wolf |
-| 7 | Mandiant | 32 | Abnormal Security |
-| 8 | Sophos | 33 | Huntress |
-| 9 | ESET | 34 | Lacework |
-| 10 | Bitdefender | 35 | Aqua Security |
-| 11 | Check Point | 36 | Snyk |
-| 12 | Recorded Future | 37 | Rapid7 |
-| 13 | Cisco Security | 38 | Tenable |
-| 14 | Wiz | 39 | Qualys |
-| 15 | Orca Security | 40 | Zscaler |
-| 16 | Trellix | 41 | WithSecure |
-| 17 | Darktrace | 42 | Secureworks |
-| 18 | ExtraHop | 43 | Blackberry / Cylance |
-| 19 | Vectra AI | 44 | BeyondTrust |
-| 20 | Proofpoint | 45 | Delinea |
-| 21 | Broadcom / Symantec | 46 | Netskope |
-| 22 | Kaspersky | 47 | Cato Networks |
-| 23 | Cybereason | 48 | Dragos |
-| 24 | Barracuda | 49 | Claroty |
-| 25 | Falco / Sysdig | | |
+| 1 | Trend Micro | 35 | Aqua Security |
+| 2 | CrowdStrike | 36 | Snyk |
+| 3 | Palo Alto Networks | 37 | Rapid7 |
+| 4 | Fortinet | 38 | Tenable |
+| 5 | SentinelOne | 39 | Qualys |
+| 6 | Microsoft Security | 40 | Zscaler |
+| 7 | Mandiant | 41 | WithSecure |
+| 8 | Sophos | 42 | Secureworks |
+| 9 | ESET | 43 | Blackberry / Cylance |
+| 10 | Bitdefender | 44 | BeyondTrust |
+| 11 | Check Point | 45 | Delinea |
+| 12 | Recorded Future | 46 | Netskope |
+| 13 | Cisco Security | 47 | Cato Networks |
+| 14 | Wiz | 48 | Dragos |
+| 15 | Orca Security | 49 | Claroty |
+| 16 | Trellix | 50 | 1Password |
+| 17 | Darktrace | 51 | Akamai Technologies |
+| 18 | ExtraHop | 52 | Armis |
+| 19 | Vectra AI | 53 | Automox |
+| 20 | Proofpoint | 54 | Bitwarden |
+| 21 | Broadcom / Symantec | 55 | Checkmarx |
+| 22 | Kaspersky | 56 | Cloudflare |
+| 23 | Cybereason | 57 | Cohesity |
+| 24 | Barracuda | 58 | F5 |
+| 25 | Falco / Sysdig | 59 | Flashpoint |
+| 26 | Okta | 60 | Forescout |
+| 27 | CyberArk | 61 | Juniper Networks |
+| 28 | IBM Security | 62 | Mimecast |
+| 29 | Elastic Security | 63 | Nozomi Networks |
+| 30 | Rubrik | 64 | Ping Identity |
+| 31 | Arctic Wolf | 65 | Splunk |
+| 32 | Abnormal Security | 66 | Varonis |
+| 33 | Huntress | 67 | Veracode |
+| 34 | Lacework | | |
 <!-- categories:end -->
 
 ---

@@ -56,7 +56,10 @@ def categories_block(digest) -> str:
     companies = [c for c in digest.CATEGORIES if c not in SPECIAL_CATEGORIES]
     out = [
         "## Categories & Tracked Companies", "",
-        "Articles are categorized by title keywords in priority order — first match wins.", "",
+        "Articles are categorized by title keywords in priority order — first match wins. Companies are defined in `CATEGORIES` in "
+        "`daily_cybersecurity_digest.py` (a keyword starting with `~` only matches as a whole word, e.g. `~armis` does not match \"alarmist\"). "
+        "An article from a company's own blog or news feed that matches no keyword is filed under that company (`SOURCE_COMPANY`). "
+        "Every run re-applies the current rules to the whole history.", "",
         "| Priority | Category | Description |", "|---|---|---|",
         "| 1 | Zero-Day Exploits & Vulnerabilities | CVEs, RCEs, patch Tuesday, PoCs, etc. |",
         "| 2 | Company & Service Acquisitions | M&A, funding rounds, IPOs (with false-positive exclusions) |",

@@ -1,4 +1,95 @@
 ID,Story,Date,Source,Modules,Type,Title,Link,Context,Full Text
+8c539d2f9cec,72375819775f,2026-10-28 04:00 UTC,Snyk Blog,Vulnerability Management,Article,PHP2Shell Won't Be the Last. Here's Where the Next One Will Show Up First.,https://snyk.io/blog/php2shell-where-next-one-will-show-up-first/,"The first question every team faced was where PHP was answering requests, and whether someone could exploit it right then and there","On October 17, Amazon's honeypot network logged a PHP2Shell exploitation attempt from an anonymized IP address. Yet, public disclosure was still four days away.
+
+By the time PHP got its fixes in on October 21, the technical details had already leaked, proof-of-concept exploits were in wide circulation, and more exploit attempts were being logged left and right. The issue was that there were two critical, unauthenticated remote code execution vulnerabilities in the PHP engine itself (CVE-2026-109618 and CVE-2026-109619, both CVSS v4.0 9.2) -- what we now know as PHP2Shell.
+
+Our own Security Research team covered what happened and what you should do: which releases to move to, which mitigations you could put in place to reduce exposure until you were able to update, and where each part of the Snyk platform sees the problem.
+
+This post now picks up where our Security Research team left off. We want to talk about what the response taught us: where this kind of exposure lives and comes from, why answering fast depends on the work we’d done months earlier, and why the next one is already on its way.
+
+Why was PHP2Shell a problem for teams with clean code?
+
+Well, because the vulnerabilities live below the code. And what does that mean? Both of the mentioned CVEs happen in the request lifecycle of the PHP engine, which makes them reachable before any application code actually runs. On Apache, with mod_php, an exploit needed but a single unauthenticated request.
+
+Now, think about that for a second. You probably had careful reviews, clean code, plus a neat and tidy dependency tree, all sitting above the actual problem. The first question every team faced was where PHP was answering requests, and whether someone could exploit it right then and there.
+
+The question was about running applications. The very same question attackers will always start with.
+
+Which inventory tells you where PHP is running?
+
+Each type of inventory tells you part of it.
+
+PHP reaches production via a Dockerfile, a distribution package, a platform image, or manually. A ""php"": "">=8.2""constraint in composer.json tells you what an application accepts, and then the deployed version depends on which of those routes installed it. Container scans see PHP installed from distribution packages once each distribution publishes its advisory, and PHP compiled from source, including the official PHP Docker images, falls outside that view. (Once again, our research team's post maps exactly which Snyk view sees which slice of this reality.)
+
+Then there's the version string. VirusTotal fingerprints roughly 5.1 million IP addresses running PHP, and only about 1.1 million of them announce a version, so roughly four out of five hide it. Their summary is one of the cleanest lines we've read on the subject anywhere: ""If you only search for a version string, you only see the fraction of the problem that volunteers it.""
+
+The gap between what your inside-out views know and what actually answers from the outside is where the real risk lies. Attackers hit your URL, and PHP2Shell is the purest case of that we’ve seen. Anyone probing for it ends up asking the same question: Does PHP answer on this URL?
+
+What did the response look like from the outside in?
+
+The head start: before PHP's 14:00 UTC release on October 21, Snyk had advisories live for both CVEs, so monitored projects would get a hit the moment fixed versions were known. Within about 30 minutes of the release, those advisories included affected ranges and fixed versions, and distribution advisories followed as each distribution was published. That covered what Snyk Container and Unmanaged scans could tell you.
+
+Three questions ran through Snyk API & Web:
+
+Where is PHP running? Discovery enumerates the assets on your domains and fingerprints their technology stack. Set the Tech filter to PHP, and you get every discovered host and endpoint where PHP was identified, with its risk rating, score, and last-seen date. Version numbers come later, from the hosts themselves. As our research team put it, before you can patch, you need the list.
+
+Can someone exploit it? Within 24 hours of PHP's release, the full scan profile tested for PHP2Shell, and teams could run that check on their own as a custom profile for a fast answer across every PHP target.
+
+Did the fix hold? Run the same custom profile after patching, and pair it with your distribution's advisory or patch level, because a patched distribution build can keep an older version number.
+
+So, Discovery --> targeted check --> patch --> re-test: probe, observe, and infer, against a clock that now runs in hours. And that’s exactly the most concerning part, what we care about the most. For teams already running Snyk API & Web, the hard part was done before October 21: their domains were mapped, and their applications set up as targets. When the check was there, the response took only a filter and a quick scan.
+
+For us, that’s one of the main returns on having continuous outside-in testing: the work that answers at day one gets done months before that.
+
+If PHP2Shell is detectable from the outside, what was the hard part?
+
+Time.
+
+In May, we laid out the distinction on which COS is built. Heuristic-detectable vulnerabilities show themselves to deterministic tools: throw payloads at a running application or API, observe the responses, and infer. Context-dependent vulnerabilities (BOLA, cross-tenant leakage, and chained business logic) carry no signature at all, because they live in the gap between what an application is supposed to do and what it actually does.
+
+Once it was known, PHP2Shell became testable from the outside, which puts it squarely in that first class of heuristic-detectable vulns. The hard part, the constraint, was the gap between a disclosure and having a check running against everything you expose. That gap is the attacker’s window to exploit, and this time it opened four days before disclosure eventually did.
+
+The disclosure kept moving, too. On October 23, the PHP project described a partial bypass (CVE-2026-115560) that applies when an application switches its session serialization handler with ini_set() before starting the session, with upload progress enabled. Its preconditions are rare, and whatever you concluded on Wednesday still needed a second look by Friday. A point-in-time answer ages in days.
+
+Why won't PHP2Shell be the last?
+
+There are three reasons for that. Due to the nature of how they were found:
+
+Because they were found with AI assistance, in an engine that has served the web for three decades. Our research team put it plainly: ""In a world of LLMs and agents, everybody is still running servers."" And the kind of model that found these vulnerabilities is the kind attackers now have in their hands.
+
+The stronger cadence. Manoj Nair, Snyk's CTO and Chief Innovation Officer, described it in September: ""The kind of severe flaw that AI now surfaces in widely used software, the sort of find that used to arrive once or twice a year and reset everyone's quarter, is landing several times a week in what I'm seeing.""
+
+The much faster clock. CJ Moses, CISO of Amazon Integrated Security, drew two lessons from PHP2Shell that apply well beyond it. Defenders ""should not assume the public disclosure date is the earliest date of exploitation."" And ""the time from patch to working exploit is shrinking for structural reasons,"" because AI-assisted analysis makes it cheaper to turn a patch diff or an advisory into a working exploit. His advice for critical vulnerabilities in internet-facing systems: ""measure patch and mitigation timelines in hours.""
+
+What does being ready for the next one take?
+
+Strip out the product names, and it comes down to four properties. Judge any approach by them (ours included). Don’t think about product names, but how it all comes down to four properties. And you should judge any approach with these (ours included!)
+
+An inventory that exists before the advisory does. Built from the outside in and kept current, so a new disclosure starts with a filter.
+
+Checks that ship in hours. The gap between an advisory and a running test is the attacker's window. Measure it.
+
+Re-tests on demand. The same targeted check, run again until the fix holds.
+
+Testing that needs no signature. Heuristics catch what someone has already described. Everything else takes reasoning: testing that works out what your application is supposed to do, then goes after the gap between that and what it actually does.
+
+As for Snyk, here’s how that maps to what we offer.
+
+Snyk API & Web carries the first three: Discovery, an engine the team keeps current as disclosures land, and targeted profiles you can run and re-run. Continuous Offensive Security adds the fourth: AI Pentesting reasons about your application the way a pentester would, Agent Red Teaming engages the moment recon spots an LLM in the stack, and Dynamic Testing, the Snyk API & Web engine, covers the heuristic classes underneath, continuously. In our platform's terms, that's Validate: continuously attack your applications to prove fixes held and show what's still exploitable.
+
+Then there's posture. At The AI Security Panel: Unfiltered on October 14, Manoj asked the question we keep coming back to: ""When an autonomous attacker is going to attack you, why don't you attack yourself?"" That question is the whole premise of COS. On our side, the work is shrinking every single gap in this story: from advisory to running check, and from check to confirmed fix.
+
+Where will the next one show up first?
+
+Which engine, and when, is anyone's guess now. Where it shows up first is easier to call: at your URL. That's where your testing should already be.
+
+Want to see what an attacker would find at your URL today? Book a demo of Evo Continuous Offensive Security and see how it maps your attack surface from the outside in, proves which findings are exploitable, and re-tests until the fix holds.
+
+BOOK A LIVE DEMO
+
+Secure AI adoption at scale
+
+Evo helps organizations safely adopt and scale AI by providing visibility, governance, and security across AI-driven development and AI applications."
 4353b291d11c,4353b291d11c,2026-10-28 00:00 UTC,Snyk Blog,AI Security; Vulnerability Management,Article,Snyk UNFILTERED: Inside Our First-Ever Customer Summit,https://snyk.io/blog/snyk-unfiltered-customer-summit/,Finding vulnerabilities is only half the job Detection is no longer the bottleneck,"What happens when you bring security leaders from some of the world's most forward-thinking organizations into one room, close the doors, and invite them to speak candidly about what's working, what's breaking, and what they’re still working out?
 
 That’s what we set out to find with Snyk UNFILTERED, our inaugural Customer Summit. Held in San Francisco ahead of the launch of Evo Agentic AppSec and the AI Security Summit, Snyk UNFILTERED was designed to feel nothing like a conference.
@@ -48,3 +139,760 @@ Want to be part of what's next? Find your next event.
 SNYK CUSTOMER EVENTS
 
 Get the most recent on demand and upcoming customer events"
+59244b188155,59244b188155,2026-10-22 04:00 UTC,Snyk Blog,AI Security; Vulnerability Management; Code Security; Threat and Exposure Management,Article,Turn Your Vulnerability Backlog Into Pull Requests With Agentic Remediation,https://snyk.io/blog/evo-remediation-agent-open-preview/,"For example, an AppSec team can launch a campaign targeting high- and critical-severity dependency vulnerabilities across repositories in a Snyk Organization","The Evo Remediation Agent is now in Open Preview, bringing automated dependency resolution to Evo Agentic AppSec. AppSec teams can now run ongoing remediation campaigns across repositories and deliver proposed fixes to developers through validated pull requests.
+
+Fixing a dependency vulnerability can mean choosing an upgrade, resolving dependency conflicts, adapting the application, and/or checking the result. That work competes with everything developers are already building. As teams introduce code and new vulnerabilities at increasingly exponential rates, AppSec needs a way to accelerate remediation across the applications they protect.
+
+With the help of agentic remediation, AppSec teams can start by leveraging campaigns targeting a defined set of repositories and vulnerabilities. Snyk supplies the model and hosted sandbox environment, and developers receive proposed changes through their existing source code management (SCM) workflow. The developers continue to retain control over final review and merging.
+
+Give AppSec a way to drive fixes
+
+A remediation campaign defines which vulnerabilities the agent works on, in which repositories, and on what schedule. AppSec teams set the scope, and Evo Remediation Agent works through eligible vulnerabilities and opens pull requests for developers to review.
+
+For example, an AppSec team can launch a campaign targeting high- and critical-severity dependency vulnerabilities across repositories in a Snyk Organization. Recurring campaigns repeat that work on a schedule as repositories and vulnerability findings change.
+
+That gives AppSec teams a way to initiate remediation without asking each developer to install and run an agent. Teams can follow repository outcomes across a campaign, review where the agent produced fixes, and investigate where remediation efforts still need attention.
+
+Snyk first brought automated dependency updates into developer workflows with automatic Fix PRs across SCA and Container. Agent Fix extended remediation to source-code vulnerabilities detected by Snyk Code, our first AI-native solution generating and checking proposed fixes. The initial Evo Remediation Agent then brought a broader workflow into the CLI and ADE: plan the fix, apply changes, and validate the result in the developer’s environment. Now, fully validated, the next iteration of the Evo Remediation Agent brings campaigns that automate agentic remediation to AppSec teams.
+
+Starting once again with Open Source vulnerabilities, teams can put the agent to work across repositories and make remediation an ongoing part of their security program.
+
+Security context guides the work
+
+A dependency update can require changes throughout an application. The agent uses Snyk findings to plan updates, applies changes in a hosted sandbox, and checks its work with builds, available tests, and rescans. This feedback helps the agent work through the changes an upgrade requires.
+
+When the agent produces a fix, it opens a pull request and records each action attached to the change. Teams can restrict campaigns to fixes assessed as non-breaking, and the agent does not merge changes. Developers review the proposed changes and decide whether to merge them.
+
+Evidence behind the remediation engine
+
+Generating a fix only helps reduce risk if a developer can merge it. A pull request that breaks the build, fails existing tests, or leaves the vulnerability in place adds review work and doesn’t shrink the backlog. A high mergeable fix rate is what turns agent fix suggestions into backlog reduction because more of the fix pull requests actually get merged with less developer rework.
+
+The VulnBump benchmark tests the mergeable fix rate of the engine that powers Evo Remediation Agent. Across 307 dependency-upgrade tasks, the CLI-based Remediation Agent passed all four verification checks on 90.2% of tasks. Claude Code with Snyk findings passed 77.5%, and Claude Code alone passed 59.6%. All three used the same model.
+
+Those checks cover the outcomes that matter to a dependency fix: dependencies resolve, the targeted vulnerabilities disappear on rescan, the application builds, and previously passing tests still pass. The results show the value of combining security context with a purpose-built remediation workflow.
+
+Fix first. Prioritize the rest.
+
+Remediation programs usually start by deciding what to fix. Evo Remediation Agent reverses that order, giving AppSec teams another way to act on the backlog. Recurring campaigns work through eligible vulnerabilities in scope, so what reaches your team is then the work that needs human judgment.
+
+Repository outcomes and journals help teams understand where the agent made progress and where further work remains. AppSec teams get a running view not only of the backlog, but also the pull requests opened, while developers get a record of why each change was made. Remediation consequently becomes an ongoing part of the security program, with your team setting the standard for what ships.
+
+Bring remediation to your team
+
+The Evo Remediation Agent is in Open Preview for Snyk Open Source vulnerabilities in Evo Agentic AppSec. To run campaigns, you need:
+
+Workspaces
+
+SCM integration
+
+Preview access for your Tenant.
+
+During Open Preview, a daily fix allowance applies, and hosted sandboxes use public package registries. Ready to put Evo Remediation Agent to work on your backlog? Talk to your Snyk account team about Open Preview access.
+
+BOOK A LIVE DEMO
+
+Secure AI adoption at scale
+
+Evo helps organizations safely adopt and scale AI by providing visibility, governance, and security across AI-driven development and AI applications."
+9f2ea8e2b60b,9f2ea8e2b60b,2026-10-21 04:00 UTC,Snyk Blog,AI Security; Data Security Posture Management,Article,AI Model Risk Depends on What the Model Can Reach,https://snyk.io/blog/ai-model-risk-model-reach/,"Nearly half of AI model inventories contain a critical-scoring reference How the scores work: Snyk tests each model against 29 attacker goals, such as extracting personal data...","New Snyk research across thousands of scanned enterprise environments shows why a high model-risk score marks where triage begins, and how security teams should respond.
+
+Imagine two applications that reference the same AI model. One summarizes meeting notes, and the other uses an agent to query customer records and trigger business workflows. The model might carry the same adversarial test scores into both applications. But the consequences of a failure could be very different, and so could the failure that matters. A meeting summarizer needs to know whether the model can be pushed into misleading output. A customer records agent needs to know whether it can be made to leak data or take unauthorized actions. That’s why a model score for each type of attack is more useful than one average across all of them.
+
+That distinction is at the heart of Snyk’s 2026 State of Agentic AI Adoption, Volume III. The first two volumes established that enterprise AI is a connected software estate, not just a collection of models. This new analysis adds risk scores for identifiable models and asks the question security leaders actually need answered: Which findings require action, and what action will reduce the risk?
+
+Nearly half of AI model inventories contain a critical-scoring reference
+
+How the scores work: Snyk tests each model against 29 attacker goals, such as extracting personal data or executing commands, and scores each from 0 to 1,000. The score combines how often an attack succeeded with how much damage that goal could do. 500 and above is high, 750 and above is critical. Models are tested behind a basic guardrail, so the scores describe a defended model, not an undefended one.
+
+Of 1,693 environments with at least one detected model identifier, 74.5% reference a model that scored high (500+) on at least one attacker goal, and 49.2% reference one that scored critical (750+). PII extraction and command execution account for the critical-band findings observed in this sample.
+
+Those numbers should prompt investigation, not panic. The research matches model identifiers found in code to adversarial test results. It does not establish that every model is active in production, that a particular tool or dataset is accessible, or that an attack has succeeded in an organization's application.
+
+Coverage is another reason to be precise: only 37.5% of detected model occurrences have a matched risk score. About 17% of model-bearing environments have no scored model at all. Treat unscored and versionless references as unknowns that still need review.
+
+Inventory size changes the count of findings but not the mix. The chance of finding at least one high-scoring model rises from 34.6% of the smallest model estates to 100% of the largest, yet the share of model occurrences linked to high-scoring models stays between 21% and 25% at every size, and between 18.9% and 25.5% across eight industries. Use the count to size the review backlog and the share to benchmark model choices against peers. Neither number shows what an active application permits a model to do.
+
+For every high-scoring model, the first questions are: Is it active, what can it reach, and what happens if it fails?
+
+Agents and MCP servers make the deployment context impossible to ignore
+
+A model can produce an unsafe answer on its own. Connected to tools, data, and workflows, it may also be able to act on that answer. That's the difference between a model's tested exposure and the reach of the system around it.
+
+Of the 1,051 US accounts with an MCP reference, 744 (70.8%) show evidence of building an MCP server with an SDK. The rest show only client connections or configuration references. Building a server, configuring one, and operating one are three different signals, and only runtime verification confirms the last.
+
+Among environments with no detected agent or MCP signal, 49.1% reference a high-scoring model, compared with 96.6% of those with both an agent indicator and MCP server-building code.
+
+The latter group also runs a much larger median model inventory: 104 models versus 4. Comparing environments with 5–19 models narrows the gap from 47 points to 26 (62.1% versus 87.8%). The pattern is an association. What agents and MCP servers change is how far a model’s score can reach, which is why they’re the place to look first.
+
+For security teams, the next step is verification: confirm which agents and MCP servers are active, which tools they expose, what data they can retrieve, and what approvals stand between a model's output and a consequential action. A model score cannot answer those questions.
+
+Don’t prescribe the same fix for every AI weakness
+
+Once you know what a model can reach, the next question is which fix fits the failure. A useful model-risk program doesn't stop at severity bands. It asks which attacker goal matters for the application and whether another model performs meaningfully better on that goal. The answer splits two ways:
+
+Where switching models can help. For command execution, 77% of the tested models scored zero, while the worst reached 834. For code backdoors, 57% scored zero, while the worst reached 695.
+
+Where application controls do the work. On misinformation, the median model reached the maximum possible score. On race bias, no tested model scored zero.
+
+A zero means no attack succeeded in that test, and a model that performs well on one goal can perform poorly on another, so validate any replacement against every goal the workload depends on. Where results cluster, the defense sits in the application: limit access, validate outputs, require approvals, monitor use, and scan generated code and dependencies before they enter a build.
+
+Alert thresholds also tell only part of the story: 18 of the 29 attacker goals can never reach the default alert threshold of 500, because the damage each one can do caps its maximum score below it. Those failures still matter when the alert queue is quiet.
+
+When models differ, test a replacement. When they don’t, reduce the application's access and authority.
+
+Which goals can switching models actually fix, and which will never raise an alert? See all 29 charted. Download the full report.
+
+Your approved model list may need a second look
+
+Familiarity, license, and price are poor substitutes for examining the specific model.
+
+Lower-capability models deserve review first
+
+In the scored group, lower-capability models performed worse on personal data leakage, decision override, and insecure code generation. On decision override, the average fell from 501 for models below 130 on the Epoch Capabilities Index (ECI) to 45 for models at 150 ECI or above. Those lowest-capability models account for roughly one-third of model occurrences in the scored comparison, so the finding reaches well beyond an edge case.
+
+Capability is a separate measure from security, and a stronger model still needs to be tested against the task it will perform. Revisit lower-capability approved versions and test alternatives from the provider you already use, since the pattern also appears within individual providers’ lineups.
+
+Provider is a useful first signal, though it tells you less at the frontier. Among mid-range models, provider averages range from 113 to 356; among the most capable, three leading providers land within 22 points of one another. If your approved list leans on one provider, the full report shows where its models lead and where they lag. Six providers are compared side by side across seven attack types, from data exfiltration to output manipulation. Premium price tiers showed no consistent security advantage in this sample, largely because the high-price tier is mostly older, lower-capability models.
+
+Open-weight models and training-data lineage
+
+The report also finds higher personal data leakage scores among the 16 scored open-weight models than among proprietary models: 562 versus 274, on average. It’s a small sample size, so treat the difference as a signal worth investigating for workloads that handle personal data.
+
+Lineage visibility follows the same split. In 904 of 1,693 model-bearing environments, scans found no training-data lineage, largely because proprietary model providers do not publish their training datasets. The evidence therefore depends on the model type: ask proprietary vendors for documented assurances, and inspect the dataset lineage that open-weight models publish.
+
+Four actions for security leaders
+
+1. Inventory and qualify the unknowns: Track model identifiers, versions, owners, active uses, agents, tools, MCP servers, and available lineage. Keep unmatched models visible; do not silently treat them as low risk.
+
+2. Verify the reach: Confirm the runtime path from each active model to sensitive data, credentials, tools, and downstream actions. Distinguish server-building code from configuration and actual connections.
+
+3. Make remediation goal-specific: Rank failures by their business consequences. Test named replacement models where adversarial results vary; use least privilege, output checks, approvals, and code scanning where they do not.
+
+4. Turn the decision into governance: Record the model and version, test evidence, owner, approved controls, rationale, and review date. Reassess when models, permissions, fine-tuning data, or applications change.
+
+The takeaway from Volume III: a model’s score shows its exposure, and the system around it decides its reach. Act on both, switch models where they differ, and tighten controls where they don’t
+
+Methodology: Anonymized, aggregated AI bill of materials (AI-BOM) scan data from organizations that use Snyk, beginning September 2026: 3,023 environments, including 1,693 with at least one model identifier. Model-level findings cover US accounts.
+
+Security leaders need to know which failures could matter to their business and which control changes the outcome. Which agent and MCP pattern describes your environment, and how does your provider compare across seven attack types? The full report breaks out both, plus the industry and price-tier results and the six questions every governance leader should be able to answer. Download the 2026 State of Agentic AI Adoption, Volume III.
+
+Ready to assess your own AI estate? Explore Evo AI-SPM.
+
+You can’t govern AI you can’t see
+
+Start with Discovery. Start with Evo AI-SPM.
+
+Uncover every AI component hidden in your codebase and apply organization-wide governance."
+717d46b549e8,717d46b549e8,2026-10-21 00:00 UTC,Snyk Blog,AI Security,Article,AI Is Calling In Every Risk You've Accepted: Seven Insights From The AI Security Panel: Unfiltered,https://snyk.io/blog/ai-security-panel-unfiltered/,The AISS first launched in San Francisco last year (2025) and completely sold out,"On October 14th, the afternoon before the AI Security Summit (AISS) flagship event in San Francisco, Snyk hosted The AI Security Panel: Unfiltered. Yahoo Finance's Deirdre Bosa moderated four people who see AI security from very different seats:
+
+Manoj Nair, CTO and Chief Innovation Officer, Snyk
+
+Michael D'Angelo, Technical Lead, Cyber, OpenAI
+
+John Hultquist, Chief Analyst, Google Threat Intelligence Group
+
+Ed Sim, Founder and General Partner, boldstart ventures
+
+While they may have disagreed on how to regulate AI, how to supervise agents, and how far to trust them, on the core diagnosis, they lined up pretty well: AI has made attacks cheap, fast, and available to almost anyone, which calls in every risk an organization has ever accepted. Finding vulnerabilities gets easier every month, but being able to fix them is theactual constraint. Defenders won't close that gap until machines do most of the fixing, inside real identity, permission, and intent controls.
+
+Where did this panel sit in AISS 2026?
+
+The AISS first launched in San Francisco last year (2025) and completely sold out. This year's flagship event ran October 15th, and was just as packed as last year’s.
+
+As the event’s tagline says, it was one full day, in one room, with one track, for the people who own AI risk at the org level, which will be followed up by “satellite”, regional editions in Copenhagen and Sydney on November 25th. AISS is a Snyk and AI Engineer initiative, and its main house rules are that no one resorts to platitudes and that it’ll host no panels where everyone just agrees. Hence, why the disagreement mentioned above is so important. We learned, anyway, that there’s more that binds us together than stuff that separates us.
+
+This panel was the curtain-raiser for the event, held the afternoon before, and hosted by Snyk. Its main promise was to discuss four main issues: the threat now, the threat to come, who owns it, and what to do come Monday morning. The event itself went deep in each session. The panel took the wide shot, with a frontier lab, a threat intelligence team, an investor, and a security company that works where code and agents get created.
+
+From the lively and deep conversation, seven insights stood out:
+
+1. Why is AI a margin call on the risk you already carry?
+
+Most of the risk AI exploits were already on the books, but what changed was the price of cashing it in.
+
+Manoj borrowed his framing from a Snyk customer: ""AI is something that attackers are using. AI is a new attack surface, and it's also an insider."" Then he named the consequence.
+
+""It's all of your existing risks. It's the margin call on that.""
+
+Manoj Nair, Snyk
+
+John Hultquist then laid out the mechanics: attackers have used autonomous technology for about eight years, moving from fake images and spear-phishing emails to deepfake calls to whole operations. North Korean IT workers now run their operations on models from start to finish. Models also make attackers better at the work itself: troubleshooting mid-attack, moving through a network faster, and turning a fresh patch into a working exploit before most defenders have applied it. And it scales, too: ""The tools are just now available to so many more people.""
+
+Ed Sim pointed to the South Korean bank breaches. CrowdStrike believes the operator was likely one China-based 26-year-old using an open-source AI penetration testing agent as well as a commercial coding agent, and at least nine banks have been reported as targets. The case,CrowdStrike's Adam Meyers told reporters, ""allows one human to target many customers in a very short period of time using the power of AI."" Ed's conclusion? ""You can't fight hackers that are all over the world who have machines with humans.""
+
+Hultquist named the asymmetry underneath, with attackers experimenting at very low cost. If he tried a new way to rob a bank and it failed, ""chances are I would be in jail or worse."" Online, ""they don't face the same consequences.""
+
+2. What makes AI agents a different kind of attack surface?
+
+This new attack surface acts on its own: agents, the skills they load, and the access they garner and accumulate.
+
+Development has indeed (or finally?) become a software factory where agents write the code and reach for whatever they need, and everything they reach for ends up becoming an attack surface. Agent skills are the sharpest case there, because they're written in plain English and, as Manoj put it, ""three lines of English can become malware."" Snyk's ToxicSkills research found at least one security flaw in 36.82% of the 3,984 skills it scanned, plus 76 confirmed malicious payloads. Publishing one on ClawHub took but a Markdown file and a week-old GitHub account.
+
+Hultquist added the attacker's view. Threat actors have mostly preferred using autonomous systems rather than attacking them, with one exception: when people handed personal agents access to everything in their lives, attackers ""honed in at that moment because they recognized all the sort of aggregating opportunity."" Deployed systems are next, and attackers haven't moved on them en masse, ""but they will,"" and defending them will take ""an entirely new security regime.""
+
+The Hugging Face incident showed the view from the inside. In July, OpenAI models in an internal cybersecurity evaluation got around the controls meant to isolate them and breached Hugging Face. OpenAI's own report calls it a ""warning shot."" Michael D'Angelo put the cause in two sentences: ""Go do this task, and you will be rewarded. So they went and did the task.""
+
+Manoj went to the unglamorous root of ""secrets sitting in the open that a 14-year-old with a few tools without AI can attack,"" and the report bears out his starting point: an agent found publicly exposed Hugging Face credentials and shared them with the other agents.
+
+Ed Sim's answer is to govern agents like the insiders they are, each with its own identity, an audit trail, and access granted for the job that disappears when the job is done. The unsolved part is intent:
+
+""If my goal is to reduce the cost of my compute, what happens along the way if I decide to kill a couple production databases because Ifigured out that was a good way to reduce compute costs? Well, I did my job, didn't I?""
+
+Ed Sim, boldstart ventures
+
+And as AI moves into chips, devices, and robots, Ed asked, ""Who's going to secure the firmware, the chip stuff, the whole embedded intelligence?""
+
+3. Why did fixing become the bottleneck?
+
+Finding vulnerabilities keeps getting cheaper, and fixing them hasn't kept up in terms of speed. A frontier lab, a threat intelligence team, and Snyk see the same gap, but from different sides.
+
+Michael traced finding through one revolution after another, from fuzzers to dynamic testing to agent harnesses. The hard part comes after, and it's often ""a political problem"": teams find more than they can route, and the result is patch ping pong, a Slack thread about ""who does what, when, how,"" where ""if it breaks, it's you.""
+
+Hultquist learned it at Google with Big Sleep, a vulnerability-finding project built around an AI harness, which drew fire on social media for handing bugs to people who maintain open source on their weekends. ""It's not enough to just find this stuff,"" he said. Hand a company a zero-day that an attacker is already using, and the answer is often ""it's going to be a while."" Finding and fixing are two sides of the same coin, he said, and “if you don’t do both sides, you can’t keep up.”
+
+Manoj pointed to Project Glasswing, where Anthropic's own update says progress on software security ""used to be limited by how quickly we could find new vulnerabilities. Now it's limited by how quickly we can verify, disclose, and patch the large numbers of vulnerabilities found by AI.""
+
+It names human capacity to triage and patch as the bottleneck. As of May 22, early in the 90-day disclosure window, open source maintainers had patched 75 of the 530 high or critical-severity bugs Anthropic had reported.
+
+The measure that matters, Manoj said, is ""fixes that make it to production."" Snyk's VulnBump research, published yesterday as well, on October 15th, starts from the same gap: over six months in 2026, Snyk Open Source recorded 459 million vulnerability findings across about 300,000 organizations, and while 94% had a known fixed version, only about 10% had been resolved. The benchmark counts a fix only if the vulnerability is gone and the project still installs, builds, and passes its tests. (Snyk's Evo Remediation Agent cleared that bar on 90.2% of 307 real dependency upgrades.)
+
+His bigger point was where to break the loop. ""The whole game has changed to the point of creation,"" where ""agents are the actors,"" and developers supply the intent. Prevent there and remediate with that context, or stay in ""this dead loop of find, fix, find, fix.""
+
+4. Does prioritization still work when AI can chain the long tail?
+
+Prioritization is a workaround for human bandwidth, and AI is learning to exploit it.
+
+The piece of standard advice Manoj disagrees with is contextual prioritization: reading signals to pick the 10 issues worth fixing out of 100 is how the industry works, but that only exists to fit the work to the people available. An autonomous attacker keeps no such budget.
+
+""We should be looking at all 100. Get to the point where you can fix everything. Because those 10 things are going to become 100 things before you know it.""
+
+Manoj Nair, Snyk
+
+The long tail matters because AI chains it: AI reasons across steps, Manoj said, so it can chain five or six vulnerabilities from the 99th percentile of your list, the ones ""you said you would never get to because you don't have enough humans to patch it,"" into one severe incident. In the essay Michael cited, Greg Brockman describes the Hugging Face breach the same way: an agentic collective ""chaining together vulnerabilities ranging from previously-unknown security flaws to using credentials to user accounts that had been leaked onto the internet.""
+
+The other half of Manoj's argument is cultural. For his whole career, the trade-off has run one way: operational risk is unacceptable, so security waits. In a room with hundreds of CISOs the week before, he heard it start to flip, toward leaders willing to take an application down briefly to remove a security risk. ""Hey, something might be offline for a little bit, but it'll come back. That's better than super safely fixing this and taking a year.""
+
+5. What does machine-speed defense look like, and where do humans fit?
+
+Defense has to move at the same speed as the attack, which means agents do most of the work and people do the judging.
+
+Hultquist separated two kinds of attackers. There are your espionage crews that stay ""low and slow,"" living off the land for years. And on the other hand, you have your criminals running extortion, so speed is of the essence: ""There's a race between you and me for me to get whatever I need to extort you before you can stop me.""
+
+""The average SOC with a human in the loop is not going to be able to keep up with that. The SOC is going to have to take actions on its own, or you're just going to get a call.""
+
+John Hultquist, Google Threat Intelligence Group
+
+Ed Sim wants defenders to build ""a software defense factory the way that coders build coding factories,"" and most haven't started: for all the talk of autonomous defense, ""99% of the companies don't do it at all."" OpenAI is further along, as it says almost all of its initial security alerts are already triaged by AI before a human is looped in. ""We don't have the 5 years that we thought we had. We have like 5 days,"" Ed said. CISOs don't want to give agents authority, ""but they're going to have to at some point in time."" Hultquist expects incidents to force the issue: ""the money doesn't flow until there's a wake-up call in a lot of cases.""
+
+People should stay in the loop where it really counts. Manoj framed their job as intent, experience, and judgment call. His one thing is the ratio of issues found to issues fixed: ""If that ratio is not fixed, all this other is moot conversation."" The bottleneck is the process, because a human has to approve every pull request. You should automate the safe approvals and let people decide the exceptions. Then take the initiative back: ""When an autonomous attacker is going to attack you, why don't you attack yourself?""
+
+Michael D'Angelo put a clock on the opportunity. Open models trail the frontier ""by a few months"", a gap Greg Brockman calls the defender's window: use frontier intelligence now to scan your assets and patch what it finds before someone with a comparable model, ""in, say, their bedroom,"" gets there first. That's the one move every single CISO should make before a frontier-class open model ships.
+
+6. How do you supervise a system that never behaves the same way twice?
+
+This is still an open question, and here’s where the panel's answers split.
+
+Michael’s starting point: “How do you secure a non-deterministic system? Usually, there’s 2 ways: one, you control what it has access to; the other way is generally you use another non-deterministic system.” He took the pattern from his military background:
+
+“When you give 18-year-olds access to extremely dangerous things, the way you do that is, one, you only give certain people certain accesses. And the other thing is you put a sergeant near them. Make sure that they’re doing what they’re supposed to do.”
+
+Michael D’Angelo, OpenAI
+
+He expects fleets of models, with very cheap ones overseeing the rest.
+
+Ed Sim put a deterministic layer in the picture. ""It's going to take a village"", he said: frontier intelligence for the first scan, then systems built on years of data about real vulnerabilities and how people patch them, because ""you need some determinism.""The open-versus-closed question, which Manoj said has reached CIOs in the last few months, gets the same use-case logic: hosting a model somewhere you control is ""one layer, but that's not sufficient because what is the behavior by use case?"" Some open models are well aligned and still leak personal information badly, so ""don't use it for that use case."" Nor would he ""just assume that frontier is secure.""
+
+7. Who is accountable when an agent does damage?
+
+Accountability is being decided in practice while the policy debate keeps running in the background.
+
+Ed Sim framed the question nobody has answered yet: ""Is it the model provider? Is it the enterprise that deploys an agent that goes and attacks someone else's place?"" OpenAI tests its own releases with internal teams and external testers documented in system cards, and Michael was candid that the field is ""still figuring it out.""
+
+The panel split on who should settle it. Ed favors self-regulation, warning that rules sized for the largest companies would choke the next “$100 billion company,” and that if we “regulate ourselves to death,” China pulls ahead. Deirdre pushed back:
+
+“When people make this China argument, though, you actually look at China, they are regulating AI in ways that are much more substantial than even America is.”
+
+Deirdre Bosa, Yahoo Finance
+
+She also asked whether self-regulation by the biggest companies invites regulatory capture. Manoj's answer was layered and urgent: ""We don't have the luxury of time."" Standards first, then visibility, self-regulation, and broader regulation that requires responsibility and disclosure, arriving ""much more rapidly than in the past."" His sharper point was about attention: ""We spend a lot of time fixated on the labs,"" while agents spread through every enterprise as ""very capable agents or potential insiders.""
+
+Banks are already acting. Ed pointed to JPMorgan Chase's earnings call that week, where the bank said that, to the extent it can, it is blocking services that rely on customers sharing their banking credentials. CFO Jeremy Barnum's warning, as reported by American Banker: ""if they give up their credentials to the agent, and the agent does something that they don't want, that's going to be on them.""
+
+What should security leaders do on Monday morning?
+
+The actions that came out of the hour, in the order we'd take them:
+
+Use the defender's window. Point frontier models at your own code, infrastructure and backlog now, before open models with the same capability reach attackers (Michael D'Angelo).
+
+Attack yourself first. An autonomous attacker is coming, anyway (Manoj Nair).
+
+Fix the found-to-fixed ratio. Automate the safe fixes and keep people on the exceptions and judgment calls (Manoj Nair).
+
+Let the SOC act on its own. A human in every loop can't keep up with an extortion crew (John Hultquist).
+
+Give every agent an identity. It should have its own credentials, an audit trail, and access scoped to the job that expires when the job ends (Ed Sim). Start by auditing what your agents can already do.
+
+Turn on strong multi-factor authentication everywhere (Manoj Nair).
+
+Ask the board question out loud. “Why can't we fix everything?” If the answer is that uptime always wins, that's a trade-off that needs revisiting.
+
+So, who pays the margin call?
+
+For a panel built to disagree, the agreement ended up being the headline. A frontier lab, a threat intelligence team, an investor, and Snyk all landed in the same place: the risk you accepted when attacks were slow and expensive is now due, and attackers are the ones collecting.
+
+The way out is the somewhat unglamorous one: fix at the speed you find, let machines do most of the fixing, keep people on the calls that need judgment, and give every agent an identity and a leash before it gets the keys.
+
+Ed Sim’s bet for the next year is on the defenders, precisely because they’re “not using it enough” yet. That’s the optimistic read, and also the uncomfortable one: the gap is ours to close, and the clock started before the panel did.
+
+The next morning, Manoj gave the flagship’s first keynote: The AI Hurricane Is Here: Build for the Storm. The panel had already made the case for the second half of that title.
+
+Want to know what your own agents can reach? Download the 2026 State of Agentic AI Adoption, Volume III for Snyk’s analysis of model risk across thousands of enterprise environments.
+
+REPORT
+
+2026 State of Agentic AI Adoption: Volume III
+
+Your approved model list shows what's deployed, not what each model can reach. Wondering where to start that agent audit?"
+f767a79bb6c7,f767a79bb6c7,2026-10-15 04:00 UTC,Snyk Blog,AI Security; Code Security,Article,VulnBump: Can AI Agents Fix Vulnerable Dependencies Without Breaking the Build?,https://snyk.io/blog/vulnbump/,"What's new: to our knowledge, VulnBump is the first benchmark for AI agents built around security-driven upgrades: every task starts from real vulnerabilities that Snyk found in...","Can AI agents fix vulnerable dependencies without breaking the build? The fix itself is rarely the mystery. Over six months in 2026, Snyk Open Source recorded 459 million vulnerability findings across ~300,000 organizations. 94% of these vulnerabilities had a known fixed version, yet only about 10% had been resolved.
+
+That happens because the hard part is upgrading safely: most vulnerable packages are transitively imported, about a quarter of fixes require a major version bump, and even minor and patch releases, which are supposed to be backward compatible, often contain breaking changes.
+
+VulnBump, new research we published at Snyk, puts AI agents to the test on 307 real upgrades of vulnerable dependencies. An upgrade counts as a PASS only if the vulnerabilities are gone and the project still installs, builds, and passes its tests.
+
+What's new: to our knowledge, VulnBump is the first benchmark for AI agents built around security-driven upgrades: every task starts from real vulnerabilities that Snyk found in a real project, across six package managers. Earlier upgrade benchmarks check only for breakage, not whether the vulnerability is gone.
+
+So, can AI agents fix vulnerable dependencies without breaking the build? Mostly, yes, but the model alone doesn't decide it. On the same model, Claude Sonnet 5.5, Snyk's Evo Remediation Agent passed 90.2% of upgrades. Anthropic's Claude Code passed 77.5% when given Snyk's recommended upgrade and scan (Claude Code + Snyk scan), and 59.6% with no Snyk data (Claude Code unaided). That's a gap of more than 30 percentage points. For reference, the package manager bump, a baseline with no AI that only applies Snyk's recommended version, already passed 46.9%.
+
+Key results on VulnBump
+
+Keeping the build green wasn't the hard part: all three agents did that about 93% of the time. Removing the vulnerability was. In 70 of its 124 failures, Claude Code, unaided, said it had fixed vulnerabilities that a rescan still found.
+
+Our findings echo VulnBench, our June benchmark of AI security review, which found that Claude and Snyk Code miss different vulnerabilities and concluded that the two work best combined. VulnBump tests a different task, upgrading vulnerable open source dependencies, and points the same way: with Snyk's recommended version and scan, Claude Code's PASS rate rose by 17.9 points. Evo Remediation Agent shows how much further a purpose-built agent can go: 12.7 points beyond Claude Code with the same Snyk scan. VulnBump also follows up on the remediation results we shared in May, now with a newer model and six package managers.
+
+How we built VulnBump
+
+We started from real projects, matched to production. We collected 767 candidate projects from GitHub, including popular open source projects and repositories that pin known-vulnerable packages. Each had to install, build, and pass more than 85% of its tests before any change, and Snyk had to find at least one vulnerability. From the 99 that qualified, we picked 43 that match Snyk production data for ecosystem, vulnerability severity, direct vs transitive dependencies, and size of version jump.
+
+VulnBump dataset comparison with Snyk Open Source production data
+
+We turned each recommended upgrade into a task. Each task asks the agent to apply one upgrade that Snyk recommends: one package, moved to a version that fixes its vulnerabilities. Every task starts from a fresh copy of the project and is scored on its own. The 43 repositories yield 307 tasks covering 2,066 fixable vulnerabilities, across Maven, Gradle, npm, Yarn, pip, and Poetry, the six package managers behind about 92% of production findings.
+
+We added a verifier that didn't trust the agent. When the agent finished, we copied its changes into a clean container and checked them from scratch. There, an attempt counted as a PASS only if it cleared all four gates:
+
+The dependencies install with the command CI would run.
+
+A new Snyk scan confirms the vulnerabilities are gone.
+
+The project builds.
+
+Every test that passed before still passes.
+
+The VulnBump pipeline
+
+The harnesses we tested. All three agents ran on Claude Sonnet 5.5, with a limit of 110 turns per upgrade, in the same container for each language:
+
+Evo Remediation Agent is Snyk’s agentic remediation engine. It uses Snyk intelligence and can run its own scan, build, and tests, and repair errors before finishing. We ran it in auto-approve mode, so it applied every fix, including upgrades Snyk rates as likely to break the build.
+
+Claude Code Snyk scan is Anthropic's general-purpose coding agent, given Snyk's recommendation for the upgrade: the package to upgrade, the target version to move to, and the vulnerabilities it fixes. It can also run a Snyk Open Source scan itself to check its work.
+
+Claude Code unaided gets the same task without the target version or any Snyk access. It has to determine which version fixes the vulnerabilities on its own, for example, by searching vulnerability databases on the web.
+
+The package manager bump is the non-agentic baseline: it applies Snyk's recommended version with the project's own package manager and changes nothing else.
+
+How the repositories were chosen, the exact prompts and tools each agent had, and the leakage controls are all in the research paper: VulnBump: A Benchmark for Fixing Vulnerable Dependencies in Real Projects While Keeping the Build and Tests Green, along with the limitations: we tested one model, ran each upgrade once, and used Snyk Open Source as the judge, which can only count against Claude Code unaided, since the other two agents work from the same Snyk findings. We also didn't penalize new vulnerabilities that an upgrade pulled in.
+
+Result 1: The same model, with three different outcomes
+
+Evo Remediation Agent passed every gate on 90.2% of upgrades (and fixed 95.9% of the 2,066 vulnerability instances). That's 12.7 points more than Claude Code + Snyk scan, roughly one more working fix in every eight upgrades, and 30.6 more than Claude Code unaided.
+
+And the ranking doesn't just hinge on a few large repositories: averaged per repository, PASS rates were 93.1% for Evo Remediation Agent, 80.1% for Claude Code + Snyk scan, 68.0% for Claude Code unaided, and 51.3% for the package manager bump.
+
+Key finding:
+
+Evo Remediation Agent fixes 9 in 10 vulnerability-driven upgrades end-to-end.
+
+Result 2: Agents need to know which version is actually safe
+
+On the same model, giving Claude Code Snyk's scan and recommended upgrade raised its PASS rate by 17.9 points, from 59.6% to 77.5%.
+
+The clearest difference is which version it picks. Unaided, Claude Code settled on a version Snyk still flags 64 times. With Snyk's scan, that dropped to 13. Vulnerability databases don't always agree on which version fixes a vulnerability, so a version that looks safe in one source can still be flagged in another.
+
+Snyk's guidance matters most for transitive vulnerabilities, in packages the project doesn't declare directly. Counting only upgrades that passed every gate, it more than doubled the share Claude Code fixed, from 28% to 59%.
+
+Key finding:
+
+Snyk's scan and target version raised Claude Code's PASS rate by 17.9 points and more than doubled the transitive vulnerabilities it fixed.
+
+Result 3: Snyk's advice alone solves about half, and then the agents separate on the rest
+
+The package manager bump splits the 307 upgrades in two: On the 144 it passes, Snyk's recommended version is all it takes, and an agent can only keep or lose an easy fix. The other 163 need more than a version bump, such as adapting code to breaking changes or resolving dependency conflicts.
+
+Agents on the 144 upgrades Snyk's advice solves, and on the other 163
+
+With Snyk's guidance, agents rarely break what the bump solves, while Claude Code unaided regressed on 20 of the 144, in 15 of them by picking a version Snyk still flags. The real difference becomes evident on the hard half: with the other 163 upgrades, Evo Remediation Agent passed 82.2%, Claude Code + Snyk scan passed 61.3%, and Claude Code by itself passed 36.2%.
+
+Key finding:
+
+Of the 163 upgrades that need more than a version bump, Evo Remediation Agent passed 82.2%, against 61.3% for Claude Code + Snyk scan and 36.2% for Claude Code unaided.
+
+Result 4: A green build can hide an unfixed vulnerability
+
+The easiest way to keep a build green is to leave the vulnerability in place, and that's mostly where we saw Claude Code failing. The rescan was the first gate to fail in 107 of Claude Code’s unaided 124 failures, 48 of Claude Code + Snyk scan's 69 failures, against 9 of Evo Remediation Agent's 30.
+
+First failed verification gate for every failed attempt
+
+Evo Remediation Agent's failures are visible (and that's not a bad thing). 21 of its 30 failures broke the build or tests, mostly on major upgrades that other agents often avoided. A loud failure is much safer than a silent one: when one upgrade does go wrong, the project's own build and tests show it, where a developer can actually see it, and eventually act upon it.
+
+Key finding:
+
+General-purpose agents fail silently; Evo Remediation Agent fails where CI catches it.
+
+Result 5: Knowing the target version isn't enough
+
+Snyk's scan gets Claude Code a long way, but getting the upgrade right takes more than that: with identical findings and targets, Evo Remediation Agent passed 39 more upgrades than Claude Code Snyk scan, 23 of them major jumps.
+
+Evo Remediation Agent combines Snyk's intelligence with a loop in which it builds, tests, and repairs the project before it finishes. While our setup can't isolate which component makes the difference, it does show how far the system around a model can impact the result, which is consistent with DepBench, where changing only the harness changed results by up to 16.3 points.
+
+Key finding:
+
+Same model, same Snyk findings: Evo Remediation Agent still passes 12.7 points more.
+
+Result 6: Major jumps and transitive dependencies remain the hardest tasks
+
+All agents still struggle with major framework migrations: 23 upgrades, mostly Spring, Spring Boot, and Dropwizard migrations, defeated all three agents.
+
+PASS rates fell to 81% from 96% for Evo Remediation Agent, to 61% from 88% for Claude Code + Snyk scan, and to 42% from 70% for Claude Code unaided, respectively, on major vs non-major upgrades. Major upgrades are also where code has to change: about half of Evo Remediation Agent's major version PASSes edited the application source, compared to 5% of its non-major PASSes.
+
+Upgrades passing every gate, by the size of the version jump
+
+Transitive vulnerabilities, where the vulnerable package isn't declared in the manifest, make up 70% of fixable instances and are harder for every harness tested. Counting only fixes from attempts that passed every gate, Evo Remediation Agent fixed 73% of transitive instances, Claude Code + Snyk scan 59%, and Claude Code unaided 28%, against 91%, 71%, and 62% respectively of direct ones.
+
+PASS rate by dependency type (direct vs transitive)
+
+Key finding:
+
+Evo Remediation Agent leads on the hardest upgrades, majors, and transitive dependencies, but major framework migrations still beat every agent.
+
+How does VulnBump fit with VulnBench?
+
+VulnBench evaluates how AI coding agents find vulnerabilities in the code you write: how consistently they detect the same issues across repeated runs, and how closely their findings match a deterministic SAST baseline. VulnBump benchmarks whether they can fix vulnerabilities in the code you depend on: upgrading vulnerable open-source dependencies without breaking the build or tests.
+
+When you read the two together, they point the same way: models bring reasoning that deterministic tools just don't have. On their own, they report different findings across runs and often stop short of a fix. Across the platform, we put the shared lesson more simply: the generator cannot be the validator.
+
+What does this mean for teams handing security work to agents?
+
+Judge a fix by the evidence the agent didn't produce: An agent's report of its own fix is a claim, while a rescan, a build, and a test run become evidence. If an agent is fixing your backlog, hold it to the same checks.
+
+Score the vulnerability and the build together: Either one alone hides a failure. Breakage-only checks miss fixes that never happened, while vulnerability-only checks miss the fix that broke the project.
+
+Give the agent the security data: Snyk's scan and recommended upgrade were worth 17.9 points to a general-purpose agent, on the same model.
+
+Evo Remediation Agent is Snyk's agentic remediation engine, available through the Snyk CLI and as a cloud service. It's one of the agents in Evo Agentic AppSec, which launches today.
+
+Run your agent through VulnBump
+
+The VulnBump harness and all 43 evaluation cases are open-sourced at github.com/snyk-labs/snyk-vulnbump.
+
+The full methodology, failure analysis, and limits are in the research paper. If you're building a remediation agent yourself, run it through VulnBump and let us know what you find.
+
+VulnBump was built by Gabija Pasiunaite, Ryan McMorrow, Brian Clark, Liran Tal, and Luke Tu.
+
+RESEARCH
+
+VulnBump: A Benchmark for Fixing Vulnerable Dependencies in Real Projects While Keeping the Build and Tests Green"
+d5044ce55a6c,d5044ce55a6c,2026-10-15 04:00 UTC,Snyk Blog,AI Security; Code Security; Vulnerability Management,Article,Introducing Evo Agentic AppSec: Security That Keeps Up With AI Development,https://snyk.io/blog/announcing-snyk-agentic-appsec/,"Attackers are using AI to identify weaknesses, combine lower-severity issues into more serious exploits, and accelerate attacks","AI is changing how software gets built. Coding agents produce more code than teams can review, and current models introduce several times more vulnerabilities per line than human developers. Many of those flaws involve business logic, access control, and authentication, areas where pattern-based scanners have limited visibility.
+
+Most security teams were already behind before any of this started. They are flooded with findings, many of which are noise, while managing a backlog of latent risk. Attackers are using AI to identify weaknesses, combine lower-severity issues into more serious exploits, and accelerate attacks. As of October 2026, Snyk’s data showed roughly eight new vulnerabilities introduced for every one remediated. AI-driven development adds further pressure to that imbalance. And the in-depth security reviews that catch business logic flaws take so much time and context that most teams run them once, for a handful of critical apps.
+
+Software supply chain attacks compound the problem. Malicious packages now account for most open source zero-days, with more than 20 high-profile attacks in 2026 and growth on track to exceed 600% year over year. A malicious package can steal credentials during installation, before a pull request or CI scan runs, and coding agents can introduce these packages without assessing whether they are safe.
+
+Security needs to keep pace with how software is now built and address risks before code reaches review.
+
+The pull request scan is no longer enough on its own
+
+Pull request scanning remains an important control. On its own, however, it cannot address every risk, particularly when code is generated continuously, and malicious dependencies can cause harm before a scan begins.
+
+Application security has to run in three places: checks inside the coding workflow, fast deterministic scans on every change in CI, and deeper analysis of the full application at regular intervals. That analysis must also account for business logic and application context alongside known vulnerability patterns.
+
+Finding more issues is only useful if teams can act on them. Prevention and remediation need to scale too, with clear policies governing what gets blocked, what gets fixed, and what requires human review. Proposed fixes need independent validation before teams accept them.
+
+The answer is not another scanner. It’s the program, run by agents and owned by your team.
+
+Introducing Evo Agentic AppSec
+
+Evo Agentic AppSec is a team of security agents that does the work of your application security program, so your team can focus on setting policy and owning the decisions. It brings these capabilities together to help teams manage application security continuously, from threat assessment and prevention through detection, prioritization, remediation, and verification.
+
+It helps teams assess an application’s threats and controls, identify vulnerabilities, prioritize fixes, and validate the results. The agents work across new code during development, helping to prevent new issues and block the install of malicious packages, and across the applications you have already shipped, so the backlog actually goes down.
+
+Snyk’s security intelligence provides the context behind this work. It combines ten years of deterministic assessments with signals such as reachability, exploitability, breakability, and fix outcomes. That context helps teams separate the issues that matter from the noise, and turns a proposed change into a fix a team can use.
+
+In VulnBump, Snyk’s newest benchmark of real dependency upgrades, Evo Remediation Agent produced mergeable fixes 90% of the time, compared with 59.6% for the same model without Snyk context. A mergeable fix resolves the vulnerability and leaves the project able to build.
+
+Independent verification is central to this approach. Deterministic engines check proposed fixes rather than relying solely on the model that generated them. Teams define the policies and acceptance criteria that govern the process.
+
+Agentic AppSec is the next solution coming to Evo, the part of the Snyk platform built to help teams secure both the applications they develop and the AI agents they deploy.
+
+How it works
+
+Evo Agentic AppSec brings together a team of agents with specific roles:
+
+Evo Agentic Security Review assesses an application’s threats and controls, producing evidence-backed findings and remediation guidance. Now, that depth of review can run across every application, without scaling your team.
+
+Evo Code Scanning Agent identifies business logic and authorization flaws that traditional scanners miss.
+
+Snyk Secrets detects exposed secrets across traditional and AI-assisted development.
+
+Evo Remediation Agent fixes issues in new code and the existing backlog, starting with third-party dependency issues at launch.
+
+Evo Dependency Firewall blocks malicious and out-of-policy packages at install time, before code scanning ever comes into play. You don’t have to tell your agents to be careful about what they install; they pull from trusted packages by default.
+
+Evo Continuous Offensive Security provides adversarial testing to further assess the application’s defenses and the effectiveness of remediation.
+
+Together, these capabilities help teams expand security coverage and handle more remediation work, while keeping a human on the loop, retaining control over policies, priorities, and approvals.
+
+Evo Agentic AppSec builds on Snyk Code and Snyk Open Source. The engines that teams already use to scan code and dependencies provide the underlying analysis and independently validate findings and proposed fixes.
+
+Giving teams more capacity
+
+As more development and security work becomes automated, teams need clear oversight and accountability.
+
+Developers can spend more time reviewing proposed changes. AppSec teams can focus on security policy, exceptions, and the risks that require their judgment. CISOs gain visibility into a continuously running program, with adversarial testing and an audit trail of automated decisions.
+
+For organizations without a dedicated AppSec function, these capabilities can help establish consistent security practices and reduce the manual work needed to maintain them.
+
+The goal is practical: prevent more issues, resolve existing vulnerabilities faster, and give teams evidence that their fixes work.
+
+See it for yourself
+
+Today:
+
+Traditional scanners are missing your most critical issues
+
+Your backlog is growing faster than it can be burned down
+
+Coding agents keep committing your secrets
+
+Malicious packages that cause harm at install
+
+Evo Agentic AppSec brings prevention, detection, remediation, and verification to help teams address those challenges.
+
+Interested in putting a team of security agents next to every engineer? Talk to your Snyk account representative about early access to the agents. Or keep an eye out for more Agentic AppSec announcements to come!
+
+BOOK A LIVE DEMO
+
+Secure AI adoption at scale
+
+Evo helps organizations safely adopt and scale AI by providing visibility, governance, and security across AI-driven development and AI applications."
+8f068feac927,8f068feac927,2026-10-07 04:00 UTC,Snyk Blog,Vulnerability Management; AI Security; Code Security,Article,Frontier models found the vulnerabilities. Only the attacker found the chains.,https://snyk.io/blog/frontier-models-vulnerabilities-attacker-chains/,Weighted detection is points found ÷ 938 points available: 587 from the 57 vulnerabilities and 351 from the 15 chains,"Attackers don't read your repository; they hit your URL, and chain together whatever they find. In an era where offensive AI runs against live applications at machine speed, your security tooling needs to go beyond finding vulnerabilities to prove exploitability, including whether they can be combined into a breach.
+
+So we ran a test. We pointed Evo Continuous Offensive Security (COS) and Claude Security running Mythos at the same application: TaintedPort. It’s a deliberately vulnerable web app that exercises real-world bug classes and a set of registered exploit chains. These are different kinds of tools; COS attacks the running application while the two Claude products read source code, and we ran them on the same target to see what each approach proves.
+
+Evo COS confirmed 10 of 15 exploit chains.
+
+This isn't a knock on models - we use them
+
+Claude Security on Mythos is a real advance in AI-driven vulnerability discovery. It reasons about source code the way a strong human reviewer does, and it catches classes of flaws that pattern-matching tools miss. But finding a flaw in the code and proving an attacker can exploit these vulnerabilities are different jobs.
+
+The attack path COS proved
+
+Every tool in this test found the server-side request forgery (SSRF) flaw, and that the application's JWT signing secret was hardcoded. Evo COS went further and used the SSRF to reach and retrieve the signing secret from the running application, then used that secret to mint a valid administrator token and take over the admin surface. Two findings, connected into a full account takeover path, were demonstrated against the live app with a runnable proof of concept.
+
+Above: CHAIN-004 as scored for COS. The two member findings, the SSRF flaw and the hardcoded secret, were reported individually by every tool in this test. Evo COS confirmed that they combine into admin token forgery.
+
+That is what an autonomous attack looks like in practice: get a foothold, then chain from it. Evo COS shows you the path and attaches a runnable proof of concept for each confirmed chain.
+
+The results
+
+TaintedPort v1.35, scored against a fixed answer key of 57 known vulnerabilities and 15 known exploit chains, on a severity-weighted scale (Low 1, Medium 3, High 9, Critical 27; each confirmed chain scored at its own severity on top of its member findings). Weighted detection is points found ÷ 938 points available: 587 from the 57 vulnerabilities and 351 from the 15 chains.
+
+Evo COS
+
+Claude Security (Mythos)
+
+Severity-weighted detection
+
+75.7%
+
+49.6%
+
+Exploit chains confirmed (of 15)
+
+10
+
+0
+
+Vulnerabilities found (of 57)
+
+50
+
+37
+
+F1
+
+91.7%
+
+75.5%
+
+Claude Security found one more critical-severity vulnerability (10 to 9). Evo COS found the most vulnerabilities, had the highest precision (96.2% vs 90.2%) with fewer false positives, and it was able to identify and prove exploit chains.
+
+Why attack the deployed application?
+
+Evo COS is a dynamic system: its target is always a live URL, with source code as an optional input that upgrades a run from black-box to gray-box. It never runs on code alone. Claude Security ran white-box (code only).
+
+That makes this a cross-disciplinary comparison: Evo COS is an offensive pentest that probes and exploits the running application, a fundamentally more intensive process than a single code-reading pass. It's the same complementary split the industry has always had between DAST and SAST. Here we're showing what exercising the live application proves and what reading the code alone cannot: that these vulnerabilities are real, and that they can chain.
+
+The findings reported only by Evo COS are overwhelmingly runtime behaviors: reflected and misconfigured responses, missing transport protections, tokens that survive logout, and weak session handling. Evo COS was able to confirm several of the context-dependent business-logic flaws: broken object-level authorization on profile updates, privilege escalation via forged JWT claims, and a critical flaw where a single read of a stored TOTP secret nullifies 2FA. The chains require reaching each step through the running app and confirming the next one is actually reachable. A model reasoning over the source has to infer that a vulnerability executes, and misses the chain.
+
+You can build a harness, but you can't build the context
+
+This year's benchmarking debate has landed on a real point: the system around a model matters more than the model itself. We'd go further. ""Which harness"" isn't a neutral question, and the answer is where the advantage actually lives.
+
+Evo COS orchestrates multiple models, including frontier Claude models, each directed at the job it's best at. So this result isn't a story about model quality. The same class of model that powers a frontier code review sits inside Evo COS. What's different is the system around it: Evo COS starts from what the Snyk platform already knows about the target, rather than reasoning cold; it's a group of agents, each orchestrated for a specific purpose, and every finding clears an independent validation step before it surfaces, because the system that generates a finding shouldn't be the one that grades it.
+
+Anyone can wire a frontier model to a coding agent tonight and point it at a repository. What that setup can't reproduce is the accumulated, validated context Evo COS starts from, the independent validator, and the exercise against the live application.
+
+Dynamic and static testing are complementary
+
+Claude Security caught several vulnerabilities that Evo COS didn't, mostly source-visible logic and cryptographic flaws that don't always surface through the running app. Neither approach is complete on its own; this is the argument for a platform rather than a point tool. Reading the code and attacking the running app, each catches things the other misses.
+
+Methodology
+
+TaintedPort is Snyk's own deliberately vulnerable application, built and maintained by our team, and it's public. Evo COS was not tuned against it.
+
+Target: TaintedPort: 57 known vulnerabilities (34 commodity, 23 business-logic) and 15 known exploit chains.
+
+Tools and inputs:
+
+Evo COS: gray-box (live URL + source), Sep 18.
+
+Claude Security: white-box (source), Mythos with extended thinking, Sep 18.
+
+Runs: one per tool. Results are the single-run outputs, not medians.
+
+Detection by category
+
+Category
+
+Known
+
+Evo COS
+
+Claude Security (Mythos)
+
+Commodity
+
+34
+
+33
+
+21
+
+Business logic
+
+23
+
+17
+
+16
+
+Exploit chains
+
+15
+
+10
+
+X
+
+Detection by severity (found/known)
+
+Severity
+
+Known
+
+Evo COS
+
+Claude Security (Mythos)
+
+Critical
+
+11
+
+9
+
+10
+
+High
+
+26
+
+22
+
+19
+
+Medium
+
+18
+
+17
+
+8
+
+Low
+
+2
+
+0
+
+False positives and F1
+
+Metric
+
+Evo COS
+
+Claude Security (Mythos)
+
+False positives
+
+2
+
+4
+
+F1 score
+
+91.7%
+
+75.5%
+
+Reproduce it: TaintedPort is available at taintedport.com.
+
+Curious which findings in your own applications chain into a breach? See how Evo Continuous Offensive Security tests your live URL.
+
+BOOK A LIVE DEMO
+
+Secure AI adoption at scale
+
+Evo helps organizations safely adopt and scale AI by providing visibility, governance, and security across AI-driven development and AI applications."
+32fbece2d0d9,32fbece2d0d9,2026-10-07 00:00 UTC,Snyk Blog,AI Security,Article,Autonomous Attacks Are Already Here. The Defense Has to Match Their Speed.,https://snyk.io/blog/autonomous-attacks-already-here-defense-match-their-speed/,"What hasn't changed, and won't, is the conviction Manoj and Alon share: attackers only have to win once, and the only real defense is layered enough that there's no daylight...","Last week, Snyk CTO Manoj Nair sat down with Alon Krifcher, Head of Applied AI from Anthropic, for a live discussion on the coming wave of autonomous attacks. Manoj kept landing on one thing: the AI Hurricane has already arrived, and what's left is deciding whether your defense runs at the same speed as the threat.
+
+Attacks have gone agentic, and so has the code writing them. Across thousands of real enterprise environments, Snyk is seeing new security issues introduced grow more than 2X quarter over quarter, and for every six new issues, teams are closing one. CrowdStrike's most recent threat report clocked the fastest recorded breakout time at 27 seconds. The average is now measured in minutes, not months. Zero days used to take a long time to develop and longer to exploit, giving defenders time. Time is exactly what autonomous attackers have taken away.
+
+However, Manoj doesn't think the sky is falling. He thinks the response is simpler than people expect, and it's already working in the largest enterprises he talks to. If autonomous attacks demand machine-speed defense, he argues, you need four things running in parallel, not in sequence: Discover → Remediate → Validate → Prevent. You can start anywhere in that loop. Most companies start with the backlog they already have, because everyone has one.
+
+That's where the risk math changes. The old model: likelihood times impact. Impact hasn't moved much, but likelihood has. An attacker can now cheaply and agentically chain three vulnerabilities, each classified as low or medium, into something that isn't low or medium at all. Retriaging everything isn't the answer, Manoj explains. Starting with your highest-impact applications and testing them the way an autonomous attacker actually would — that's the answer, and it's why Snyk built Evo Continuous Offensive Security. One early customer ran it against an app that had come back clean from a pen test that same week. Snyk found everything the pen tester found, plus two or three things they had to fix that day. It's not a concept, Manoj says. It's live.
+
+On the backlog itself, some of Snyk's customers, including Labelbox and Relay Networks, have talked publicly about getting to backlog zero using a combination of Skills and remediation agents built on Claude. Another Fortune 10 customer said the same thing. If that's true at that scale, he says, ""we'll deal with the backlog eventually,"" stopped being a credible plan.
+
+Prevention is the piece Manoj is most proud of, because it's where Snyk started. The company was built on the idea that you fix security at the point of creation, instead of after the fact. The point of creation moved. For most companies he talks to now, it's an agent. So Snyk built Snyk Studio to give that agent the same security context a good developer would have, at the exact moment it's writing code, fast enough that the agent doesn't just route around it. Almost 1,500 customers are running this in production today. Manoj demoed it recently by asking an agent to build a QR code scanner. Told the truth about two candidate packages: one abandoned for a decade, one current and clean. It picked the right one without a human having to catch it.
+
+None of this works, Manoj argues, if it's treated as Snyk's job alone, and he wants to be direct about where the line sits with a partner like Anthropic. They're doing the hard work of keeping their models from being weaponized at the intelligence layer. That work has a boundary, and the boundary is the surface area their guardrails don't reach: exposed credentials, misconfigured components, an agent, a team built without knowing what packages, or Skills it pulled in along the way. Snyk is seeing roughly a three-to-one ratio of models to agentic components across the nearly 3,000 customers using its AI bill of materials today. Every one of those components is a place where risk can hide if nobody's watching it. Snyk used this same approach to help secure one of the largest cloud code deployments in the world this summer: 50,000 developers, rolled out with continuous Skill scanning built in from day one.
+
+If you take one thing from all of this, Manoj says, measure one number: new findings versus findings closed, for your top applications. Everything else on a security dashboard, like tickets opened, scans run, headcount added, moves because you did something. That ratio only moves when the program itself actually changes. If you're sitting at six to one and it's getting worse, you're building inventory, not security. Track a second number if you can: what proportion of proposed fixes merge without a human rewriting them? That's the real throughput constraint, and it tells you how agentic your remediation actually is versus how agentic you'd like it to be.
+
+The market moves in weeks, Manoj says. The playbook above is a starting point, not a finish line, and he expects it to evolve the same way this whole space has evolved in the year since Snyk shipped Studio. What hasn't changed, and won't, is the conviction Manoj and Alon share: attackers only have to win once, and the only real defense is layered enough that there's no daylight left for them to find.
+
+Want to hear the full conversation? Watch the on-demand session with Manoj Nair and Alon Krifcher.
+
+On-Demand Webinar
+
+Snyk & Anthropic: Preparing for the Coming Wave of Autonomous Attacks
+
+The Register’s James Hayes is joined by Manoj Nair, Chief Innovation Officer at Snyk, and Alon Krifcher, Head of Applied AI at Anthropic, for a direct look at what is actually changing and what a credible response looks like in operation."
