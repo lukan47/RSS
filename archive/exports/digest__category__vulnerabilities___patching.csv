@@ -3045,6 +3045,37 @@ Conclusion
 CVE-2026-111497 shows how a single unchecked return value in a widely shared C library can ripple across nearly every major runtime. Because the decoder runs inside the application's own process, the flaw sidesteps the defenses most teams rely on. The eight months between the upstream fix and its release are a reminder that a fix in a public repository protects no one until it ships.
 
 Exploitation has been confirmed, which further proves the primitives are real and the path to code execution is a matter of effort. Patch to Node.js 22.23.4, 24.22.1, or 26.12.1 or your vendor's fixed package, rebuild container images, restart every process, and inventory the other Brotli consumers in your environment."
+1ee30690ef02,1ee30690ef02,2026-10-28 20:57 UTC,Vulnerabilities & Patching,Orca Security,Orca Security Blog,Vulnerability Management; Data Security Posture Management; Threat and Exposure Management; Threat Intelligence,Article,CVE-2026-101767: Critical Oracle EBS SQL Injection Actively Probed in the Wild,https://orca.security/resources/research/cve-2026-101767-critical-oracle-ebs-sql-injection-actively-probed-in-the-wild/,CVE-2026-101767 disclosure and exploitation timeline The vulnerability was discovered by Horizon3,"What is CVE-2026-101767?
+
+A critical vulnerability (CVE-2026-101767, CVSS 9.8) was disclosed affecting Oracle E-Business Suite’s Application Object Library, allowing attackers to achieve full remote code execution and system takeover via an unauthenticated SQL injection in the Thin Client Framework servlet. Due to the potential for complete compromise of financial, payroll, and HR data managed by EBS, immediate patching is required.
+
+How the Oracle EBS SQL injection leads to remote code execution
+
+The issue originates from the Application Object Library’s TCF servlet at /OA_HTML/AppsTCFServer, where missing authentication on a critical function combined with improper input sanitization leads to SQL injection as the privileged APPS database user. By sending specially crafted POST requests to the servlet instantiating oracle.apps.jtf.gantt.server.GanttDataServer, attackers can execute arbitrary SQL commands and chain to operating system command execution as the EBS application account, potentially achieving full takeover of the EBS instance and all data it manages. No authentication is required to exploit this issue.
+
+CVE-2026-101767 disclosure and exploitation timeline
+
+The vulnerability was discovered by Horizon3.ai and reported to Oracle on July 24, 2026. Oracle addressed it in the October 2026 Critical Patch Update, released October 20. Within a week of the patch release, threat intelligence firm Defused observed exploratory exploitation attempts hitting Oracle EBS honeypots on October 27. EBS has historically been a target for financially motivated threat actors, including the Cl0p group’s large-scale EBS campaign the previous year.
+
+Which Oracle E-Business Suite versions are affected?
+
+The following components are affected: Oracle E-Business Suite Application Object Library, versions 12.2.3 through 12.2.15. Oracle notes that earlier unsupported versions are likely also affected. The vulnerable servlet passes through the default EBS URL firewall configuration, meaning any internet-facing EBS instance with default settings is exposed. Organizations running EBS for financial, payroll, HR, and procurement operations face elevated risk due to the sensitive data accessible through the APPS database user.
+
+How to patch and mitigate CVE-2026-101767
+
+Users should apply the October 2026 Critical Patch Update immediately (details in My Oracle Support Note KA923), and also patch the underlying EBS Database and Fusion Middleware components, which have separate CPU entries. As interim mitigations until patching is complete, administrators should remove /OA_HTML/AppsTCFServer from the EBS URL firewall allowlist and restrict network access to the EBS web tier to trusted networks only.
+
+Is CVE-2026-101767 being exploited in the wild?
+
+At the time of writing, Horizon3.ai has published technical details of the attack chain, and active probing has been confirmed in the wild by Defused. The vulnerability is not yet listed on CISA’s Known Exploited Vulnerabilities catalog. Regardless, the severity and ease of exploitation make this vulnerability high risk, especially in internet-facing deployments.
+
+What attackers can do with a compromised Oracle EBS instance
+
+Successful exploitation could allow attackers to execute arbitrary SQL and OS commands as the APPS and EBS application accounts, exfiltrate or manipulate sensitive financial, payroll, and HR data, and potentially pivot to other systems within the network, leading to service disruption, data exposure, or full infrastructure compromise.
+
+How Orca helps find and prioritize vulnerable Oracle EBS assets
+
+Orca enables customers to quickly identify assets running vulnerable versions of Oracle E-Business Suite, understand their exposure in context, including internet accessibility, runtime reachability, and asset criticality, and prioritize remediation based on real risk rather than CVSS alone. Orca’s platform highlights affected assets directly in the newItem view, helping security teams focus on the most critical remediation paths first"
 34c7d761ad07,34c7d761ad07,2026-10-28 23:38 UTC,Vulnerabilities & Patching,,The Hacker News,Vulnerability Management; Threat Intelligence; Network Security,Article,Volt Typhoon Used Covert Silent Train Network in Four Zero-Day Exploitation Campaigns,https://thehackernews.com/2026/10/volt-typhoon-used-covert-silent-train.html,""" Its main purpose is to facilitate critical attack phases like vulnerability exploitation, credential access, data exfiltration, and to maintain continued access to victim...","The China-nexus cyber espionage group known as Volt Typhoon has been attributed to a now-disrupted covert access network dubbed Silent Train that has been put to use for zero-day exploitation and strategic access.
 
 ""First identified in late 2023, Silent Train uses rotating chains of compromised SOHO, IoT, and enterprise infrastructure,"" Lumen Technologies Black Lotus Labs said in a report shared with The Hacker News. ""It employs anti-forensic techniques, compartmentalized operations, and post-operation cleanup to minimize detection and attribution.""
@@ -16719,51 +16750,6 @@ Cloudflare customers using our Managed Ruleset are protected by default. We reco
 Copy prompt to fix!
 
 # Security task: check and fix ""php2shell"" (CVE-2026-109618, CVE-2026-109619) Two critical PHP runtime vulnerabilities were disclosed on 2026-10-21 (CVSS v4.0 9.2). They allow unauthenticated remote code execution, data exposure and DoS through crafted HTTP requests. Exploitation is already happening. The bug is in the PHP runtime itself, so updating app code, frameworks, WordPress or plugins does NOT fix it. Official advisory (treat as source of truth, re-fetch it in case it was updated): https://www.php.net/archive/2026.php#2026-10-21-5 - GHSA-w8hw-w9fx-j79w (CVE-2026-109618, RCE via OOM corruption) - GHSA-6wmf-4rv5-p3rp (CVE-2026-109619, RCE via stale global state) **Fixed upstream versions:** 8.5.12, 8.4.27, 8.3.36, 8.2.35 **Affected:** every PHP install that serves web requests (PHP-FPM, Apache mod_php, php-cgi, FrankenPHP, LiteSpeed). mod_php has the highest risk: a demonstrated exploit triggers before any application code runs. ## Rules - Do NOT guess. If you can't confirm a version or setting, say so. - Ask me before changing anything on production or shared infrastructure, restarting production services, or editing deploy config. Read-only discovery is fine. - Don't stop at the first finding. Inventory everything, then report. ## Step 1: Inventory every place PHP runs Search the current repo/workspace AND any machines/containers I have access to: - Repo: `*.php`, `composer.json`/`composer.lock` (check `require.php` and `config.platform.php`), `Dockerfile*`, `docker-compose*`, `.php-version`, `.tool-versions`, `.devcontainer/`, CI files (GitHub Actions `setup-php`, GitLab CI `image:`), IaC (Terraform, Ansible, Helm, k8s manifests), PaaS config (`app.yaml`, `Procfile`, Platform.sh, Laravel Forge/Vapor, etc.). - Base images: list every `FROM php:*`, `FROM wordpress:*`, `FROM bitnami/*`, `FROM serversideup/*`, `FROM dunglas/frankenphp*` and similar, with tags. - Running hosts/containers (if accessible): `php -v`, `php-fpm -v`, `php -i | grep -i ""server api""`, `apachectl -M | grep -i php`, `docker ps` + `docker exec <c> php -v`. - Note the SAPI for each (FPM / mod_php / CGI / FrankenPHP / LiteSpeed / CLI-only). - Note long-running workers (Laravel Octane, RoadRunner, Swoole, FrankenPHP worker mode). These are relevant to the stale-state bug. If no PHP is found anywhere, tell me clearly and stop. Nothing else is needed. ## Step 2: Decide if each instance is vulnerable For each instance, classify it as PATCHED / VULNERABLE / UNKNOWN: - Upstream builds: vulnerable if below 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35 on that branch. - **PHP 8.1 and older are EOL upstream:** vulnerable unless a vendor backport is confirmed. - **Distro packages (Debian/Ubuntu/RHEL/Alpine/etc.)** often backport fixes WITHOUT bumping the upstream version, so `php -v` alone isn't enough. Check the package changelog for the CVE IDs, e.g. `apt changelog <php-pkg> | grep -E ""CVE-2026-10961[89]""` or `rpm -q --changelog <php-pkg> | grep -E ""CVE-2026-10961[89]""`. - If PHP comes from `rpms.remirepo.net`: the advisory says it will not have same-day updates. Flag this and recommend distro packages or building from source. - Managed hosting / shared hosting / PaaS: mark UNKNOWN and tell me to ask the provider. ## Step 3: Fix (only after I approve the plan for prod) 1. Upgrade PHP to a fixed version (or the vendor-patched package): - Bump Docker base image tags to a fixed patch release, rebuild, redeploy. - Update CI `php-version` pins. - `apt`/`dnf`/`apk` upgrade of the distro PHP packages. - 7.4 / 8.0 / 8.1 built from source: the PHP security team published minimal backport branches linked from the advisory. Otherwise upgrade to a supported version. 2. **Restart EVERY PHP worker** (FPM pools, Apache, FrankenPHP, LiteSpeed, Octane/ RoadRunner/Swoole). Old processes keep running vulnerable code until restarted. 3. Verify each instance afterwards (version + changelog check) and report the evidence. ## Step 4: Temporary mitigations (ONLY if patching isn't possible right away) These reduce exposure but do NOT make the server safe. Apply them in php.ini / the FPM pool / server config (not `ini_set()` or `.user.ini`) and restart every worker: - CVE-2026-109618: - `memory_limit=-1`, set non-overridably (e.g. `php_admin_value`), and confirm nothing re-applies a finite limit. - Low `post_max_size` (8M with no uploads, 32M with uploads), with `upload_max_filesize` below it. - Enforce request size / field count / multipart part count / header limits at the web server or proxy, including requests without `Content-Length`. - Use container/cgroup memory limits. Do NOT use `RLIMIT_AS`/`RLIMIT_DATA`. - CVE-2026-109619: - `session.upload_progress.enabled=0`. - On PHP 8.5: `fatal_error_backtraces=0`. - Remove invalid/deprecated per-request settings that emit diagnostics early (hiding them via `error_reporting`/`display_errors`/`@` does not help). - Fix attacker-reachable fatal errors and timeouts. - If the site sits behind Cloudflare: confirm the WAF Managed Ruleset is deployed in **block** mode (Free plans get the Managed Free Ruleset automatically). This is defense in depth, not a replacement for patching. ## Step 5: Look for signs of compromise (read-only) Since exploitation started before disclosure, check what you can access: - PHP-FPM/Apache error logs for segfaults, ""Allowed memory size exhausted"", or worker crashes, especially clustered around unusually large POST/multipart requests. - Recently modified or unexpected files in web roots (webshells), new cron jobs, unexpected processes or outbound connections from PHP users. Report anything suspicious. Do not delete evidence. ## Final report Give me a table: location | how PHP is provided | SAPI | version | status (PATCHED/VULNERABLE/UNKNOWN) | action taken or needed. Then list: - What you changed (files, commands), what still needs my approval, and anything that needs a hosting provider. - Mitigations applied as stopgaps and when they should be removed. - Any compromise indicators found."
-cda4e1a9913d,cda4e1a9913d,2026-10-21 13:00 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Threat Intelligence,Article,Q3 2026 Threat Update: Attackers Are Exploiting Vulnerabilities Within 3 Days,https://www.rapid7.com/blog/post/tr-q3-2026-threat-update-attackers-exploiting-vulnerabilities-within-3-days,Attackers are exploiting vulnerabilities that require no interaction Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-...,"Three days is the average time between a high-severity vulnerability becoming public and its exploitation, according to the latest Quarterly Threat Landscape Report from Rapid7. And 71% of the exploitation tracked in Q3 occurred within the first seven days.
-
-For security teams already managing growing vulnerability backlogs, this creates a difficult question: How do you reduce exposure when attackers can exploit vulnerabilities before your next patching window?
-
-Rapid7's Q3 2026 research brings together vulnerability intelligence, ransomware activity, APT tracking, and underground forum intelligence to show where attacker activity is concentrated.
-
-The exploitation window has narrowed, big time
-
-Rapid7 tracked 43 newly exploited high- and critical-severity vulnerabilities this quarter, down 7% from Q2 but still 19% higher than the same period last year.
-
-The number of newly exploited vulnerabilities isn't growing at the same rate as disclosures. The more pressing concern is how quickly attackers exploit the vulnerabilities they choose. On average, exploitation occurred just three days after public disclosure. The report also found that 80% of tracked exploitation occurred within 14 days and 90% within 30 days.
-
-That timeline creates a serious challenge for organizations relying on fixed remediation schedules. It also reinforces the need to distinguish between vulnerabilities that are theoretically severe and those that pose an immediate, exploitable risk.
-
-The report examines the exploitation timeline in greater detail, including the vulnerability characteristics that make certain exposures particularly attractive to attackers.
-
-Attackers are exploiting vulnerabilities that require no interaction
-
-Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-severity vulnerabilities tracked, 34 (79%) required no authentication or user interaction.
-
-This provides attackers a potential path into exposed systems, no stolen credentials or malicious content interaction necessary. An internet-facing service with an exploitable vulnerability may require immediate attention, particularly when an attacker can reach it without authenticating.
-
-This makes attack surface visibility and contextual prioritization essential. Security teams need to understand which systems are externally accessible, which vulnerabilities are actively exploited, and whether existing controls can prevent or limit compromise.
-
-A CVSS score alone won’t give you the answers. The report explores the characteristics of exploited vulnerabilities and why understanding reachability is critical to reducing risk.
-
-AI is taking on a more operational role in attacks
-
-In Q3, 8% of the threat reporting tracked by Rapid7 cited AI as an operational component. The research identifies a shift from using AI primarily to help draft content or code toward supporting tactical decisions and execution within attack campaigns.
-
-In the documented cases, human operators continued to select targets and determine objectives, but relied on AI assistance for technique selection, target assessment, and adapting when an attack step failed.
-
-The report also examines how threat actors split malicious objectives across multiple AI sessions to evade provider safeguards. There are serious implications for detection in these findings. AI-enabled attacks also reinforce the value of monitoring and quickly adapting to attacker behavior rather than relying exclusively on known malware signatures or threat actor identities.
-
-The report provides additional context on how AI appeared in tracked campaigns and what defenders should monitor.
-
-The next step: Prioritize exposure before attackers exploit it
-
-Q3's findings reveal a challenge that vulnerability counts alone can’t explain. Attackers exploited 43 newly tracked vulnerabilities this quarter, yet the average exploitation window was just three days. Meanwhile, underground forum monitoring identified 41 posts advertising RDP or network access, demonstrating continued interest in selling access to compromised environments.
-
-Security teams must account for both the vulnerabilities attackers can exploit directly and the access they can obtain through other means.
-
-Start by identifying externally accessible assets and the vulnerabilities affecting them. Prioritize known exploitation, unauthenticated access paths, and systems supporting critical business functions. Where immediate remediation isn't possible, assess compensating controls and detection coverage.
-
-The latest Rapid7 Quarterly Threat Landscape Report brings together vulnerability research, ransomware intelligence, nation-state activity, and dark web monitoring to help security teams understand where threats are concentrated and what to address first. Download and read it now."
 df408f9d9f82,df408f9d9f82,2026-10-21 13:00 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Endpoint Security; Server & Workload Protection; Vulnerability Management; Identity Security Posture Management,Article,The Science of Exploitability: Decoding BlueHammer,https://blog.qualys.com/product-tech/2026/10/21/bluehammer-cve-2026-33825-windows-defender-privilege-escalation,"Exploitation depends on a reachable vulnerable path, the privileges an attacker starts with, the available services and components, and the system’s current state","Executive Summary
 
 BlueHammer (CVE-2026-33825) is an eight-stage local privilege-escalation chain targeting the Windows Defender Antimalware Platform before 4.18.26030.3011. It does not grant initial access; an attacker needs standard-user code execution first. Still, in the lab, it reached NT AUTHORITY\SYSTEM, recovered domain-admin credentials from LSASS, and moved laterally via pass-the-hash. This is not memory corruption. It chains CloudFilter callbacks, batch oplocks, object-manager symlinks, Defender’s update RPC, offline SAM parsing, and SAMR. Crucially, affected is not the same as exploitable: runtime factors — pending signature update, WinDefend state, filter drivers, VSS, CloudFilter reachability decide whether the path works on a given host. That’s the gap version-based scanning can’t close. Qualys TruConfirm marks a host Exploit Validated only after environmental checks, plus a non-destructive BAS validation of the CloudFilter freeze (Stages 2–3), no SAM extraction, no password reset, no service creation, no SYSTEM shell.
@@ -16943,6 +16929,51 @@ Detection and Hunting
 BlueHammer operates stealthily, making it challenging to detect if each of its actions is viewed in isolation. It uses legitimate Windows subsystems and interfaces with Microsoft infrastructure rather than relying on attacker-controlled update mechanisms. Even after a successful operation, it leaves minimal enduring traces; however, some transient indicators, such as temporary files, object-manager links, RPC interactions, CloudFilter registrations, oplock activities, password alterations, and service creations, might still be noticeable. Therefore, effective detection hinges on correlating these behaviors rather than depending on a singular file hash or event.
 
 To enhance detection, the Qualys Threat Research Unit (TRU) developed a TruConfirm signature for CVE-2026-33825. This signature employs a dual approach: it first evaluates the host for necessary preconditions, including Defender version, driver status, service configuration, and VSS availability. Following this, it performs a safe validation of the critical, non-destructive aspects of the exploit chain using the Qualys Breach and A [truncated for CSV - full text is in the JSON export]"
+cda4e1a9913d,cda4e1a9913d,2026-10-21 13:00 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Threat Intelligence,Article,Q3 2026 Threat Update: Attackers Are Exploiting Vulnerabilities Within 3 Days,https://www.rapid7.com/blog/post/tr-q3-2026-threat-update-attackers-exploiting-vulnerabilities-within-3-days,Attackers are exploiting vulnerabilities that require no interaction Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-...,"Three days is the average time between a high-severity vulnerability becoming public and its exploitation, according to the latest Quarterly Threat Landscape Report from Rapid7. And 71% of the exploitation tracked in Q3 occurred within the first seven days.
+
+For security teams already managing growing vulnerability backlogs, this creates a difficult question: How do you reduce exposure when attackers can exploit vulnerabilities before your next patching window?
+
+Rapid7's Q3 2026 research brings together vulnerability intelligence, ransomware activity, APT tracking, and underground forum intelligence to show where attacker activity is concentrated.
+
+The exploitation window has narrowed, big time
+
+Rapid7 tracked 43 newly exploited high- and critical-severity vulnerabilities this quarter, down 7% from Q2 but still 19% higher than the same period last year.
+
+The number of newly exploited vulnerabilities isn't growing at the same rate as disclosures. The more pressing concern is how quickly attackers exploit the vulnerabilities they choose. On average, exploitation occurred just three days after public disclosure. The report also found that 80% of tracked exploitation occurred within 14 days and 90% within 30 days.
+
+That timeline creates a serious challenge for organizations relying on fixed remediation schedules. It also reinforces the need to distinguish between vulnerabilities that are theoretically severe and those that pose an immediate, exploitable risk.
+
+The report examines the exploitation timeline in greater detail, including the vulnerability characteristics that make certain exposures particularly attractive to attackers.
+
+Attackers are exploiting vulnerabilities that require no interaction
+
+Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-severity vulnerabilities tracked, 34 (79%) required no authentication or user interaction.
+
+This provides attackers a potential path into exposed systems, no stolen credentials or malicious content interaction necessary. An internet-facing service with an exploitable vulnerability may require immediate attention, particularly when an attacker can reach it without authenticating.
+
+This makes attack surface visibility and contextual prioritization essential. Security teams need to understand which systems are externally accessible, which vulnerabilities are actively exploited, and whether existing controls can prevent or limit compromise.
+
+A CVSS score alone won’t give you the answers. The report explores the characteristics of exploited vulnerabilities and why understanding reachability is critical to reducing risk.
+
+AI is taking on a more operational role in attacks
+
+In Q3, 8% of the threat reporting tracked by Rapid7 cited AI as an operational component. The research identifies a shift from using AI primarily to help draft content or code toward supporting tactical decisions and execution within attack campaigns.
+
+In the documented cases, human operators continued to select targets and determine objectives, but relied on AI assistance for technique selection, target assessment, and adapting when an attack step failed.
+
+The report also examines how threat actors split malicious objectives across multiple AI sessions to evade provider safeguards. There are serious implications for detection in these findings. AI-enabled attacks also reinforce the value of monitoring and quickly adapting to attacker behavior rather than relying exclusively on known malware signatures or threat actor identities.
+
+The report provides additional context on how AI appeared in tracked campaigns and what defenders should monitor.
+
+The next step: Prioritize exposure before attackers exploit it
+
+Q3's findings reveal a challenge that vulnerability counts alone can’t explain. Attackers exploited 43 newly tracked vulnerabilities this quarter, yet the average exploitation window was just three days. Meanwhile, underground forum monitoring identified 41 posts advertising RDP or network access, demonstrating continued interest in selling access to compromised environments.
+
+Security teams must account for both the vulnerabilities attackers can exploit directly and the access they can obtain through other means.
+
+Start by identifying externally accessible assets and the vulnerabilities affecting them. Prioritize known exploitation, unauthenticated access paths, and systems supporting critical business functions. Where immediate remediation isn't possible, assess compensating controls and detection coverage.
+
+The latest Rapid7 Quarterly Threat Landscape Report brings together vulnerability research, ransomware intelligence, nation-state activity, and dark web monitoring to help security teams understand where threats are concentrated and what to address first. Download and read it now."
 23c8214a497e,23c8214a497e,2026-10-21 12:35 UTC,Vulnerabilities & Patching,,Wired Security,Vulnerability Management,Article,A Design Flaw in Share Links Exposes Users’ Personal Conversations With Meta’s Muse,https://www.wired.com/story/a-design-flaw-in-share-links-exposes-users-personal-conversations-with-meta-muse/,"Three weeks after the Muse launch, macOS security expert Patrick Wardle discovered a zero-day vulnerability that allowed any other app installed on the same device to gain...","“If you had asked us beforehand, we would have guessed that gathering these would take real effort,” the researchers wrote. “It took one query.”
 
 In an emailed statement responding to questions from Ars, Meta said: “We opened the Muse bug bounty program so researchers could raise different scenarios and help us continue improving the product. People have the ability to share specific Muse artifacts, which creates a page that can be accessed by those with the link. However, we’ve paused this functionality while we review this report and consider changes to how these links can be discovered.”
@@ -21679,74 +21710,3 @@ The company plans to “reformat” the program and expects to provide an update
 Image credits: JHVEPhoto / Shutterstock.com
 
 Read now: How Industry Coalitions Are Rallying to Secure Open Source Software for the AI Era"
-6fed31b0d375,6fed31b0d375,2026-10-02 19:11 UTC,Vulnerabilities & Patching,,JFrog Blog,Vulnerability Management; AI Security,Article,The Year the Vulnerability Backlog Changed Shape,https://jfrog.com/blog/the-year-the-vulnerability-backlog-changed-shape/,"For example, a medium-severity information disclosure and a low-severity path traversal, previously deprioritized, can now be exploited together making the combined threat more...","As we enter the AI era, few among us have found themselves so entrenched in the throes of the shifting landscape as CISOs. With the threat landscape shifting, they are up against increasing rates of vulnerabilities and exploits alongside rapidly scaling demands for ever more secure environments. As CISOs, with our role as the protectors of an organization, we are expected to deliver guidance and security visibility. This is not a vision of the future, it’s today’s reality. Thankfully, we see some emerging solutions designed to address these problems, which we can unpack more deeply.
-
-For those of you who may not recognize the pain day-to-day, the Cloud Security Alliance reports that AI-assisted developers generate code commits three to four times faster than their peers but introduce security findings at ten times the rate, creating security debt that outpaces remediation efforts. Georgia Tech’s Vibe Security Radar tracked 35 CVEs in one month alone, directly linked to AI coding tools, with researchers estimating the true number in open source packages is five to ten times higher, with the latest AI Frontier models intensifying this trend.
-
-The UK’s NCSC warned of a “wave of patches” this spring, attributing it to years of prioritizing rapid delivery over vulnerability debt. AI-driven discovery is now exposing the consequences. Disclosed vulnerabilities surged 92% in 2025, even before this acceleration. The backlog is not only longer, but is growing faster than traditional release cycles can manage.
-
-The Shift
-
-The more significant shift is qualitative, disrupting established security models. For two decades, triage relied on severity: patch criticals, schedule highs, and let mediums and lows wait. This approach is now obsolete. The Australian Cyber Security Center‘s April guidance on frontier models advised organizations to reassess risk tolerance and patch vulnerabilities regardless of severity, especially when lower-rated flaws are combined into so-called chained vulnerabilities, resulting in an aggregated, more serious threat level.
-
-These new AI agents excel at chaining vulnerabilities together. For example, a medium-severity information disclosure and a low-severity path traversal, previously deprioritized, can now be exploited together making the combined threat more severe than either of them on their own.
-
-Compounding this issue is the reality that the response window has also narrowed. Unit 42 reports attackers scanning for new CVEs within fifteen minutes of publication, often before security teams review advisories. For example, a critical pre-auth RCE in the Marimo notebook project was exploited within ten hours of disclosure, using only the advisory text.
-
-This shift has major implications for software producers. Accepting medium- and low-severity issues is not just an internal risk; these vulnerabilities ship to customers, get flagged by their scanners, and may trigger support tickets, security alerts, or contractual remediation obligations.
-
-This situation results in a severe operational mismatch: while customers technically possess the tools to filter findings by severity, their zero-tolerance policies mean they rarely do. Consequently, engineering teams must remediate the full spectrum of vulnerabilities across their products – with no increase in resources.
-
-CISOs in the AI Era
-
-For CISOs, the ramifications of this new reality are massive. Proofpoint’s 2026 Voice of the CISO found that 79% are expected to manage AI risk without additional resources.
-
-That idea is difficult to conceive, and that kind of approach to management reminds me of the experience of one very well-known CISO with whom I had the pleasure of speaking at this year’s swampUP conference. Tim Brown, who served as SolarWinds’ CISO during the massive SUNBURST malware attack that compromised the data of thousands of the company’s customers, exemplifies the resilience that CISOs must exhibit. That attack was caused by 3,000 lines of malicious code inserted into the build environment, bypassing source control. The fallout required massive efforts to rebuild trust, forcing the creation of a complete pipeline overhaul: three separate builds for development, staging, and production; access reduced from 400 to 36 to 2 people; binary comparisons across builds to detect tampering; and a six-month pause on new features.
-
-It also severely impacted Tim on a personal level. The SEC considered filing charges against not SolarWinds, but Tim as an individual. The stress caused him physical and mental deterioration, and he eventually wound up in the hospital, suffering from a heart attack. After 3 years, the case against him was dropped, but his insistence on fighting the charges created a lasting impact. It also signals something much broader about the role of CISOs in today’s changing AI-first environment.
-
-The SolarWinds attack was conducted before AI became a common tool and tactic used by malicious actors. With it in their arsenal, the damage they can do is much, much greater.
-
-In the context of AI-assisted development, Tim’s experience points not only to fears about new attacks, their methods and scale, but also about ill-placed trust. Assuming code is safe, environments are secure, or systems are properly configured without verification led to the SolarWinds incident.
-
-Controls that once ran on a six-month audit cycle must now run continuously. In the agentic era, threats include not only rogue employees but also autonomous agents acting independently. This makes non-human identity management and agent sandboxing critical – especially with rising demands for regulatory compliance based on an exact record of software artifacts – regardless of whether it’s agentic or man-made.
-
-Facing the new application security reality
-
-The most important advice considering all of this is to avoid a pessimistic outlook and stay positive. All the pressures described above point to a single essential capability: maintaining precise, continuous knowledge of your software artifacts and their deployment and ownership, and having a response plan in place if they are compromised. Without this, meeting regulatory requirements, like the 24-hour early warning needed in accordance with the EU Cyber Resilience Act and the 72-hour notification to ENISA for actively exploited vulnerabilities for EU market products, for example, will be impossible. Adopting a severity-agnostic patching approach or discussing AI-driven risk at the board level will continue to be goals yet to be realized. A unified plan is a single, strategic investment, and only the CISO can advocate for it, given their unique position across executive, engineering, and customer domains.
-
-But this responsibility is a shared one, and should not just fall on the sole shoulders of the CISO. When I asked Tim about his experience at SolarWinds and the lessons he took away from it, he emphasized that the roles of communication and collaboration can’t be understated.
-
-JFrog’s Role in Building a Secure Software Supply Chain Future
-
-On a personal note, this is a very challenging time for keeping applications secure. The strings noted above are all connected because governance, risk, compliance, security, and development are no longer separate discussions with different tools and owners. They have become a unified conversation, and organizations that have already recognized this and acted accordingly are managing the current challenges most effectively. The belief that we must be in the field with our customers, as I am privileged to be daily, in this challenging environment is a key reason I am proud to be at JFrog.
-
-From a product perspective, we are not just building another scanner that reports issues after the fact. Instead, we offer a platform where the software supply chain is integrated: artifacts, provenance, governance, dependencies, policy, and release paths are all part of a centralized, trusted, single system of record.
-
-This is designed to enable organizations to respond quickly to vulnerabilities and regulatory notifications efficiently, before they require crisis management. The rise of autonomous agents strengthens the need for robust controls. As agents increasingly write, review, and release code, the control point must be the platform itself, including:
-
-Managing non-human entities
-
-Ensuring verifiable provenance
-
-Enforcing policy at pipeline speed
-
-Maintaining an immutable build record
-
-Tim’s statement about operating at machine speed without compromising compliance best defines today’s engineering challenge.
-
-Importantly, this centralized approach is definitely not about slowing development to satisfy auditors. When implemented correctly, it lets teams deliver faster release cycles while maintaining standards they can confidently present to regulators, customers, and the board. For this, I am truly grateful for the opportunity to participate in these important discussions.
-
-Adapting your Development Operations to Today’s Requirements
-
-Each month, I engage with organizations across diverse industries, from technology and automotive to finance and beyond. The common challenge is clear: adapting software supply chains, originally designed for a slower, less complex environment, to meet today’s speed, scale, and risk while complying with new governance and regulatory requirements.
-
-No organization has fully met this challenge. Supporting teams through this transition and learning from their experiences is the most rewarding work I have done. It is a privilege to be entrusted with this important knowledge.
-
-Organizations face the challenge of balancing this unprecedented change with the need to continue supporting user and business demands for trust and innovation, but the good news is that most already have the technical know-how, operational expertise, and cultural elements to meet major security and regulatory demands.
-
-Now it’s time for platforms, tools, and processes to step up to meet the challenge, and I see signs at JFrog and across our industry that this is already underway.
-
-For more information on how JFrog can help manage and secure your software supply chain in today’s environment, reach out to me or schedule a meeting with one of our application security experts.
-
-This blog content is provided for general informational and illustrative purposes. It reflects information available as of the publication date shown below and may not be updated. Examples and outcomes are illustrative; actual results may vary depending on your environment and use case. JFrog makes no representation or warranty that the content is complete, accurate, current or suitable for your particular circumstances. You are responsible for evaluating the content before relying on it. This blog does not modify any agreement governing your use of JFrog products or services. Product use remains subject to the applicable JFrog Subscription Agreement or other written agreement between you and JFrog."
