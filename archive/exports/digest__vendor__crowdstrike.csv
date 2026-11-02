@@ -1,4 +1,85 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+19d0eed47fbf,19d0eed47fbf,2026-11-02 00:00 UTC,"Attacks, Breaches & Threat Intel",CrowdStrike,CrowdStrike Blog,AI Security; Identity Security Posture Management,Article,What Makes a Good Security Agent? 5 Lessons from the AgentWorks Hackathon,https://www.crowdstrike.com/en-us/blog/five-lessons-from-agentworks-hackathon/,"Working with NVIDIA, we launched the first AgentWorks Hackathon and invited security teams to nominate agents they’ve built","Every security team is being told to adopt AI. Far fewer have been shown what ""good"" looks like in practice. Turnkey agents handle common, well-defined security tasks, but no two security teams operate the same way. Each has its own data, playbooks, escalation paths, and risk tolerances; unique context that no vendor can anticipate in a packaged solution. That’s why we built CrowdStrike® Charlotte AI™ AgentWorks: a no-code workspace that lets every security team build the exact agents they need, on the Falcon platform.
+
+The power of the crowd is one of the most enduring advantages we have as an industry against the adversary. What one analyst learns on the front lines, the whole community inherits. Now, adversaries are rapidly gaining AI fluency, and defenders need to transform the SOC the way we always have: together. When one team turns a hard problem into a working agent, it raises the bar for all of us. Every team can learn from that agent, adapt it, and build on it.
+
+So, we summoned the ingenuity of the crowd like never before. Working with NVIDIA, we launched the first AgentWorks Hackathon and invited security teams to nominate agents they’ve built. The brief was wide open: each team picked its own problem and defined its build. Nearly a hundred nominations poured in from more than 50 countries, each aimed at a persistent bottleneck its builders knew firsthand and forged to earn its place as a trusted extension of the team.
+
+The standouts went further. They were intentionally designed, governed by clear guardrails, and deliver real impact. Here are the winning agents and five lessons every security team can apply today.
+
+Winner Spotlights
+
+“Agent Smith”: Finding the MCP Servers Nobody Knew Were Running
+
+AI coding tools can launch an MCP server on a developer laptop with a single command. Most security teams have no inventory of them. In one day, one company discovered 1,710 hosts running unapproved MCP servers, including a revoked server, unapproved mailbox readers, and one with TLS verification turned off. Nobody had been watching.
+
+Agent Smith hunts these cases down. It finds MCP servers running on endpoints, checks each against the organization's approved list, and reads redacted command lines for risky settings. In doing so, it turns a blind spot into a daily inventory with a clear next step for every server.
+
+The sophistication here wasn't just in the prompt. It was in the architecture: a deliberate division of labor between the model and deterministic tools like queries and workflows. That split sharpened accuracy and controlled cost.
+
+Before the agent runs, an upstream query in CrowdStrike Falcon® Next-Gen SIEM does the heavy lifting, carrying the company's own context: signature rules encoding the approved tool list, noise filters tuned during testing, and host lookups mapping each server to a business unit. It also redacts sensitive data before handing the agent a command-line sample and package names.
+
+The agent then gets to work: explaining what each server is, flagging risky settings (TLS off, unpinned versions, credentials on the command line), and recommending a next step based on the team's existing approval process (switch to an approved server, request a review, or register a custom build). Charlotte Agentic SOAR then passes that context into a new case for the governance team to review.
+
+“Help Desk Takeover Defender” Agent: Catching MFA Reset Abuse in 70 Seconds
+
+Multifactor authentication (MFA) exploitation is one of the most effective plays in the modern attacker's playbook: Call the service desk, impersonate an employee, get their MFA reset, register your own device, and walk into the account. The challenge for defenders is that a malicious reset can look almost exactly like a legitimate one.
+
+The Help Desk Takeover Defender agent ensures every MFA reset is investigated for abuse within moments of a new reset. Manual investigations that previously took 20 to 30 minutes now run in about 70 seconds against live data, and containment drops from hours to minutes. It pulls Entra ID logs and the supporting Falcon telemetry behind a reset, then scores the likelihood of a social engineering attack. If the signs point to a takeover, it can revoke sessions, disable the user, or contain the host.
+
+What earned this agent its recognition was how it balanced trust and speed. The scoring is deterministic, computed upstream by a CrowdStrike Falcon® Foundry function rather than the model, so the same evidence produces the same verdict. The model compares each reset against that user's 30-day history, then draws on knowledge files that encode the team's playbook: what's considered normal, how to verify a user with a callback, and which containment paths are warranted and when. No action happens without a human in the loop: Every containment step requires explicit approval and the approver's name on record.
+
+“Exclusion Adversary” Agent: The Agent that Attacks its Own Work
+
+Every security team manages exclusions: rules that tell security tools to stop alerting on recurring, harmless activity. But left unattended, exclusions can become blind spots of their own. A rule written too loosely doesn't just quiet the noise; it hides any real attack that happens to share the same pattern. A good exclusion has to thread the needle: wide enough to catch the noise, but tight enough that an attacker can't hide behind it.
+
+The Exclusion Adversary agent turns that balancing act into a repeatable, evidence-backed step. It gathers live detection counts and drafts the narrowest exclusion that would safely apply. Then it does what analysts rarely have time for: It attacks its own draft. It lists every field the rule leaves wide open and writes bypass strings an adversary might use to slip through, such as a same-named binary dropped in a writable folder. It ends with a verdict and an approval checklist for an analyst to review.
+
+What sets this agent apart is its adversarial mindset turned inward. Most agents try to be right. This one assumes it might be wrong and goes looking for proof. Its discipline caught a real defect in testing: The agent's first draft used a common wildcard pattern that matched a program by name in any folder. That meant an attacker could plant a lookalike elsewhere and the exclusion would silence it too. The agent flagged the gap and tightened the rule to the exact file path.
+
+Notable Runners-Up
+
+This is CQL Agent: Security queries can run without errors but still fail. AI-drafted detections are especially prone to this. This agent checks whether queries and detection rules work as intended. It takes output from CrowdStrike’s LogScale query assistant or the Falcon Next-Gen SIEM Correlation Rule Generation Agent and runs it through a fixed series of gates, including a check against a 196-function CrowdStrike Query Language (CQL) catalog, 23 silent-failure rules, and a reproducible unit test. Each one ends with a verdict: validated, validated with limits, or inconclusive. Judges singled out its reproducible tests and its willingness to return an inconclusive result. An agent that admits what it can't prove is one you can trust when it returns a ""validated” verdict.
+
+TaHiTI Threat Hunting Agent: Structured threat hunting can take a senior analyst hours; most of it spent on research, schema lookups, query debugging, and write-ups rather than hunting. This agent runs the full Targeted Hunting integrating Threat Intelligence (TaHiTI) methodology end-to-end. It scopes queries to keep costs under control and produces a standardized, ServiceNow-ready hunt record. The result: junior analysts can now run hunts that once waited on senior staff. The method stops living in one person's head and can be run by the whole team.
+
+HOPSCOTCH Agent (Lateral Movement Flight Recorder): Tracing an identity or process across entry, internal hops, and exit points can be a time-consuming process. Given an account name, HOPSCOTCH reconstructs that entity’s path as a chronological, confidence-rated chain, corroborating source activity, authentication, destination execution, and post-arrival behavior at each hop. At each link, the agent provides supporting evidence and a confidence level, so analysts can see what it knows and what it’s inferring.
+
+EASM Heartbeat Agent: An organization's external attack surface changes constantly. Each morning, the EASM Heartbeat agent emails the security team a short report on what changed across its external attack surface in the last 24 hours: new findings, new IPs, new “Critical” and “High” CVE misconfigurations, and which way the risk score is moving. One weekend, its findings more than doubled, tracing the spike to newly attributed assets carrying critical, actively used exploits. Its report revealed to the team that much of the inventory had never been reviewed, which led to a recurring asset review.
+
+Dysfunctional Family-Tree Agent: Most attacks today are malware-free. To catch them, this agent proactively audits two- and three-generation process lineage (grandparent, parent, child) against a lookup table of patterns common to LOLBin attacks, decodes obfuscated command lines, and opens a case for medium-or-worse findings.
+
+Hall Pass Agent: Security exemptions rarely expire on their own. One organization found more than 25,000 hosts carrying a USB exemption, with no active approval on record for over two years. The Hall Pass agent reconciles the exemptions the Falcon platform enforces against internal approval records, measures whether each is still used, and opens a renew-or-revoke case for the owner, so exceptions stay current and reviewed.
+
+SneakerNet Agent: The Falcon sensor records every file written to USB, far too many for any team to review by hand. In a 30 day window, one team found merger documents, litigation holds, and pay statements copied to removable drives without triggering a single alert. Blocking USB would break legitimate work, so every hour a detection query flags sensitive files written to or opened from USB drives and SD cards. The agent scores each device, checking the machine’s role and whether the same drive has been on other hosts. It then opens a case for the data owner showing what left, how, and why it scored the way it did, without blocking anything or naming the user.
+
+What Makes a Good Security Agent?
+
+Five traits set apart the best agents:
+
+They solve real problems: The best agents target the work that drains analyst time, or worse, the work that always loses to urgent tasks and never gets done. These problems aren't always glamorous, but they're often low-risk and high-return cases for automation. Moreover, the best builds didn't just move a bottleneck downstream or create new ones. They closed the gap, doing work that otherwise wouldn't happen.
+
+They connect data, reasoning, and action, and plug into processes that teams already run: A good agent is defined by an architecture that applies AI reasoning exactly where judgment is needed and leans on other technologies for everything else. The strongest builds didn't make the model do everything. They made it do the one thing only a model can, then handed the rest to tools that are faster, cheaper, and deterministic, such as for routing, loops, query searches, and fixed calculations. They also structured outputs to hand off cleanly to the workflows, cases, and agents downstream.
+
+They have built-in guardrails: The best builders treated trust as a design problem. They capped tool calls, retry limits, and per-run credits. They redacted sensitive data before the model ever saw it. They refused to let the model invent facts, or required a named human to approve any consequential action. The best of them made the dangerous action structurally impossible, such as instructing agents to disclose when information is incomplete or routing containment through workflows that require analyst approval. As one judge noted, “For a cyberdefense team, an agent’s ability to disclose missing evidence, avoid unsupported conclusions, and preserve human control matters as much as its speed.”
+
+They drive measurable outcomes and improve over time: The top builds were designed around tasks that could be evaluated, then refined across versions and benchmarked against real or synthetic datasets until they met the required bar for accuracy. This is what separates a demo from a production-ready agent: one that can be measured and continuously optimized, earning the trust to graduate to more autonomous work.
+
+They're creative: Some of the most memorable submissions weren't faster versions of existing work. They approached problems from entirely new angles: an agent that attacks detection exclusions to expose the blind spot, an agent that hunts down unauthorized agents. Some of the most forward-looking builds pointed at questions the industry is only beginning to ask, like whether an agent's activity isn’t just internally authorized but legal under local regulations.
+
+Agent Traces: How the Best Agents Got Even Better
+
+One last habit set the standout agents apart: They used AgentWorks agent traces to understand how their agent worked and to optimize its design.
+
+Every time an AgentWorks agent runs, it leaves an execution trace, a step-by-step record of what the agent did: which tools it called, the exact query it sent, what came back, how long each step took, and how many credits each step consumed. The trace view is a powerful resource for troubleshooting and optimizing agent design. Builders noted how this helped them troubleshoot four common issues:
+
+Errors the agent ignores: A tool errors out, and the agent either moves on or quietly substitutes different results, building a confident conclusion on missing data. The fix: Include explicit prompt instructions for how to handle errors, including never filling gaps with substitute data.
+
+Zero rows misread as ""none"": No error appears, just an empty result. The agent reports ""nothing found"" when the real cause was a timeout or a query that never ran. The fix: Have the agent confirm the query completed before reporting ""none,"" and report ""not retrieved"" if it can't. Then redesign the query, for example by narrowing the time window, rather than retrying it unchanged.
+
+Over-chaining and wasted turns: Timeouts and excessive agent-to-agent chaining inflate latency and cost without improving accuracy. The fix: Trim the chain to the steps that actually improve the answer, and remove tools the agent doesn't need.
+
+Knowledge bases that never got used: An agent is only as good as its context. Traces can also reveal when agents don’t open their attached knowledge base. The fix: Force a knowledge lookup on every run or encode knowledge as an agent skill."
 33bcefc90489,33bcefc90489,2026-10-30 00:00 UTC,Product & Roadmap,CrowdStrike,CrowdStrike Blog,AI Security; Threat Intelligence; Attack Surface Discovery; Cloud Risk Management,Article,CrowdStrike Expands Falcon Adversary OverWatch Threat Hunting Across AI and Google Cloud,https://www.crowdstrike.com/en-us/blog/crowdstrike-expands-threat-hunting-across-ai-and-google-cloud/,"Extending Threat Hunting and MDR to AI As organizations increasingly connect AI systems to sensitive data, applications, and infrastructure, adversaries have new opportunities...","Extending Threat Hunting and MDR to AI
 
 As organizations increasingly connect AI systems to sensitive data, applications, and infrastructure, adversaries have new opportunities to exploit trusted access and legitimate AI capabilities. According to the CrowdStrike 2026 Threat Hunting Report, AI agents triggered 2.5 times more detection leads than human activity, underscoring how AI-driven activity is increasing the volume and velocity of signals threat hunters must assess.
