@@ -1862,7 +1862,7 @@ def is_acquisition(article: dict) -> bool:
 def bucket_articles(articles: list[dict], by: str = "category") -> dict[str, list[dict]]:
     """Group articles by topic category or by vendor, in dashboard order."""
     if by == "vendor":
-        buckets: dict[str, list[dict]] = {name: [] for name in VENDOR_COLORS}
+        buckets: dict[str, list[dict]] = {name: [] for name in VENDOR_ORDER}
         key = lambda a: vendor_of(a) or NO_VENDOR
     else:
         buckets = {name: [] for name in CATEGORY_COLORS}
@@ -2125,6 +2125,9 @@ VENDOR_COLORS = {
     NO_VENDOR:                            "#95a5a6",  # grey
 }
 
+# Every list shows vendors alphabetically, with "No Specific Vendor" first.
+VENDOR_ORDER = [NO_VENDOR] + sorted((v for v in VENDOR_COLORS if v != NO_VENDOR), key=str.lower)
+
 
 def _build_dropdown() -> str:
     """Filter bar shell and its script. Rows are regrouped in the browser (by category or by vendor);
@@ -2173,7 +2176,13 @@ def _build_dropdown() -> str:
       try { return localStorage.getItem(key) || ''; } catch (err) { return ''; }
     }
 
-    // Category and vendor filters: options come from the cards, ordered like the row lists
+    // Alphabetical, with "No Specific Vendor" first
+    function sortNames(names) {
+      const none = window.CI_NO_VENDOR;
+      return names.slice().sort((a, b) => a === none ? -1 : b === none ? 1 : a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }
+
+    // Category and vendor filters: every tracked name is listed, with the number of cards on this page (0 when none)
     function fillGroupSelect(selectId, attr) {
       const counts = {};
       document.querySelectorAll('.card').forEach(card => {
@@ -2181,12 +2190,12 @@ def _build_dropdown() -> str:
         if (k) counts[k] = (counts[k] || 0) + 1;
       });
       const listed = (window.CI_GROUPS && window.CI_GROUPS[attr]) || [];
-      const names = listed.filter(k => counts[k]).concat(Object.keys(counts).filter(k => listed.indexOf(k) === -1));
+      const names = sortNames(listed.concat(Object.keys(counts).filter(k => listed.indexOf(k) === -1)));
       const sel = document.getElementById(selectId);
       names.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
-        opt.textContent = name + ' (' + counts[name] + ')';
+        opt.textContent = name + ' (' + (counts[name] || 0) + ')';
         sel.appendChild(opt);
       });
     }
@@ -2206,7 +2215,7 @@ def _build_dropdown() -> str:
       });
       const sel = document.getElementById('module-select');
       if (!sel) return;
-      Object.keys(counts).sort().forEach(m => {
+      Object.keys(counts).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })).forEach(m => {
         const opt = document.createElement('option');
         opt.value = m;
         opt.textContent = m + ' (' + counts[m] + ')';
@@ -2479,7 +2488,7 @@ def _build_dropdown() -> str:
         document.querySelectorAll('.card').forEach(card => { present[card.dataset[kind[0]]] = true; });
         const group = document.createElement('optgroup');
         group.label = kind[1];
-        ((window.CI_GROUPS && window.CI_GROUPS[kind[0]]) || []).forEach(name => {
+        sortNames((window.CI_GROUPS && window.CI_GROUPS[kind[0]]) || []).forEach(name => {
           if (!present[name]) return;
           const safe = name.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
           ['csv', 'json'].forEach(fmt => {
@@ -2594,7 +2603,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
     movers_html = _movers_html(movers or [])
     watch_btn = (f'<button type="button" id="watch-toggle" class="export-btn explorer-link" aria-pressed="false" '
                  f'title="Show only articles that match watchlist.json">&#9733; Watchlist ({n_watch})</button>') if watching else ""
-    globals_js = ("window.CI_GROUPS=" + json.dumps({"category": list(CATEGORY_COLORS), "vendor": list(VENDOR_COLORS)})
+    globals_js = ("window.CI_GROUPS=" + json.dumps({"category": list(CATEGORY_COLORS), "vendor": VENDOR_ORDER})
                   + ";window.CI_COLORS=" + json.dumps({**CATEGORY_COLORS, **VENDOR_COLORS})
                   + ";window.CI_NO_VENDOR=" + json.dumps(NO_VENDOR)
                   + ";window.CI_STORIES=" + json.dumps({st["id"]: st["members"] for st in (trending or [])}).replace("</", "<\\/") + ";")
@@ -3754,6 +3763,8 @@ def write_explorer() -> None:
         return
     page = (template.replace("__CATEGORY_COLORS__", json.dumps({**CATEGORY_COLORS, **VENDOR_COLORS}))
             .replace("__NO_VENDOR__", json.dumps(NO_VENDOR))
+            .replace("__VENDOR_NAMES__", json.dumps(VENDOR_ORDER))
+            .replace("__CATEGORY_NAMES__", json.dumps(list(CATEGORY_COLORS)))
             .replace("__MODAL_CSS__", MODAL_CSS)
             .replace("__MODAL_HTML__", MODAL_HTML)
             .replace("__MODAL_JS__", MODAL_JS)

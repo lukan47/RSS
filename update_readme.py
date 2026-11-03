@@ -59,7 +59,7 @@ def feeds_block(digest, groups: dict) -> str:
 
 
 def categories_block(digest) -> str:
-    vendors = list(digest.VENDORS)
+    vendors = sorted(digest.VENDORS, key=str.lower)
     out = [
         "## Categories & Vendors", "",
         "Every article has one **category** (what it is about) and one **vendor** (who it is about, or none). The two are independent: "

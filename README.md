@@ -231,40 +231,40 @@ An article from a vendor's own blog or news feed that names no vendor in its tit
 
 | # | Vendor | # | Vendor |
 |---|---|---|---|
-| 1 | Trend Micro | 35 | Aqua Security |
-| 2 | CrowdStrike | 36 | Snyk |
-| 3 | Palo Alto Networks | 37 | Rapid7 |
-| 4 | Fortinet | 38 | Tenable |
-| 5 | SentinelOne | 39 | Qualys |
-| 6 | Microsoft Security | 40 | Zscaler |
-| 7 | Mandiant | 41 | WithSecure |
-| 8 | Sophos | 42 | Secureworks |
-| 9 | ESET | 43 | Blackberry / Cylance |
-| 10 | Bitdefender | 44 | BeyondTrust |
-| 11 | Check Point | 45 | Delinea |
-| 12 | Recorded Future | 46 | Netskope |
-| 13 | Cisco Security | 47 | Cato Networks |
-| 14 | Wiz | 48 | Dragos |
-| 15 | Orca Security | 49 | Claroty |
-| 16 | Trellix | 50 | 1Password |
-| 17 | Darktrace | 51 | Akamai Technologies |
-| 18 | ExtraHop | 52 | Armis |
-| 19 | Vectra AI | 53 | Automox |
-| 20 | Proofpoint | 54 | Bitwarden |
-| 21 | Broadcom / Symantec | 55 | Checkmarx |
-| 22 | Kaspersky | 56 | Cloudflare |
-| 23 | Cybereason | 57 | Cohesity |
-| 24 | Barracuda | 58 | F5 |
-| 25 | Falco / Sysdig | 59 | Flashpoint |
-| 26 | Okta | 60 | Forescout |
-| 27 | CyberArk | 61 | Juniper Networks |
-| 28 | IBM Security | 62 | Mimecast |
-| 29 | Elastic Security | 63 | Nozomi Networks |
-| 30 | Rubrik | 64 | Ping Identity |
-| 31 | Arctic Wolf | 65 | Splunk |
-| 32 | Abnormal Security | 66 | Varonis |
-| 33 | Huntress | 67 | Veracode |
-| 34 | Lacework | | |
+| 1 | 1Password | 35 | Huntress |
+| 2 | Abnormal Security | 36 | IBM Security |
+| 3 | Akamai Technologies | 37 | Juniper Networks |
+| 4 | Aqua Security | 38 | Kaspersky |
+| 5 | Arctic Wolf | 39 | Lacework |
+| 6 | Armis | 40 | Mandiant |
+| 7 | Automox | 41 | Microsoft Security |
+| 8 | Barracuda | 42 | Mimecast |
+| 9 | BeyondTrust | 43 | Netskope |
+| 10 | Bitdefender | 44 | Nozomi Networks |
+| 11 | Bitwarden | 45 | Okta |
+| 12 | Blackberry / Cylance | 46 | Orca Security |
+| 13 | Broadcom / Symantec | 47 | Palo Alto Networks |
+| 14 | Cato Networks | 48 | Ping Identity |
+| 15 | Check Point | 49 | Proofpoint |
+| 16 | Checkmarx | 50 | Qualys |
+| 17 | Cisco Security | 51 | Rapid7 |
+| 18 | Claroty | 52 | Recorded Future |
+| 19 | Cloudflare | 53 | Rubrik |
+| 20 | Cohesity | 54 | Secureworks |
+| 21 | CrowdStrike | 55 | SentinelOne |
+| 22 | CyberArk | 56 | Snyk |
+| 23 | Cybereason | 57 | Sophos |
+| 24 | Darktrace | 58 | Splunk |
+| 25 | Delinea | 59 | Tenable |
+| 26 | Dragos | 60 | Trellix |
+| 27 | Elastic Security | 61 | Trend Micro |
+| 28 | ESET | 62 | Varonis |
+| 29 | ExtraHop | 63 | Vectra AI |
+| 30 | F5 | 64 | Veracode |
+| 31 | Falco / Sysdig | 65 | WithSecure |
+| 32 | Flashpoint | 66 | Wiz |
+| 33 | Forescout | 67 | Zscaler |
+| 34 | Fortinet | | |
 <!-- categories:end -->
 
 ---
