@@ -1574,7 +1574,14 @@ def trending_stories(entries: list[dict], now=None, days: int = TRENDING_DAYS, l
             "id": sid, "title": lead["title"], "link": lead["link"], "source": lead["source"], "date": lead["date"],
             "context": lead.get("context", ""), "category": collections.Counter(m.get("category", "") for m in recent).most_common(1)[0][0],
             "vendor": next(iter(collections.Counter(m["vendor"] for m in recent if m.get("vendor")).most_common(1)), ("",))[0],
-            "modules": [m for m, _ in mod_count.most_common(3)], "sources": sorted(sources), "articles": len(members),
+            "modules": [m for m, _ in mod_count.most_common(3)],
+            # shown on the card and in the coverage popup, so both count the same articles (the score above uses the last `days` only)
+            "sources": sorted({m["source"] for m in members}), "articles": len(members),
+            "members": [{"id": m["id"], "story": m.get("story", m["id"]), "source": m["source"], "title": m["title"], "link": m["link"],
+                         "date": m.get("date"), "context": (m.get("context") or "")[:300], "category": m.get("category", ""),
+                         "vendor": m.get("vendor", ""), "modules": m.get("modules", []), "podcast": bool(m.get("podcast")),
+                         "transcript": m.get("text_source") == "transcript"}
+                        for m in sorted(members, key=lambda m: m.get("date") or "", reverse=True)],
             "recent_articles": len(recent), "latest": latest.isoformat(), "exploited": exploited, "score": round(score, 1),
         })
     ranked.sort(key=lambda t: (-t["score"], t["latest"]), reverse=False)
@@ -2589,7 +2596,8 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
                  f'title="Show only articles that match watchlist.json">&#9733; Watchlist ({n_watch})</button>') if watching else ""
     globals_js = ("window.CI_GROUPS=" + json.dumps({"category": list(CATEGORY_COLORS), "vendor": list(VENDOR_COLORS)})
                   + ";window.CI_COLORS=" + json.dumps({**CATEGORY_COLORS, **VENDOR_COLORS})
-                  + ";window.CI_NO_VENDOR=" + json.dumps(NO_VENDOR) + ";")
+                  + ";window.CI_NO_VENDOR=" + json.dumps(NO_VENDOR)
+                  + ";window.CI_STORIES=" + json.dumps({st["id"]: st["members"] for st in (trending or [])}).replace("</", "<\\/") + ";")
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3324,6 +3332,15 @@ function storyFromDom(id, title) {
   return { id: id, title: title || (members[0] && members[0].title) || '', members: members };
 }
 
+// A trending story's full article list is embedded in the page (window.CI_STORIES): the cards on the page
+// leave out articles that deduplication merged, so they cannot be used to list a story's coverage.
+function storyFromEmbedded(id, title, list) {
+  var colors = window.CI_COLORS || {};
+  return { id: id, title: title, members: list.map(function (m) {
+    return Object.assign({}, m, { color: colors[m.category] || '', vendorColor: colors[m.vendor] || '', shareUrl: m.id ? '__EXPLORER_URL__#' + m.id : '' });
+  }) };
+}
+
 document.addEventListener('click', function (e) {
   var t = e.target;
   if (!t || !t.closest) return;
@@ -3384,7 +3401,8 @@ CAROUSEL_JS = r"""
     var btn = e.target.closest ? e.target.closest('.tr-open') : null;
     if (!btn || !window.StoryModal) return;
     var title = btn.closest('.tr-slide').querySelector('.tr-title').textContent.trim();
-    window.StoryModal.open(storyFromDom(btn.dataset.story, title), { fullTextBase: __FULLTEXT_BASE_JS__ });
+    var embedded = window.CI_STORIES && window.CI_STORIES[btn.dataset.story];
+    window.StoryModal.open(embedded ? storyFromEmbedded(btn.dataset.story, title, embedded) : storyFromDom(btn.dataset.story, title), { fullTextBase: __FULLTEXT_BASE_JS__ });
   });
   render(); start();
 })();
