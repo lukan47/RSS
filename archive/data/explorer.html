@@ -593,6 +593,7 @@
   'use strict';
   var COLORS = {"Vulnerabilities & Patching": "#DA291C", "Attacks, Breaches & Threat Intel": "#e67e22", "Business & Industry News": "#3498db", "Policy, Legal & Compliance": "#8e6bd6", "Product & Roadmap": "#1abc9c", "General Security News": "#95a5a6", "Trend Micro": "#DA291C", "CrowdStrike": "#e67e22", "Palo Alto Networks": "#00b4d8", "Fortinet": "#c0392b", "SentinelOne": "#8e44ad", "Microsoft Security": "#0078d4", "Mandiant": "#e74c3c", "Sophos": "#2980b9", "ESET": "#00a9e0", "Bitdefender": "#ed1c24", "Check Point": "#27ae60", "Recorded Future": "#16a085", "Cisco Security": "#1ba0d7", "Wiz": "#4fc3f7", "Orca Security": "#0288d1", "Trellix": "#7cb342", "Darktrace": "#37474f", "ExtraHop": "#f4511e", "Vectra AI": "#6a1b9a", "Proofpoint": "#0277bd", "Broadcom / Symantec": "#fdd835", "Kaspersky": "#006d5b", "Cybereason": "#e91e63", "Barracuda": "#e65100", "Falco / Sysdig": "#00acc1", "Okta": "#00297a", "CyberArk": "#cb2d3e", "BeyondTrust": "#f57c00", "Delinea": "#e91e8c", "IBM Security": "#1f70c1", "Elastic Security": "#f04e98", "Rubrik": "#ffb900", "Arctic Wolf": "#1a73e8", "Abnormal Security": "#00c2a8", "Huntress": "#e84545", "Lacework": "#5c2d91", "Aqua Security": "#00adef", "Snyk": "#4c4a73", "Rapid7": "#e67e22", "Tenable": "#9b59b6", "Qualys": "#1abc9c", "Zscaler": "#f1c40f", "Netskope": "#0aa5a8", "Cato Networks": "#5b6ef5", "Dragos": "#ff6f00", "Claroty": "#009688", "WithSecure": "#ff4a3d", "Secureworks": "#b71c1c", "Blackberry / Cylance": "#00a94f", "1Password": "#0572ec", "Akamai Technologies": "#0099cc", "Armis": "#d6336c", "Automox": "#f26522", "Bitwarden": "#175ddc", "Checkmarx": "#54b848", "Cloudflare": "#f6821f", "Cohesity": "#6cc24a", "F5": "#e4002b", "Flashpoint": "#005eb8", "Forescout": "#ef4136", "Juniper Networks": "#84b135", "Mimecast": "#e8590c", "Nozomi Networks": "#00a3e0", "Ping Identity": "#b3282d", "Splunk": "#65a637", "Varonis": "#0d9bd7", "Veracode": "#00b0b9", "No Specific Vendor": "#95a5a6"};
   var NO_VENDOR = "No Specific Vendor";
+  var VENDOR_NAMES = ["No Specific Vendor", "1Password", "Abnormal Security", "Akamai Technologies", "Aqua Security", "Arctic Wolf", "Armis", "Automox", "Barracuda", "BeyondTrust", "Bitdefender", "Bitwarden", "Blackberry / Cylance", "Broadcom / Symantec", "Cato Networks", "Check Point", "Checkmarx", "Cisco Security", "Claroty", "Cloudflare", "Cohesity", "CrowdStrike", "CyberArk", "Cybereason", "Darktrace", "Delinea", "Dragos", "Elastic Security", "ESET", "ExtraHop", "F5", "Falco / Sysdig", "Flashpoint", "Forescout", "Fortinet", "Huntress", "IBM Security", "Juniper Networks", "Kaspersky", "Lacework", "Mandiant", "Microsoft Security", "Mimecast", "Netskope", "Nozomi Networks", "Okta", "Orca Security", "Palo Alto Networks", "Ping Identity", "Proofpoint", "Qualys", "Rapid7", "Recorded Future", "Rubrik", "Secureworks", "SentinelOne", "Snyk", "Sophos", "Splunk", "Tenable", "Trellix", "Trend Micro", "Varonis", "Vectra AI", "Veracode", "WithSecure", "Wiz", "Zscaler"], CATEGORY_NAMES = ["Vulnerabilities & Patching", "Attacks, Breaches & Threat Intel", "Business & Industry News", "Policy, Legal & Compliance", "Product & Roadmap", "General Security News"];
   var POD_ICON = '<svg class="pod-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>';
   var PAGE = 100, CSV_CELL_LIMIT = 32000;
   var $ = function (id) { return document.getElementById(id); };
@@ -1085,10 +1086,16 @@
     return el;
   }
 
-  function fillSelect(id, label, counts, sortByCount) {
-    var sel = $(id), keys = Object.keys(counts);
-    keys.sort(sortByCount ? function (x, y) { return counts[y] - counts[x] || x.localeCompare(y); }
-                          : function (x, y) { return x.localeCompare(y); });
+  // Every option list is alphabetical, with "No Specific Vendor" first. `listed` names are always offered, even with no articles (count 0).
+  function fillSelect(id, label, counts, listed) {
+    var sel = $(id);
+    (listed || []).forEach(function (k) { if (counts[k] === undefined) counts[k] = 0; });
+    var keys = Object.keys(counts);
+    keys.sort(function (x, y) {
+      if (x === NO_VENDOR) return -1;
+      if (y === NO_VENDOR) return 1;
+      return x.localeCompare(y, undefined, { sensitivity: 'base' });
+    });
     var first = document.createElement('option'); first.value = ''; first.textContent = 'All ' + label;
     sel.appendChild(first);
     keys.forEach(function (k) {
@@ -1199,8 +1206,8 @@
       srcs[a.source] = (srcs[a.source] || 0) + 1;
       (a.modules || []).forEach(function (m) { mods[m] = (mods[m] || 0) + 1; });
     });
-    fillSelect('category', 'categories', cats, true);
-    fillSelect('vendor', 'vendors', vends, true);
+    fillSelect('category', 'categories', cats, CATEGORY_NAMES);
+    fillSelect('vendor', 'vendors', vends, VENDOR_NAMES);
     fillSelect('module', 'modules', mods, false);
     fillSelect('source', 'sources', srcs, false);
     $('to').max = $('from').max = isoDay(0);

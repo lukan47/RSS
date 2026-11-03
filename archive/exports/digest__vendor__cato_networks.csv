@@ -1,157 +1,213 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-f18772c3db10,72375819775f,2026-10-30 12:12 UTC,Vulnerabilities & Patching,Cato Networks,Cato Networks Blog,Cloud IPS; Vulnerability Management; Threat Intelligence,Article,"Cato CTRL Threat Research: PHP2Shell Exploitation Attempts in the Wild, and How Cato IPS Blocked Them",https://www.catonetworks.com/blog/cato-ctrl-threat-research-php2shell-exploitation-attempts-in-the-wild/,"The first scanning or invalid-PoC attempt appeared on 21 October, the day the fixes were released, and about two thirds of all attack sources in our sample first appeared that day","Executive summary
+75c1f4e8f24b,75c1f4e8f24b,2026-11-03 13:19 UTC,General Security News,Cato Networks,Cato Networks Blog,File Security; Email and Collaboration Security,Article,Cato CTRL Research on Suspected Iranian MuddyWater Activity Using Israel Tax Authority Lures and SimpleHelp,https://www.catonetworks.com/blog/cato-ctrl-research-suspected-iranian-muddywater-activity-using-israel-tax-authority-lures-simplehelp/,The table below maps vendor-documented features to potential attacker use and business impact,"Executive Summary
 
-On 21 October 2026, PHP released fixes for CVE-2026-109618 and CVE-2026-109619, a pair of critical runtime vulnerabilities known as PHP2Shell. One day later, we described how our self-evolving CVE mitigation agent turned the patch into reviewed IPS protection in minutes. This report follows what happened next, including how quickly attackers moved, what their attempts looked like, and how Cato’s cloud-delivered IPS protection blocked them on inspected customer traffic.
+We investigated a campaign targeting Israeli organizations through phishing emails impersonating the Israel Tax Authority. The activity has been observed since September 2026. Government-themed domains and a verification page lead recipients to ZIP archives containing executables disguised as tax-related documents. The campaign abuses SimpleHelp, a legitimate remote monitoring and management tool, to enable attacker-directed remote access.
 
-Key findings
+The lure exploits a routine business task and can reach finance, accounting, and administrative staff across sectors. We suspect a connection to MuddyWater based on its documented use of SimpleHelp and targeting of Israel.
 
-Attempts started on patch day. We observed no external PHP2Shell-pattern requests from 17 to 20 October. The first scanning or invalid-PoC attempt appeared on 21 October, the day the fixes were released, and about two thirds of all attack sources in our sample first appeared that day.
+Key Findings
 
-Cato IPS blocked both exploitation attempts and scanning or invalid-PoC attempts. In the sample analyzed, about 41% of blocked attempts were exploitation attempts aimed at remote code execution (RCE), and 59% were scanning or invalid-PoC attempts. About 96% of all hits related to CVE-2026-109618.
+The campaign uses Israel Tax Authority impersonation and government-themed domains to distribute ZIP archives to Israeli organizations.
 
-Exploitation attempts fell into two main types. Command-execution attempts were the most common, followed by deserialization attempts.
+The payload is presented as a tax-related document but is a SimpleHelp executable.
 
-A handful of sources drove most attempts. In our sample, a small number of source IPs generated most of the blocked attempts, repeating proof-of-concept (PoC) style requests.
+Cato telemetry recorded threat prevention alert against campaign web infrastructure. The event demonstrates prevention of that request, without establishing a completed remote-access session.
 
-Attempts appear opportunistic, not sector-focused. Healthcare made up about one third of the organizations that received blocked attempts, but the same sources reached unrelated sectors and countries.
+Attack Flow
 
-Introduction
+Figure 1 summarizes the delivery chain. Remote access depends on successful execution and activation of the SimpleHelp component.
 
-PHP2Shell is a pair of flaws in the PHP core runtime rather than in a single application or plugin. CVE-2026-109618 concerns out-of-memory handling that can interrupt request initialization and leave invalid data for cleanup to process. CVE-2026-109619 concerns request-owned state that is retained after its memory is freed and later accessed by the same worker. Both can lead to unauthenticated code execution, and the highest demonstrated risk is in Apache mod_php, where exploitation can occur before any application code runs.
+Figure 1. Tax authority impersonation leads to a SimpleHelp executable. The dashed final step represents potential remote access following successful execution.
 
-In our first threat brief, Cato AI native SASE delivers PHP2Shell protection at machine speed, we described how our self-evolving CVE mitigation agent built a PoC and generated IPS signatures in minutes, with researcher review before release. At that point, our initial telemetry showed scanning activity only.
+Technical Details and Analysis
 
-This follow-up answers the questions security teams ask next. Once the patch was public, how fast did attackers move, what did they try, and did protection keep up? We look at timing, attempt types, sources, the industries that received attempts, and the tooling involved.
+This activity was previously described in public reporting by CyberIL. Our investigation examined the campaign’s delivery infrastructure and use of SimpleHelp.
 
-Methodology
+From a tax themed email to a verification page
 
-We queried a sample of anonymized, aggregated Cato cloud security telemetry from 17 to 26 October 2026 for inbound requests matching the PHP2Shell pattern and our PHP2Shell IPS protections. We group blocked attempts into two categories, exploitation attempts and scanning or invalid-PoC attempts. The second category covers simple scanning as well as exploit attempts that used false or invalid proofs of concept. Results are shown as approximate percentages, and industries are grouped so that no individual organization can be identified.
+The attack begins with a phishing email impersonating the Israel Tax Authority. Recipients attempting to access the supposed personal area are directed to a lookalike site and prompted to complete a CAPTCHA-style verification step before downloading a ZIP archive.
 
-Limitations
+The infrastructure uses names such as document-govil[.]com to resemble the official Israeli government namespace, gov.il. The string govil is part of a separately registered domain and does not indicate government affiliation.
 
-Sample-based. The figures reflect a sample of Cato-inspected traffic, not global internet activity, and show the shape of activity rather than exact volumes.
+The verification page in Figure 2 displays a checkbox, a Continue button, and the password 123123. This presentation reinforces the appearance of a protected document-delivery process.
 
-Attempts, not outcomes. This research describes attempted attacks, not compromises.
+Figure 2. Verification interface used in the tax authority lure.
 
-Geolocation is not attribution. Source country reflects where an IP is hosted, often a cloud or VPS provider, not who operates it.
+A ZIP archive delivers the executable
 
-Technical insights
+Following the verification step, the download is presented as a tax-related archive. Figure 3 shows Israel_Tax_Authority.zip in the browser download history. The investigation also identifies an archive named document.zip.
 
-1. Timeline from silence to patch-day onset
+Figure 3. Download of Israel_Tax_Authority.zip.
 
-Figure 1 shows the clearest finding. From 17 to 20 October, we observed no external requests matching the PHP2Shell pattern. On 21 October, the day PHP published its fixes, the first external scanning or invalid-PoC attempt appeared in the morning, and that day accounts for about 72% of the PHP2Shell-pattern requests in our sample. This is consistent with Amazon Threat Intelligence, which reported proof-of-concept exploits circulating on 21 October. Amazon also reported a single exploitation attempt against its own honeypots on 17 October, four days before public disclosure. We saw no such pre-disclosure activity in Cato customer traffic.
+The agency-themed naming continues inside the archive. The executable shown in Figure 4 is named רשות המסים בישראל.exe, meaning “Israel Tax Authority.” A recipient expecting a tax document is instead presented with a program to run. The payload inventory also includes document.exe.
 
-Figure 1. Daily share of external PHP2Shell-pattern requests across the observation window.
+Figure 4. Executable named רשות המסים בישראל.exe presented under the tax authority pretext.
 
-Daily volume is spiky because one noisy scanner can dominate a day. A better measure of how activity spread is when each attack source first appeared. In Figure 2, 100% represents all attack sources observed during the study window. About two thirds of them first appeared on 21 October, and new sources appeared on most days after.
+SimpleHelp provides the remote access capability
 
-Figure 2. Attack sources by first-seen date, as a share of all sources observed in the window.
+SimpleHelp is legitimate remote support software. In this campaign, it is used as the remote-access component behind the document lure. The research identifies 129.121.120[.]121 as associated command-and-control infrastructure.
 
-Hour by hour, 21 October unfolded in two phases (Figure 3). A few early scanning or invalid-PoC attempts in the morning were followed in the afternoon by a single source sending a burst that made up about 80% of the day’s requests. Later in the day, activity fanned out, with about 40% of the day’s sources active within a single hour, which is typical of a PoC circulating and many operators running it at once.
+Successful deployment can allow an operator to connect to the endpoint and continue the intrusion using the software’s built-in capabilities. The table below maps vendor-documented features to potential attacker use and business impact. It describes capabilities rather than observed post-compromise actions.
 
-Figure 3. Share of requests and of active sources per hour on 21 October.
+SimpleHelp capability
 
-2. From scanning and invalid PoCs to code execution attempts
+Potential attacker use
 
-In the sample analyzed, about 96% of blocked attempts related to CVE-2026-109618, the out-of-memory flaw, and about 4% to CVE-2026-109619. About 59% were scanning or invalid-PoC attempts, and 41% were exploitation attempts aimed at remote code execution (Figure 4). Some attempts relied on PoCs that were not valid against the vulnerable code path, so we grouped them with scanning activity. Exploitation attempts fell into two main types, command execution and deserialization, with command execution the more common.
+Business risk
 
-Figure 4. Blocked PHP2Shell attempts by CVE and by intent, based on a sample of Cato telemetry.
+Remote desktop viewing and control
 
-3. Source geography
+Interact with the desktop and accessible applications
 
-Based on a sample of the sources we observed, the United States leads by share of source IPs (about 36%), followed by the Netherlands and Germany (about 14% each). By share of blocked attempts, US-hosted sources account for about 54%, the Netherlands about 18% and Moldova about 16% (Figure 5). Activity was concentrated, with a small number of sources generating most of the blocked attempts in the sample.
+Exposure of business information and misuse of applications
 
-Figure 5. Source IP geolocation by share of sources and share of blocked attempts, based on a sample of sources.
+Terminal access
 
-4. Who received the attempts
+Run commands and launch additional tools
 
-Blocked attempts reached organizations across a broad range of industries (Figure 6). Healthcare and social care is the largest group at about one third, followed by technology and security services. The remainder is spread across professional services, automotive, education and non-profit, and other sectors, in several countries.
+Broader endpoint compromise and operational disruption
 
-Figure 6. Industry mix of the organizations that received blocked attempts.
+File transfer
 
-Does the healthcare share mean healthcare was singled out? The evidence suggests not. The same sources sent attempts to healthcare organizations and to unrelated sectors in different countries. For example, a single source reached healthcare, technology and software organizations on the same day. The sample is small, and the share may also reflect the composition of our customer base. One plausible explanation is shared technology. PHP-based portals, forms and line-of-business applications are common across many industries, including healthcare.
+Deliver tools or retrieve accessible files
 
-Additional recommendation
+Data theft and further payload delivery
 
-Cato customers do not need to deploy anything for PHP2Shell protection. The IPS signatures are delivered and enforced from our cloud. We also recommend updating every PHP instance to the fixed version released by the PHP project.
+System diagnostics
 
-Conclusion
+Inspect processes, services, and configuration
 
-PHP2Shell showed how short the window between patch and attack has become. We saw no PHP2Shell-pattern traffic for four days, then scanning or invalid-PoC attempts on the day the fixes were released, followed by exploitation attempts. The attempts were automated, repetitive and opportunistic, reaching organizations across many industries and countries. With a runtime-level bug, the deciding factor is whether an organization exposes PHP, not which industry it is in.
+More targeted follow-on activity
 
-Dedicated PHP2Shell signatures, built by our self-evolving CVE mitigation agent and reviewed by our researchers, blocked exploitation attempts on inspected traffic. Because enforcement happens in the Cato cloud, customers did not need to install anything, and this virtual patching reduces exposure while application owners upgrade.
+Toolbox scripts and resource delivery
 
-This research covers a sample of attempts on inspected traffic, not outcomes, during the first days after disclosure.
+Automate actions on registered machines
 
-We will continue to monitor PHP2Shell activity and update protections as attacker techniques evolve.
+Faster and repeatable intrusion activity
 
-Indicators of attack
+Unattended Remote Access Service
 
-Source IPs from a sample of blocked PHP2Shell attempts. Cloud and hosting IPs may be reassigned.
+Reconnect while the service remains active and reachable
 
-Source IP
+Persistent unauthorized access
 
-Geo
+These capabilities are described in SimpleHelp’s feature documentation, Toolbox Guide, and Remote Access Guide.
 
-172.234.200.18
+The activity involved social engineering and abuse of legitimate RMM functionality. Our findings and SimpleHelp’s assessment are summarized in the disclosure section below.
 
-US
+Mapping the infrastructure with FOFA
 
-85.11.167.243
+We searched FOFA for the two observed HTTP ETag values. The search returned eight service records associated with 129.121.120[.]121, including records for document-govil[.]com and document-govil[.]online, as shown in Figure 5. Both domains displayed “Coming Soon” pages served by nginx.
 
-NL
+Figure 5. FOFA results linking the two domains to 129.121.120[.]121. The eight results are service records on one IP.
 
-143.246.223.124
+Public reporting on SimpleHelp abuse
 
-MD
+Group-IB previously documented MuddyWater’s use of SimpleHelp, providing context for our attribution assessment. Sophos, CISA, and Huntress have also reported separate ransomware incidents involving SimpleHelp exploitation or abuse.
 
-38.60.206.217
+Attribution Assessment
 
-US
+We suspect MuddyWater involvement based on the combination of Israeli organizational targeting, locally tailored authority impersonation, and delivery of legitimate remote-access software through phishing. HarfangLab documented an October 2023 MuddyWater phishing email linking to a SimpleHelp installer. Proofpoint documented Hebrew payroll lures in March 2024 that led Israeli recipients through PDF links to ZIP archives containing Atera installers.
 
-176.124.32.170
+Earlier campaigns also used institution-themed Egnyte subdomains and Hebrew filenames related to scholarships and tourism. These examples show a recurring approach of adapting recognizable Israeli identities and routine business tasks to persuade recipients to install remote-access software. The current campaign follows a similar pattern through Israel Tax Authority impersonation and tax-themed filenames.
 
-EE
+The February 2022 joint government advisory identifies MuddyWater as a subordinate element of Iran’s Ministry of Intelligence and Security.
 
-185.225.191.232
+Disclosure Timeline
 
-PL
+SimpleHelp is legitimate remote monitoring and management (RMM) software. Based on the evidence reviewed and validation with SimpleHelp, we did not identify exploitation of a SimpleHelp vulnerability or compromise of SimpleHelp’s own infrastructure in connection with this campaign. The activity investigated involved social engineering intended to induce users to deploy SimpleHelp configured to connect to attacker-controlled infrastructure, consistent with the broader abuse of legitimate RMM tools by threat actors.
 
-2.27.248.209
+SimpleHelp confirmed that both samples identify themselves as SimpleHelp Remote Access Client version 5.4.5. Based on the information we provided, SimpleHelp assessed the activity as apparent malicious use of an older release and stated that it had not seen evidence indicating exploitation of a SimpleHelp vulnerability. SimpleHelp offered to investigate associated infrastructure and assess available action, requesting server addresses or hostnames, observation timestamps, and supporting evidence through a private file request. We subsequently shared the relevant server list with SimpleHelp.
 
-DE
+Date
 
-147.182.234.126
+Event
 
-US
+20-OCT-2026
 
-31.56.53.223
+We reported the campaign and associated SimpleHelp abuse to SimpleHelp.
 
-NL
+20-OCT-2026
 
-104.248.145.184
+SimpleHelp identified both samples as Remote Access Client version 5.4.5, reported no evidence of vulnerability exploitation in the information provided, and requested infrastructure details to investigate.
 
-SG
+21-OCT-2026
 
-49.43.128.164
+We shared the relevant server list with SimpleHelp for investigation.
 
-IN
+Cato Protection
 
-3.144.181.153
+Cato automatically blocks the campaign domains and IOCs listed below, protecting Cato customers against these identified threats without requiring manual indicator updates.
 
-US
+In addition, Cato MDR provides 24/7 threat monitoring, investigation, and response for suspicious activity involving remote-access tools and attacker-controlled infrastructure.
 
-77.90.185.20
+Figure 6 shows a Cato IPS event with the action recorded as Block for a request to document-govil[.]com/Form/Forms/, with destination IP 129.121.120[.]121.
 
-DE
+Figure 6. Cato telemetry showing an IPS Block event against campaign infrastructure.
 
-18.225.170.231
+Indicators of Compromise
 
-US
+Network Infrastructure
 
-Public reporting corroborates one of these sources. On AbuseIPDB, independent reporters tagged 85.11.167.243 as PHP2Shell activity. None of the sources in our sample appear in Amazon Threat Intelligence’s published PHP2Shell indicator list.
+Indicator
 
-The post Cato CTRL Threat Research: PHP2Shell Exploitation Attempts in the Wild, and How Cato IPS Blocked Them appeared first on Cato Networks."
+Role in the research inventory
+
+doc-taxes-govil[.]org
+
+ZIP delivery infrastructure
+
+document-govil[.]com
+
+ZIP delivery infrastructure and destination in the Cato Block event
+
+doc26-govil[.]org
+
+ZIP delivery infrastructure
+
+document-govil[.]online
+
+ZIP delivery infrastructure
+
+129.121.120[.]121
+
+Reported SimpleHelp command-and-control address and destination in the blocked web request
+
+169.58.239[.]210
+
+Reported abused SimpleHelp server
+
+161.97.138[.]129
+
+Reported abused SimpleHelp server
+
+https://docs[.]templateoption[.]com/Form
+
+Suspected campaign-related URL
+
+File Hashes
+
+Filename
+
+SHA-256
+
+document.zip
+
+0d881ad82ddf4ccdb18c899572405dddc0adc2e6d351f8531881bf736760b0c2
+
+document.exe
+
+f018003432114393db3bd27a4f02e772a316078a80949f306c41fb397b219c6d
+
+Israel_Tax_Authority.zip
+
+6ba34f275f27a2584c7d653f83a8bb9a8c48ef3ae19491cb796cc56b75106f88
+
+רשות המסים בישראל.exe
+
+62a25285436c5e34a42661345ccbcd3fe7d96d74991a7fc37846cc9342ba39ff
+
+The post Cato CTRL Research on Suspected Iranian MuddyWater Activity Using Israel Tax Authority Lures and SimpleHelp appeared first on Cato Networks."
 9475654bf41d,9475654bf41d,2026-10-29 07:45 UTC,General Security News,Cato Networks,Cato Networks Blog,AI Security; Network Security,Article,See the Real AI Experience with Cato DEM,https://www.catonetworks.com/blog/see-the-real-ai-experience-with-cato-dem/,From “AI Is Slow” to Knowing Where to Investigate Detecting poor performance is only the first step,"AI is becoming part of everyday work. Employees rely on services such as ChatGPT and Claude to research, create, and solve problems, while developers increasingly use AI-powered tools like Cursor and coding agents in their development workflows.
 
 As employees increasingly rely on AI to work more productively, the AI experience is becoming a critical part of the digital experience IT teams are expected to support. Slow responses, failed interactions, or inconsistent performance can disrupt workflows and undermine the productivity gains AI is meant to deliver.
@@ -227,6 +283,59 @@ As AI becomes increasingly important to employee productivity, waiting for users
 For detailed configuration guidance, refer to the Cato Knowledge.
 
 The post See the Real AI Experience with Cato DEM appeared first on Cato Networks."
+8376bfc5bebd,35a7f0046f3f,2026-10-29 06:28 UTC,"Attacks, Breaches & Threat Intel",Cato Networks,Cato Networks Blog,Zero Trust Secure Access; Identity Security Posture Management; Cloud Risk Management,Article,Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform,https://www.catonetworks.com/blog/cato-ctrl-threat-brief-emudhra-certificate-compromise-highlights-value-protection-delivered-by-ai-native-sase-platform/,The post Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform appeared first on Cato Networks,"Executive summary
+
+Eight eMudhra intermediate certificate authority (CA) private keys were compromised after being generated with insufficient randomness. Attackers could use these keys to forge certificates and impersonate legitimate websites or services to clients that still trust them. An attacker able to intercept a connection could potentially read or modify sensitive traffic.
+
+We have deployed a certificate-trust update through our centrally managed PoP architecture, removing affected eMudhra certificates from the trust store used for TLS inspection. Delivering the update through the Cato Cloud removed the need for customers to patch security appliances at individual locations.
+
+What happened?
+
+Intermediate CAs sign certificates used to authenticate websites and services. Compromising their private keys can enable attackers to issue fraudulent certificates for domains they do not control. Organizations can therefore face exposure even when their legitimate certificates come from another provider.
+
+Google and Mozilla received reports on October 17, 2026, and distributed emergency certificate blocks that day.
+
+Mozilla also released updates associated with CVE-2026-113470. These include the certificate block list directly in Firefox and Thunderbird, protecting installations even when automatic block-list updates are disabled or unavailable.
+
+Google found that no website certificates issued through the six affected TLS intermediates had appeared in Certificate Transparency (CT) logs before its emergency block took effect. CT logs are public records of certificates. Browsers that enforce CT, including Chrome, require valid proof that a certificate has been submitted to these logs before accepting it. Those browsers would therefore have rejected fraudulent certificates from the affected intermediates even before receiving the emergency blocks.
+
+However, this protection does not extend to all software. Some applications, older browsers, or configurations without CT enforcement may have accepted unlogged fraudulent certificates if they still trusted the affected intermediates. The absence of certificates from those intermediates in CT logs before Google’s block therefore does not prove that no attacks occurred.
+
+eMudhra says its root private keys and other intermediate CAs are unaffected. Its investigation remains ongoing.
+
+Business risks
+
+The exposure extends beyond employee browsers. Applications, API integrations, containers, and embedded devices may use independent trust stores or lack effective certificate-revocation checks.
+
+Potential business consequences include:
+
+Credential theft and data exposure: Intercepted connections could expose passwords, session tokens, and confidential information.
+
+Transaction manipulation: Attackers impersonating trusted services could alter business communications or API responses.
+
+Service disruption: Emergency trust removal can also reject legitimate certificates. Google announced a broader root-removal rollout expected on October 27, requiring affected website operators to replace their certificates.
+
+Operational costs: Identifying and updating separate trust stores across applications and infrastructure creates work and opportunities for missed remediation.
+
+These are potential impacts, not evidence of observed exploitation.
+
+Our response: centralized control, global enforcement
+
+The Cato AI-native SASE Platform converges networking and security in a cloud-native service delivered through globally distributed points of presence (PoPs). Our Single Pass Cloud Engine provides integrated security enforcement, while centralized management allows us to deliver updates across our cloud infrastructure. This reduces the coordination and maintenance work customers would otherwise undertake across distributed security appliances.
+
+Centralized operations also support controlled deployment. Our established PoP change-management practices include phased rollouts, validation, monitoring, and rollback capabilities to manage operational risk as the platform evolves.
+
+What this means for our customers
+
+We have centrally deployed a certificate-trust update across our globally distributed PoPs, removing affected eMudhra certificates from the trust store used for TLS inspection. Customers do not need to make configuration changes to receive this update.
+
+Analysis of our data lake showed that the certificate chains affected by this update appeared in only a very small proportion of the network flows examined. Based on this limited usage, we expect minimal connectivity impact for customers.
+
+For details about the update and potential connectivity impact, see the security update.
+
+For locations or connections that access the internet outside our platform, organizations should apply the relevant vendor updates or extend our platform’s coverage so those connections are subject to our certificate-validation controls.
+
+The post Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform appeared first on Cato Networks."
 59b65bdf3cd1,59b65bdf3cd1,2026-10-28 10:35 UTC,General Security News,Cato Networks,Cato Networks Blog,AI Security; Data Security Posture Management,Article,Why so many AI security programs start with the OWASP Top 10,https://www.catonetworks.com/blog/why-so-many-ai-security-programs-start-with-the-owasp-top-10/,What OWASP is The Open Worldwide Application Security Project (OWASP) is a nonprofit foundation with a global community of security practitioners,"When an auditor or an RFP asks how your organization handles AI risk, the OWASP Top 10 lists are often a core part of the checklist behind the question. Cato AI Security is built to address the risks on two lists.
 
 What OWASP is

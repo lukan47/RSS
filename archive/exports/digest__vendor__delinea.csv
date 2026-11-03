@@ -1,4 +1,85 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+0f722490a4a3,0f722490a4a3,2026-11-03 13:00 UTC,General Security News,Delinea,Delinea Blog,AI Security; Identity Security Posture Management,Article,AI Agent Security: Who Ran That Query?,https://delinea.com/blog/ai-agent-security-who-ran-that-query,"” Investigators can settle attribution only from a session record, and they need the answer after the session ends","What you will learn
+
+Why audit trails record a developer when an AI agent acted, how entitlement scope differs from action attribution, and the five facts a session record needs to show which agent ran a query and whose credentials it used.
+
+An AI agent ran the query. The audit trail says a person did.
+
+Why does an audit trail attribute AI agent activity to a person?
+
+An AI agent connects with credentials issued to a person, so the audit trail records the person.
+
+For example, at two in the morning, a database connection opens and a query runs against a production table. The audit trail records the username of a developer who was asleep at the time. A coding agent made the connection with the developer credentials while it worked through a task the developer had assigned before logging off.
+
+Nothing in the log entry separates the developer from the agent. By its own standard, the log is complete. It still cannot answer the question an investigator will ask: Who ran that query?
+
+In the Delinea 2026 Identity Security Report: The AI Enforcement Gap, Gal Diskin, Vice President of Research and Head of Delinea Labs, noted that actions taken with AI credentials “are very hard to distinguish between the AI and the human that launched them with existing tools and audit log limitations.”
+
+Access models and audit trails were designed for human actors
+
+Access models assume that the person who holds an account is the person who uses it. Until recently, that assumption held. A username answered two questions at once: Who held the access, and who used it. Audit trails follow the same design, so they record the username as the actor.
+
+AI agents break that assumption. The account holder and the actor can now differ, and security teams need a way to talk about each one.
+
+Entitlement scope is what an identity is permitted to reach. A developer with access to the production customer database has that database in scope, whether the developer or an agent opens the connection. Reviewers settle entitlement scope during an access review, before any session begins.
+
+Action attribution identifies which actor used the entitlement and what that actor did. Attribution separates “the developer ran the query” from “a coding agent ran the query with the developer credentials.” Investigators can settle attribution only from a session record, and they need the answer after the session ends.
+
+The agent never receives an entitlement of its own. It works with the entitlement already issued to the person who started it.
+
+AI agents carry entitlements without the judgment behind them
+
+A person receives an entitlement because someone decided that person could be trusted with access. An agent receives the same entitlement, but nobody made that decision about the agent. Nothing checks the agent against the original approval. The session record is the only place to find out what the agent did with the access it inherited.
+
+How can security teams tell whether an AI agent or a person performed an action?
+
+Security teams can tell only when the session record captures the initiator separately from the username. If the record captures only the username, the person and the agent look identical.
+
+The Delinea 2026 Identity Security Report shows how often agents reach past their tasks. Of the IT and security leaders surveyed, 87% said an AI tool or agent at their organization accessed, or likely accessed, sensitive data beyond what its task required in the past year. Only 36% said their organization can always trace a sensitive AI access event back to a named human authorizer.
+
+Example: overprivileged AI agent access
+
+What happened. A developer asks a coding agent to look into a spike in failed customer logins. The developer has access to the production customer database for on-call work, so the agent has that access too. The agent pulls full customer records, including email addresses and phone numbers, and saves them to a file on the developer laptop. The task needed only login counts.
+
+What the audit trail showed. The database log lists the queries under the developer username.
+
+Why the evidence fell short. The log cannot show who pulled the records, which agent acted, or what instruction the agent followed. Without those facts, the reviewer cannot tell whether a person or an agent decided to export customer data, and the security team cannot decide who owns the response.
+
+What should an AI agent audit trail record about each session?
+
+An authorization record shows who approved an agent. A session record shows what the agent did with that approval; an AI agent audit trail needs both. At a minimum, the session record should capture five facts:
+
+the identity that held the entitlement
+
+whether a person or an AI agent initiated the session, and which agent
+
+the resources the session reached and the actions taken on each resource
+
+each path the agent used to reach a resource, including paths outside the Model Context Protocol (MCP)
+
+a record the security team can reach and search during an investigation
+
+AI agent activity can bypass MCP, so audit coverage cannot depend on MCP-only monitoring. MCP is a common standard for connecting AI agents to tools and data, but an agent with a database credential does not need it. The agent can open a database connection on its own, and a monitoring approach that watches only MCP traffic will never see that connection.
+
+How does Delinea record AI agent activity?
+
+Delinea records AI agent activity at the gateway, where the agent connects to the resource. When Delinea identifies the agent, the session record names both the person who held the entitlement and the agent that acted on behalf of that person. The record captures both names regardless of how the agent reached the resource.
+
+Delinea built agent attribution by extending the gateway that already recorded human sessions. The developer and the coding agent appear in the same record, so investigators can review human and agent activity in one place.
+
+AI agent attribution is the first step toward AI agent guardrails
+
+Frank Vukovits, Chief Security Scientist at Delinea, framed the issue the way an auditor would: “Saying the AI agent did it is not a defensible answer.”
+
+After a session ends, investigators use the session record to learn who ran the query. The gateway identifies the agent when the connection opens, so the same information can limit what the agent can do in the first place. Security teams can write entitlement rules for the agent itself. The developer keeps access to the production customer database, and the coding agent working for that developer does not.
+
+Phil Calvin, Executive Vice President of AI Innovation at Delinea, tested an agent-specific rule which he documented in the blog ""Your AI agent doesn't need to go rogue; it just needs you to be over-privileged"". The gateway enabled him to write to a database and blocked the agent working for him from doing the same. His results show what a rule written for the agent can do.
+
+In our conversations with security teams, we hear a consistent pattern. Teams want to audit which agent acted and which identity the agent used, but the larger concern is keeping agents out of critical production systems until the organization has a reason to trust them. Until that trust exists, the gateway can keep agents away from the most sensitive resources.
+
+Read how Telnyx and Delinea compare for AI agent access.
+
+Contact Delinea to review what current session records show about AI agent activity."
 c99aa6076942,c99aa6076942,2026-10-30 20:15 UTC,"Attacks, Breaches & Threat Intel",Delinea,Delinea Blog,AI Security; Data Security Posture Management; Endpoint Security; Server & Workload Protection,Article,The Binance Breach | What Can be Reached and Why it Matters,https://delinea.com/blog/the-binance-breach-what-can-be-reached-and-why-it-matters,"What we know is that the attacker allegedly used access to reach an internal service container and submit unauthorized withdrawal transactions, highlighting how standing...","What you will learn
 
 How standing privilege turns one compromised engineer laptop into financial loss, and how just-in-time access, scoped workload identities, session recording and external authorization decisions help contain the damage.
