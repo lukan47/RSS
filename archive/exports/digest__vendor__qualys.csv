@@ -1,4 +1,300 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3b7e4bbdf3c1,3b7e4bbdf3c1,2026-11-04 16:00 UTC,General Security News,Qualys,Qualys Blog,Server & Workload Protection; Container Security; Cloud Risk Management; Vulnerability Management,Article,"Cloud Agent, now in a Container: Host Security for Nodes You Can’t Touch",https://blog.qualys.com/product-tech/2026/11/04/cloud-agent-now-in-a-container-host-security-for-nodes-you-cant-touch,"TotalCloud KCS also holds the Red Hat Vulnerability Scanner Certification, which extends its detection accuracy to Red Hat OpenShift, RHEL, and CoreOS","A single container image that brings Vulnerability Management and Policy Audit to every Kubernetes node, on immutable and mutable Linux alike, deployed the way your container workloads already are.
+
+Key Takeaways
+
+The Qualys Cloud Agent is now available as a container image on Docker Hub, bringing host-based Vulnerability Management and Policy Audit to every Kubernetes node without touching the host’s package manager.
+
+It runs as a Kubernetes DaemonSet, so every node that joins the cluster automatically gets an agent. It can be deployed and upgraded through YAML manifests or a unified Helm chart that also deploys Qualys Container Security sensors, for full-stack coverage in a single install.
+
+A single image covers container-optimized operating systems such as AWS Bottlerocket, Google Container-Optimized OS, and Red Hat CoreOS, as well as RPM- and Debian-based Linux, including Azure Linux, on both Intel/x64 and ARM.
+
+Policy Audit includes CIS-certified policies for AWS Bottlerocket and Google Container-Optimized OS, and all findings are prioritized with Qualys TruRisk alongside the rest of your estate.
+
+Paired with Qualys TotalCloud Kubernetes and Container Security (KCS), it delivers full-stack coverage across the host OS, running containers, and the Kubernetes control plane.
+
+The AI Era Is a Container Era
+
+The AI era isn’t arriving on bare metal. It’s arriving on Kubernetes. Model training pipelines, inference services, vector databases, and the agentic workloads that orchestrate them are being built as containers and scheduled across clusters that scale up and down by the minute. The unit of compute is no longer the server. It’s the container, and the node it happens to be running on right now.
+
+That shift changes the math for security teams. The attack surface is no longer a fleet of servers you can enumerate and patch on a monthly cycle. It’s a fleet of nodes that may exist for hours, boot into operating systems that don’t allow you to install a package, and host workloads that move between them without warning. Every one of those nodes is a host, and every host operating system carries its own vulnerabilities and its own configuration risk, regardless of what’s running in the containers above it.
+
+Qualys TotalCloud Kubernetes and Container Security (KCS) extends build-to-runtime coverage for images, containers, and serverless workloads.
+
+The Problem: Host Security Wasn’t Built for Container Platforms
+
+For years, securing a host meant one thing: install an RPM or a DEB on it. That model worked when hosts were long-lived and homogeneous. It breaks down in container platforms in two ways.
+
+Container-optimized operating systems don’t accept packages. AWS Bottlerocket, Google Container-Optimized OS (COS), Red Hat CoreOS, and their peers deliberately lock down the root filesystem and remove the package manager. There’s nothing to yum install. Security tooling has to run the way everything else on these nodes runs: as a container.
+
+Package-based deployment doesn’t fit orchestrated environments. Kubernetes teams manage everything through manifests, Helm charts, and GitOps pipelines. A security agent that has to be installed out of band, node by node, is the one thing on the cluster that isn’t declared, versioned, and reconciled like everything else. It also can’t keep up: a node pool that scales from ten nodes to two hundred during a training run needs security coverage on every node it creates, automatically.
+
+The result is a coverage gap at the foundation. Teams invest in scanning container images and monitoring running containers, and rightly so. But the container runtime, the kubelet, the kernel, and every system library sit on the host OS. If that layer is unmonitored, a clean image running on a vulnerable node is still a vulnerable workload.
+
+The Solution: Qualys Cloud Agent as a Container Image
+
+The Qualys Cloud Agent is now available as a container image, published directly to Docker Hub under the verified Qualys publisher account. It runs on every node in your cluster as a DaemonSet and delivers the same host-based Vulnerability Management and Policy Audit that the Qualys Cloud Agent provides on any other platform, without touching the host’s package manager.
+
+Qualys Cloud Agent container images on Docker Hub under the verified Qualys publisher.
+
+The image ships with the Qualys Cloud Agent pre-installed and dynamically pulls down the components it needs at runtime, such as application manifests and supporting utilities, so it stays lightweight while remaining fully functional. Because it’s deployed through Kubernetes, the orchestrator does the work your provisioning scripts used to do: every node that joins the cluster gets an agent, and every node that leaves takes its agent with it.
+
+Intel/x64 image: qualys/cloud-agent-container-x64
+
+ARM image: qualys/cloud-agent-container-arm
+
+How Qualys secures the container stack, from the host operating system to running containers and the Kubernetes control plane.
+
+Once you’ve pulled the image, you can download the deployment YAMLs, and a Qualys Helm chart is published on Artifact Hub so the agent can be installed, versioned, and upgraded through the same Helm workflow as the rest of your cluster.
+
+Why It Matters: The Benefits
+
+Combined with TotalCloud KCS, the Containerized Cloud Agent gives you full-stack coverage across the host OS, running containers, and the Kubernetes control plane, for vulnerabilities, audit, and posture, as well as runtime security, drift, and threat detection.
+
+Full Host Coverage for Container-Optimized and Immutable Operating Systems
+
+Immutable operating systems are the right choice for container platforms: a smaller attack surface, atomic updates, and a root filesystem that can’t drift. But immutability cuts both ways. If you can’t install anything, you can’t install a traditional agent, and many teams have run these nodes blind. The Containerized Cloud Agent closes that gap. It runs as a privileged container with the host mounts it needs to assess the underlying OS, so Bottlerocket, COS, and CoreOS nodes get the same vulnerability and compliance visibility as a conventional Red Hat Enterprise Linux (RHEL) server, with no changes to the host image and no compromise to the immutability that made you choose that OS in the first place.
+
+Qualys has been building this coverage across the major cloud platforms for years:
+
+Securing Red Hat CoreOS on OpenShift
+
+Scanning AWS Bottlerocket in Amazon EKS and Amazon ECS
+
+Scanning Container-Optimized OS in Google Kubernetes Engine
+
+Qualys for Microsoft Azure Linux in AKS and Azure Container Instances
+
+Your Choice of Agent on Mutable Linux, Too
+
+The Containerized Cloud Agent isn’t limited to immutable operating systems. It also runs on the RPM- and Debian-based distributions that make up the bulk of self-managed and cloud Kubernetes nodes today. That’s a meaningful change. Previously, a RHEL or Ubuntu node meant installing the RPM or DEB package, full stop. Now you choose. Teams with a mix of virtual machines (VMs) and containers can keep the package on VMs and use the Containerized Cloud Agent on cluster nodes. Teams that are all-in on Kubernetes can standardize on the Containerized Cloud Agent everywhere and never manage a host package again. Either way, the data lands in the same place, with the same detections and the same TruRisk scoring.
+
+Deployment That Fits How You Already Run Kubernetes
+
+The Containerized Cloud Agent is a DaemonSet, which means the orchestrator guarantees one agent per node, on every node, for the life of the cluster. Autoscaling node pools, spot instances that get reclaimed, and cluster upgrades that replace every node are all handled without a ticket, a script, or a human. Coverage becomes a property of the cluster rather than a task someone has to remember.
+
+Because it’s delivered as a Helm chart and YAML manifests, the agent lives in the same GitOps repository as your workloads. Upgrading is a tag change and a pull request. Rolling back is a revert. Node selectors and tolerations let you target specific pools, and the same manifest works across dev, staging, and production. Security stops being the exception to your deployment model.
+
+One Image Across Every Operating System
+
+You don’t need a Bottlerocket build, a CoreOS build, and an Ubuntu build. A single Containerized Cloud Agent image runs across all supported operating systems. That collapses your deployment matrix: one image to vet through your supply-chain controls, one image to pin and version, one DaemonSet manifest to maintain. When a new agent release ships, it’s one tag to update across the entire estate. Images that comply with Federal Information Processing Standards (FIPS) are available for environments that require them.
+
+Complete Coverage Across Intel and ARM
+
+Cluster node pools increasingly mix x86 and ARM instances, with Graviton, Cobalt, and Axion sitting alongside traditional Intel and AMD nodes. Images are published for both Intel/x64 and ARM, so a multi-architecture cluster gets consistent coverage without special-casing by pool.
+
+Full-Stack Coverage at a Glance
+
+The Containerized Cloud Agent runs the complete Qualys Cloud Agent on every node, assessing the host OS against the Qualys KnowledgeBase for vulnerabilities and against Center for Internet Security (CIS) Benchmarks through Qualys Policy Audit. Here’s how coverage splits across the stack:
+
+Capability
+
+Covered by
+
+Vulnerability Management
+
+Host: Containerized Cloud Agent. Containers: TotalCloud KCS
+
+Drift detection
+
+TotalCloud KCS
+
+Compliance (CIS Benchmarks)
+
+Data plane: Qualys Policy Audit. Control plane: TotalCloud KCS (Kubernetes Security Posture Management, or KSPM)
+
+Threat detection and response/runtime security
+
+TotalCloud KCS, via eBPF runtime sensors
+
+Findings from both Vulnerability Management and Policy Audit flow into the same Enterprise TruRisk Platform views, dashboards, and workflows your teams already use. A Kubernetes node is just another asset with a Qualys TruRisk score, sitting next to the VM, the laptop, and the cloud account, and prioritized the same way.
+
+Getting Started
+
+Pull the image from Docker Hub: Intel/x64 or ARM.
+
+Download the deployment YAMLs or use the Qualys Helm chart.
+
+Deploy as a DaemonSet to your cluster with your Agent Activation Key, following the Intel or ARM getting started guide.
+
+Platform-specific guides are available for AWS Bottlerocket, Google COS, and Red Hat CoreOS.
+
+Coming in Cloud Agent 2.9.0
+
+Today, images are available on Docker Hub. With Cloud Agent release 2.9.0, you’ll be able to download the Containerized Cloud Agent package directly from the Qualys platform alongside every other Cloud Agent installer. The Common Container tiles will appear in the Download and Install Cloud Agent workflow, with your activation key, supported OS list, and installation steps right there.
+
+Common Container installation instructions in the Qualys Cloud Platform (Cloud Agent 2.9.0).
+
+The Host Is Half the Story: Securing the Whole Container Stack with TotalCloud
+
+The Containerized Cloud Agent secures the layer beneath your workloads. It doesn’t look inside the containers running on top of it, and it isn’t meant to. That job belongs to Qualys TotalCloud, and the two are designed as complementary halves of a single answer to the question every platform team eventually has to answer: how exposed are our container workloads, end to end?
+
+Container risk doesn’t live in one layer. It spans the cloud account the cluster runs in, the node operating systems, the Kubernetes control plane and its configuration, the images in your registries, the containers running in production, and the identities and network paths that connect all of it. Securing any one of those layers in isolation leaves you with a partial view and a false sense of coverage. TotalCloud is built to cover all of them on one platform, with one risk score.
+
+Container Security: From Registry to Runtime
+
+TotalCloud’s Container Security sensor picks up where the host agent leaves off. Deployed as a lightweight container alongside your workloads, it discovers and inventories every image, container, and cluster across your environment and assesses them at every stage of the lifecycle:
+
+Build and registry: images are scanned for OS and application-layer vulnerabilities and embedded secrets as they land in registries or move through continuous integration and continuous delivery (CI/CD) pipelines, so a critical Common Vulnerabilities and Exposures (CVE) entry in a base layer is caught before it’s ever deployed, and admission policies can block it from being scheduled at all.
+
+Running containers: containers in production are continuously assessed against the same KnowledgeBase, with drift detection that flags containers that no longer match the image they were launched from.
+
+Kubernetes posture: clusters, namespaces, workloads, and role-based access control (RBAC) are assessed against CIS Kubernetes Benchmarks and best practices to surface over-privileged pods, exposed dashboards, missing network policies, and other control-plane misconfigurations.
+
+Runtime defense: behavioral monitoring of running containers detects and blocks malicious activity such as unexpected process execution, file tampering, and anomalous network connections, so an exploit that slips past the earlier stages is caught in the act.
+
+TotalCloud KCS also holds the Red Hat Vulnerability Scanner Certification, which extends its detection accuracy to Red Hat OpenShift, RHEL, and CoreOS.
+
+Want to see how TotalCloud secures containers from registry to runtime?
+
+Start Free Trial
+
+Cloud Posture, Identity, and Infrastructure-as-Code
+
+Clusters don’t run in vacuums. TotalCloud’s cloud security posture management (CSPM) continuously assesses the AWS, Azure, and Google Cloud accounts your clusters live in, covering misconfigured storage, over-permissive identity and access management (IAM) roles, exposed services, and hundreds of other controls mapped to CIS and regulatory frameworks. Infrastructure-as-code scanning applies the same checks to Terraform, CloudFormation, and Kubernetes manifests in your repositories, so misconfigurations are fixed in the pull request rather than in production. Together, they close the loop around the cluster itself.
+
+One Risk Picture, Scored with TruRisk
+
+What makes this a platform rather than a collection of tools is that every finding, from the host agent, the container sensor, and the cloud posture assessment, is normalized, correlated, and scored with TruRisk in one place. That changes what you can see. A vulnerable kernel on a Bottlerocket node, a critical CVE in a base image, an over-privileged pod running on that node, and a public ingress in front of it are no longer four alerts in four consoles. They’re one attack path, with one risk score, and one clear answer to what to fix first. The same correlation lets you dismiss noise with confidence: a critical CVE in an image that never runs, on a node with no external exposure, is scored accordingly.
+
+And because it’s all on the Enterprise TruRisk Platform, container risk sits alongside the rest of your attack surface. The Kubernetes node, the VM it replaced, the developer laptop that pushed the image, and the cloud account that owns all of them are managed, prioritized, and reported on the same way, by the same teams, with the same workflows.
+
+Close the Gap from Host to Cloud
+
+A clean image running on a vulnerable node is still a vulnerable workload. Pull the Containerized Cloud Agent from Docker Hub today and bring your Kubernetes nodes into the same Vulnerability Management and Policy Audit coverage as the rest of your estate. Then talk to your Qualys representative about TotalCloud to extend that coverage from the host to every image, container, cluster, and cloud account your workloads depend on.
+
+Bring your Kubernetes nodes into the same Vulnerability Management and Policy Audit coverage as the rest of your estate.
+
+Get the Containerized Cloud Agent"
+707c59bed9d4,72375819775f,2026-11-04 09:20 UTC,General Security News,Qualys,Qualys Blog,Endpoint Security; Server & Workload Protection,Article,"PHP2Shell on Windows and macOS: Automating the PHP Upgrade, With or Without an Agent",https://blog.qualys.com/product-tech/2026/11/04/php2shell-windows-macos-car-upgrade-scripts,"PHP has released a critical security update addressing two vulnerabilities, CVE-2026-109618 and CVE-2026-109619 (collectively tracked as PHP2Shell), that allow unauthenticated...","Executive Summary
+
+PHP2Shell (CVE-2026-109618 and CVE-2026-109619) allows unauthenticated remote code execution on exposed PHP servers. PHP has released fixed versions. On Linux, distribution packages carry the fix. On Windows and macOS, they don’t: Microsoft and Apple don’t ship PHP, so the fix is an in-place PHP upgrade that has traditionally been done by hand, one server at a time. Qualys TruRisk Eliminate’s Custom Assessment and Remediation (CAR) capability runs Qualys TRU-published scripts that upgrade each PHP installation to the latest patch release of its current minor series. On Windows, the script verifies the official build by SHA256 and rolls back on failure. On macOS, it upgrades through Homebrew. If a host is on an end-of-life series, the script stops, reports it, and then you apply the PHP2Shell mitigation script instead. The same script runs through the Cloud Agent or, on hosts without one, through an authenticated Qualys scanner. Agentless runs need a Windows or SSH credential with rights to stop services and replace PHP binaries. Plan a maintenance window for both because IIS, Apache, or php-fpm restarts during the upgrade.
+
+PHP has released a critical security update addressing two vulnerabilities, CVE-2026-109618 and CVE-2026-109619 (collectively tracked as PHP2Shell), that allow unauthenticated remote code execution against exposed PHP servers.
+
+On Linux, patching is straightforward: distribution vendors ship updated packages, and Qualys TruRisk Eliminate deploys them.
+
+Windows and macOS are a different story. There is no straightforward vendor patch to deploy, so the fix must be a PHP upgrade, which has traditionally required someone to log in to each server and apply it manually. This blog explains how the Qualys Custom Assessment and Remediation (CAR) capability in Qualys TruRisk Eliminate closes the gap for both deployment models: agent-based and agentless (scanner-based).
+
+Why Patch Management Can’t Deliver the Fix on Windows and macOS
+
+Patching works by deploying the fix that an operating system or software vendor publishes. For PHP on Windows and macOS, that fix does not exist in a deployable form.
+
+Windows: no official installer or updater. Microsoft does not ship PHP, and PHP does not ship an installer or an in-place updater for Windows. The official builds on downloads.php.net are plain ZIP archives published in multiple flavors (Thread Safe / Non-Thread Safe, x64 / x86, and per Visual Studio compiler). Upgrading means picking the right build, stopping IIS or Apache, replacing the binaries in place while preserving php.ini and custom extensions, and restarting services. Third-party stacks such as XAMPP, WampServer, Laragon, Chocolatey and Scoop each add their own layout on top of that.
+
+macOS: Apple no longer ships PHP. PHP was removed from macOS in Monterey (12.0), and Apple software updates do not touch it. php.net publishes only source code, so on modern Macs, PHP most commonly comes from Homebrew (the php formula or a versioned php@8.x formula).
+
+The result is that a PHP server on Windows or macOS will appear vulnerable, with no corresponding patch in the TruRisk Eliminate patch catalog. The vulnerability is real; the remediation path is not a patch.
+
+Custom Assessment and Remediation Closes the Gap with TruRisk Eliminate
+
+TruRisk Eliminate covers four remediation paths: patch, mitigate, isolate, or run a custom script. PHP on Windows and macOS needs the fourth. The CAR capability in TruRisk Eliminate lets you run controlled remediation scripts on your assets from the same platform that detected the exposure. The Qualys Threat Research Unit (TRU) has published PHP upgrade scripts for Windows and macOS in the CAR library so that every host is upgraded the same way. Search the library for “PHP Update to Latest Patch Version” under the PHP2Shell category and import the script for each platform.
+
+Figure 1: PHP2Shell category in the CAR script library. Figure 2: The PHP Update to Latest Patch Version script in the CAR script library (PHP2Shell category).
+
+Both scripts are built around the same principles:
+
+Upgrade within the installed minor series only. 8.2.33 moves to the latest 8.2.x, 8.4.27 to the latest 8.4.x. The scripts never jump a major or minor version, so applications keep running on the branch they were tested against.
+
+Mitigate what can’t be upgraded. If the installed series is end-of-life and no longer published, the script stops and reports it instead of guessing. For those hosts, deploy the PHP2Shell mitigation script from the CAR library. It applies configuration changes that block the attack path and restarts the affected services. Mitigation reduces the risk until you can move to a supported branch; it doesn’t replace the upgrade.
+
+Windows: Official Builds, Verified and Rolled Back on Failure
+
+Discovers every PHP installation on the host, not just the one on PATH: machine and per-user PATH entries, common folders (C:\php*, XAMPP, WAMP, Laragon, Program Files, Scoop), IIS FastCGI handlers in applicationHost.config, and any Windows service that launches a PHP binary.
+
+Detects each installation’s exact build flavor (TS/NTS, x64/x86, VC15/VS16/VS17) by querying php.exe itself, then selects the matching official build from downloads.php.net/releases.json.
+
+Honours the machine WinHTTP proxy automatically, since the SYSTEM account has no user proxy settings.
+
+Downloads the archive and verifies its SHA256 against the published hash before anything is touched.
+
+Stops IIS (W3SVC/WAS), Apache and any php/php-cgi processes using that directory, takes a full backup of the PHP folder, copies the new binaries over the top (php.ini and extra extensions are preserved), and confirms the new version by running php.exe.
+
+Rolls back from the backup and restarts services automatically if the post-upgrade version check fails.
+
+macOS: Homebrew Upgrades Within the Same PHP Series
+
+The macOS script handles the realities of Homebrew, as follows:
+
+Confirms PHP is present and resolves the real binary through symlinks into the Homebrew Cellar to determine which formula owns it (php or php@8.x). PHP from MacPorts, MAMP or a manual build is reported and left alone.
+
+Runs brew as the user who owns the Homebrew installation, because Homebrew refuses to run as root even though CAR executes as root. It also repairs any Homebrew files left owned by root from earlier runs so brew can write to them.
+
+Refreshes Homebrew with retry handling for the common “another brew update is already running” case, and falls back to cached formula data if the refresh fails.
+
+Stays on the installed series. If the default PHP formula has moved to a newer series (for example, the host is on 8.2.x but PHP now tracks 8.4), the script installs or upgrades PHP 8.2 and relinks the PHP command to it rather than forcing a major upgrade.
+
+Restarts the php-fpm service via brew services if it was running before the upgrade and prints the final php -v so the result is visible in the job output.
+
+Agent or Agentless: The Same Script Reaches Every Host
+
+When you create a script in CAR, you choose how it reaches the host. Agent Devices run the script locally through the installed Cloud Agent. Perimeter Devices require no Cloud Agent. The script is delivered and executed through an authenticated Qualys scanner. The script content is identical in both cases; only the delivery changes. Select Windows or Mac as the platform to match the script.
+
+Figure 3: Creating the script in CAR. Choose Agent Devices or Perimeter Devices (agentless), then select Windows or Mac as the platform.
+
+Agent-Based Remediation
+
+In ETM, identify Windows and macOS hosts flagged for the PHP2Shell CVEs (CVE-2026-109618 and CVE-2026-109619) and tag them by platform.
+
+In CAR, create or import the Windows and macOS PHP upgrade scripts with Agent Devices selected and run each against its platform tag.
+
+Schedule the install run in a maintenance window, since IIS, Apache, or php-fpm will be restarted.
+
+Review job results and rescan to confirm the QID closes.
+
+Agentless Remediation
+
+Many exposed PHP servers sit on appliances, DMZ servers, legacy hosts, and systems owned by other teams: a Windows Server in the DMZ running a vendor web application on IIS and PHP, or Mac minis in a build lab owned by engineering. Many can’t run, or aren’t allowed to run, a Cloud Agent.
+
+A network scan can show that these systems are exposed, but remediating them has usually required someone to log in and make changes by hand, one server at a time. With unauthenticated remote code execution on the table, that pace leaves your perimeter open.
+
+With the CAR capability in TruRisk Eliminate, the same Windows and macOS PHP upgrade scripts run directly on scanner-based hosts through the Perimeter Devices option.
+
+Find your scanner-only hosts. In ETM, identify exposed PHP servers using the PHP2Shell CVEs (CVE-2026-109618 and CVE-2026-109619).
+
+Create the scripts for Perimeter Devices. In the CAR module of TruRisk Eliminate, select the PHP upgrade script for the host’s platform from the library, choose Perimeter Devices and Windows or Mac, and point it at the scanner appliance that can reach those hosts with the appropriate authentication records (Windows or SSH).
+
+Run the job. Launch the job against your scanner-based hosts. The scripts behave identically whether launched from an agent or a scanner.
+
+Confirm the remediation. Review the job output for the recorded before/after version on each host, then rerun the scan and confirm the QID no longer reports.
+
+What the Job Output Looks Like
+
+Each host returns a short, readable log entry with the execution status and the before/after PHP versions. Below, a scanner-based macOS host is upgraded from PHP 8.2.33 to 8.2.35 within the 8.2 series, with the php@8.2 formula relinked as the active PHP.
+
+Figure 4: CAR job results showing the PHP upgrade output on a scanner-based macOS host.
+
+On Windows, the log additionally lists every PHP installation discovered on the host, the detected build flavor, SHA256 verification, the services stopped and restarted, and the backup folder location.
+
+Figure 5: CAR job results showing the PHP upgrade output on a scanner-based Windows host.
+
+Conclusion
+
+PHP2Shell is a reminder that remediation goes beyond patching. When there is no straightforward vendor patch to deploy, you still need a safe, fast way to close the exposure. With TruRisk Eliminate, you can discover every PHP installation, upgrade it to the latest release of its current series with integrity verification, automatic rollback, and service restart, and do it from the same console that detected the exposure, agentless on scanner-only hosts and through the Cloud Agent where it is installed.
+
+Qualys customers can find the Windows and macOS PHP upgrade scripts, along with the PHP2Shell mitigation script, in the CAR script library. Review the CVEs (CVE-2026-109618 and CVE-2026-109619) in ETM and begin with your internet-facing perimeter.
+
+Not a Qualys customer? Access Qualys’ free PHP2Shell mitigation service to help protect your environment against this threat.
+
+Sign Up for Free Mitigation Service
+
+Frequently Asked Questions (FAQs)
+
+Will the script jump me from PHP 8.2 to 8.4?
+
+No. It upgrades only within the installed minor series. 8.2.33 moves to the latest 8.2.x. Applications stay on the branch they were tested against.
+
+What happens on an end-of-life series?
+
+The script stops and reports it. Deploy the PHP2Shell mitigation script until you can move to a supported branch.
+
+Does this work without a Cloud Agent?
+
+Yes. Choose Perimeter Devices and run the same script through an authenticated Qualys scanner. You need a Windows or SSH credential with rights to stop services and replace PHP binaries.
+
+What does the Windows script verify?
+
+It detects the build flavor, downloads the matching official build from downloads.php.net, verifies SHA256 before anything is touched, and rolls back from a full backup if the post-upgrade version check fails."
 e31817488fa5,e31817488fa5,2026-11-03 16:05 UTC,"Policy, Legal & Compliance",Qualys,Qualys Blog,Compliance Management; Threat and Exposure Management; Cloud Risk Management; Vulnerability Management,Article,FedRAMP Authorization Is the Easy Part: How to Stay Authorized with Qualys Policy Audit,https://blog.qualys.com/product-tech/2026/11/03/fedramp-authorization-is-the-easy-part-how-to-stay-authorized-with-qualys-policy-audit,"Its new Vulnerability Detection and Response (VDR) and Vulnerability Evaluation and Reporting (VER) rules become mandatory for certification on December 7, 2026","Key Takeaways
 
 FedRAMP authorization isn’t the finish line. Providers are expected to keep monitoring their security posture and give federal agencies the information they need for ongoing, risk-based decisions.
@@ -1207,199 +1503,3 @@ Detection and Hunting
 BlueHammer operates stealthily, making it challenging to detect if each of its actions is viewed in isolation. It uses legitimate Windows subsystems and interfaces with Microsoft infrastructure rather than relying on attacker-controlled update mechanisms. Even after a successful operation, it leaves minimal enduring traces; however, some transient indicators, such as temporary files, object-manager links, RPC interactions, CloudFilter registrations, oplock activities, password alterations, and service creations, might still be noticeable. Therefore, effective detection hinges on correlating these behaviors rather than depending on a singular file hash or event.
 
 To enhance detection, the Qualys Threat Research Unit (TRU) developed a TruConfirm signature for CVE-2026-33825. This signature employs a dual approach: it first evaluates the host for necessary preconditions, including Defender version, driver status, service configuration, and VSS availability. Following this, it performs a safe validation of the critical, non-destructive aspects of the exploit chain using the Qualys Breach and A [truncated for CSV - full text is in the JSON export]"
-02f13d25d057,02f13d25d057,2026-10-20 19:08 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; AI Security,Article,The Real Jump Scare Isn’t the Attacker; It’s The Vulnerabilities You’re Focusing On,https://blog.qualys.com/qualys-insights/2026/10/20/remediation-paradox-cybersecurity-awareness-month,"Across the most critical, actively exploited vulnerabilities over the past four years, manual remediation processes failed to keep pace with attackers 88% of the time, and half...","Key Takeaways
-
-Teams are remediating more than ever, but exposure from the vulnerabilities that matter is still rising faster than they can keep up with.
-
-Mean time to exploitation is about −7 days. Mean time to remediate sits around +30 days.
-
-Qualys research: closures rose from 73M (2022) to 473M (2025) – 6× – while critical findings still open at day seven rose from 56% to 63%.
-
-Less than 1% of vulnerabilities are actively exploited. A volume-and-CVSS program spends most of its effort on the rest.
-
-15% of organizations that operationalized the pipeline patched before a vulnerability hit the CISA KEV list.
-
-October is here, bringing a chill in the air, spooky decorations, and, fittingly, Cybersecurity Awareness Month. It’s a timely reminder for security leaders to revisit and strengthen their strategy. The past 12 months alone show how cyber threats are getting smarter and faster.
-
-There’s a haunting paradox that should be top of mind. Security teams are doing more vulnerability remediation than ever before. They’re patching faster, scanning deeper, and closing more tickets than any team in history, yet attackers exploit systems at an alarming rate, faster than ever before.
-
-Fortunately, with the right cyber risk management plan, security teams can navigate the dark landscape of AI-driven attackers. But before we talk about defense, let’s outline a few of attackers’ tricks.
-
-The Threat Landscape Is Accelerating
-
-Ransomware is one of the leading cyber threats, rising in both frequency and cost. It now factors into 48% of breaches, up from 44% from the previous year, and attacks are projected to occur every two seconds by 2031. If that projection holds, it will put severe pressure on already strained security teams.
-
-AI is escalating the problem rather than easing it. AI-generated attacks have increased 56% between March 2025 and February 2026, adding $1 million in cost per breach to the baseline cost. More attacks are coming, and those powered by AI make each breach more expensive to address.
-
-The increased frequency and sophistication combined result in a spine-chilling number: mean time to exploitation is now measured at -7 days. Which means, on average, weaponization arrives a week before defenders have anything to deploy. Mean time to remediate, by comparison, sits at +30 days. The attacker’s clock starts before defenders have anything to deploy, so the defenders are already behind before their own 30-day countdown even begins. And there’s a scary price attached.
-
-The Financial Reality
-
-Every hour a breach remains active costs organizations roughly $1,100 in operational disruption, lost productivity, and incident response overhead, turning every minute into a running invoice. Globally, a breach averages about $5 million per incident, up 12% from last year.
-
-The U.S. is projected to have the highest breach cost at about $11.5 million – more than twice the global average. The Middle East, Benelux, and Germany follow, with all four regions experiencing higher breach costs than the global average.
-
-With costs escalating like this, the expectation would be that a growing volume of patching work is buying that cost down. The data says otherwise.
-
-The Remediation Paradox
-
-Research by the Qualys Threat Research Unit found that while the effort to address vulnerabilities went up, exposure still rose alongside it. According to the research, effort was allocated by volume and severity score instead of by evidence of what attackers were using. As a result, enterprises did far more work and ended up further behind. Closures rose from 73 million in 2022 to 473 million in 2025, a 6x increase in output, while the share of critical vulnerabilities still open at day seven rose from 56% to 63%. More effort produced less coverage where it counted.
-
-The reason traces back to how that effort gets allocated in the first place. Less than 1% of vulnerabilities are actively exploited, which means a program built around volume and severity score spends the majority of its effort on vulnerabilities attackers were never going to use. The 6x increase didn’t close the gap since most of that work was never aimed at the 1% that mattered.
-
-This misalignment proves detrimental for the vulnerabilities that do get weaponized. Across the most critical, actively exploited vulnerabilities over the past four years, manual remediation processes failed to keep pace with attackers 88% of the time, and half were weaponized before a patch existed. Teams were doing the work. They just weren’t always working on the right thing, at the right time.
-
-The light in the dark here is that there are organizations winning this race. 15% of organizations that operationalized their remediation pipeline patched before the vulnerability was even added to the Known Exploited Vulnerabilities (KEV) list. This is proof that the gap isn’t fixed in place. It closes when the model changes.
-
-As risk accelerates, the organizations that shift away from a ‘fix everything’ mindset to disciplined, continuous, business-impact-based prioritization will be prepared for the unknown. The focus should be on automated, intelligence-driven remediation that assesses risk in real time rather than adding people to a process.
-
-The Path Forward
-
-So what does this shift look like? It starts with context, not more volume. Remediation becomes contextual rather than sequential. Most friction between IT and security doesn’t start with the vulnerability itself. It starts when a ticket arrives without ownership data, gets validated whether or not action is warranted, and then gets reassigned before anything is fixed.
-
-When asset context and risk intelligence route tasks before a ticket is even created, that upstream friction disappears. MTTR drops 30% and response times improve 40%. That’s what happens when decisions about what really matters get made before the backlog forms, instead of getting caught in debates once issues arise.
-
-In a digital age where attacks are happening faster than teams can keep up, the teams still haunted by their own remediation metrics are the ones still asking the old questions: how many vulnerabilities can we close? What’s the CVSS score? How long before we remediate? The organizations that are getting safer are asking a different set of questions: Is this actively being exploited? What’s the evidence? Which assets are at risk? What can we automate?
-
-As we recognize Cybersecurity Awareness Month, it’s crucial to remember that diligence is non-negotiable; the real key lies in prioritizing the vulnerabilities that wield the greatest impact.
-
-Scary Stats That Will Keep You Up At Night
-
-Ransomware is rising in both frequency and cost. It now factors into 48% of breaches, up from 44% from the previous year, and attacks are projected to occur every two seconds by 2031.
-
-AI-generated attacks have increased 56% between March 2025 and February 2026, adding $1 million in cost per breach to the baseline cost.
-
-Mean time to exploitation is now measured at -7 days. Mean time to remediate, by comparison, sits at +30 days.
-
-Every hour a breach remains active costs organizations roughly $1,100 in operational disruption, lost productivity, and incident response overhead. Globally, a breach averages about $5 million per incident, up 12% from last year.
-
-The U.S. is projected to have the highest breach cost at about $11.5 million – more than twice the global average.
-
-The Middle East, Benelux, and Germany follow, with all four regions experiencing higher breach costs than the global average.
-
-Research by the Qualys Threat Research Unit found that effort was allocated by volume and severity score instead of by evidence of what attackers were using. Closures rose from 73 million in 2022 to 473 million in 2025, a 6x increase in output, while the share of critical vulnerabilities still open at day seven rose from 56% to 63%.
-
-Less than 1% of vulnerabilities are actively exploited.
-
-A program built around volume and severity score spends the majority of its effort on vulnerabilities attackers were never going to use.
-
-Across the most critical, actively exploited vulnerabilities over the past four years, manual remediation processes failed to keep pace with attackers 88% of the time, and half were weaponized before a patch existed.
-
-References
-
-Verizon. “2026 Data Breach Investigations Report.” July 29, 2026. https://www.verizon.com/business/resources/reports/dbir/?CMP=OOH_SMB_OTH_22222_MC_20200501_NA_NM20200079_00001#key-resources
-
-Astra. “State of continuous pentesting report 2026.” June 2026. https://www.getastra.com/reports/state-of-pentesting
-
-IBM. “Cost of a Data Breach Report 2026.” July 29, 2026. https://www.ibm.com/reports/data-breach?utm_medium=OSocial&utm_source=Youtube&utm_content=RSRWW&utm_id=YT-201-CODB-2026
-
-Mandiant. “M-Trends 2026 Report: Real-world investigations and actionable defense insights.” March 23, 2026. https://cloud.google.com/security/resources/m-trends
-
-Statista. “Average cost of a data breach worldwide from March 2024 to February 2026, by country or region.” July 2026. https://www.statista.com/statistics/463714/cost-data-breach-by-country-or-region/
-
-Frequently Asked Questions (FAQs)
-
-Q: What is the remediation paradox?A: Organizations are closing far more vulnerabilities, Qualys research shows a 6× rise in closures from 2022 to 2025, while a larger share of critical findings remain open at day seven. More effort has not produced better coverage of the exposures attackers use.
-
-Q: What does mean time to exploitation of −7 days mean?A: On average, weaponization arrives about a week before defenders have a deployable fix, so the defender’s clock starts already behind.
-
-Q: Why not just fix everything?A: Less than 1% of vulnerabilities are actively exploited. A program built on volume and CVSS spends most of its effort on findings attackers were never going to use.
-
-Q: What should teams ask instead?A: Is this actively exploited? What is the evidence? Which assets are at risk? What can be automated?
-
-Q: Did any organizations beat the clock?A: Yes. Qualys research found 15% of organizations that leveraged autonomous remediation patched before a vulnerability was added to the CISA KEV list."
-0b247b0fab7c,0b247b0fab7c,2026-10-14 12:46 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; AI Security,Article,TruConfidence: Why Your Patch Automation Can Finally Be Autonomous,https://blog.qualys.com/product-tech/2026/10/14/truconfidence-why-your-patch-automation-can-finally-be-autonomous,"The same report shows the median time to remediate a known exploited vulnerability (KEV) rose from 32 to 43 days, and only 26% of KEVs are fully remediated","TruConfidence: The AI-Powered Remediation Intelligence & Orchestration engine powering TruRisk Eliminate 2.0 delivers autonomous remediation at scale with proof at every step.
-
-Executive Summary
-
-Vulnerabilities are now discovered faster than enterprises can remediate them. Patch automation has been around for years, but vulnerability backlogs are still growing. Automation isn’t the bottleneck. Confidence is: without evidence of how a change will behave, Security and IT teams hold back, and the backlog grows. TruRisk Eliminate 2.0, the Autonomous RemOps platform, closes that confidence gap. TruConfidence, its remediation and orchestration intelligence engine, determines the safest, most effective way to eliminate each validated exposure while Agent Sara, Qualys’ risk remediation AI agent, executes these plans in customer-defined waves and progressive rings. Scanner-based remediation reaches edge and perimeter devices with the same Qualys scanners. Every change is monitored for operational health, rolled back automatically if anomalies arise, and closed with evidence. This approach enables rapid remediation without risking business continuity. In the past year, Qualys has deployed 178 million patches, with 40 million fully autonomous and a rollback rate under 0.1%.
-
-Patch automation has existed for years. Yet in most enterprises, automated remediation jobs still wait in line behind change approvals and maintenance windows while critical exposures stay open.
-
-The reason is that risk cuts both ways. Leave a vulnerability unpatched, and you invite exploitation. Push a faulty update, and you risk failed installs, rollbacks, or outages. Without evidence of how a change will behave, Security and IT teams default to caution, and the backlog grows.
-
-Patch automation was never the blocker. Confidence is.
-
-Today, we’re closing this gap with TruRisk Eliminate 2.0, the Autonomous RemOps platform. Powered by TruConfidence, its AI-powered Remediation and Orchestration Intelligence engine, and Agent Sara, Qualys’ autonomous AI agent for risk remediation, TruRisk Eliminate determines the right remediation action and executes it across your entire attack surface while keeping operations resilient.
-
-The Confidence Gap: Why the Remediation Backlog Keeps Growing
-
-AI-powered discovery is finding vulnerabilities faster than ticket-driven remediation can close them. Patch Tuesday recently hit 974 CVEs in a single month, on a process built for about 100. Attackers are taking advantage. The Verizon 2026 DBIR found that 31% of breaches began with the exploitation of vulnerabilities, up from 20%, making it the top initial access vector.
-
-Remediation has not kept pace. The same report shows the median time to remediate a known exploited vulnerability (KEV) rose from 32 to 43 days, and only 26% of KEVs are fully remediated. Qualys research shows the same widening gap between the speed of threats and the speed of remediation.
-
-The ability to automate is not the constraint. Qualys customers already automate remediation at scale: automated patch deployments rose 81% between the first and second quarters of 2026. They can because Qualys gives them the evidence to trust each change, from which exposures matter to how reliably a patch will deploy. What stalls machine-speed remediation is the lack of evidence needed to confidently move beyond manual, human-led remediation workflows. Without that, automated or autonomous remediation stalls.
-
-Before letting autonomous remediation run, Security and IT teams need answers to these questions:
-
-What must be fixed? Only 1% of vulnerabilities are exploited in the wild. Teams need to fix the validated exposures first, then tackle the long tail.
-
-Does it need a patch? Not every exposure needs one. A mitigation, an uninstall or an existing security control can close it faster, with less disruption.
-
-If it needs a patch, will it work and can it be automated? Teams need to predict whether a patch is safe to deploy and will not cause any business disruption, then roll it out progressively.
-
-How do we control the rollout? Teams need to deploy changes progressively: zero-touch automation for high-reliability patches on low-impact applications, and ring-based deployment for everything else.
-
-Did the environment stay healthy? Teams need ensure that risk was eliminated to maintain operational resiliency.
-
-Answer these four questions with evidence, and remediation can run at machine speed without putting business continuity at risk.
-
-How it Fits in the Autonomous RemOps Cycle
-
-Closing that gap takes more than a better patch tool. It takes a new operating model for remediation: Autonomous RemOps.
-
-Traditional patch tools push what is in the catalog and stop at “deployed.” Autonomous RemOps replaces that ticket-driven process with a continuous, evidence-based Decide → Execute → Prove. It determines what to fix, executes the appropriate remediation path across the entire attack surface, and demonstrates that the business remained resilient.
-
-TruRisk Eliminate 2.0 runs that cycle in five steps. First, Qualys ETM and Agent Val validate what must be fixed. Second, TruConfirm credits the controls already in place. TruConfidence powers the final three steps, where autonomy carries the most operational risk: choosing the remediation path, controlling the rollout, and proving that it held.
-
-Meet TruConfidence: Remediation Intelligence You Can Trust
-
-TruConfidence is the remediation and orchestration intelligence layer behind TruRisk Eliminate. For every exposure, it answers one question: what is the safest and most effective way to eliminate this risk? Agent Sara puts that answer to work through waves. Together, they cover the full remediation lifecycle before, during, and after every deployment.
-
-TruConfidence Before the Deployment
-
-Once Qualys ETM and Agent Val have validated which exposures are exploitable and TruConfirm has credited the controls already in place, TruConfidence determines the right remediation path for each exposure.
-
-Then you can determine whether a patch is needed at all. Patchless Remediation closes exposures by mitigating, uninstalling unused software, running a custom script or isolating the host. Third-Party Mitigation Intelligence extends those options through the tools teams already run, such as Zscaler and CrowdStrike.
-
-When a patch is the right remediation action, the AI-Powered Patch Reliability Scoring predicts whether the patch is safe to deploy before it runs, drawing on global telemetry and Qualys customer deployments.
-
-TruConfidence During the Rollout
-
-Agent Sara efficiently implements TruConfidence’s decisions, eliminating ticket queues. She prioritizes eliminating the exploited 1% first and then automatically addresses the remaining vulnerabilities.
-
-She organizes the backlog into remediation waves; each matched to its level of risk. You define the waves to fit your environment, and Agent Sara runs them.
-
-A typical setup might look like this:
-
-Easy Fixes: High-reliability patches on low-impact assets deploy zero-touch.
-
-Connectivity-Sensitive: Changes are sequenced carefully to protect systems with critical network dependencies.
-
-Operational Risk: Changes are held for closer review before proceeding.
-
-Beyond Patching: Exposures are routed to the patchless path TruConfidence selected.
-
-Every change moves through progressive rings, from Pilot to broad deployment, and is observed before it reaches the next tier. A low-reliability signal automatically pauses progression, keeping the blast radius as small as possible.
-
-Agent Sara works within your rules, not around them, enforcing maintenance windows, asset groupings, and rollback controls, and requires human approval wherever a critical service, identity infrastructure, or production databases are involved.
-
-TruConfidence After the Rollout
-
-A successful install is not the finish line. Operational Resiliency continues to correlate health signals after each change, monitoring for CPU spikes, memory issues, and service impact. Stable metrics confirm the change held, while anomalies pause the rollout and trigger rollback. When a remediation fails, AI-Powered Failure Analysis explains the root cause in plain language, such as a pending reboot or a missing prerequisite, and recommends the corrective action. Every change ends with evidence, which means faster recovery and fewer war rooms.
-
-Remediation that reaches every corner of your attack surface
-
-TruRisk Eliminate 2.0 goes past agent-based endpoints. It extends remediation to perimeter devices, cloud and applications, so teams can deal with an exposure wherever it lives. Each asset gets the response that fits it: patch it, mitigate the risk when no patch exists yet, uninstall the vulnerable software, isolate the asset or apply a custom fix.
-
-For assets that can’t host an agent, Eliminate works through Qualys scanners and the security and IT integrations you already have. Every exposure gets a path to remediation, not just the ones on managed endpoints.
-
-Proven in Production. Built to Keep Going
-
-TruRisk Eliminate already runs remediation at scale:
-
-Each pass through the cycle first closes validated exposures and moves the long tail into the next waves, so the backlog shrinks continuously rather than piling up between change windows. And because every change is backed by proof, TruRisk Eliminate becomes both the system of record and the system of action for cyber risk reduction.
-
-Give your board confidence in security and business continuity.
-
-Start a TruConfidence trial and watch TruRisk Eliminate 2.0 decide, execute, and prove remediation in your own environment."

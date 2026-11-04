@@ -1,4 +1,99 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+f449d3d276b4,f449d3d276b4,2026-11-04 05:00 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Takes,Endpoint Security; AI Security; Identity Security Posture Management; Network Security,Podcast,The VOLTA infostealer: Outsourcing cybercrime grunt work to AI,https://www.buzzsprout.com/2018149/20046965,"So when I ran the hunt and ultimately found this, what I do first is there's a series of filters that are pulling binaries that have AI specific fingerprints in them. It's like an added feature that can be run, but the stealer can just run and do all this collection and package everything back, or package everything...","Amy Ciminnisi: 0:00
+
+Welcome to Talos Takes, where we discuss Cisco Talos’ latest research and security news. We break down complex topics for everyone from beginner to expert, C-suite to frontline.
+
+Amy Ciminnisi: 0:13
+
+Hello everyone, happy November! Attackers often face a bottleneck. They steal massive piles of data, and then they have to do the slow, tedious work of figuring out which of the victims are actually worth the effort. But now malware can start doing that analysis for them. VOLTA is a newly discovered info stealer that uses LOLs to turn raw stolen credentials into a prioritize high value dossier. And here to break this down is Ryan Fetterman, who is the creator of CAIRN. Now, if you haven't heard already, CAIRN is a research framework that is designed to track these AI integrated threats. It examines the metadata so there is no need for binary downloads or risky detonations. And it gives defenders insights into how attackers are integrating intelligence AI specifically into their operations. So Ryan is joining me to talk about all things VOLTA and what this kind of automation means for security teams. Ryan, how are you doing?
+
+Ryan Fetterman: 1:27
+
+I'm good. Yeah. Thanks for having me. Although I wish I was here under less scary circumstances.
+
+Amy Ciminnisi: 1:34
+
+I really wish so, too. Maybe we'll get you on here for, you know, something a little less pressing, a little less. Reality shifting. So let's actually start with the discovery. Of this. When you were analyzing this, was there like, a specific moment where you realized, like, hey. This isn't just a credential sealer. This is just a. Whole intelligence analysis suite. Like, what was that? Moment for you?
+
+Ryan Fetterman: 2:09
+
+Sure. So I can explain kind of how this comes about from the care and perspective. So when I ran the hunt and ultimately found this, what I do first is there's a series of filters that are pulling binaries that have AI specific fingerprints in them. So the rule that this binary matched on was, it had an API endpoint. We can see that in the metadata. In this case it's using open router. So when I do the second level pass there's a second tier of Yara rules that will then characterize more of the behavior of the binary. And in this case we had rule matches for telegram integration with that LLM as a C2 potentially. And then also AV labels indicating that it's a stealer with AI integration. So in this case, those rules were pretty accurate and give you an initial impression of what the file is and what what kind of malware we might be looking at. But I would say there wasn't really an moment until the Re stage when when you're doing like the reverse engineering of the binary. And at this point when I did a string stomp, I recovered the VOLTA-AUTODOXER name, which just sounds like a malware and like a doxing kind of stealer implant. And then ultimately, like recovering the prompt itself is always like a really unique and cool, aspect of like, this AI integrated malware, because there's no more guessing about the, the intent and the motivation of this tool, like it's all spelled out there for us.
+
+Amy Ciminnisi: 3:53
+
+Yeah. And so let's. Get into maybe what this tool actually does. One of the things that I found pretty crazy in the blog is that it doesn't just like grab saved passwords, but it uses sessions to look up like DoorDash order histories or, you know, confirm addresses with receipts in your Gmail inbox. You know, from a practitioner perspective, this seems really invasive. How does this change the way that we view the impact of a compromise browser session?
+
+Ryan Fetterman: 4:32
+
+Yeah, I think this is a big deal. And I've witnessed this personally, like as I've used, Google and like, oh, off authentication to connects to so many more services and things. Now it's just convenient to not have to create another account and password for everything you connect to. But it really makes your kind of core like your your Google account, just like a real gem for an attacker. Because if you're able to access that and replay an authenticated session from the the victim's machine, which is what they're doing in this case, you just have the keys to, so many different apps and so much data. And this malware really does a good job of showing you kind of like what the extra mile looks like when you have access to these kind of credentials. So I'm not an expert in this space, but like, I know there's a lot of hardware backed protections that prevent attackers from kind of extracting your credentials and taking them back off of your machine. But that doesn't really help in this context, because they're replaying the authenticated sessions from your actual machine. So in this case, there are protections like step up authentication, like when you're trying to make a really serious change, like, you know, rerouting where your mail is going or something like that. Google will prompt you for another, challenge for authentication. But in this case, the attacker, maybe knowingly or wisely, is kind of staying under that bar as well and just doing like inbox searches to provide like a layer of enrichment to that. They have the first level of credentials, like the basic information and what they can scrape off of your machine, but then they're replaying those sessions to do basically like a second pass to see what else they can pull. To kind of round you out as a target.
+
+Amy Ciminnisi: 6:31
+
+And then looking at like the prompt itself, I mean, if it weren't so malicious, I would find it so impressive. But it like, prompts the LLN to make connections between, like, the victim's hobbies or their home address to things like their password patterns.
+
+Ryan Fetterman: 6:52
+
+Yeah. What's interesting is the the AI integration in this case is actually totally optional. It's like an added feature that can be run, but the stealer can just run and do all this collection and package everything back, or package everything up and send it back to the attacker without this kind of polishing step. So the exfil can actually happen in three stages. It can exfil after the stealer runs, it can fill after the AI call, or it can exfil after the last layer of like, network enrichment produces anything. And I think this is something that we've seen across a couple different AI integrated malware now that not only like this model has multi-model, kind of resilience in it. So they're anticipating potentially hitting refusals on the first model, which in this case is Claude. So if they can't accomplish the the prompt with Claude, they will kind of cascade to less permissive models. But then ultimately the ability for the malware to run without the without the AI integration overall, I think is another interesting idea. But yeah, this is kind of clever use of AI. They talk about picking out specific patterns within the victim's data, which is something that these language models are really good at. Better than humans, I would say in most cases. So they're talking about connecting like if, there's browser traffic to a, a learning management system, can you infer that this person goes to that university or teaches at a school or something like that? They're looking for patterns in your passwords or connections between your personal data and your password, which then I think may translate to if you if you have patterns for how you create passwords for services that they don't know. So I think they're really kind of cleverly trying to stretch the data as much as they can and using AI in a really fascinating way that I think this is the first time that I've seen AI be employed in the malware in some way that actually has nothing to do with, like the cyber kill chain, but is just like asking the model to function like an intelligence analyst or kind of outsourcing this analytical work, like the model is a subcontractor for them, right?
+
+Amy Ciminnisi: 9:32
+
+And I can't believe we forgot to kind of mention this, but what are the other sections of output that the prompt requests the LLM to go through? You kind of started to touch on one there. What someone is worth. Can you kind of talk about that a little bit more?
+
+Ryan Fetterman: 9:50
+
+So the characterization of the prompt from the first line is telling the, the model that they are acting as a forensic intelligence analyst. And I think this is kind of a creative framing for this kind of task, because they don't want to characterize this task as anything kind of overtly malicious, when they're trying to use a frontier model, which they're trying to use Claude for this on the first pass. So I think this characterization of being an intelligence analyst kind of puts it in a more benign light. They also really emphasize citations, sticking to the facts. Not making any jumps in in inference, they kind of bundle evidence into different layers where there are, subjective identifiers. There are corroborated facts. When you have points of data that are backed by two independent data sources. So this is a pretty thorough structure. Almost like a, you know, a realistic like intelligence assessment type of report that they're putting together. But then, yeah, ultimately, what sticks out about your profile that the LLM is putting together based on the scraped data is who who they are the victim in this case, what they do. What they're worth. Which is a list of your value valuables ranked by monetization, like your crypto. They'll do a lookup on your Roblox account. They'll look at your card accounts, and they'll put these into tears. Low, medium and high. And then they're also assessing your OpSec. How strong are your passwords? Are you using multi-factor authentication? Do you have any privacy tools installed? So it's yeah, pretty comprehensive and a little bit creepy, right?
+
+Amy Ciminnisi: 11:48
+
+And speaking of outsourcing, you mentioned in the blog that you think that this could be a commodity malware. So the owner is selling access to it. People are buying it. So if it is, what might be like the potential reasons that someone wouldn't want to use the integrated LLM. You mentioned it's optional, but that seems like a huge differentiator or value add for someone who's interested in buying it.
+
+Ryan Fetterman: 12:16
+
+Yeah, I mean, as far as I can tell, like the limitations would be just do you have keys for these services? Do you want to tie yourself to, another piece for like attribution or something else that can get you flagged for abuse? So you would need an open router key in this case to use the models. And I guess it depends on the scale of the operation that you're running. Like there would be cost for tokens and things like that. And it's ultimately a question of like what is the actual value add of the AI integration in this case. So I thought initially that this would lead to the attackers being more effective at, successfully stealing from their most high profile targets, because they're going to be able to identify who those targets are faster. But I was thinking about that as from the perspective of like, their tokens and their authentication kind of aging out over time. But if the attacker is able to play the sessions from the victim's own box, it's probably not as big of a deal that those sessions will probably stay active for much longer periods of time. So I think it is, yeah, mostly about running an operation at scale. And maybe not everyone wants to to do something that broad.
+
+Amy Ciminnisi: 13:43
+
+Yeah. And like for practitioners who are listening to this like the fact that VOLTA is self deleting and it doesn't use the usual, command and control traffic is a bit of a headache. So like if you are a defender, where do you even start looking to catch something that's doing all of its sorting kind of in the background?
+
+Ryan Fetterman: 14:05
+
+Yeah. The primary binary will be self deleting the it has a lot of traditional stealer capabilities. So for more mature organizations like there should be detections and things for kind of the well known trade craft here like Alsace dumping or accessing registry, things like that. But this seems like a more targeting like individuals. So in that case, like if you suspect that you've been compromised, there is a file that gets dropped, a VOLTA D debug text file that actually tells you what was collected and will confirm whether you, you had been compromised by this kind of malware. And it also tells you whether the call was successful. It's hard to say what like what's going to be most effective, outside of those other kind of security flags. I think you can try to save the headless mode for Chrome, which I think you can do through, like your registry in windows or on Mac. And I think that would be how the attacker would be accessing like and replaying kind of your browser based like authenticated sessions. So that was kind of the best idea that I had that, that might like get ahead of this.
+
+Amy Ciminnisi: 15:28
+
+Kind of continuing that train of thought. I'm thinking about like, especially because it is so focused on individuals, especially with so many other, things to worry about right now. Do we have any kind of clue on how widespread this specific stealer might be? I don't know, it's so subjective, but do you feel like it's, you know, worth devoting resources to defend against? You know, like how how can the everyday person kind of defend against this? I know I'm asking the hard questions here, but.
+
+Ryan Fetterman: 16:08
+
+Yeah, I think the best approach is to just not click on any links and not open any files and you'll be totally fine. So yeah, you can do what you need to do effectively without clicking on any links on the internet. You'll be safe. I don't think we should overreact. Like, this is, you know, mostly like a mature but commodity stealer that does a lot of things that other, other malware is probably already doing. And it's only like getting this attention because of the disturbing peek behind the curtain into, like, what the developer of this is instructing it to do and kind of this new flavor of AI implementation. But otherwise, like, there's nothing novel here in like the actual attack. So still basic hygiene and safety like online. Don't click on suspicious links. Don't open suspicious attachments. Yeah. Consider like using a sandbox or, sandboxing like internet activity from when your, doing kind of sensitive things like banking or I know people can maintain separate browsers depending on what they're doing.
+
+Amy Ciminnisi: 17:24
+
+Back to the basics.
+
+Ryan Fetterman: 17:26
+
+Y eah.
+
+Amy Ciminnisi: 17:26
+
+As everything is. Looking toward where this might be headed. I mean, do you have any ideas about, you know, potential implications for the future? You know, different ways that this could be leveraged or that this can be developed further.
+
+Ryan Fetterman: 17:46
+
+I mean, it feels like a Black Mirror episode is like where we're headed with these kind of malware findings. I don't want to speculate too much. I mean, I'm trying to stay objective and just see what's happening and only draw conclusions from what we're what we're actually seeing out there. Yeah. Again, I think what was interesting to me was like seeing this in more of a, a cyber crime context, where the AI wasn't adding to the actual capability of the malware per se, but was used in more of that, like human context and offloading the analytical work of the attacker. So I think that will be interesting to keep an eye on if we start to see more things like that. Again, I think the the multi-model architecture was interesting and something that I've seen across multiple samples. Now that these attackers are anticipating hitting model refusals and planning for that and having these kind of cascading implementations where they can relay their request to more permissible models until they get something to work. And that also, I think, tells us that there still are reasons that they want to use these frontier or hosted models versus hosting them them selves, which has been kind of an open question. If open weight models are roughly capable or maybe six months behind frontier level capability, they're quite capable at this point. So why aren't we seeing more attackers using open weight models or hosting their own infrastructure? So I think that that tells us something about their preference for using these open and trusted services without the need to tie or spin up any infrastructure themselves, versus just continue to operate on these platforms like Discord and Telegram and Open Router, where maybe they just get flagged for abuse and get their their keys revoked without any further consequences.
+
+Amy Ciminnisi: 19:48
+
+Right. Oh man, that's fascinating. I feel like that could be an entire other podcast episode in itself. Ryan, thank you so much for joining.
+
+Ryan Fetterman: 19:58
+
+Of course. Anytime. Thank you.
+
+Amy Ciminnisi: 19:59
+
+Listeners. If you'd like to learn more about VOLTA, you can see Ryan's blog at blog.talosintelligence.com. Ryan has also been interviewed by WIRED for a news story that went out on Saturday the 31st, so I will include both of those in the show notes. We'll see you next time. And until then, stay safe out there."
 b94741e75ddf,b94741e75ddf,2026-10-31 12:00 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Endpoint Security; AI Security; Identity Security Posture Management,Article,Appraisal by AI: Model-driven victim prioritization in the VOLTA infostealer,https://blog.talosintelligence.com/appraisal-by-ai-model-driven-victim-prioritization-in-the-volta-infostealer/,The novelty in the AI-integration is that it is not supporting a traditional malware capability but working as an intelligence analyst on behalf of the operator,"VOLTA is a mature stealer implant with an optional AI-integration layer. After stealing credentials, sessions, and cryptocurrency wallets, VOLTA sends a structured evidence bundle to an LLM to rank the victim’s assets by monetization value.
 
 If a model refuses to perform the target assessment, VOLTA fails over to a three-model chain, implying a direct engineering effort and expectation of hitting model guardrails.
