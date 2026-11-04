@@ -1,4 +1,634 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+0cb5cd9e1582,0cb5cd9e1582,2026-11-03 17:32 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Threat Intelligence; Endpoint Security; Network Security,Article,Fake-download campaign uses trojanized installers to deliver monetization payloads,https://www.microsoft.com/en-us/security/blog/2026/11/03/fake-download-campaign-uses-trojanized-installers-deliver-monetization-payloads/,In this article Attack chain overview Mitigation and protection guidance Learn More Microsoft Threat Intelligence has identified an evolving fake-download campaign targeting...,"In this article
+
+Attack chain overview
+
+Mitigation and protection guidance
+
+Learn More
+
+Microsoft Threat Intelligence has identified an evolving fake-download campaign targeting users searching for cracked commercial software, free games, activators, plugins, and unofficial utilities. The campaign uses trojanized Inno Setup-style installers to distribute multiple monetized software payloads, referred to by the delivery system as “offers”, during a single installation session.
+
+Our investigation found that the installers use a per-offer callback and status-tracking model to manage delivery and record installation outcomes. We confirmed three downstream monetization branches that transformed affected devices into monetized assets, including by routing third-party internet traffic through the device, enrolling it in a distributed-computing platform, or installing additional utility-style software, often without users’ informed knowledge or consent. These products and components may have legitimate uses, but their silent installation through deceptive software bundles without informed user consent introduces security and privacy risks.
+
+Organizations can reduce their exposure to this activity by preventing the use of untrusted software sources, enabling potentially unwanted application protection, and monitoring for unexpected software installations and persistence mechanisms.
+
+This blog details the campaign’s execution model and confirmed outcomes and provides mitigation guidance, Microsoft Defender protection information, advanced hunting queries, MITRE ATT&CK mappings, and indicators of compromise to help defenders identify, investigate, and respond to related activity.
+
+Attack chain overview
+
+The fake-download campaign follows a four-stage attack chain that progresses from deceptive lures through Inno-based staging, offer-controlled payload delivery, and installation of one or more monetization branches:
+
+Initial access via fake download lures – Users run fake installers promoted as cracked commercial software, free games, activators, plugins, executors, or unofficial utilities.
+
+Inno wrapper execution and temporary runner staging – The installer launches an Inno Setup-style temporary runner under %TEMP%\is-*.tmp\, which starts recurring eld*.exe, set_*.exe, or other numbered stages.
+
+Offer execution callback and payload delivery – The runner contacts rotating infrastructure using a repeatable d=inno and r=offer_execution callback pattern. Offer, affiliate, download-network, placement, and session values coordinate downstream payload selection and correlate activity within the installer session.
+
+Final payload installation and monetization – Staged payloads use unattended installation switches to install one or more confirmed campaign branches: WorldProxyPool for proxy and network-resource monetization; CharityEngine and Berkeley Open Infrastructure for Network Computing (BOINC) for compute-resource monetization; or Advanced Windows (AW) Manager and Windows Manager for adware-style utility monetization. WorldProxyPool also creates recurring SYSTEM scheduled tasks for agent startup, watchdog execution, and updater activity.
+
+Attack Chain
+
+Figure 1. Overview of the attack chain.
+
+Initial access via fake download lures
+
+The campaign begins when users download and run fake installers promoted as cracked software, game installers, executors, activators, plugins, utilities, or driver and mobile-unlock tools. Observed lures include cracked audio plugins, PC games, Roblox executors, auto-clickers, driver tools, and fake utility installers.
+
+Example lures: Echo Client; FabFilter Total Bundle; Navicat Premium crack; Cue Club; auto-clicker; Deadpool Apunka Games; Command & Conquer: Red Alert 2; TFT Unlock Tool; and clownfishvoicechanger.
+
+Figure 2. Example utility download lure.
+
+Inno wrapper execution and temporary runner staging
+
+Across the investigated activity, user-launched lures spawned Inno Setup-style temporary runners under %TEMP%\is-*.tmp\ and then launched one or more numbered eld*.exe stages. Arguments such as /SL5, /SPAWNWND, and /FIRSTWND, together with the temporary path and numbered stage names, provide more durable indicators than the original lure filename.
+
+The depth of the execution chain and its downstream outcome varied by installer session. One Echo Client example progressed through multiple numbered stages and reached several monetization branches, while other observed lures exposed fewer numbered stages or downstream components.
+
+The table below uses the Echo Client activity as a representative example of the wrapper-to-stage sequence; individual installer sessions may launch different combinations of numbered stages.
+
+Step
+
+Process
+
+Command-line / path signal
+
+Role
+
+1
+
+Echo Client.exe
+
+Launched from %USERPROFILE%\Downloads\Echo Client\
+
+User-launched lure
+
+2
+
+Echo Client.tmp
+
+%TEMP%\is-*.tmp\… with /SL5=…
+
+Inno temporary runner
+
+3
+
+Echo Client.exe
+
+/SPAWNWND=… /FIRSTWND=…
+
+Inno child process / window handoff
+
+4
+
+Echo Client.tmp
+
+/SL5=… /SPAWNWND=… /FIRSTWND=…
+
+Temporary runner continues execution
+
+5
+
+eld*.exe
+
+eld0.exe, eld1.exe, eld3.exe, eld4.exe, and eld5.exe under %TEMP%\is-*.tmp\
+
+Numbered staged payloads
+
+Table 1. Inno wrapper execution and temporary runner staging.
+
+Offer execution callback and payload delivery
+
+After staging, the Inno temporary runner contacted rotating callback infrastructure using randomized URL paths but a repeatable query-string structure:
+
+http:///?sis=&fz=&d=inno&r=offer_execution&ko=no&o=&a=&dn=&spot=&t=&cr=
+
+Failed or blocked offers used r=offer_execution_fail and sometimes included local error text, including messages that the operation did not complete because the file contained a virus or potentially unwanted software. These callbacks are useful campaign-attribution and sequencing markers, but they are not always the earliest prevention point. In some endpoint detection and response (EDR) traces, child payloads launched before or around the r=offer_execution callback.
+
+The campaign used offer IDs, affiliate IDs, download-network IDs, and placement values to select or report downstream payload attempts. Observed offer and download-network combinations included o=1712 / dn=507, o=1720 / dn=536, o=1727 / dn=564, o=1729 / dn=566, o=331 / dn=244, o=1674 / dn=440, o=1675 / dn=441, o=1681 / dn=447, and o=1730 / dn=567. Different offers could succeed or fail independently within the same installer session, so a failed first offer did not necessarily mean that the full bundle stopped.
+
+Parameter
+
+Observed use
+
+Assessment
+
+d
+
+Often set to inno
+
+Installer or delivery-family marker
+
+sis
+
+Stable within an installer session
+
+Session-correlation value
+
+a
+
+Stable across related requests
+
+Affiliate, campaign, or distribution-partner identifier
+
+o
+
+Changes by offer
+
+Offer identifier
+
+dn / on
+
+Changes with the offer or retrieval path
+
+Download-network or offer-network field; exact meaning unconfirmed
+
+spot
+
+Increments through the session
+
+Offer placement, slot, or execution order
+
+paw
+
+Present across offer requests
+
+Request, package, or session-correlation value; exact meaning unconfirmed
+
+fz
+
+Present in outcome callbacks
+
+Delivered package size or file-size field
+
+t
+
+Present in outcome callbacks
+
+Timing, token, or request value; exact meaning unconfirmed
+
+r
+
+offer_execution or offer_execution_fail
+
+Per-offer execution result
+
+msg
+
+Present on failed offers
+
+Error text from the local download or installation attempt
+
+ko / cr
+
+Boolean-like or short values
+
+Server-side control or result flags; exact meaning unconfirmed
+
+Table 2. Assessments are based on observed telemetry correlations, not confirmed server-side definitions.
+
+Offer / download-network pair
+
+Semantic meaning
+
+o=1712 / dn=507
+
+Primary first-stage offer commonly attempted at the start of the installer flow.
+
+o=1720 / dn=536
+
+Offer branch associated with CharityEngine/BOINC distributed-compute monetization.
+
+o=1727 / dn=564
+
+Offer branch associated with WorldProxyPool proxyware monetization.
+
+o=1729 / dn=566
+
+Recurring follow-on offer branch in the installer flow.
+
+o=331 / dn=244
+
+Secondary offer branch observed in the multi-offer sequence.
+
+o=1674 / dn=440
+
+Later campaign offer branch.
+
+o=1675 / dn=441
+
+Low-volume offer branch.
+
+o=1681 / dn=447
+
+Additional offer branch in the campaign’s installer rotation.
+
+o=1730 / dn=567
+
+Later high-volume offer branch.
+
+Table 3. Offer and download-network pairs and their semantic roles in the installer flow.
+
+The campaign rotated callback domains frequently while preserving the same d=inno and offer-execution callback structure across recurring lure categories. Individual domains are therefore short-lived infrastructure indicators; the durable hunting signal is the combination of the callback pattern, Inno temporary execution, staged filenames, and related installer-session activity. The full observed domain set is provided in the IOC section.
+
+Final payload installation and monetization
+
+After offer callback and payload delivery, the campaign launched downstream installers or components using unattended installation switches such as /qn, /S, /quiet, and /norestart. This stage converted the fake-download execution chain into installed software and recurring execution across three monetization branches: proxy and network-resource monetization, compute-resource monetization, and adware-style utility monetization.
+
+Branch
+
+Primary behavior
+
+Representative artifacts
+
+A. WorldProxyPool
+
+Proxy agent installation and scheduled-task setup
+
+sdk-agent.exe; sdk-agent.updater.exe; watchdog.ps1; WorldProxyPoolAgent task
+
+B. CharityEngine / BOINC
+
+Distributed-compute software installation
+
+boinc.exe; charityengine.exe; ce11.exe; VirtualBox-7.2.8-r173730.msi
+
+C. AW Manager / Windows Manager
+
+Utility and updater-style software installation
+
+Windows Manager – Postback Johan.msi; AdvancedWindowsManager.exe; Windows Updater.exe
+
+Table 4. Summary of the three monetization branches and representative artifacts.
+
+Proxy and network-resource monetization — WorldProxyPool
+
+In the WorldProxyPool branch, a staged eld4.exe payload created three SYSTEM-level scheduled tasks for components under C:\Program Files\WorldProxyPool\. WorldProxyPoolAgent configured sdk-agent.exe to run at system startup with highest privileges; WorldProxyPoolWatchdog configured a hidden, noninteractive PowerShell watchdog script to run every five minutes; and WorldProxyPoolUpdater configured sdk-agent.updater.exe update to run hourly. The installer also started the agent task immediately with schtasks.exe /Run. Subsequent task launches were brokered by the Windows Task Scheduler service (svchost.exe -k netsvcs -p -s Schedule), causing sdk-agent.exe and the watchdog script to execute in the service context. This persistence mechanism supports recurring proxy-agent, watchdog, and updater activity, consistent with network-resource monetization.
+
+Scheduled task
+
+Purpose
+
+WorldProxyPoolAgent
+
+Runs sdk-agent.exe at system startup as SYSTEM with highest privileges; the installer also started it immediately with schtasks.exe /Run.
+
+WorldProxyPoolWatchdog
+
+Runs a hidden, noninteractive PowerShell watchdog script every five minutes as SYSTEM with highest privileges.
+
+WorldProxyPoolUpdater
+
+Runs sdk-agent.updater.exe update hourly as SYSTEM with highest privileges.
+
+Table 5. WorldProxyPool scheduled tasks created during the proxyware installation chain
+
+Figure 3. WorldProxyPool installation and persistence. eld4.exe created SYSTEM-level startup, five-minute watchdog, and hourly updater tasks.
+
+Compute-resource monetization — CharityEngine and BOINC
+
+In the CharityEngine and BOINC branch, the offer payload installed distributed-compute software and supporting components under C:\Program Files\BOINC\ and C:\ProgramData\BOINC\. Observed components included ce-installer_7.14.2_vbox-7.2.8.exe, ce_7.14.2_windows_x86_64.exe, charityengine.exe, boinc.exe, boinctray.exe, boinc.scr, boincscr.exe, wrapper_2022110901_windows_x86_64.exe, ce11.exe, and VirtualBox-7.2.8-r173730.msi. They covered BOINC launch, compute-wrapper execution, GPU or compute-capability checks, CharityEngine project communication, and VirtualBox installation.
+
+Figure 4. CharityEngine/BOINC compute-monetization branch.
+
+Adware-style utility monetization: AdvancedWindowsManager / Windows Manager
+
+The same Inno offer-execution infrastructure delivered an AW Manager or Windows Manager branch. In one observed process tree, the Inno runner spawned eld3.exe, launched Windows Manager – Postback Johan.msi, and installed AdvancedWindowsManager.exe and Windows Updater.exe under paths resembling %APPDATA%\AW Manager\Windows Manager 1.0.0\ or C:\Program Files (x86)\AW Manager\Windows Manager\.
+
+Figure 5. AW Manager / Windows Manager utility-install branch.
+
+Mitigation and protection guidance
+
+Microsoft recommends the following actions to reduce exposure to this campaign and detect related activity:
+
+Preventive controls
+
+Avoid untrusted software sources. Do not download cracked software, key generators, unofficial game installers, or software activation tools, which are common delivery mechanisms for malware, potentially unwanted applications, and monetization campaigns.
+
+Enable cloud-delivered protection. Verify that Microsoft Defender Antivirus cloud-delivered protection is enabled to improve detection of emerging malware and potentially unwanted applications. See: Configure cloud-delivered protection
+
+Keep tamper protection enabled. Use tamper protection to help prevent unauthorized changes to Microsoft Defender security settings. See: Learn about tamper protection.
+
+Enable reputation-based protection. Configure reputation-based protection to help block known malicious and untrusted applications and downloads. See: Configure reputation-based protection.
+
+Consider Attack Surface Reduction (ASR) protections. Evaluate ASR rules, including rules that block executable files unless they meet prevalence, age, or trusted-list criteria. See: Review Attack Surface Reduction rules.
+
+Investigation actions
+
+Investigate execution from Inno temporary directories. Review activity from paths such as %TEMP%\is-*.tmp\, particularly when staged executables such as eld*.exe, set_*.exe, FirstFast[1].exe, or SecondRunner[1].exe are observed.
+
+Correlate Inno callback activity. Monitor outbound requests containing d=inno together with r=offer_execution or r=offer_execution_fail, and review related process, file, and network activity across the complete installer session.
+
+Review unexpected scheduled tasks. Investigate newly created scheduled tasks, particularly tasks running with SYSTEM privileges or recurring watchdog and updater functions. See: Audit scheduled task creation events.
+
+Audit software inventory for unexpected installations. Review endpoints for the presence of software such as WorldProxyPool, CharityEngine, BOINC, VirtualBox, or other applications that users did not intentionally install. See: Review software inventory in Defender Vulnerability Management.
+
+Microsoft Defender XDR detections
+
+Microsoft Defender detects and blocks campaign-linked payloads through cloud protection, machine-learning classifications, network inspection, and behavior monitoring. Relevant observed detections include remote-thread injection, scheduled-task launch, and suspicious outbound HTTP activity.
+
+Customers with provisioned access can also use Microsoft Security Copilot in Microsoft Defender to investigate and respond to incidents, hunt for threats, and protect their organization with relevant threat intelligence.
+
+Tactic
+
+Observed activity
+
+Microsoft Defender coverage
+
+Initial access and execution
+
+Users execute fake cracked-software installers, including files presented as Navicat Premium or FabFilter bundles, from Downloads, archive-extraction folders, or Inno extraction paths. The installers launch temporary payloads from %TEMP%\is-*.tmp\.
+
+Microsoft Defender Antivirus – Trojan:Win64/OfferLoader.DA!MTB – Trojan:Win64/OfferLoader.DB!MTB Microsoft Defender for Endpoint – A suspicious file was observed – An active ‘Wacatac’ malware was detected – ‘Kepavll’ malware was prevented
+
+Command and control / campaign tracking
+
+Outbound callbacks use a stable Inno offer-execution URL contract: d=inno with r=offer_execution or r=offer_execution_fail. Each callback reports an individual offer result. Correlating these callbacks with process, file, network, persistence, and installation events provides visibility across the multi-offer session.
+
+Microsoft Defender Antivirus – Behavior:Win32/SuspInnoOffer.A!mapsi Microsoft Defender for Endpoint – Suspicious ‘SuspInnoOffer’ behavior was blocked
+
+Staging and payload delivery
+
+The installer chain drops multiple staged files from Inno temporary directories, commonly named eld*.exe, set_*.exe, FirstFast[1].exe, and SecondRunner[1].exe.
+
+Microsoft Defender Antivirus – Trojan:Win64/OfferLoader.DA!MTB – Trojan:Win64/OfferLoader.DB!MTB Microsoft Defender for Endpoint – A suspicious file was observed – An active ‘Wacatac’ malware was detected – An active ‘Egairtigado’ malware was blocked – ‘Kepavll’ malware was prevented
+
+Persistence
+
+In the investigated Navicat chain, WorldProxyPool created SYSTEM scheduled tasks with highest privileges: WorldProxyPoolAgent at startup, WorldProxyPoolWatchdog every five minutes through hidden noninteractive PowerShell, and WorldProxyPoolUpdater hourly. It also wrote uninstall metadata under the WorldProxyPool registry key.
+
+Microsoft Defender for Endpoint – Suspicious scheduled task activity – Suspicious Scheduled Task Process Launched – Suspicious Task Scheduler activity
+
+Resource hijacking / monetization
+
+Two monetization paths were confirmed. The Navicat chain installed WorldProxyPool proxyware. The FabFilter chain silently installed CharityEngine/BOINC, VirtualBox, and Visual C++ components, launched BOINC workloads, and contacted CharityEngine infrastructure.
+
+Microsoft Defender Antivirus – Adware:Win32/Clover – Trojan:Win64/OfferLoader.DA!MTB – Trojan:Win64/OfferLoader.DB!MTB Microsoft Defender for Endpoint – An active ‘Clover’ malware was detected – An active ‘Wacatac’ malware was detected
+
+Defense evasion and suspicious behavior
+
+Several staged payloads are associated with defense-evasion, execution, persistence, remote-thread, and other suspicious behaviors.
+
+Microsoft Defender Antivirus – Trojan:Win32/OffLoader.A Microsoft Defender for Endpoint – Suspicious ‘SuspEtherRpcConn’ behavior was blocked – Suspicious ‘SuspSmsScanConn’ behavior was blocked
+
+Microsoft Security Copilot
+
+Security Copilot customers can use the standalone experience to create their own prompts or run prebuilt promptbooks to automate investigation and response tasks related to this campaign. Useful promptbooks include:
+
+Incident investigation
+
+Microsoft User analysis
+
+Threat actor profile
+
+Threat Intelligence 360 report based on MDTI intelligence
+
+Vulnerability impact assessment.
+
+Some promptbooks require access to Microsoft Defender XDR, Microsoft Sentinel, or related Microsoft security plugins.
+
+For this campaign, analysts can prompt Security Copilot to summarize and correlate available incident evidence, subject to connected data and permissions.
+
+Threat intelligence reports
+
+Microsoft customers can use Microsoft Defender XDR Threat analytics and related Microsoft threat intelligence reporting to track this rotating, multi-offer fake-download campaign and review updates on its Inno callbacks, offer outcomes, staged payloads, infrastructure, and proxyware or distributed-compute results.
+
+The reporting helps analysts correlate offer callbacks and endpoint activity from the same installer session, identify devices with associated monetization stages, and assess the overall bundle outcome. It also provides investigation context, protection guidance, relevant indicators, and recommended response actions.
+
+Advanced hunting
+
+Microsoft Defender XDR customers can run the following advanced hunting queries to find related activity in their networks.
+
+Inno offer-execution callbacks
+
+DeviceNetworkEvents | where RemoteUrl has ""d=inno"" | where RemoteUrl has_any (""r=offer_execution"", ""r=offer_execution_fail"") | project Timestamp, DeviceName, RemoteUrl, InitiatingProcessFileName
+
+Payload execution from Inno temporary directories
+
+DeviceProcessEvents | where FolderPath has @""\AppData\Local\Temp\is-"" | where FileName matches regex @""(?i)^(eld[0-9]+|set_[0-9]+|FirstFast(?:\[1\])?|SecondRunner(?:\[1\])?)\.exe$"" | project Timestamp, DeviceName, FileName, FolderPath, InitiatingProcessFileName, SHA256
+
+Outbound connections to observed campaign infrastructure
+
+DeviceNetworkEvents | where RemoteUrl has_any (""orbittrack.cfd"", ""prairielink.cfd"", ""willowbox.xyz"", ""stonestation.cfd"", ""foldlodge.xyz"", ""friendsanchor.xyz"", ""fallport.cfd"", ""wishcourt.cfd"", ""cratebase.cfd"", ""belieftrack.cfd"", ""beliefdesk.xyz"", ""companyharbor.xyz"", ""signalpane.cfd"", ""inkact.xyz"", ""wishgrove.cfd"") | project Timestamp, DeviceName, RemoteUrl, RemotePort, InitiatingProcessFileName
+
+Hunting note: Treat each callback as an individual offer result. Group events by device, time window, and available session or affiliate fields, then correlate the callbacks with Inno temporary execution, staged filenames, scheduled-task creation, and monetization-software activity. Domain-only matches are leads, not confirmation. Validate the queries against the current Microsoft Defender XDR schema before publication.
+
+MITRE ATT&CK Techniques observed
+
+The following MITRE ATT&CK mappings reflect behaviors observed in the investigated activity. Mappings are limited to evidence described in this report.
+
+Execution
+
+T1204.002 User Execution: Malicious File | A user launches an installer presented as cracked software, a game, an activator, a plugin, or an unofficial utility.
+
+Persistence
+
+T1053.005 Scheduled Task/Job: Scheduled Task | WorldProxyPool creates SYSTEM-level startup, watchdog, and updater tasks; the watchdog runs every five minutes and the updater runs hourly.
+
+Defense evasion
+
+T1036 Masquerading | Installers are presented with names and branding associated with cracked commercial software or unofficial software bundles to encourage execution.
+
+T1564.003 Hide Artifacts: Hidden Window | The WorldProxyPool watchdog invokes PowerShell with hidden, noninteractive execution options.
+
+Command and control
+
+T1071.001 Application Layer Protocol: Web Protocols | The installer sends HTTP callbacks to rotating infrastructure using the durable d=inno and r=offer_execution or r=offer_execution_fail query pattern.
+
+T1105 Ingress Tool Transfer | The campaign retrieves staged executables and supporting components from threat actor-controlled, cloud-storage, and content delivery network (CDN)-hosted locations.
+
+Impact
+
+T1496 Resource Hijacking | The campaign installs CharityEngine/BOINC for distributed computing and WorldProxyPool for proxyware monetization, abusing victim compute and network resources through deceptive bundled installation.
+
+For standard industry documentation about these techniques, refer to the MITRE ATT&CK framework.
+
+Indicators of compromise (IOC)
+
+The following indicators of compromise (IOCs) were observed during investigation of this campaign and can assist defenders in identifying related activity and conducting threat-hunting efforts.
+
+Indicator
+
+Type
+
+Component
+
+beliefdesk[.]xyz
+
+Domain
+
+Offer-execution callback infrastructure.
+
+companyharbor[.]xyz
+
+Domain
+
+Offer-execution callback infrastructure.
+
+signalpane[.]cfd
+
+Domain
+
+Offer-execution callback infrastructure.
+
+inkact[.]xyz
+
+Domain
+
+Offer-execution callback infrastructure.
+
+wishgrove[.]cfd
+
+Domain
+
+Offer-execution callback infrastructure.
+
+%TEMP%\is-*.tmp\eld*.exe
+
+File path
+
+Recurring staged payload naming and path pattern.
+
+C:\Program Files\WorldProxyPool\sdk-agent.exe
+
+File path
+
+WorldProxyPool proxyware component.
+
+WorldProxyPoolAgent / WorldProxyPoolWatchdog / WorldProxyPoolUpdater
+
+Scheduled task
+
+SYSTEM-level persistence created in the investigated chain.
+
+006510ce1da2b7410376f0788c19e55616eb4bcc30072d25b7d0871dc32aa11c
+
+SHA-256
+
+Inno second-stage runner
+
+21306fc5716f95e252388f920314b42f1c8bcc7df67cb4d39da30217b96f4044
+
+SHA-256
+
+Earlier Inno loader
+
+72750d32b440e9f2b6d05ff3d218a561a75d3d75fb976b461fa59897674a7f70
+
+SHA-256
+
+Earlier Inno second-stage runner
+
+ab2c2dd37fdcfe1e7620a57f98c80bd063258bea145adc0cc6a0f8b1e24c6a8f
+
+SHA-256
+
+Inno eld0 / first-stage payload
+
+452a210bba4c8d08f7cb7733a816d7220a7fa570a469aea0a997cfc8b594b6a0
+
+SHA-256
+
+Inno eld0 / eld1 first-stage payload
+
+523fb81fae0c7beba7b5171243cc0dee7a4d04ae0483be9172eef2394a5a2152
+
+SHA-256
+
+Inno eld0 first-stage payload
+
+55cd3d36fdcc58016a64398357b2c9724a060da9f0d09266e537a61ec9552e4f
+
+SHA-256
+
+Later Inno eld2-eld5 payload
+
+Learn More
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+Review our documentation to learn more about our real-time protection capabilities and see how to enable them within your organization.
+
+Learn more about securing Copilot Studio agents with Microsoft Defender
+
+Evaluate your AI readiness with our latest Zero Trust for AI workshop.
+
+Microsoft 365 Copilot AI security documentation
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails
+
+Prompt injection protection in Microsoft Defender for Office 365 – official documentation of the prompt injection protection in Microsoft Defender for Office 365.
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails | Microsoft Security Blog
+
+Manipulating AI memory for profit: The rise of AI Recommendation Poisoning | Microsoft Security Blog – a related example of an AI-era technique observed in email traffic
+
+Defending the inbox against prompt injection attacks | Microsoft Defender for Office 365 Blog – feature announcement introducing prompt injection protection in Microsoft Defender for Office 365.
+
+Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
+
+The post Fake-download campaign uses trojanized installers to deliver monetization payloads appeared first on Microsoft Security Blog."
+2514cef6b564,2514cef6b564,2026-11-03 17:00 UTC,Business & Industry News,Microsoft Security,Microsoft Security Blog,AI Security,Article,Microsoft named a Leader in the 2026 Gartner® Magic Quadrant™ for AI Agent Management Platforms,https://www.microsoft.com/en-us/security/blog/2026/11/03/microsoft-named-a-leader-in-the-2026-gartner-magic-quadrant-for-ai-agent-management-platforms/,"It brings supported agents from Microsoft, customer-built agents, local agents found on devices, and partner clouds and frameworks into one registry","Microsoft has been named a Leader in the inaugural 2026 Gartner® Magic Quadrant™ for AI Agent Management Platforms. We believe this recognition reflects Microsoft’s approach to helping organizations manage, secure, and scale their AI investments through Microsoft Agent 365.
+
+Figure 1: Gartner, Magic Quadrant for AI Agent Management Platforms, October 27, 2026.
+
+Monitor and manage agents with Microsoft Agent 365
+
+When we introduced Agent 365, we started with a simple concept: agents should be managed with the same rigor you already apply to users, apps, and devices, using the infrastructure and protections that already run your business. Since then, more than 50 million agents have been registered in Agent 365.1
+
+Here’s what we believe made the difference.
+
+We started with identity, not monitoring
+
+Many approaches to managing agents focus on monitoring after an agent is running. Microsoft’s approach begins with identity. With Microsoft Entra Agent ID, every agent in the organization is assigned a unique agent ID, associated with an owner and purpose, and the right access controls based on its needs.
+
+This enables organizations to apply established identity and access policies to both people and agents. Agent access policies are dynamically adjusted as risk signals and conditions change. Organizations can manage agent access through the Microsoft identity infrastructure they already use for their workforce.
+
+We built on what you already trust
+
+Rather than building a separate platform, Agent 365 extends the tools IT and security teams already use every day: Microsoft Entra, Microsoft Defender, Microsoft Purview, Microsoft Intune, and the Microsoft 365 admin center.
+
+That decision shapes the experience. Microsoft data protection, compliance, and security capabilities can help organizations extend familiar controls to supported agent scenarios.2
+
+We meet agents where they are
+
+Agents won’t come from one platform, so Agent 365 is designed to support a broad ecosystem. It brings supported agents from Microsoft, customer-built agents, local agents found on devices, and partner clouds and frameworks into one registry. Current integrations include Agentforce, Amazon Bedrock, Anthropic, Databricks, Google Gemini, and Google Vertex, with more planned integrations coming soon, including OpenAI, ServiceNow, and Snowflake. Agent 365 also integrates agents built using supported open-source frameworks with the Agent 365 software development kit (SDK).
+
+For additional agent patterns, including local and previously unknown agents discovered through Microsoft Security sensors, Agent 365 supports fit-for-purpose identity types so they can be represented in the registry with appropriate ownership, activity, and risk context. Microsoft is also previewing discovery of cloud agents, extending visibility beyond known and integrated agents. Together, native integrations, connectors, and security sensors help organizations discover and govern more of their agent estate across cloud and device environments.
+
+There’s more to do
+
+Agent 365 moved quickly from introduction to general availability, and we haven’t slowed down. We’re proud of this recognition, and we know there’s more work ahead. We are expanding discovery to 35 additional local agent types, bringing the total to 60, along with adding support to discover unknown agents, bringing these agents under management, as well as extending policy coverage and controls for both managed and unmanaged agents, including third-party agents.
+
+But, visibility and controls are only the beginning. Customers have asked for more automated support for agent governance and security. The new Agent 365 Action Center helps IT and security leaders move from reactive alerts to prescriptive actions, like cleaning up inactive agents, reassigning ownerless agents, or automatically blocking agents based on risk.
+
+We’re also advancing cost management, task classification, and value calculation to help organizations understand how agents are being used, what they cost, and the value they deliver.
+
+Our promise hasn’t changed: to help every organization move from experimenting with agents to running them confidently, with the same rigor, protections, and accountability that already run the enterprise. We believe Agent 365 enables any organization to deploy AI at scale.
+
+Get started
+
+Get your copy of the Gartner Magic Quadrant for AI Agent Management Platforms.
+
+Learn more about Microsoft Agent 365.
+
+Get Agent 365 with Microsoft 365 E7, or as an add-on to Microsoft 365 E5.
+
+Attending Microsoft Ignite 2026? Join us to learn more about what’s next for Agent 365.
+
+Get started with Microsoft Agent 365
+
+To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
+
+Gartner, Magic Quadrant for AI Management Platforms, Andrei Razvan Sachelarescu, Lucas Kobat, Gilbert van der Heiden, Max Goss, October 27, 2026.
+
+Gartner and Magic Quadrant are trademarks of Gartner, Inc. and/or its affiliates. Gartner does not endorse any company, vendor, product or service depicted in its publications, and does not advise technology users to select only those vendors with the highest ratings or other designation. Gartner publications consist of the opinions of Gartner’s business and technology insights organization and should not be construed as statements of fact. Gartner disclaims all warranties, expressed or implied, with respect to this publication, including any warranties of merchantability or fitness for a particular purpose. This graphic was published by Gartner, Inc. as part of a larger research document and should be evaluated in the context of the entire document. The Gartner document is available upon request from Microsoft.
+
+The post Microsoft named a Leader in the 2026 Gartner® Magic Quadrant™ for AI Agent Management Platforms appeared first on Microsoft Security Blog."
 ae50b1eda727,ae50b1eda727,2026-11-02 20:20 UTC,Vulnerabilities & Patching,Microsoft Security,Microsoft Security Blog,Vulnerability Management; Threat Intelligence,Article,What exploited vulnerabilities have in common: A data-driven analysis of real-world attacks,https://www.microsoft.com/en-us/security/blog/2026/11/02/exploited-vulnerabilities-common-data-driven-analysis-real-world-attacks/,"Microsoft Security helps defenders discover the doors threat actors can see, prioritize the weaknesses they are most likely to exploit, understand where a compromise could lead,...","In this article
 
 Classifying the vulnerability landscape
@@ -868,67 +1498,6 @@ To get notified about new publications and to join discussions on social media, 
 To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
 
 The post Tracking AI adoption in North Korean threat actor tradecraft appeared first on Microsoft Security Blog."
-4f3ae90ea839,4f3ae90ea839,2026-10-29 16:00 UTC,Business & Industry News,Microsoft Security,Microsoft Security Blog,Endpoint Security; AI Security; Identity Security Posture Management,Article,IDC MarketScape names Microsoft a Leader in the 2026 Worldwide Modern Endpoint Security for Enterprises Vendor Assessment,https://www.microsoft.com/en-us/security/blog/2026/10/29/idc-marketscape-names-microsoft-a-leader-in-the-2026-worldwide-modern-endpoint-security-for-enterprises-vendor-assessment/,The most critical moment in any attack is when it moves from access to action,"Today, we’re proud to share thatMicrosoft has been named a Leader in the 2026 IDC MarketScape for Worldwide Modern Endpoint Security for Enterprises (Doc #US54123526, September 2026). The IDC Marketscape calls out three strengths that we believe matter most in endpoint security today:
-
-Autonomous attack disruption and predictive shielding contain ransomware and identity attacks in minutes, at a meaningful scale.
-
-Agentic AI through Security Copilot is now generally available, with measured gains in alert accuracy and analyst time saved.
-
-The company offers broad native cross-platform coverage plus sovereign cloud and data residency options for regulated and multinational customers.
-
-Read the IDC report
-
-IDC MarketScape vendor analysis model is designed to provide an overview of the competitive fitness of technology and suppliers in a given market. The research methodology utilizes a rigorous scoring methodology based on both qualitative and quantitative criteria that results in a single graphical illustration of each supplier’s position within a given market. The Capabilities score measures supplier product, go-to-market and business execution in the short-term. The Strategy score measures alignment of supplier strategies with customer requirements in a 3-5-year timeframe. Supplier market share is represented by the size of the icons.
-
-The most critical moment in any attack is when it moves from access to action. That’s when ransomware detonates, stolen credentials are put to work, and, increasingly, a manipulated AI agent turns a user’s own data and tools against them. And threat actors are now using teams of AI agents to execute attacks faster and more relentlessly. Between 2025 and 2026, Microsoft Security researchers observed a more than 15% increase in ransomware detonations against enterprises.1 When an attacker can move from first foothold to encryption in minutes, protection on the endpoint must act at the same speed, without waiting for a person to connect the dots.
-
-Protection that acts while the attack is still unfolding
-
-The IDC MarketScape highlights that “Automatic attack disruption contains compromised devices, users, and IP addresses in near real time, and predictive shielding proactively hardens likely next attacker moves.” Built into Microsoft Defender, attack disruption uses AI and signals from the endpoint and across identities, email, and cloud to recognize multistage attacks, such as ransomware, as they happen. It then automatically contains the affected devices and users to stop the attacker from moving laterally. Against attacks that move in minutes, protection has to work autonomously, while the attack is still in progress and before it can spread.
-
-QNET, a global direct-selling company, saw this firsthand. Defender identified an active ransomware attack, isolated the compromised device, and stopped the second-stage payload within 128 seconds of the first high-severity alert.
-
-A foundation built for agentic security
-
-Stopping an attack like QNET’s in seconds starts with the right foundation. Attack disruption succeeds because Defender can see activity across endpoints, identities, email, and cloud, understand what that activity means, and act on it natively. The IDC MarketScape highlights that “the Defender portal unifies incident and alert queues, graph-based incident views, and advanced hunting, correlating signals from endpoint, identity, email, SaaS, and cloud sources into a single incident.”
-
-That foundation depends on three layers working as one. Signals and sensors give the system awareness across the entire environment. Context turns those signals into understanding: what is happening, what is exposed, how an attacker could move, and what matters most. Actuators, like attack disruption, turn that understanding into protective action. To protect against the latest AI-based threats, these layers need to work in unison.
-
-That’s why, on September 23, 2026, we announced the integrated security operations center (ISOC) in Microsoft Defender. ISOC brings security information and event management (SIEM) and Defender’s threat protection together, giving people and agents shared signals, shared context, and shared controls to see, understand, and act across the environment as one. On top of that foundation, we continue to strengthen what Defender can see:
-
-Richer endpoint signals: Defender provides more than 200 native event types for threat hunting. Custom data collection extends that visibility by letting security teams collect specialized telemetry to support tailored detections and advanced hunting.
-
-Comprehensive signals across your environment: Microsoft Sentinel now provides more than 500 connectors to ingest security-relevant data from across your organization’s digital estate. This breadth gives defenders the context to connect activity across otherwise fragmented systems, detect threats that no single signal would reveal, and investigate and respond with greater confidence.
-
-Agentic AI built into the flow of work
-
-With signals, context, and actuators working as one in Microsoft Defender, agents have what they need to be effective: the visibility to see what’s happening, the context to understand it, and the controls to act on it. IDC notes that AI is deeply embedded across the Defender platform, with agentic AI now generally available and delivering “measured gains in alert accuracy and analyst time saved.”
-
-One platform to see, understand, and protect local AI agents
-
-The same visibility, context, and controls that make agents effective for defenders also make it possible to secure the agents employees use every day. Developers and knowledge workers now run local agents, from coding assistants to agentic development environments, with access to data, credentials, tools, and Model Context Protocol (MCP) servers. IDC advises buyers to ask how vendors secure AI on the endpoint, including visibility into local models and agent activity. With Defender, security teams can see those agents, understand their reach, and protect them as they operate.
-
-See every local agent: Discovery of local agents and their configured MCP servers is available on Windows and macOS, covering more than 50 supported agents and MCP servers, including claw-based agents such as OpenClaw.
-
-Understand their reach: The exposure graph in Defender maps each agent’s blast radius across devices, identities, and MCP connections, and teams can investigate agent activity in advanced hunting alongside data from endpoints, identities, email, and cloud.
-
-Protect agents as they operate: Runtime protection, in preview on Windows, stops malicious instructions, such as prompt injection hidden in a file or web page, before an agent acts on them, and raises an alert with agent and session context.
-
-In a threat landscape being reshaped by AI, Microsoft Defender will continue to deliver leading endpoint security for any platform with a focus on reducing exposure, disrupting active attacks in your environment, and strengthening resilience across the entire organization.
-
-To see where security operations are headed next, join Rob Lefferts at Microsoft Ignite for the session: The Alert Is Dead. The Blueprint for the Agentic SOC.
-
-Microsoft named a Leader by IDC
-
-Read the 2026 IDC MarketScape to learn why IDC named Microsoft a Leader in Worldwide Modern Endpoint Security for Enterprises.
-
-Read the report
-
-To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
-
-1Microsoft 2026 Digital Defense Report
-
-The post IDC MarketScape names Microsoft a Leader in the 2026 Worldwide Modern Endpoint Security for Enterprises Vendor Assessment appeared first on Microsoft Security Blog."
 6ca0eaaa8a26,6ca0eaaa8a26,2026-10-28 16:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Identity Security Posture Management; Phishing Simulations,Article,The CISO’s evolving role: Protecting and defending in the agentic era,https://www.microsoft.com/en-us/security/blog/2026/10/28/the-cisos-evolving-role-protecting-and-defending-in-the-agentic-era/,And we have to rethink how we defend that enterprise as attackers use AI to move faster and operate at greater scale,"October is Cybersecurity Awareness Month, and it’s a good time to think about how much the world has changed for chief information security officers (CISOs) in the last 12 months.
 
 A year ago, we thought we were already in the thick of AI and starting to understand it. Since then, agents have spread across the enterprise faster than most organizations anticipated. According to our Work Trend Index Annual Report, the number of active agents in the Microsoft 365 ecosystem grew 15-fold year over year and 18-fold in large enterprises. Employees are building and deploying AI systems that can access company data, interact with applications, and take actions on their behalf. These systems are built with good intentions, but even well-intentioned agents can introduce risk when access and behavior are not appropriately governed.
@@ -1403,177 +1972,3 @@ Defending the inbox against prompt injection attacks | Microsoft Defender for Of
 Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
 
 The post Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks appeared first on Microsoft Security Blog."
-71c0914c344c,71c0914c344c,2026-10-19 13:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Identity Security Posture Management,Article,Agents are your newest insiders. Security must move at their speed.,https://www.microsoft.com/en-us/security/blog/2026/10/19/agents-are-your-newest-insiders-security-must-move-at-their-speed/,With that capability can come insider risk,"Agents are rapidly becoming part of how work gets done. They can support a range of activities from writing code and researching products to analyzing revenue, processing expenses, and acting across the systems that run the business. To be most useful, they often need access to company data, applications, tools, and other agents. That access is what makes agents more capable. With that capability can come insider risk.
-
-This does not mean agents are inherently malicious. It means they are capable tools that can be granted access to important systems by users. They can make mistakes, be manipulated, or be compromised. Their models can produce variable outputs, their context can change, and their plans can evolve as they work. An agent that operates as intended when a task begins may respond differently as context or inputs change. Depending on how they are designed and deployed, agents can operate continuously, at machine speed and scale.
-
-Learn how to secure your agentic estate at speed and scale
-
-Satya Nadella, Chairman and Chief Executive Officer of Microsoft, recently described the trust architecture this new era requires: we must separate the supply of intelligence from the authority over it. We should not ask a model to be its own security authority. The controls that determine what it can access, what actions it can take, and whether it should continue operating must sit outside the model, where the model cannot bypass or tamper with them.
-
-“The most trustworthy agentic system will not be the one with the model we trust most. It will be the one designed that enables us to trust the model least.”
-
-Satya Nadella
-
-Project Perception—Securing your agentic insider
-
-We introduced Project Perception and the Microsoft cyber stack to help organizations defend with agents. Today, we are extending Perception to secure the agentic insider. Guardian Agents help security teams operate continuously, at machine speed and scale, while sensors, context, and actuators across the cyber stack help understand changing agent risk and continuously adapt protection in response. Project Perception and Microsoft Agent 365 share signals, context, and a unified registry giving IT and security teams a consistent view of agents and risk, with the controls each needs.
-
-This builds on a simple security principle: surround non-deterministic intelligence with deterministic controls, independent evidence, and containment boundaries. Assume an agent can fail or be compromised. Observe it continuously. Minimize and tailor its authority before it acts. And continuously adjust that authority as risk changes.
-
-This requires protection across identity, permissions, data, endpoints, network, cloud, and runtime. The system has four continuous responsibilities:
-
-Know which agents exist, who owns them, why they exist, and what they are doing.
-
-Contain what each agent can access and do before it acts.
-
-Protect the data, tools, runtime, resources, and systems in the agent’s path.
-
-Adapt protection continuously as behavior, context, and risk change.
-
-These are not four products or sequential phases. They operate together. Evidence changes risk. Risk changes policy. Policy changes what the agent is allowed to do. Consider an expense-approval agent. It may need to read expense submissions, check policy, and approve routine reimbursements, but it should not inherit every permission of the employee who sponsors it. Its identity, runtime, access paths, and task-scoped authority should be explicit from the start. If it later encounters a prompt injection or attempts an action outside that task, the system should respond proportionately: preserve safe reads while blocking writes, narrow the resources it can reach, require provable human approval for a consequential step, or isolate and stop the agent when the risk warrants it. This is what continuous containment looks like in practice.
-
-Know every agent and give it an accountable identity
-
-You cannot secure what you cannot see. Agents can be created through Microsoft platforms, integrated through partner platforms and software development kits (SDKs), or introduced locally without a central deployment process. Microsoft Security uses native integrations, connectors, and sensors across the cyber stack to discover more of the agent estate.
-
-We are expanding discovery to 35 additional types of local agents, bringing the total to 60 supported local agents, including Claude Code, OpenAI Codex, and GitHub Copilot. Organizations can bring these agents into a unified registry, regardless of how they were discovered, to understand ownership, activity, and risk.
-
-Discovery tells you that an agent exists. Identity gives security and governance systems a durable anchor for controlling it.
-
-Every agent should have a first-class identity distinct from the person using or sponsoring it. We are extending Microsoft Entra Agent ID with identity types for additional agent patterns, including local and previously unknown agents discovered through security sensors. This means an agent can become a policy target even when it was not originally integrated with Microsoft Security. Agent identity anchors attribution, ownership, lifecycle, risk, permissions, authorization, and policy, so the enterprise can distinguish what a person did from what an agent did on that person’s behalf.
-
-Contain what the agent can do before it acts
-
-Being able to find and identify an agent is necessary, but it is just the start. We need to understand the potential impact the agent can have in the enterprise environment. The next step is to bound the agent across its runtime, its paths to tools and resources, and the authority it can exercise.
-
-Contain the runtime
-
-The model and harness should execute inside a controlled environment rather than inherit fully-privileged access to the device. Sandboxes such as Microsoft Execution Container (MXC) provide policy-controlled access to resources the agent needs to complete its task. They also create an enforcement boundary where security controls and observability can operate outside the agent’s reach. If the agent or harness is compromised, it should not be able to disable the controls watching it.
-
-Control the action space
-
-An agent should not be free to call any tool, API, Model Context Protocol (MCP) server, resource, or other agent it can find. Local and network and data controls must mediate those paths, observe the calls, and enforce enterprise policy. Controlling the destination alone is not enough. Security must also understand the content flowing into and out of the agent, including its sensitivity, provenance, and whether untrusted data may be influencing the agent’s behavior.
-
-Start with no permissions, or least privilege
-
-We have spent decades applying Zero Trust and least privilege to people. Agents make those principles even more important. An agent should not automatically inherit all the standing access of its user. It should begin with no authority and receive only what it needs for the approved task, for only as long as the task requires.
-
-To enable this, we are introducing Dynamic Permissions. Organization-wide policy sets the outer boundary, including preventing an agent from obtaining authority its user does not have. Permissions can then be scoped to the task, made time-bound, and contracted or removed as the task changes or completes. Higher-impact actions can require verified human approval.
-
-The employee retains the employee’s access. The agent receives its own identity, permissions and its own authority scoped to its current task and for the duration of the task only.
-
-Adapt protection as agent risk changes
-
-Least privilege reduces exposure, but it does not eliminate risk. An expense-approval agent may begin a task with the right access and then encounter a prompt injection in an external document. Its configuration has not changed, but its behavior and risk have.
-
-For human users, a delay between detection and response may be manageable. For an agent operating at machine speed, it can be the difference between containment and impact. The security system must be able to understand what changed and act before a person can manually investigate every signal.
-
-That is why we are introducing Dynamic Agent Risk and Dynamic Conditional Access for agents.
-
-Dynamic Agent Risk
-
-Dynamic Agent Risk combines signals from identity, data, endpoints, cloud, network, runtime, and the agent’s own activity. It considers how securely the agent is configured, what resources it can reach, the potential impact if something goes wrong, and whether its actions are drifting from the user’s or organization’s intent.
-
-The result is not a one-time score assigned at onboarding. It is a continuously updated understanding of the agent’s current risk and whether its current authority still matches that risk. The question is not simply whether the agent should run or stop. It is what the agent should be allowed to read, change, invoke, or approve at that moment.
-
-Dynamic Conditional Access
-
-Dynamic Conditional Access extends Microsoft Entra Conditional Access for agents so a change in risk can drive coordinated action across multiple enforcement points. The response is graduated, not binary. Policy can reduce permissions, preserve reads while blocking writes, narrow the data and resources the agent can reach, restrict network paths, shorten or revoke time-bound access, or require provable human approval before a consequential action proceeds. At the highest levels of risk, it can isolate the runtime or stop execution entirely.
-
-Return to the expense agent. It begins with narrowly scoped permission to review and approve expenses within policy. When it encounters untrusted content and attempts an unrelated action, new evidence raises its Dynamic Agent Risk. Policy responds proportionately: it can preserve read access while removing the ability to approve or write, block access to sensitive resources, and require cryptographically provable human approval for a high-impact step. If the risk continues to rise, the system can isolate the runtime or stop execution. The employee remains productive. The agent is constrained without treating every risk change as a kill-switch event.
-
-Secure agentic systems at scale with Guardian Agents
-
-As organizations deploy thousands or hundreds of thousands of agents, manually triaging every alert and coordinating every response will not scale. Securing agents must itself become agentic, while remaining inside boundaries people set.
-
-That is why we are introducing new Playbooks and a team of Guardian Agents in Project Perception. People define policy, approval boundaries, and delegation rules. Playbooks define the desired security outcome and coordinate protective actions. Guardian Agents carry out the work at machine speed, adapting as agent activity, risk, security context, and organizational policy change.
-
-Guardian Agents can help teams understand why risk changed, investigate the relevant evidence, recommend or apply containment, and use what they learn to harden policy. This is not about outsourcing judgment. People retain control over objectives and consequential decisions. The system carries the continuous work that does not scale through manual operations.
-
-Agents will only be adopted at scale if they can be trusted at scale. At Microsoft, we are already operating in a world of hundreds of thousands of agents. As Customer Zero, we have learned that securing agents requires continuous visibility into agent activity, proactive protection of access and data, and adaptive protection that keeps pace with evolving threats. Those lessons directly inform the innovations we are delivering to help every organization adopt agents with confidence.”
-
-—Terrell Cox, Corporate Vice President (CVP) and Deputy Chief Information Security Officer (CISO), Customer Security, Microsoft
-
-Extending containment to the model
-
-As model transparency increases, it creates a new source of security evidence. Chain-of-thought and other model-level signals can help identify intent drift, understand whether untrusted information is influencing reasoning, and detect when an agent’s planned actions are diverging from the task it was given.
-
-We are bringing this deeper evidence into Dynamic Agent Risk, together with signals from across the cyber stack. This builds on Satya Nadella’s principle: increase transparency into the model while keeping security decisions and enforcement independent of it.
-
-Greater model transparency gives security systems deeper evidence to detect suspicious behavior and inform Dynamic Agent Risk. But the core security principle does not change: the model cannot be its own security boundary. Independent systems must observe every layer, including the model itself, and ultimately determine and enforce what the system is allowed to do.
-
-These are not separate pillars. They make the same containment architecture stronger: better evidence, stronger assurance, more accurate risk, and more effective protection.
-
-Confidence to move faster
-
-Organizations are adopting agents to serve customers better, solve problems faster, and give people more time for the work that matters most. The goal is not to make every model perfectly predictable before it can be useful. The goal is to build systems that remain secure even when the model is not.
-
-That requires a clear division of responsibility. Models supply intelligence. People and organizations retain authority. Independent controls establish identity, limit privilege, protect data, preserve evidence, and contain unsafe action. Security continuously reassesses risk and adapts protection as the agent works.
-
-You should not have to choosebetween innovation and safety.
-
-That is what we are working toward: an agentic world where organizations can put intelligence to work with confidence because security can observe it, govern it, and contain it at the same speed.
-
-Learn more here and join us at Microsoft Ignite.
-
-To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
-
-The post Agents are your newest insiders. Security must move at their speed. appeared first on Microsoft Security Blog."
-78ea2205134a,78ea2205134a,2026-10-16 16:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security,Article,Managing open-weight model risk in enterprise deployments,https://www.microsoft.com/en-us/security/blog/2026/10/16/managing-open-weight-model-risk-in-enterprise-deployments/,"Today, Microsoft and NVIDIA are publishing Risk Management for Open-Weight Models in Enterprise, the first in a planned series of joint resources intended to help enterprises...","The growing AI landscape is giving enterprises more choice in how they build, customize, and deploy increasingly capable models. Open-weight models are an important part of that landscape. They give enterprises access to model weights and greater flexibility to inspect, evaluate, modify, and run models within their own environments.
-
-While that flexibility can be valuable, it also affects how enterprises evaluate models, where they implement safeguards, and who is responsible for maintaining those safeguards over time.
-
-As enterprises choose which models to deploy, the relevant question is broader than whether a model is open-weight or closed-weight. Enterprises need to understand what they are using the model for, what could go wrong in that context, and what evidence and controls they need to manage risks.
-
-Today, Microsoft and NVIDIA are publishing Risk Management for Open-Weight Models in Enterprise, the first in a planned series of joint resources intended to help enterprises address those questions. The paper introduces a shared risk taxonomy and an approach to managing model risks grounded in established standards and frameworks, including International Organization for Standardization (ISO) standards and the National Institute of Standards and Technology (NIST) AI Risk Management Framework.
-
-The paper reflects a core idea: weight openness alone does not determine an AI system’s risk. Risk depends on the model, use case, deployment, and safeguards.
-
-Read the whitepaper: Risk Management for Open-Weight Models in Enterprise
-
-Understanding risk in the deployment context
-
-Open- and closed-weight models can share many of the same underlying risks, but how those risks materialize depends on the deployment. A model used to help an employee draft a document presents different considerations than the same model used in a customer-facing workflow, just as a standalone inference endpoint differs from a system connected to external data or tools.
-
-The architecture matters too. A risk may originate in the model, while the most effective control may sit in the inference environment, application, or surrounding operational processes. The joint guidance looks beyond the model label to factors including provenance, intended use, users, deployment conditions, and surrounding controls. This first paper focuses primarily on model-layer risks. Evaluating a model alone does not establish the safety of an agent or application: teams must also assess its permissions, data access, tools, runtime, and operational controls.
-
-Establishing a common language
-
-Managing these risks consistently also requires a common vocabulary across engineering, security, legal, safety, and business teams.
-
-The initial Microsoft and NVIDIA taxonomy organizes risks into five broad categories: Cybersecurity, Data Protection, Content, Human-AI Interaction, and Bias. It is not a policy or deployment checklist, but instead it should be used by enterprises to adapt it to their own systems, use cases, and risk criteria, then connect relevant risks to evaluations, mitigations, and accountable owners.
-
-Using evaluations as risk evidence
-
-Evaluations help turn the taxonomy into something enterprises can use. The paper maps evaluations to a selection of risks across the five categories, giving teams a way to start with a risk that matters for their deployment and identify evaluations that can produce relevant evidence about it.
-
-Microsoft Foundry helps enterprises assess quality, groundedness, and safety with built-in and custom evaluations and automated red teaming. Its configurable content-safety controls help detect and mitigate harmful inputs and outputs and prompt attacks. Teams should validate control availability for their model and deployment, including preview status, and combine these capabilities with application-specific testing, monitoring, and human oversight.
-
-Evaluations still need to be interpreted in the context of a particular deployment and the goal is to make it easier for teams to connect the risks they identify with useful evidence, while building a broader set of evaluation resources that can evolve alongside models, deployment patterns, and emerging risks. Microsoft and NVIDIA plan to use the joint repository to share additional evaluations and point to existing resources that can help enterprises assess specific risks.
-
-Accounting for changes in control and responsibility
-
-Open-weight access gives enterprises greater control over how a model is evaluated, modified, and deployed. Model access and deployment are separate choices: open-weight models can also be used through managed platforms. Responsibility for safeguards depends on the service and deployment configuration; enterprises that operate their own model deployments may take on controls otherwise provided by a managed service.
-
-Those safeguards can operate at different layers, and (depending on the risk) enterprises might use model changes, access controls, input and output filtering, monitoring, or human review. The important step is connecting each identified risk to controls that can effectively address it within the deployed system. Those decisions need to be revisited as models and deployments change.
-
-Building on this work
-
-Risk Management for Open-Weight Models in Enterprise focuses primarily on the model layer. Future work from Microsoft and NVIDIA is intended to extend this approach across the runtime, harness, and application layers, with additional technical guidance on evaluation and mitigation.
-
-We also expect the resources supporting this work to evolve as new models, evaluations, and deployment patterns emerge. The joint repository will provide a place to share additional evaluation resources, including contributions from the broader community.
-
-For enterprises deploying open-weight models today, the paper provides guidance they can begin applying to their own use cases. We encourage developers, security practitioners, researchers, and others working in this space to read the paper, explore the evaluations, and contribute evaluations that can help strengthen this shared body of work.
-
-Read the joint Microsoft-NVIDIA paper, Risk Management for Open-Weight Models in Enterprise.
-
-Explore the joint repository and technical resources.
-
-Risk Management for Open-Weight Models in Enterprise was developed jointly by Microsoft and NVIDIA, with Andrew Berkley and April Chen of Microsoft and Michael Boone, Eileen Long, and Arun Rao of NVIDIA leading the development and editing of the paper.
-
-Explore Microsoft Foundry evaluations and content-safety controls for implementation guidance.
-
-To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
-
-The post Managing open-weight model risk in enterprise deployments appeared first on Microsoft Security Blog."
