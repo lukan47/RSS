@@ -1,4 +1,325 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+99ee65df4317,99ee65df4317,2026-11-05 10:00 UTC,"Attacks, Breaches & Threat Intel",Kaspersky,Securelist (Kaspersky),Threat Intelligence; Vulnerability Management; Endpoint Security; Attack Surface Discovery,Article,"The SOC Files 5: Ghost in the pipeline, or a fileless SharePoint breach by Storm-2603",https://securelist.com/storm-2603-fileless-toolshell-attack/121467/,"Executive summary In 2025, several threat actors exploited CVE-2025-53770 and CVE-2025-53771 (ToolShell vulnerabilities) in on-premises Microsoft SharePoint to achieve remote...","Executive summary
+
+In 2025, several threat actors exploited CVE-2025-53770 and CVE-2025-53771 (ToolShell vulnerabilities) in on-premises Microsoft SharePoint to achieve remote code execution through crafted HTTP requests. One of the threat actors deployed ransomware on the target’s systems after successful exploitation. Microsoft attributed this ransomware-related ToolShell activity to Storm-2603, distinguishing it from other actors whose observed activity was primarily focused on credential theft, espionage, and data exfiltration.
+
+In December, our retrospective analysis identified activity consistent with Storm-2603’s TTPs. This activity involved the attacker using the IIS worker process as an in-memory bridge to the customer’s infrastructure, keeping the access and control layer entirely within w3wp.exe without writing anything to disk. Although subsequent post-exploitation activity generated disk artifacts, the bridge used to maintain access remained memory-resident.
+
+Let’s look in more detail at this attack.
+
+The attack chain, from reconnaissance to infrastructure compromise
+
+Intrusion timeline: Strategic latency and exploitation
+
+The intrusion analyzed in this report occurred in two stages, with a temporal gap between initial access and subsequent exploitation activity. The attack timeline was as follows:
+
+Dec 20 – Vulnerability fingerprinting: A single HTTP request targeted a SharePoint administrative endpoint associated with the ToolPane component to determine whether the host was vulnerable to CVE-2025-53770.
+
+Dec 21-23 – Tactical latency: A three-day period of silence followed the initial probe, separating the vulnerability fingerprinting from subsequent malicious activity and potentially reducing the likelihood of immediate detection.
+
+Dec 24 – High-intensity re-engagement: On Christmas Eve, when security staffing at many companies is reduced, the full RCE chain was executed through the IIS worker process (w3wp.exe) on the same endpoint as the initial probe.
+
+Dec 26 – Incident discovery: The three-day gap initially prevented the December 20 probe from being correlated with subsequent malicious activity, marking the event as low priority. Retrospective analysis established that the probe was the initial phase of the subsequent intrusion.
+
+Intrusion timeline
+
+Initial access validation phase
+
+Vulnerability fingerprinting
+
+A vulnerability fingerprinting request on December 20 marked the first observed interaction with the target. The request originated from infrastructure associated with ONYPHE, an internet-scale attack surface discovery and management platform for identifying exposed assets, vulnerabilities, and cyberthreats. Unlike widely used tools such as Shodan and Censys, which merely provide a list of internet-facing assets correlated with the open-source data about known vulnerabilities, ONYPHE actually checks if the target system is vulnerable.
+
+Fingerprinting with ONYPHE
+
+The request characteristics were consistent with ONYPHE’s vulnerability checks, which use active, non-intrusive probes to identify internet-exposed systems vulnerable to specific CVEs. For ToolShell, ONYPHE adopted the approach used by Niels Hofmans (hazcod). Namely, it attempts to inject a harmless marker into the target server to find out if it is vulnerable.
+
+OFFICIAL ONYPHE CVE CHECKER (TOOLSHELL)
+
+This phase served as a validation step against the SharePoint execution surface exposed over HTTP:
+
+The target processed structured requests through the ASP.NET pipeline without rejection.
+
+The request path reached application logic capable of handling serialized input.
+
+No defensive controls interrupted or altered the execution flow at the application boundary.
+
+Approximately 12 minutes later, a second inbound connection originated from infrastructure associated with Pfcloud UG, a provider operating under a bulletproof hosting (BPH) model. Given the timing and the IP’s documented history of scanning and abusive activity, the connection may represent follow-on reconnaissance against the newly identified target. No exploitation was attempted at this stage.
+
+A connection from an IP address belonging to Pfcloud UG BPH
+
+Active exploitation: Santa took your data and left a backdoor
+
+The main malicious activity occurred on December 24. The actor targeted the same SharePoint host with a crafted request from 45.91.94.204 (45.91.92.0/22, ASN 63473, HostHatch, LLC). This resulted in a webshell execution within the IIS worker process (w3wp.exe). The payload was not written to disk; rather, it was loaded directly into the ASP.NET runtime and used during subsequent request processing. The implant remained resident for the lifetime of the affected application domain. This runtime state was lost when the application pool was recycled or IIS was restarted.
+
+Attack originated from an SPN node
+
+The IP address 45.91.94.204 is a Safing Privacy Network (SPN) node. SPN routes each connection through a multilayer VPN path with multiple relay nodes that can obscure the originating IP.
+
+SPN promotes itself as a network that offers strong privacy protection for internet traffic. Its infrastructure resembles Tor’s in many ways, but with some differences. It features the following capabilities:
+
+Speed: Near-VPN performance for high-speed data transfer.
+
+Layer 3 support: Supports multiple protocols like TCP, UDP, ICMP (unlike Tor, which only supports TCP).
+
+App-routing: Direct tunneling without a browser.
+
+Multi-identity: Simultaneous exit nodes to bypass IP rate limits.
+
+Fixed-size packets and padding make it harder to analyze its traffic.
+
+It is less common than Tor, and frequently bypasses standard Tor blocklists.
+
+Webshell architecture
+
+The webshell the attackers injected into the w3wp.exe runtime is a multi-module in-memory framework, where execution is orchestrated through the main component (G.cs) and extended via multiple functional units across namespaces.
+
+The implementation follows a modular C# project structure in which each capability is isolated into its own compilation unit and invoked dynamically at runtime.
+
+Webshell components
+
+“G.cs” pipeline control and C2
+
+Pipeline control
+
+The main webshell component is G.cs. It orchestrates the implant’s execution context, lifecycle, C2 and session management.
+
+To ensure persistence within the runtime, G.cs performs the following actions:
+
+Registers a custom VirtualPathProvider using the non-public RegisterVirtualPassProviderInternal method from the ASP.NET HostingEnvironment class so that ASP.NET uses it for virtual-path processing. The provider is automatically added to the chain of registered virtual path providers.
+
+Delegates the provider’s .NET Remoting lifetime policy to the previous provider in the chain, preserving the existing lifetime behavior.
+
+Additionally, to evade defenses and enable the VirtualPathProvider to be registered even if the application in whose AppDomain the webshell is running is precompiled, the module implements the trust control subversion (T1553) technique:
+
+Uses reflection to check if the application is precompiled.
+
+Extracts pointers for internal state fields for the BuildManager class, which manages application compilation, and modifies them at runtime.
+
+Uses reflection once again to force runtime injection.
+
+G.cs uses the GetCacheKey() function as the interception point for the virtual path processing flow. It processes incoming requests to the SharePoint server and checks their headers to filter out requests from the attacker.
+
+The specific User-Agent in the request headers triggers the webshell execution. If the request doesn’t match this condition, the implant remains dormant, making its traffic harder to recognize.
+
+Command and control layer (in-memory transport)
+
+The same core module (G.cs) implements the communication layer.
+
+Instead of relying on external frameworks or standard beacons, it uses a custom binary protocol with XOR-based obfuscation to exchange data with the C2. These communications blend into normal application traffic. The module uses the GetCacheKey() hook to intercept standard HTTP requests. When a specific User-Agent is detected in the request headers, the module parses it, extracts the payload, and establishes a TCP connection to a target host inside the target’s network if needed.
+
+Bidirectional TCP tunnel initialization
+
+G.cs establishes a full-duplex proxy tunnel to support interactive control. It stores active target sockets in memory to pair concurrent HTTP read and write channels.
+
+TCP connections from the C2 server to arbitrary hosts inside the target network are supported for pivoting and lateral movement. The traffic is proxied through the SharePoint host.
+
+Target-to-attacker data channel
+
+Attacker-to-target data channel
+
+As can be seen in the screenshots, the attackers used the suo5 tool to implement traffic proxying. Its authors promote it as a stable forward-proxying tool for scenarios where outbound internet connections are prohibited.
+
+To increase its performance, G.cs manipulates ThreadPool by raising its limits for concurrent operations and maximum timeout.
+
+ThreadPool manipulation
+
+“Prog.cs”: Execution entry point and task dispatcher
+
+Prog.cs is the entry point that receives command-line arguments and passes them to uk/London.cs. The latter acts as the orchestrator, handling command parsing and privilege escalation (via named pipe impersonation). We’ll review it in more detail later. If the “suo5” command is provided, London.cs triggers G.cs to hook into the ASP.NET runtime as a memory shell. Once active, G.cs independently processes incoming web traffic inside the web server memory.
+
+Host interaction modules
+
+The following modules provide direct system interaction capabilities, each implemented as a separate unit. London.cs triggers these modules when it receives a corresponding command from Prog.cs.
+
+“FileDownloader.cs”
+
+The FileDownloader.cs module downloads arbitrary files from external URLs provided by the C2. It stores the downloaded files in the Program Data directory without any user interaction.
+
+“LoggedOnUsers.cs”
+
+This module enumerates logged-on users and identifies their session types (interactive, service, remote). The results are stored in memory. The attackers can retrieve them using the proxy and tunneling capabilities provided by G.cs.
+
+“ProcessList.cs”
+
+This module lists running processes with full paths to the corresponding executables on the disk. The results are stored in memory and the attackers can retrieve them via G.cs.
+
+“NetworkInfo.cs”
+
+This module extracts information about existing network connections, including protocols, local and remote IPs and ports, and connection state. It also enumerates network interfaces and headers. The results are stored in memory and can be retrieved by the attackers via G.cs.
+
+“MSI.cs”
+
+This module silently installs and executes MSI packages previously downloaded by FileDownloader.cs.
+
+“User.cs”
+
+This module creates administrative accounts using the native SAM RPC subsystem (SAMRPCNative namespace) rather than standard command-line tooling. This may indicate an attempt to evade detection and provide the attackers with privileged stealthy access to target systems that persists after the webshell has finished its work.
+
+SAMRPCNative
+
+The SAMRPCNative namespace implements a low-level C# P/Invoke wrapper for the native Windows samlib.dll library, comprising three types: SAMStructs.cs, SAMMethods.cs, and SAMEnums.cs.
+
+“SAMEnums.cs”
+
+Implements structured bitwise lists and constant flags mapping numeric codes to their security meaning in SAM, and translates system status return codes.
+
+“SAMStructs.cs”
+
+Defines native data structures required for P/Invoke memory alignment and for marshalling. It securely formats and aligns data structures.
+
+“SAMMethods.cs”
+
+Contains external API declarations (P/Invoke) imported from samlib.dll to perform actions such as connecting to the SAM server, creating users and opening domains.
+
+This layer is crucial for the attackers because it enables account operations.
+
+Privilege escalation
+
+The uk namespace contains offensive primitives for privilege escalation. To elevate privileges to SYSTEM, it uses a local token impersonation technique via the Encrypting File System Remote Protocol (EFSRPC) interface adopted from the EfsPotato tool.
+
+This functionality is implemented in the uk/London class. It creates a malicious named pipe while the EfsrTiny class (a tiny version of the EfsPotato tool) connects to the LSASS.exe RPC server. Then it’s London.RpcThread function calls the EfsRpcEncryptFileSrv function from EfsrTiny with a crafted \\localhost path. This tricks LSASS.exe into connecting back to the attacker’s named pipe. Finally, the London.Exp function uses ImpersonateNamedPipeClient to coerce and impersonate the LSASS.exe token and spawn a new process via CreateProcessAsUser with SYSTEM privileges. As the webshell resides in the IIS worker process, it has the necessary SeImpersonatePrivilege to perform this technique.
+
+The uk namespace also implements a minimal MSRPC client layer by explicitly defining structures such as RPC_CLIENT_INTERFACE and MIDL_STUB_DESC, thereby spoofing an interface stub. This enables direct interaction with the Windows RPC runtime (Rpcrt4.dll) without relying on MIDL-generated stubs or higher-level RPC abstractions. This provides direct control over binding and marshaling that goes beyond the constraints of standard client APIs.
+
+Post-exploitation activity
+
+Shortly after the webshell injection, the infected worker process spawned msiexec.exe to install a remote MSI payload hosted in Supabase cloud storage. The payload was Velociraptor, an open-source digital forensics and incident response tool – namely version 0.73.4.0 vulnerable to CVE-2025-6264 – that the attackers abused for command execution on the target network.
+
+In October 2025, Cisco Talos reported Velociraptor being leveraged by threat actors as a post-compromise execution framework and attributed this activity to Storm-2603. This tool enables arbitrary command execution, and can be used for various purposes. In our case, it was used for persistence, discovery, data collection and payload execution.
+
+The threat actor used Velociraptor to deploy multiple independent tunneling mechanisms, including Zoho Assist-Unattended Support for unauthorized remote access, VS Code CLI tunneling, Cloudflare Tunnel, and a lightweight reverse proxy utility. By doing so, they attempted to maintain access even if some of their tools were detected and deleted. At this stage, they also no longer depended on the IIS worker process lifecycle and ToolShell vulnerability.
+
+EDR-killing attempts
+
+Once the threat actor had access to the target system, they were able to upload a vulnerable driver that is used by many attackers to terminate EDR solutions. We were able to detect the main driver at C:\programdata\rsndispot.sys (054a32d6033b1744dca7f49b2e466ea2). In addition, the adversary used a malicious DLL (2d9ebf9c042f596f435865b40edad928) in a sideloading attack. This DLL was identified as Warlock ransomware’s AV killer. It was possibly intended to kill security solutions using the vulnerable rsndispot.sys driver.
+
+Ransomware deployment attempt
+
+The attackers made attempts to launch ransomware on the compromised system. However, the Proactive Defense Module in Kaspersky Endpoint Security blocked the ransomware process, effectively preventing this activity. The malware DLL we obtained was identified as Warlock ransomware.
+
+What defenders really need to look for
+
+ToolPane deserialization and CLR artifacts
+
+When the attackers tried to access ToolPane, both the dynamically compiled App_Web_toolpane.aspx assembly and the Microsoft.GeneratedCode helper assembly were present within the same application domain.
+
+Both assemblies are used in legitimate scenarios. App_Web_* assemblies are generated during normal ASP.NET page compilation, while Microsoft.GeneratedCode is typically produced by the XmlSerializer during legitimate serialization workflows. However, a request to the ToolPane endpoint that results in immediate loading of Microsoft.GeneratedCode within the same execution window indicates that the runtime is processing serialized data supplied through the request.
+
+Detecting deserialization exploitation
+
+First, it is highly recommended to read this article (in Russian) on how deserialization exploit attempts in the CLR should be detected, with examples of YARA rules and monitoring recommendations. A summary of the main idea of the detection logic is provided below.
+
+Deserialization vulnerabilities should be treated as a distinct class of exploitation events. In the CLR, deserialization is not merely the conversion of bytes into values – it is the reconstruction of an object graph from an incoming stream. Serialization and deserialization are performed by formatters. One of the most widely used formatters is BinaryFormatter. It uses the NRBF format, which defines the stream as a sequence of records describing classes, arrays, primitives, and references between objects. The shape of the resulting graph is determined by the data supplied to the deserializer. This means that the input stream defines not only the values but also the specific types, relationships, and lifecycle points that the runtime must materialize.
+
+Microsoft states explicitly that BinaryFormatter is unsafe and cannot be made safe; beginning with .NET 9, the in-box implementation is effectively removed from ordinary use. However, Microsoft continues to use it in its products, including SharePoint, because it is powerful and easy to use. To fix BinaryFormatter-related issues, architectural changes are needed. Similar warnings also apply to related unsafe mechanisms, including LosFormatter (used in the vulnerable page).
+
+The primary risk of unsafe deserialization is that the CLR may resolve unexpected types, instantiate objects outside normal constructor invariants, and invoke special lifecycle mechanisms such as ISerializable, IObjectReference, IDeserializationCallback, and methods marked [OnDeserialized]. In other words, the attacker-controlled data can force the runtime to construct a graph containing types with executable side effects.
+
+A practical detection strategy should therefore focus on graph-construction artifacts. CLR loader events identify the relevant assemblies and application domains. Memory and metadata inspection then reveal the type names and generated serializer structures associated with the suspected gadget chain. In ToolShell-like scenarios, unsafe deserialization usually produces helper assemblies (evidence in loader events) with metadata containing fully qualified type names, gadget class names, and string representations of the constructed generic types (just scan via YARA for it). In our case, the artifacts to look for include Microsoft.GeneratedCode, App_Web_toolpane.aspx* (evidence of deserialization in loader events) as well as strings identifying ObjectDataProvider, ExpandedWrapper, and LosFormatter (evidence that the input stream was deserialized into dangerous objects). Note that these indicators are not significant in isolation; their value lies in the fact that they show the runtime has already received data requiring helper code generation to reconstruct a dangerous object graph.
+
+Gadget objects that exploit vulnerabilities like those associated with ToolShell are conveniently represented in corpus-style tooling such as ysoserial.net/YSoNet, which aggregate known gadget chains for unsafe .NET deserialization. For defensive purposes, the value of these projects lies not in their offensive capability but in the catalog of types and structures that can be searched for in streams, memory, and helper assemblies. The presence of any of them in memory or in a helper assembly should be treated as a strong indicator of exploitation.
+
+To simplify deserialization exploit detection, we created a tool named CLRDeserializationExploitFinder. It can detect ToolShell exploitation attempts, as well as other gadget chains covered by ysoserial.net.
+
+Detecting a VPP-based webshell/runtime implant
+
+A mechanism based on VirtualPathProvider should be treated as a separate class of runtime implant (no files involved). In ASP.NET, HostingEnvironment.RegisterVirtualPathProvider registers a new virtual-path provider (VPP) in the application’s compilation system. Once registered, the application can serve virtual paths during dynamic compilation as though they were ordinary on-disk pages. Dynamic compilation does not require the payload to exist as a file in the filesystem. It operates entirely within the trust boundary of the application itself. During the compilation process, temporary files may be generated, but they cannot be treated as reliable forensic artifacts. Because VPPs can also be used for legitimate purposes, the defensive model should begin with an inventory of the legitimate VirtualPathProvider implementations. In all other cases, the registration or use of a new VPP should be considered anomalous.
+
+To see how the dynamic generation of virtual pages using ASP.NET, IIS, and the CLR works, and to learn how to detect such activity, use our project VirtualPathProvider Lab.
+
+The most useful telemetry source for this technique is the Microsoft-Windows-IIS-Configuration ETW provider. To detect virtual paths, events 25 and 47 are of primary value. Event 25 records the mapping of ConfigPath to PhysicalPath, and event 47 records the mapping of the configuration path to a directory. In the case of a VPP-backed path, these events create an inconsistency: IIS and ASP.NET behave as if the path has a physical representation, while the corresponding file does not exist on disk. In the example provided by VirtualPathProvider Lab, this appears as a mapping of the virtual resource googlecheck.aspx to a physical path where no real file is present. This discrepancy between configuration resolution and filesystem reality is the primary indicator of virtual content.
+
+The second indicator is more negative than positive. For disk-backed files, IIS normally creates a FileChangeNotificationMonitor chain, as reflected in events 17, 18, 19, and 21. For virtual paths served by a custom VirtualPathProvider, this chain is absent or does not match the normal profile of an ordinary file because there is no physical object or corresponding on-disk change lifecycle. Consequently, the presence of positive events 25 and 47 combined with the absence of the expected events 17, 18, 19, and 21 for the same path forms a reliable detection pattern: the path exists for IIS as a configuration-resolved resource, yet it is not backed by the filesystem and is not accompanied by normal file-change monitoring.
+
+To sum up, the hunting target here is the discrepancy between how IIS/ASP.NET resolves a resource and what is actually present on the disk and in the change-monitoring chain. For known applications, such cases can be filtered through an allowlist of legitimate VirtualPathProvider implementations. Anything else should be treated as a potential runtime implant and examined using ETW, filesystem verification, and memory inspection of the w3wp.exe process.
+
+Attribution
+
+Microsoft tracks Storm-2603 as a standalone threat actor with no known links to other groups. While they are careful about assessing the actor’s motivation, they mention that it has previously deployed Warlock and LockBit ransomware following active exploitation of on-premises SharePoint vulnerabilities. In the analyzed incident, we observed similar SharePoint exploitation activities, as well as an EDR killer associated with Warlock ransomware and unsuccessful Warlock launch attempts.
+
+Other documented intrusions have identified Storm-2603 as leveraging known flaws within perimeter mail gateways to achieve initial access, subsequently staging the Velociraptor framework with elevated privileges and establishing persistent encrypted tunnels via commercial remote management software to orchestrate secondary lateral movement. This aligns with the post-exploitation behavior we observed in our case. Together with the ToolShell exploitation scenario, this allows us to attribute this case to Storm-2603 with moderate confidence.
+
+Conclusion
+
+From the incident analyzed in this article, the main defensive lesson is that exploiting an internet-facing SharePoint server can enable fileless code execution directly inside the application trust boundary. Storm-2603 did not require a conventional dropper, persistent service, or exposed C2 endpoint; instead, it deployed a webshell inside w3wp.exe, from which tunneling, privilege escalation, credential access, and lateral movement could be orchestrated. Detection therefore needs to move beyond file-based webshell hunting toward runtime behavior, such as anomalous w3wp.exe activity, unexpected outbound connections, RPC coercion, token impersonation, and the introduction of remote-management or DFIR tooling after application compromise.
+
+To correctly attribute malicious activity and develop appropriate response measures, defenders should reconstruct execution chains and temporal relationships across application, host, and identity layers. They should also preserve memory and IIS telemetry, and correlate low-signal reconnaissance with subsequent privileged activity rather than evaluating events in isolation. A confirmed SharePoint exploit with code execution should trigger host-level containment, persistence hunting, credential and exposed MachineKey rotation, and TTP-driven investigation rather than remediation limited to the initial exploit or known IOCs.
+
+Kaspersky products detect the threats mentioned in this article as:
+
+Trojan.MSIL.Agent.gen
+
+Trojan.Win64.DLLhijack.cdp
+
+Indicator of compromise
+
+Description
+
+45.91.94[.]204
+
+SPN node
+
+0xFD91321BF7FF7245DDA9B7B5D791ACE8
+
+vskp2 – webshell implant
+
+hxxps://vdfccjpnedujhrzscjtq[.]supabase[.]co/storage/v1/object/public/image/v4[.]msi
+
+Vulnerable Velociraptor package
+
+0x3A55D8F8F29716C694671834D8C6CB29
+
+C:\ProgramFiles\Velociraptor\Velociraptor.exe
+
+hxxps://auth[.]qgtxtebl[.]workers[.]dev/
+
+Velociraptor server URL
+
+199.232.210[.]172
+
+C2 traffic relay
+
+0x991EC6E04413F2D4D29341C17A8A54D5
+
+Abused legitimate VS Code
+
+0x3D553B9061C03F891CE97D7D2E64DDEE
+
+VS Code Insiders for tunneling
+
+91.224.92[.]121
+
+Bulletproof-hosted C2 server
+
+49.51.132[.]100
+
+SPN node
+
+hxxps://github[.]com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64[.]msi
+
+Abused legitimate tunneling tool
+
+0x2C32E44A013CBFC5A323EFB7694701D2
+
+Abused tunneling tool executable
+
+hxxps://files[.]catbox[.]moe/8f7vex[.]msi
+
+Abused Zoho Assist Unattended Agent download URL
+
+0x112A86ECA3CB5A0B5E20AB744CC5AF93
+
+7z.exe renamed for sideloading
+
+0xA930F81E3FB0A226EC5904D9043A17B8
+
+C:\ProgramFiles(x86)\ZohoMeeting\UnAttended\ZohoMeeting.7z
+
+204.76.203[.]219
+
+Bulletproof-hosted C2 server
+
+0x054a32d6033b1744dca7f49b2e466ea2"
 9bf7a8b55636,72375819775f,2026-11-03 13:58 UTC,General Security News,Kaspersky,Kaspersky Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,PHP2Shell: what we know about the threat two weeks later | Kaspersky official blog,https://www.kaspersky.com/blog/php2shell-two-weeks-after-patches/56647/,"The first attack exploiting this vulnerability was recorded on October 26, so don’t put off installing the updates","Late October brought several unsettling cybersecurity stories all at once. Among these were two critical vulnerabilities in PHP, which potentially affected about 70% of websites worldwide. CVE-2026-109618 and CVE-2026-109619 — dubbed PHP2Shell — could let attackers execute code on a server remotely, without authentication.
 
 On October 21, PHP’s developers released emergency patches for the supported PHP 8.2–8.5 branches and for the unsupported PHP 7.4, 8.0, and 8.1. Experts predicted that attacks on vulnerable servers would start within 15 minutes of the updates going public. Amazon even reported exploitation attempts four days before the patches came out. With all this in the news, some organizations sounded the alarm early. For example, in several countries, government service websites were taken offline as a precaution. Even Wikipedia’s project management and bug-tracking system suspended service.
@@ -1898,680 +2219,3 @@ Conclusion
 Patch management is important for every organization, as updates from vendors help protect software and hardware against known vulnerabilities. However, sometimes installed patches fail to protect against the flaws they address. The BlackLotus story we described is not the only such example — for instance, in 2025 Microsoft released an update against the ToolShell vulnerability that also had to be applied manually.
 
 However, modern security solutions are designed to account for such cases when installed patches fail to protect against security flaws for one reason or another. For instance, the Exploit Prevention component available in Kaspersky products prevents exploits from running if the patch is not applied, or if it is a zero-day vulnerability with no available patch. It is thus crucial to equip all machines in an organization with security solutions and constantly monitor the alerts they raise."
-c8bbe3d56ee3,c8bbe3d56ee3,2026-10-21 02:07 UTC,"Attacks, Breaches & Threat Intel",Kaspersky,Securelist (Kaspersky),Threat Intelligence; Vulnerability Management,Article,"Operation FlashHole: Lazarus breaks security, defies control",https://securelist.com/lazarus-operation-flashhole/121541/,"Although the exact method by which CrossWeb EX was abused remains unclear, we determined that the attack chain ultimately leads to the execution of the malware in memory","In January, we responded to the Lazarus Group’s novel attack campaign against South Korea, which followed last year’s Operation SyncHole. In this new operation, the group employed an updated malware chain that included both their old and new malware, which we disclosed in full, and used another mandatory South Korean security software program as a part of infection chain using a watering‑hole strategy. Notably, the group targeted victims more selectively, sending spear‑phishing emails with links to fabricated but relevant sites, such as portfolio and résumé pages tailored to each target. We dubbed this activity Operation FlashHole.
-
-Operation FlashHole attack flow during initial compromise
-
-Our examination reveals that the earliest evidence of this new operation dates back to July 2025. This suggests the group began preparing for the campaign shortly after ending Operation SyncHole, which lasted at least four months. We identified a minimum of three organizations impacted by the campaign in South Korea’s software, construction, and wired communication equipment manufacturing sectors. These sectors differ from those affected by Operation SyncHole, indicating that the group has expanded its target scope over time.
-
-Background
-
-After more than a year since the first observation of Operation SyncHole, we detected a suspicious execution chain originating from legitimate South Korean software. This chain mirrors the one from the previous operation; however, this time, the attacker abused CrossWeb EX instead of Cross EX, which was abused in Operation SyncHole. Both applications appear to be maintained by the same vendor, and both are related to financial security. CrossWeb EX is a financial security solution that is required to access widely used online banking and government websites. It encrypts communications between the user’s browser and the web server using public key infrastructure (PKI). This is not the first time Lazarus has abused this software. It was also used in 2021 to deploy the Racket downloader and again in 2022 and 2023. Although the exact method by which CrossWeb EX was abused remains unclear, we determined that the attack chain ultimately leads to the execution of the malware in memory.
-
-We noted that the spawned process was running with a high integrity level. The parent process, INISAFECrossWebEXSvc.exe, originates from the installation bundle of INISAFE CrossWeb EX V3 version 3.4.1.2, released in 2023 after KrCERT’s public advisory.
-
-As we already mentioned in our SyncHole blog post, this pattern closely mirrors the long‑standing strategy employed by the Lazarus Group to target South Korea. Since CrossWeb EX and similar software is mandatory for South Korean users and typically runs in the background to interact with the browser, it has been leveraged as a critical attack vector by the group. In 2025, a paper was presented at the USENIX Security Symposium that investigated vulnerabilities in South Korea’s mandatory security software and demonstrated how such software can unintentionally create a massive attack surface.
-
-In July 2026, the South Korean government and several local security vendors also published a joint security advisory covering typical Lazarus attack techniques, including exploitation of financial security software. While this advisory overlaps with our findings from Operation FlashHole and Operation SyncHole, and AhnLab’s detailed analysis report Operation Double Barrel covers a wide range of recent Lazarus Group activities, we are conducting a more granular classification based on their TTPs. We will discuss this further in the attribution section.
-
-Initial infection vector
-
-Although we could not precisely determine what triggered the infection chain, our analysis uncovered a suspicious website hosted on GitHub Pages that is associated with the GitHub account used as the C2 channel. The GitHub account was created last September, and the initial version of the site was designed to showcase the résumé of a senior network appliance developer. In January, however, this site was replaced with another featuring an interior design showcase. The first site was likely accessed by an employee of a wired communication manufacturing company, while the second site likely affected a target in the construction sector.
-
-Appearance of the malicious websites
-
-The first site with the résumé had a photograph supposedly of a job seeker, but the lack of EXIF metadata and the unnatural texture of the image indicate that it was generated by AI. This suggests the Lazarus Group has incorporated AI into its long‑standing strategy, like other Korean‑speaking threat actors (1, 2). The group most likely also used AI to create the lure site: the job seeker’s name resembles the Korean version of “John Doe,” and the portfolio was populated with seemingly meaningless details and random companies. The generated site was then manually tailored to specific targets.
-
-Suspected use of an AI-generated image on the résumé site
-
-The websites contained embedded links that loaded an external JavaScript file via a script tag.
-
-Malicious link embedded in the résumé site: hxxps://javadevhouse.co[.]kr/ajax/libs/jquery/1.7.3/jquery.min.js
-
-Malicious link embedded in interior design site: hxxps://pythonapischool[.]com/api/detach
-
-Based on the analysis, we assess with medium-to-high confidence that the targets received phishing emails containing links to the malicious site hosted on GitHub Pages (using the domain <username>.github.io). The research results showed a high possibility that visiting the malicious site initiated an infection process involving CrossWeb EX software. This assessment aligns with Lazarus’s recent approach, as detailed in the joint advisory published by the South Korean government and security companies.
-
-Full infection chain
-
-Following the initial compromise, the legitimate Windows binary fsquirt.exe was executed under the CrossWeb EX process and injected with shellcode containing a malicious DLL – TechHub malware. From our extensive and thorough examination, we identified several malicious payloads and reconstructed the complete infection chain. The infection chain is rather complex and reveals the Lazarus Group’s advanced operational techniques on targeted hosts. These techniques conceal their malicious payloads, intent and their sophisticated malware delivery framework. The latter was updated extensively compared to the previous campaign, despite the new operation starting less than a year later. Significantly, the execution chain below exists only in memory during the initial infiltration, highlighting the attackers’ considerable efforts to hide the initial compromise.
-
-Initial infection chain
-
-Following the initial compromise, the group sought to maintain persistence on the network by installing a pair of malware strains – TouchHub and TouchShift – leveraging DLL side‑loading under the name mscoree.dll. TouchHub was deployed by the first instance of TechHub. It then used DLL side-loading to launch TouchShift, which led to the in‑memory execution of another TechHub instance. After launching the second time, TechHub deployed another pair, ClientHub and LPEClient, rather than executing Cubridge directly. Only minimal traces of these files were found on disk; the remainder of the malicious code persisted exclusively in memory.
-
-Expanded infection chain after gaining persistence
-
-Since Cubridge remains only in memory at the initial compromise stage, we suspect the group designed this indirect, multistage chain to deliberately redeploy Cubridge after gaining persistence, as it serves as the most sophisticated orchestrator of the attack.
-
-Malware set
-
-The full chain comprises advanced variants of the known Lazarus malware strains, including TechHub, Cubridge, TouchShift, LPEClient, and the newly identified TouchHub and ClientHub.
-
-TechHub – the start of the chain
-
-TechHub, a downloader that plays a central role in this attack, communicates with GitHub using a Personal Access Token (PAT). It serves as the initial payload, providing the top of the chain with sufficient functionality to profile compromised hosts and facilitate subsequent payloads.
-
-This variant is a more advanced version of the malware named CLOUDBURST by Mandiant and NickelLoader by ESET. According to their reports, the earlier version communicated with a C2 server via HTTP(S) to fetch additional payloads. The latest iteration we found, however, communicates with GitHub instead and has updated command strings.
-
-We identified three variants of TechHub in the chain: an in‑memory version, a simple DLL side‑loading version, and a DLL side‑loading version that uses a registered Windows service. Depending on which stage loads the malware, it contacts a private GitHub repository via the GitHub API using either hard‑coded credentials or credentials retrieved from its configuration file.
-
-When TechHub loads, it creates a 4‑byte hexadecimal identifier (ID) in the range 0x1000–0xFFFF or reads one from the configuration file, enabling the attackers to distinguish between compromised hosts. TechHub then checks a GitHub issue by sending the request GET /issues?state=[open/closed] to determine whether any previous communication remains active and removes any traces of it if found. It then proceeds with the handshaking process.
-
-It creates a new issue titled 1[ID] with the body “hel” using the POST /issues request, and sets its status to open.
-
-It then retrieves a file from the repository containing the 2[ID] value in its name. This file contains the RSA public key.
-
-It generates a random 16‑byte XOR key, encrypts it with the provided RSA public key, and uploads the result, prefixed with 1[ID], to the repository.
-
-The hard‑coded IV is XORed with the generated 16‑byte key and then used after the handshake.
-
-During file exchange, filenames follow the pattern [1|2][ID][random-16-byte-key] throughout communication. The “2” prefix indicates delivery from the repository to TechHub, while “1” indicates delivery from TechHub to the repository. The random 16‑byte key in the filename is used for AES encryption or decryption of each file’s contents, employing either a hard‑coded IV or an updated IV.
-
-After the key exchange is complete, TechHub reads a file with the prefix “2” once again and verifies that the delivered data equals “hel”. If the check passes, TechHub gathers extensive information from the infected host. This data is then encrypted and sent to the repository. After transmitting the device information, the process concludes by updating the body of the previously created issue from “hel” to “hey” using PATCH /issues/[issue number]. The malware is now fully prepared to receive commands from the repository.
-
-TechHub supports four commands. The laeca command deploys a payload packaged in shellcode that reflectively loads the embedded payload directly into memory.
-
-Command
-
-Description
-
-mqdrz
-
-Collect information about the device and its running processes
-
-laeca
-
-Directly invoke the received shellcode in memory
-
-aqvxp
-
-Terminate the current process
-
-rtcya
-
-Beaconing after finishing the handshake process
-
-Cubridge – the framework orchestrator
-
-Cubridge, deployed via TechHub on the compromised host, is capable of retrieving various payloads through multiple methods. It serves as the central orchestrator of the entire malware framework, supporting a range of plugins, modules, and tools. An earlier version of Cubridge was also disclosed in the reports covering the previous version of TechHub. In those reports, Mandiant identified it as SIDESHOW, and ESET identified one of its modules as LightlessCan.
-
-To establish communication with the C2 server, Cubridge randomly selects one of the predefined C2 servers and constructs a dedicated C2 URL for every request, using the pattern [C2_URL]/[page1]/[page2]/[page3]. This is achieved by concatenating terms from predefined word lists. Our analysis identified a single hardcoded C2 server – hxxps://cubedesign[.]co[.]kr/news/AABBCC – associated with the examined instance that is configured to version 5.1. During URL generation, AABBCC is substituted with a null value. The page3 segment is assigned a randomly generated integer between 10000000 and 99999999. Consequently, each generated URL is designed to appear authentic and remain unique for each request.
-
-The predefined list for page1 is shown below. TechHub randomly selects one item from the list.
-
-economy, opinion, politics, national, international, medical, investment, sports, lifestyle, shopping, culture
-
-The predefined word list for page2 is shown below.
-
-article, list, story
-
-This means the hardcoded URL can later be transformed, for example, into hxxps://cubedesign[.]co[.]kr/news/economy/article/12345678 by following the steps described above.
-
-Authentication using the POST request with the C2 server requires three parameters in the form of key‑value pairs. Each key is randomly generated using a different predefined word dictionary, and the associated values consist of a randomly generated 8‑byte hexadecimal bot ID, a fixed authentication token (KW4Ofw982CNJjxd51AVqkGAop), and a randomly generated 16‑byte hexadecimal session ID.
-
-Cubridge employs a more robust handshaking process than TechHub, combining the RSA and RC6 algorithms. Unlike TechHub, it skips the profiling step and proceeds directly to command and control after the handshake. During communication, the malware mimics browser requests, using X‑CSRF‑Token and X‑Requested‑With headers for authentication and the Upgrade‑Insecure‑Requests header to request additional data.
-
-Cubridge’s communication sequence
-
-Cubridge contains extensive functionality, with a particular focus on loading subsequent‑stage payloads. The commands employ various techniques, such as DLL injection, reflective loading, and section‑mapping injection. The payloads may be delivered in various forms:
-
-Plugins – reusable extensions that add functionality as needed and can be invoked at any time (in shellcode and DLL form);
-
-Tools (in DLL form) – independent utilities that perform one-off tasks;
-
-Modules – components that are loaded once and remain active providing an extended set of functionalities.
-
-It is anticipated that the commands for plugins and shellcode will load identical types of plugins because both support a similarly formed exported function for subsequent activity. The shellcode can be generated using the open‑source sRDI tool to package a DLL‑style plugin. The capabilities of a single DLL are likely utilized to load a tool that works independently because when a single DLL is loaded, only its DllMain entry point and its parameters are accessible; no other exported functions are exposed.
-
-Command
-
-Payload type
-
-Description
-
-0
-
-–
-
-Collect device info including the computer name, time zone, PID, and other similar details
-
-1
-
-Archive the specified file/directory using the legacy ZipCrypto algorithm and the hard‑coded password: xdkiTajAAxc3i/w[<881fnC!G*cb1Dit2sh.gAk/
-
-2
-
-Create a file at the specified path
-
-3
-
-Possibly plugin
-
-Inject the provided DLL payload into the target process and load it reflectively using reflective DLL injection
-
-4
-
-Plugin
-
-Reflectively load a plugin in DLL format
-
-5
-
-Retrieve the address of the specified exported function from the target plugin and run it with the provided parameters
-
-6
-
-Retrieve all information about the loaded plugins
-
-7
-
-Unload the specified plugin
-
-8
-
-Shellcode
-
-Inject the provided shellcode into the target process and load it using section mapping injection
-
-9
-
-Load the provided shellcode directly into memory
-
-10
-
-Retrieve the address of the specified export function from the target shellcode (likely a plugin in shellcode form) and run it with the provided parameter
-
-11
-
-Retrieve all information about the loaded shellcode
-
-12
-
-Unload the specified shellcode
-
-13
-
-–
-
-Set the scheduled Cubridge execution time (in minutes) by updating a global variable
-
-14
-
-Set the scheduled Cubridge execution time (in minutes) by updating a global variable, while disabling monitoring by also updating another global variable
-
-15
-
-Terminate in a controlled manner
-
-16
-
-Get the configuration for Cubridge: retrieve the global flags, the number of C2 servers, the C2 addresses, etc.
-
-17
-
-Update the global flags, the number of C2 servers, the C2 addresses, etc.
-
-18
-
-Tool
-
-Load a DLL reflectively with the specified parameter
-
-19
-
-Configure the parameters for loading a single DLL
-
-20
-
-Unload the single DLL
-
-21
-
-Module
-
-Load the “action module” (ActionModule.dll) reflectively and invoke its AppinfoView export function
-
-22
-
-Load the “function module” (FunctionModule.dll) reflectively and invoke its PresentationFontConfig export function
-
-Commands 21 and 22 each load a different module. As their internal names imply, the action module manages basic file and process operations, while the function module implements Windows’ default commands. The action module covers commands 23–41, and the function module handles commands 42–79.
-
-The action module handles system operation commands, file system interactions, and process behavior. It is invoked by passing the appropriate command and parameters to its AppinfoView export function. The module supports 19 commands, numbered 23 through 41. Execution results are first sent to Cubridge, which then forwards them to the C2 server.
-
-Command
-
-Role
-
-23
-
-Get local disk space for each drive
-
-24
-
-Get information about the specified file or directory
-
-25
-
-Execute the provided command
-
-26
-
-Get information about the specified file or directory (similar to command 24)
-
-27
-
-Execute the provided command under the target process (PPID spoofing)
-
-28
-
-Execute the provided command under the target process within the provided session (PPID spoofing + session impersonation)
-
-29
-
-Get detailed information about processes
-
-30
-
-Terminate the provided process
-
-31
-
-Suspend all threads belonging to the specified process
-
-32
-
-Resume all threads belonging to the specified process
-
-33
-
-Permanently delete the file by overwriting its entire contents with the sequence: 0 → 1 → random bytes → 1 → 0
-
-34
-
-Rename the provided file to :EFS (the alternate data stream area) and delete it using the native API SetFileInformationByHandle
-
-35
-
-Set the current working directory
-
-36
-
-Copy the specified file to the provided path
-
-37
-
-Delete the specified directory
-
-38
-
-Move the specified file to the provided path
-
-39
-
-Create the provided directory
-
-40
-
-Initiate a non‑blocking connection attempt to the specified IP address and port (possibly for port scanning)
-
-41
-
-Read the specified file
-
-The function module implements commands that emulate Windows’ built-in commands. Similar to the action module, its DllMain routine initializes all supported command functions, which are later accessed through the PresentationFontConfig export. Altogether, the module offers 38 commands, numbered from 42 to 79. While we believe this module is based on the previous LightlessCan, this is the first time we’ve seen it in the form of a separate module.
-
-Command
-
-Role
-
-42
-
-Capture all displays and archive them using the legacy ZipCrypto algorithm with the hard‑coded password: xdkiTajAAxc3i/w[<881fnC!G*cb1Dit2sh.gAk/
-
-43
-
-Synchronize the MAC (Modified, Accessed, and Created) times of the file provided in the second argument to match those of the file provided as the first argument
-
-44
-
-Get information about the specified directory
-
-45
-
-Get information about the specified drive
-
-46
-
-Inject the provided DLL payload into the target process
-
-47
-
-Unload the specified DLL from the specified process
-
-48
-
-Implementation of the ipconfig command
-
-49
-
-Implementation of the net command
-
-50
-
-Implementation of the netsh advfirewall firewall command
-
-51
-
-Implementation of the netstat command
-
-52
-
-Implementation of the ping -6 command
-
-53
-
-Implementation of the reg command
-
-54
-
-Implementation of the sc command
-
-55
-
-Implementation of the ping command
-
-56
-
-Implementation of the whoami command
-
-57
-
-Implementation of the nslookup command
-
-58
-
-Implementation of the schtasks command
-
-59
-
-Implementation of the systeminfo command
-
-60
-
-Implementation of the arp command
-
-61
-
-Call the CryptUnprotectData function to retrieve the AES key that DPAPI protects. Extract the key using the encrypted_key keyword from Chromium’s Local State file located at: %LOCALAPPDATA%\Google\Chrome\User Data\Local State
-
-62
-
-Not implemented
-
-63
-
-Not implemented
-
-64
-
-Read the specified file and decrypt it using an XOR operation with the key 0x59. Then extract the paths from the decrypted buffer and archive files and directories at these paths with the legacy ZipCrypto algorithm, using the hard‑coded password: xdkiTajAAxc3i/w[<881fnC!G*cb1Dit2sh.gAk/
-
-65 ~ 79
-
-Not implemented
-
-Besides the modules, we also observed that the actor deployed various plugins and tools.
-
-Type of payload
-
-Name
-
-Description
-
-Plugin
-
-ADFinder (AdFinder.dll)
-
-Launches LDAP queries in an Active Directory environment, taking six arguments such as log file path, ADsPath, search filter, and attribute names
-
-Plugin
-
-FileCollector (Dll.dll)
-
-Recursively scans every subdirectory and file in the provided directory, gathering detailed information about each
-
-Tool
-
-Browser stealer
-
-Can be injected into Chromium-based browsers, such as Google Chrome, Microsoft Edge, and Brave. Once injected, it extracts files and credentials from the victim’s browsers, including stored passwords, bookmarks, history, preferences, and cookies
-
-Tool
-
-Process collector
-
-Iterates over all running processes, collecting each process’s ID, path, and command line
-
-TouchHub installs a service for TouchShift
-
-During our analysis, we obtained a previously unknown malware sample from TechHub’s private GitHub repository, which served as a parent installer for TouchShift. We dubbed this malware TouchHub. Upon execution, it copies the legitimate printfilterpipelinesvc.exe to C:\Windows\System32\RasConv\ImeBroker.exe, registers it as a service, and places an embedded TouchShift payload named mscoree.dll in the same directory. Following creation, the malware synchronizes the MAC timestamps of C:\Windows\System32\drivers\monitor.sys with those of the newly written file, hindering forensic analysis.
-
-It then goes through the service registration process by collecting up to 100 legitimate service names that are registered under the netsvcs svchost group in HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost. It randomly selects one of these names, appends two random alphabetic characters to form a new service name, and uses this name to create a service that runs the hard‑coded command line C:\Windows\System32\RasConv\ImeBroker.exe -TimeBroker with the description Microsoft Service. The newly created service is started immediately. Overall, TouchHub creates three files in the designated directory to launch TouchShift with SYSTEM privileges.
-
-Path
-
-Type
-
-Description
-
-C:\Windows\System32\RasConv\ImeBroker.exe
-
-Executable file registered as a service
-
-Copied from C:\Windows\System32\printfilterpipelinesvc.exe
-
-C:\Windows\System32\RasConv\mscoree.dll
-
-Side-loaded TouchShift payload
-
-Dropped by TouchHub. It contains encrypted payloads and includes portions of a legitimate DLL’s contents, which significantly inflates its size
-
-C:\Windows\System32\RasConv\ActivationStore.dat
-
-TechHub’s configuration file
-
-Dropped by TouchHub after extracting configuration values
-
-TouchShift, a prevalent loader employed across multiple infection chains
-
-The version of TouchShift dropped by TouchHub is almost identical to the version described in Mandiant’s blog post, even sharing the same malicious export function, LockClrVersion. It takes the argument supplied by TouchHub and XORs it with a hard‑coded key. The resulting value is XORed once more with the executable’s filename, and this result is used as the AES key. All strings involved in this process (the argument, the XOR key, the filename) must be exactly 16 bytes long. If a string is shorter, it is padded with NULL bytes (\x00); if it is longer, it is truncated to 16 characters. For example, one of the string combinations in the obtained sample was:
-
-Argument: -TimeBroker\x00\x00\x00\x00\x00 (padded with NULL)
-
-Hard-coded XOR key: x809G736iC3f8Wp8
-
-Executable filename: ImeBroker.exe\x00\x00\x00 (padded with NULL)
-
-After deriving the key, the malware decrypts the embedded payload using AES‑CBC‑128 without padding. The decrypted data is shellcode that starts with a call instruction. It wraps the next‑stage payload – identified as the third version of TechHub (DLL side-loading with a registered service) – that reads the ActivationStore.dat file as an external configuration.
-
-ClientHub
-
-We also identified a new piece of malware stored in TechHub’s private repository, which we named ClientHub. It supports various commands formed using a bitmask. There are at least two versions of ClientHub: one that communicates with websites via HTTP(S) and one that interacts with the Dropbox API using credentials.
-
-Depending on the version, its configuration is sourced from internal resources or the external configuration file C:\Program Files\Common Files\System\msadc\msadc.inc. The configuration comprises keys and IVs for the SNOW 1.0 algorithm, scheduled execution times, and C2 server addresses encrypted with the SNOW stream cipher. The SNOW cipher is a family of high‑speed stream ciphers used for secure data encryption in telecommunications and wireless networks. This is the first time it has been observed in the malware of the Lazarus Group.
-
-To establish C2 communication, the malware initially generates a 32‑byte random array. It subsequently overwrites portions of this array with data collected from the compromised device. The resulting 32‑byte array comprises a blend of random bytes and relevant information. This array is later used as the key for the SNOW algorithm to decrypt data received from the C2 server. Finally, the key array is encrypted with a hard‑coded RSA public key and encoded in Base64.
-
-Offset
-
-Size
-
-Field value
-
-0
-
-4
-
-Current process ID
-
-4
-
-First four bytes of the decrypted C2 server information.
-
-8
-
-7
-
-Randomly generated bytes
-
-15
-
-1
-
-Calculated flag value that indicates a state machine.
-
-16
-
-8
-
-Current system time, represented as a FILETIME structure.
-
-24
-
-8
-
-Randomly generated bytes
-
-The ciphertext is delivered to the C2 server via GET requests. Each request contains headers that are atypical for malware: Sec-CH-UA, Sec-CH-UA-Platform, Sec-CH-UA-Mobile, Sec-Fetch-Mode, and Sec-Fetch-Dest. These headers are normally used by legitimate Chromium‑based browsers and enable malware to imitate legitimate traffic and evade detection. The C2 server replies with commands in a custom header and message body.
-
-struct header { int has_more_data // whether more body data remains int body_checksum;// ROR13 checksum for the body data int body_type; // specifies the body type int unknown; int body_length; // Length of the body data int IV[2]; // Random IV used to encrypt the body data };
-
-The body_type field in the header determines how the subsequent payload is processed. This value functions as a bitmask, with each bit representing a distinct flag (e.g., 0x1, 0x2, 0x4, etc.). The resulting behavior also depends on whether the least‑significant bit (bit 0) is set: when the value is odd, the malware interprets the incoming message body as an additional payload that is subsequently loaded into memory. Conversely, when the value is even, the malware invokes the previously loaded payload.
-
-The odd value supports four distinct loading methods based on the received message body and ensures that each method executes only once.
-
-Bitmask
-
-Value in decimal
-
-Description
-
-Result sent to the C2
-
-0x00000001
-
-1
-
-DLL loading: load the received body reflectively along with the provided parameter
-
-The payload’s image base
-
-0x00000011
-
-3
-
-Plugin: load the received body reflectively, obtain the address of a function in the payload, and then invoke that function along with the provided parameter
-
-The payload’s image base, the address of the invoked function, and the execution result
-
-0x00000101
-
-5
-
-Plugin: load the received body reflectively, obtain the address of a function in the payload, but refrain from invoking it immediately
-
-The payload’s image base, the address of the function
-
-0x00001011
-
-11
-
-Plugin: execute the behavior associated with value 3, then unload immediately after invoking the plugin
-
-–
-
-0x00010001
-
-17
-
-DLL loading: load the received body reflectively with the provided parameter, maintaining stateful communication via a persistent interactive session using a shared buffer
-
-The payload’s image base, the address of the interactive shared buffer, and the execution result
-
-The even value provides two distinct invocation methods for DLLs and plugins that have already been loaded and are associated with the odd‑value bitmask. The 2 (0x10) flag allows the payload previously loaded with the 1, 3, or 5 bitmask to be reused and invoked directly. The value 16 (0x10000) corresponds to the 17 (0x10001) flag in loading mode and uses the established interactive shared buffer to exchange data. All values are guaranteed to act independently.
-
-Bitmask
-
-Value in decimal
-
-Description
-
-Result sent to the C2
-
-0x00000010
-
-2
-
-Invoke the previously loaded DLLs and plugins along with the provided parameter
-
-The execution result
-
-0x00000100
-
-4
-
-Not implemented
-
-–
-
-0x00001000
-
-8
-
-Unload the previously loaded DLLs and plugins
-
-The execution result
-
-0x00010000
-
-16
-
-Send the updated parameter to the payload loaded by the command with the value 17, and exchange data through the interactive session. This command also determines whether to retrieve the execution result or unload the payload
-
-The execution result
-
-Taking into account the loading mechanism, we identified four plugins deployed to the target that work perfectly with ClientHub.
-
-Plugin
-
-Description
-
-File archiver
-
-Archives the provided file using the legacy ZipCrypto algorithm (without password protection) and returns the compressed data
-
-File collector
-
-Searches for all files matching the provided search pattern and collects metadata including filename, MAC timestamps, file size, and attribute values
-
-File cleaner
-
-Overwrites the provided file with NULL bytes, renames it to a randomly generated filename of the same length, and then deletes it. If a directory with a search pattern is provided, it locates all matching files, renames each to a randomly generated name of identical length to its original name, and deletes them
-
-Drive and session monitor
-
-Monitors remote session changes and local drive changes for the provided duration (in 10-minute intervals) and returns the collected status information
-
-In addition to the plugins, ClientHub supports the loading of LPEClient malware and communication with it. We found that ClientHub’s body_type values 16 and 17 correspond to LPEClient’s C2 communication mechanism.
-
-LPEClient
-
-LPEClient is the only malware that was also observed in Operation SyncHole, indicating that the actor relies heavily on it for sophisticated victim profiling and payload delivery across multiple operations. LPEClient first appeared in 2019, and was discovered in 2020. Since then, the tool has been widely observed in the Dream Job and Cascade Hole campaigns that targeted South Korea. Recent research conducted by Check Point revealed that LPEClient was used to deploy the FudModule malware using a zero-day.
-
-LPEClient has evolved continuously over time, but we discovered that it recently underwent a major operational revamp. It no longer contains the C2 server address itself; instead, it interacts with ClientHub via a shared buffer. We believe this change is intended to enhance concealment.
-
-Timeline of LPEClient
-
-The previous version collected the computer name, memory status, CPU specifications, operating system details, version of the ntoskrnl.exe file, firmware table [truncated for CSV - full text is in the JSON export]"

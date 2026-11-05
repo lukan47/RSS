@@ -1,4 +1,123 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+1344cfe4672d,1344cfe4672d,2026-11-05 00:00 UTC,Vulnerabilities & Patching,CrowdStrike,CrowdStrike Blog,Vulnerability Management; Identity Security Posture Management,Article,How Adversaries Are Turning the Vulnerability Ecosystem Against Defenders,https://www.crowdstrike.com/en-us/blog/adversaries-turn-vulnerability-ecosystem-against-defenders/,Among them was a modified version (SHA256 hash: fd6b46d148af22da6163f18ce43b35ebb827cc6e140f03f0f514bc2a6f548743) of a public POC exploit for a FortiOS and FortiProxy...,"Fortinet FortiOS and FortiProxy Authentication Bypass Vulnerability (CVE-2024-55591)
+
+In February 2026, CrowdStrike Counter Adversary Operations identified an open directory controlled by the Iran-nexus adversary STATIC KITTEN on IP address 157.20.182[.]49 containing 1.9 GB of data and more than 20,000 files. Among them was a modified version (SHA256 hash: fd6b46d148af22da6163f18ce43b35ebb827cc6e140f03f0f514bc2a6f548743) of a public POC exploit for a FortiOS and FortiProxy authentication bypass vulnerability (CVE-2024-55591) first released by a well-known industry source on January 27, 2025.4
+
+Where the public POC exploit executed a single user-provided command, the modified version contained 13 hardcoded payloads designed to enumerate targets, create users, and establish persistence. The modifications reflect a systematic approach to turning a demonstration tool into a more comprehensive exploit.
+
+Table 1. Payloads for modified CVE-2024-55591 exploit
+
+Payload Name
+
+Description
+
+test
+
+Creates the backdoor admin user FortiWiFi with password FortiWiFi123 and assigns this user the super_admin profile, granting full system access
+
+test2
+
+Lists all user groups in the victim system, likely to facilitate reconnaissance in order to understand the victim system’s existing group structure
+
+test3
+
+Displays all local user accounts, allowing the attacker to enumerate existing users
+
+test4
+
+Modifies the FortiWiFi admin account by assigning it the ssl-vpn-groupamoss access profile
+
+test5
+
+Creates the FortiWiFi user with password FortiWiFi123, adds this user to the ssl-vpn-groupamoss group, and then displays all user groups to verify the user was successfully added to the group
+
+test6
+
+Creates or modifies a user group named ssl-vpa-amoss and adds multiple users to this group, including the backdoor FortiWiFi account (created by test1 or test5) and users with transliterated Hebrew-language names (i.e., shachar, sigal, amos, sima, lev, and gabi)
+
+test7
+
+Queries the ssl-vpn-groupamoss group configuration’s help information, likely to understand available options for follow-on activities
+
+test8
+
+Creates the backdoor user darlen with password 1234
+
+test9
+
+Similar to the test payload, creates the FortiWiFi user with password FortiWiFi123 or updates the existing FortiWiFi user to use that password
+
+test10
+
+Creates the FortiWiFi user with password 1234 and adds this user (along with numerous other users, many with transliterated Hebrew-language names) to the VPN-Users group, potentially to hide the backdoor account among legitimate users
+
+test11
+
+Creates a system admin account named FortiSetup with super_admin privileges and an encrypted password (decrypted password is gwm1607pmw); this account provides a more sophisticated backdoor than those created by other payloads, as FortiSetup has root VDOM access
+
+test12
+
+Displays the FortiAdmin account’s configuration, likely to facilitate reconnaissance
+
+test13
+
+Creates a user named offices with an email address and an encrypted password (decrypted password is @lolo@123456); POC_ZZ_1.py‘s developer may have added this email address to make the new user appear legitimate
+
+Whether STATIC KITTEN modified the public CVE-2024-55591 exploit themselves or obtained this modified version from another source remains unknown. However, as of this writing, CrowdStrike Counter Adversary Operations has not observed any other adversaries using this modified POC or infrastructure hosting it.
+
+AI’s Impact on the Vulnerability Research Ecosystem
+
+AI advancements are undoubtedly accelerating the speed and scope of how vulnerabilities are discovered and weaponized.5 One only has to look at the substantial increase in the number of vulnerabilities in recent Microsoft Patch Tuesdays compared to prior to the advent of frontier models earlier this year.6
+
+Detecting and attributing adversaries’ direct use of AI for vulnerability research purposes remains hard to identify due to inherent visibility gaps and the fact there is no single identifier that distinguishes AI-generated exploit code. Complicating things further, is that the patterns suggesting AI assistance (such as well-commented code, improvements to existing POCs, or structured code organization) are also consistent with the output of someone with high technical capabilities.
+
+Nonetheless, threat actors are leveraging AI to augment their vulnerability research. CrowdStrike Intelligence assesses they will almost certainly continue to do so through at least three vectors:
+
+Direct interaction with frontier models by trying to “jailbreak” AI safeguards and bypass any export control restrictions
+
+Modifying open-weight proprietary models for malicious use by extracting safeguards; these are not/less monitored for abuse by frontier AI companies
+
+Adopting AI-led/assisted public vulnerability research published by industry sources
+
+The third point, while not a direct use, is the easiest to detect. One only has to look at the CopyFail vulnerability detailed in this blog post, whose discovery was allegedly facilitated by AI.7 Or the mass exploitation of wp2shell in July 2026, which is the first critical unauthenticated WordPress Core remote code execution (RCE) purportedly discovered in nearly a decade and was allegedly discovered using GPT5.6 Sol Ultra and $25 USD worth of tokens.8
+
+Outlook
+
+Adversaries will almost certainly continue using public vulnerability research as part of their offensive toolkit through the foreseeable future. As more POC exploits become routinely available within hours of disclosure, at least partially driven by AI-assisted vulnerability research, the number of threat actors using them will almost certainly increase. Over the next year, this will likely manifest itself in the rise of widespread exploitation campaigns resulting in contested environments, like the cPanel CVE-2026-41940 exploitation example covered in this blog post.
+
+This expanding pool of adversaries leveraging public vulnerability research, combined with the rapid speed at which adversaries are operationalizing public research, reinforces three key points.
+
+The first is that patch prioritization is harder than ever. As vulnerability disclosures continue to increase in volume, predicting which ones will attract public research (and therefore adversary attention) becomes a genuine intelligence challenge. Because adversaries have access to the same advisories and public exploits that defenders do, organizations that rely solely on CVSS scores to drive patching decisions are relying on the wrong signal. Real-world exploitability, ease of exploitation (i.e., if there is a public exploit or exploitation guidance), and adversary intent are what separate the vulnerabilities that matter from the ones that do not.
+
+The second is that the time to patch is effectively zero. The data from the first half of 2026 shows this: 91% of vulnerabilities with POCs that CrowdStrike has seen exploited were weaponized and used in the wild within 48 hours, with the fastest observation occurring just 35 minutes after a POC became available. Adversaries treat public vulnerability research as the starting gun, and legacy patch cycles measured in weeks or days cannot compete.
+
+Lastly, more threat actors can participate in exploitation. As the case studies show, adversaries across skill and resource levels are operationalizing public research, some using POCs with minimal modification and others refining them (as UMBRAL BISON and STATIC KITTEN both demonstrated). When motivation and intent are the only remaining barriers to exploitation, the volume of participating adversaries significantly increases.
+
+The vulnerability research ecosystem is one of the security community's greatest assets and most significant challenges. Defenders who treat public research as a threat actor's green light, and who build the intelligence, patching timelines, and detection capabilities to match, are the ones who will keep pace.
+
+Jaime Duque and Lacie Blythe are Senior Intelligence Analysts at CrowdStrike. This research was presented at Day Zero 2026.
+
+Additional Resources
+
+Learn more about CrowdStrike Counter Adversary Operations threat intelligence and threat hunting, or request a demo.
+
+Tune in to the Adversary Universe podcast, where CrowdStrike reveals the threat actors behind the latest cyberattacks.
+
+1 https://labs.watchtowr.com/the-internet-is-falling-down-falling-down-falling-down-cpanel-whm-authentication-bypass-cve-2026-41940/ || https://github.com/watchtowrlabs/watchTowr-vs-cPanel-WHM-AuthBypass-to-RCE.py
+
+2 https://www.reddit.com/r/cpanel/comments/1syyajp/comment/oiyg0fr/
+
+3 https://xint.io/blog/copy-fail-linux-distributions || https://github.com/theori-io/copy-fail-CVE-2026-31431
+
+4 https://labs.watchtowr.com/get-fortirekt-i-am-the-super_admin-now-fortios-authentication-bypass-cve-2024-55591/ || https://github.com/watchtowrlabs/fortios-auth-bypass-poc-CVE-2024-55591
+
+5 https://www.crowdstrike.com/en-us/blog/tune-in-future-of-ai-powered-vulnerability-discovery/
+
+6 https://www.microsoft.com/en-us/security/blog/2026/10/06/ciso-perspectives-on-managing-vulnerability-risks-in-the-age-of-ai/
+
+7 https://xint.io/blog/copy-fail-linux-distributions
+
+8 https://www.wordfence.com/blog/2026/07/wp2shell-aftermath-the-first-critical-unauthenticated-wordpress-core-rce-in-nearly-a-decade/ || https://www.slcyber.io/research/exploit-brokers-pay-500000-for-a-wordpress-rce-i-found-one-with-gpt5-6#the-story-of-wp2shell"
 95c3bde9b20b,95c3bde9b20b,2026-11-04 12:06 UTC,Product & Roadmap,CrowdStrike,CSO Online,Network Security; AI Security; Data Security Posture Management; Endpoint Security,Article,CrowdStrike launches AI kill switch to shut down rogue agents,https://www.csoonline.com/article/4244509/crowdstrike-launches-ai-kill-switch-to-shut-down-rogue-agents.html,"With a notable rise in autonomous AI agents veering off-script inside corporate networks, CrowdStrike has launched an enterprise AI Kill Switch, giving security teams control to...","With a notable rise in autonomous AI agents veering off-script inside corporate networks, CrowdStrike has launched an enterprise AI Kill Switch, giving security teams control to cut off and disable models when they go rogue.
 
 Integrated into its Falcon Guardian platform, this AI Kill Switch will provide security teams with the human control to terminate the agent at its root, where it runs, block it from launching again, and even cut off its enterprise network access.
@@ -406,84 +525,3 @@ The integration is focused on visibility and detection inside the VM. Available 
 Forward-Looking Statements
 
 This release includes discussion of unreleased services or features. Any unreleased services or features referenced here are still in development and subject to change. Customers should make their purchase decisions based upon features that are currently available."
-19d0eed47fbf,19d0eed47fbf,2026-11-02 00:00 UTC,"Attacks, Breaches & Threat Intel",CrowdStrike,CrowdStrike Blog,AI Security; Identity Security Posture Management,Article,What Makes a Good Security Agent? 5 Lessons from the AgentWorks Hackathon,https://www.crowdstrike.com/en-us/blog/five-lessons-from-agentworks-hackathon/,"Working with NVIDIA, we launched the first AgentWorks Hackathon and invited security teams to nominate agents they’ve built","Every security team is being told to adopt AI. Far fewer have been shown what ""good"" looks like in practice. Turnkey agents handle common, well-defined security tasks, but no two security teams operate the same way. Each has its own data, playbooks, escalation paths, and risk tolerances; unique context that no vendor can anticipate in a packaged solution. That’s why we built CrowdStrike® Charlotte AI™ AgentWorks: a no-code workspace that lets every security team build the exact agents they need, on the Falcon platform.
-
-The power of the crowd is one of the most enduring advantages we have as an industry against the adversary. What one analyst learns on the front lines, the whole community inherits. Now, adversaries are rapidly gaining AI fluency, and defenders need to transform the SOC the way we always have: together. When one team turns a hard problem into a working agent, it raises the bar for all of us. Every team can learn from that agent, adapt it, and build on it.
-
-So, we summoned the ingenuity of the crowd like never before. Working with NVIDIA, we launched the first AgentWorks Hackathon and invited security teams to nominate agents they’ve built. The brief was wide open: each team picked its own problem and defined its build. Nearly a hundred nominations poured in from more than 50 countries, each aimed at a persistent bottleneck its builders knew firsthand and forged to earn its place as a trusted extension of the team.
-
-The standouts went further. They were intentionally designed, governed by clear guardrails, and deliver real impact. Here are the winning agents and five lessons every security team can apply today.
-
-Winner Spotlights
-
-“Agent Smith”: Finding the MCP Servers Nobody Knew Were Running
-
-AI coding tools can launch an MCP server on a developer laptop with a single command. Most security teams have no inventory of them. In one day, one company discovered 1,710 hosts running unapproved MCP servers, including a revoked server, unapproved mailbox readers, and one with TLS verification turned off. Nobody had been watching.
-
-Agent Smith hunts these cases down. It finds MCP servers running on endpoints, checks each against the organization's approved list, and reads redacted command lines for risky settings. In doing so, it turns a blind spot into a daily inventory with a clear next step for every server.
-
-The sophistication here wasn't just in the prompt. It was in the architecture: a deliberate division of labor between the model and deterministic tools like queries and workflows. That split sharpened accuracy and controlled cost.
-
-Before the agent runs, an upstream query in CrowdStrike Falcon® Next-Gen SIEM does the heavy lifting, carrying the company's own context: signature rules encoding the approved tool list, noise filters tuned during testing, and host lookups mapping each server to a business unit. It also redacts sensitive data before handing the agent a command-line sample and package names.
-
-The agent then gets to work: explaining what each server is, flagging risky settings (TLS off, unpinned versions, credentials on the command line), and recommending a next step based on the team's existing approval process (switch to an approved server, request a review, or register a custom build). Charlotte Agentic SOAR then passes that context into a new case for the governance team to review.
-
-“Help Desk Takeover Defender” Agent: Catching MFA Reset Abuse in 70 Seconds
-
-Multifactor authentication (MFA) exploitation is one of the most effective plays in the modern attacker's playbook: Call the service desk, impersonate an employee, get their MFA reset, register your own device, and walk into the account. The challenge for defenders is that a malicious reset can look almost exactly like a legitimate one.
-
-The Help Desk Takeover Defender agent ensures every MFA reset is investigated for abuse within moments of a new reset. Manual investigations that previously took 20 to 30 minutes now run in about 70 seconds against live data, and containment drops from hours to minutes. It pulls Entra ID logs and the supporting Falcon telemetry behind a reset, then scores the likelihood of a social engineering attack. If the signs point to a takeover, it can revoke sessions, disable the user, or contain the host.
-
-What earned this agent its recognition was how it balanced trust and speed. The scoring is deterministic, computed upstream by a CrowdStrike Falcon® Foundry function rather than the model, so the same evidence produces the same verdict. The model compares each reset against that user's 30-day history, then draws on knowledge files that encode the team's playbook: what's considered normal, how to verify a user with a callback, and which containment paths are warranted and when. No action happens without a human in the loop: Every containment step requires explicit approval and the approver's name on record.
-
-“Exclusion Adversary” Agent: The Agent that Attacks its Own Work
-
-Every security team manages exclusions: rules that tell security tools to stop alerting on recurring, harmless activity. But left unattended, exclusions can become blind spots of their own. A rule written too loosely doesn't just quiet the noise; it hides any real attack that happens to share the same pattern. A good exclusion has to thread the needle: wide enough to catch the noise, but tight enough that an attacker can't hide behind it.
-
-The Exclusion Adversary agent turns that balancing act into a repeatable, evidence-backed step. It gathers live detection counts and drafts the narrowest exclusion that would safely apply. Then it does what analysts rarely have time for: It attacks its own draft. It lists every field the rule leaves wide open and writes bypass strings an adversary might use to slip through, such as a same-named binary dropped in a writable folder. It ends with a verdict and an approval checklist for an analyst to review.
-
-What sets this agent apart is its adversarial mindset turned inward. Most agents try to be right. This one assumes it might be wrong and goes looking for proof. Its discipline caught a real defect in testing: The agent's first draft used a common wildcard pattern that matched a program by name in any folder. That meant an attacker could plant a lookalike elsewhere and the exclusion would silence it too. The agent flagged the gap and tightened the rule to the exact file path.
-
-Notable Runners-Up
-
-This is CQL Agent: Security queries can run without errors but still fail. AI-drafted detections are especially prone to this. This agent checks whether queries and detection rules work as intended. It takes output from CrowdStrike’s LogScale query assistant or the Falcon Next-Gen SIEM Correlation Rule Generation Agent and runs it through a fixed series of gates, including a check against a 196-function CrowdStrike Query Language (CQL) catalog, 23 silent-failure rules, and a reproducible unit test. Each one ends with a verdict: validated, validated with limits, or inconclusive. Judges singled out its reproducible tests and its willingness to return an inconclusive result. An agent that admits what it can't prove is one you can trust when it returns a ""validated” verdict.
-
-TaHiTI Threat Hunting Agent: Structured threat hunting can take a senior analyst hours; most of it spent on research, schema lookups, query debugging, and write-ups rather than hunting. This agent runs the full Targeted Hunting integrating Threat Intelligence (TaHiTI) methodology end-to-end. It scopes queries to keep costs under control and produces a standardized, ServiceNow-ready hunt record. The result: junior analysts can now run hunts that once waited on senior staff. The method stops living in one person's head and can be run by the whole team.
-
-HOPSCOTCH Agent (Lateral Movement Flight Recorder): Tracing an identity or process across entry, internal hops, and exit points can be a time-consuming process. Given an account name, HOPSCOTCH reconstructs that entity’s path as a chronological, confidence-rated chain, corroborating source activity, authentication, destination execution, and post-arrival behavior at each hop. At each link, the agent provides supporting evidence and a confidence level, so analysts can see what it knows and what it’s inferring.
-
-EASM Heartbeat Agent: An organization's external attack surface changes constantly. Each morning, the EASM Heartbeat agent emails the security team a short report on what changed across its external attack surface in the last 24 hours: new findings, new IPs, new “Critical” and “High” CVE misconfigurations, and which way the risk score is moving. One weekend, its findings more than doubled, tracing the spike to newly attributed assets carrying critical, actively used exploits. Its report revealed to the team that much of the inventory had never been reviewed, which led to a recurring asset review.
-
-Dysfunctional Family-Tree Agent: Most attacks today are malware-free. To catch them, this agent proactively audits two- and three-generation process lineage (grandparent, parent, child) against a lookup table of patterns common to LOLBin attacks, decodes obfuscated command lines, and opens a case for medium-or-worse findings.
-
-Hall Pass Agent: Security exemptions rarely expire on their own. One organization found more than 25,000 hosts carrying a USB exemption, with no active approval on record for over two years. The Hall Pass agent reconciles the exemptions the Falcon platform enforces against internal approval records, measures whether each is still used, and opens a renew-or-revoke case for the owner, so exceptions stay current and reviewed.
-
-SneakerNet Agent: The Falcon sensor records every file written to USB, far too many for any team to review by hand. In a 30 day window, one team found merger documents, litigation holds, and pay statements copied to removable drives without triggering a single alert. Blocking USB would break legitimate work, so every hour a detection query flags sensitive files written to or opened from USB drives and SD cards. The agent scores each device, checking the machine’s role and whether the same drive has been on other hosts. It then opens a case for the data owner showing what left, how, and why it scored the way it did, without blocking anything or naming the user.
-
-What Makes a Good Security Agent?
-
-Five traits set apart the best agents:
-
-They solve real problems: The best agents target the work that drains analyst time, or worse, the work that always loses to urgent tasks and never gets done. These problems aren't always glamorous, but they're often low-risk and high-return cases for automation. Moreover, the best builds didn't just move a bottleneck downstream or create new ones. They closed the gap, doing work that otherwise wouldn't happen.
-
-They connect data, reasoning, and action, and plug into processes that teams already run: A good agent is defined by an architecture that applies AI reasoning exactly where judgment is needed and leans on other technologies for everything else. The strongest builds didn't make the model do everything. They made it do the one thing only a model can, then handed the rest to tools that are faster, cheaper, and deterministic, such as for routing, loops, query searches, and fixed calculations. They also structured outputs to hand off cleanly to the workflows, cases, and agents downstream.
-
-They have built-in guardrails: The best builders treated trust as a design problem. They capped tool calls, retry limits, and per-run credits. They redacted sensitive data before the model ever saw it. They refused to let the model invent facts, or required a named human to approve any consequential action. The best of them made the dangerous action structurally impossible, such as instructing agents to disclose when information is incomplete or routing containment through workflows that require analyst approval. As one judge noted, “For a cyberdefense team, an agent’s ability to disclose missing evidence, avoid unsupported conclusions, and preserve human control matters as much as its speed.”
-
-They drive measurable outcomes and improve over time: The top builds were designed around tasks that could be evaluated, then refined across versions and benchmarked against real or synthetic datasets until they met the required bar for accuracy. This is what separates a demo from a production-ready agent: one that can be measured and continuously optimized, earning the trust to graduate to more autonomous work.
-
-They're creative: Some of the most memorable submissions weren't faster versions of existing work. They approached problems from entirely new angles: an agent that attacks detection exclusions to expose the blind spot, an agent that hunts down unauthorized agents. Some of the most forward-looking builds pointed at questions the industry is only beginning to ask, like whether an agent's activity isn’t just internally authorized but legal under local regulations.
-
-Agent Traces: How the Best Agents Got Even Better
-
-One last habit set the standout agents apart: They used AgentWorks agent traces to understand how their agent worked and to optimize its design.
-
-Every time an AgentWorks agent runs, it leaves an execution trace, a step-by-step record of what the agent did: which tools it called, the exact query it sent, what came back, how long each step took, and how many credits each step consumed. The trace view is a powerful resource for troubleshooting and optimizing agent design. Builders noted how this helped them troubleshoot four common issues:
-
-Errors the agent ignores: A tool errors out, and the agent either moves on or quietly substitutes different results, building a confident conclusion on missing data. The fix: Include explicit prompt instructions for how to handle errors, including never filling gaps with substitute data.
-
-Zero rows misread as ""none"": No error appears, just an empty result. The agent reports ""nothing found"" when the real cause was a timeout or a query that never ran. The fix: Have the agent confirm the query completed before reporting ""none,"" and report ""not retrieved"" if it can't. Then redesign the query, for example by narrowing the time window, rather than retrying it unchanged.
-
-Over-chaining and wasted turns: Timeouts and excessive agent-to-agent chaining inflate latency and cost without improving accuracy. The fix: Trim the chain to the steps that actually improve the answer, and remove tools the agent doesn't need.
-
-Knowledge bases that never got used: An agent is only as good as its context. Traces can also reveal when agents don’t open their attached knowledge base. The fix: Force a knowledge lookup on every run or encode knowledge as an agent skill."
