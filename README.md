@@ -328,7 +328,7 @@ python update_readme.py
 
 ### Workflow
 
-The workflow is defined in `.github/workflows/notify.yml` and runs on schedule or manually via **Actions → Cybersecurity Digest → Run workflow**.
+The workflow is defined in `.github/workflows/notify.yml` and is the only workflow in the repository. It runs three times a day, at 6:07 AM, 2:07 PM and 10:07 PM PHT (cron `7 22`, `7 6` and `7 14` in UTC; the minute avoids GitHub's busiest moment at the top of the hour), or manually via **Actions → Cybersecurity Digest → Run workflow**.
 
 ### Running locally
 
