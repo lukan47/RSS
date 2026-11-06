@@ -1,4 +1,180 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Cloudflare,Cloudflare Security,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
+
+Privacy Pass is a protocol used by site operators like Cloudflare to help protect applications from abuse. One way we do this is by rate limiting individual clients so that no one client consumes too many of the site's resources. Normally this involves some combination of friction or loss of privacy for users: CAPTCHAs or other challenges to moderate traffic, along with accounts and fingerprinting to identify traffic.Privacy Pass was designed to avoid this tradeoff between friction and privacy. The basic idea is that a client gets issued a number of tokens, which they can redeem in exchange for access to the site. Crucially, each token is unlinkable to the client it was issued to, ensuring the client can use the site as they always had without sacrificing privacy.
+
+With 10 years of deployment experience under our belts — using Privacy Pass for applications such as privacy proxies (like iCloud Private Relay) and relays (like Privacy Gateway) — we, along with others, are collaborating to bring the next generation of this technology to the web. One of our goals is to develop more sophisticated tools for managing agentic traffic that would otherwise consume too many resources and degrade performance for human visitors. Another goal is to foster a more open ecosystem by making it easier for more types of clients to participate. Achieving these goals requires developing new capabilities beyond what Privacy Pass offers today.
+
+Given the trajectory, in this post we look at the prospects for post-quantum. In fact, we're in better shape than one might think. Privacy Pass still relies on classical cryptography, like RSA and elliptic curves. This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate limiting). On the other hand, Privacy Pass is unconditionally private, meaning no attacker, quantum or not, can link the redemption of a token to its issuance. What's more, the new capabilities we're developing for this new generation of private authentication technology can and will be instantiated in a way that upholds the same guarantee: your interaction remains private even after Q-day.
+
+This gives us a little breathing room, but we will need an alternative soon. This is an active area of research that has made significant strides in recent years. Still, just as is the case with other aspects of the transition, the primary challenge is the sheer size of post-quantum alternatives: ML-DSA-44 signatures are a whopping 2,420 bytes, while ECDSA-P256 signatures are just 64 bytes. And there's not much hope for drop-in replacements any time soon. Just as for TLS, we'll have to settle for primitives with higher cost and re-engineer our systems to bear this cost.
+
+But what will those primitives be? In this post, we'll explore one potential future for post-quantum privacy on the web, made possible by a recent breakthrough in the design of blind signatures.
+
+What we need to build: a brief look at MOLE
+
+Let's start with an overview of this new technology, which is presently called MOLE (""Moderation Of unLinkable Endorsements""). We'll have much more to say about MOLE later on, but for now we'll highlight the details that are most relevant to cryptography.
+
+One of the core components of Privacy Pass is a blind signature scheme, which allows a client to obtain a signature under an issuer's secret key without revealing to the issuer the message that it signed. The client can then reveal the message and blind signature later on without linking the signature to its issuance.
+
+One type of Privacy Pass token consists of the message and blindly issued signature. To verify the token, the verifier needs the issuer's public key, and so necessarily learns the identity of the issuer. Thus while these tokens protect the identity of the client, they don't protect the identity of the issuer.
+
+Of course, this is exactly what we want for some use cases. The identity of the issuer tells us something about what type of client is connecting to our edge, a signal we use to make decisions in some of our products and for some of our customers. For instance, a client might use a token issued by one of our customers to prove it is authorized to use the customer's VPN product.
+
+However, for many use cases, this is more information than we actually need to make a decision to grant a client access to a resource. Normally we only care that the token was issued by some entity we trust. In fact, MOLE takes this a step further: the token should hide the identity of the issuer altogether so that we can't treat tokens differently based on who issued them. This guarantees equal treatment regardless of the type of client, making it easier for more clients to participate.
+
+This issuer-hiding property is achieved through a new object called an endorsement. An endorsement is issued by an anchor and redeemed by a moderator. Before redemption, the client and moderator agree on an anchor set, the public keys of the anchors trusted by the moderator. During redemption, the client proves it was issued an endorsement by one of the anchors in the anchor set without revealing which one. Upon acceptance, the moderator issues the client the MOLE credential it will use to moderate the client's interaction with the site.
+
+An endorsement can take many forms, but its key property is that it can be redeemed while hiding the identity of the anchor that issued it. There will also be many types of credentials, but because they're intended to be used by a particular moderator, they needn't be anchor-hiding or even publicly verifiable. This means that everything from blind signatures to anonymous credit tokens or anonymous rate-limited credentials can be used to instantiate MOLE credentials.
+
+Now that we have a sense of what we're building, let's look at our options for post quantum.
+
+A feast of cryptography
+
+When designing cryptographic protocols, adaptability and efficiency are often in tension. Sometimes we know exactly what we want to build and can tailor a construction for that purpose; but the more we tailor the protocol for that use case, the harder it becomes to adapt that construction to a different use case.
+
+Adaptability is essential for a system like MOLE. We're not just building one kind of credential system, but many. And the types of credentials we need are likely to change over time, especially on the web where we must constantly adapt to new traffic patterns and attacker behavior. To keep up, we need a set of building blocks that can be composed together into different protocols to meet different requirements.
+
+Most of the post-quantum cryptographic schemes in wide use today come from larger families of constructions, but have been tuned for their particular application. ML-DSA is a good example here: the cryptographic framework from which this scheme was derived can be used to build a variety of things, but to make ML-DSA as compact as possible, its parameters have been carefully tailored to build an efficient and secure digital signature scheme. However, the same parameters would not necessarily be secure for other use cases.
+
+We have come to view this as the central challenge for post-quantum anonymous credentials: to decouple parameter selection from protocol design. Classical credential systems take this for granted: for the most part, protocol designers don't need to think about the parameters of the elliptic curve they're using, allowing even non-experts in the design of elliptic curve cryptography to build useful things with it. Unfortunately, designing efficient post-quantum credentials still requires an enormous amount of expertise.
+
+This situation seems to have changed, however. Earlier this year, we saw a breakthrough that represents a potential sea change for anonymous credentials.
+
+VOLE-in-the-Head
+
+The roots of this breakthrough go back several years. We'll pick up the story three years ago, with the VOLE-in-the-Head (VOLEitH) zero-knowledge proof system (Baum et al., Crypto 2023). A zero-knowledge proof system allows one to prove knowledge of a hidden witness, satisfying some public statement while keeping the witness private. For example, a zero-knowledge proof can be used to prove knowledge of an AES key K for which Y=AES(K,X), where X,Y are public. This proof can be transformed into a digital signature whose security reduces to the security of AES, with X,Y as the public key and K as the secret key. This is exactly the FAEST digital signature, a candidate in NIST's ongoing signature competition.
+
+Compared to many contemporary proof systems, VOLEitH is relatively simple to understand and implement securely. VOLE stands for ""Vector Oblivious Linear Evaluation"" and is an interactive technique that gives two parties correlated random values. These correlations act like authentication tags, allowing the verifier to check that a computation on the hidden witness was performed correctly. In VOLEitH, the prover prepares locally what the two parties would normally generate together — hence “in the head” — then commits to those values and uses the Fiat-Shamir transformation (a widely used tool in cryptography) to select the parts the verifier checks. This step turns the interactive VOLE process into a non-interactive zero-knowledge proof.
+
+Apart from its simplicity, VOLEitH is a fairly unremarkable proof system. It's not succinct in the way many other proof systems are: its proofs are asymptotically linear in the size of the witness and the arithmetic complexity of the statement being proved. However, VOLEitH is concretely very efficient for a particular type of statement, namely one that can be expressed as a set of equations over small binary fields.
+
+One example is the relation Y=AES(K,X) we just discussed. We don't normally think of AES as a set of equations, but many of its computations are designed around arithmetic in GF(28), a field whose elements are single bytes. FAEST proofs for this statement are only about 4KB (NIST Round 3, 128s).
+
+Another example is the KuMQuat signature scheme, in which the signer proves an instance of the Multivariate Quadratic (MQ) problem. Here we're given a system of random, quadratic equations of multiple variables over a small field, like GF(28). Mathematically, this MQ map P looks something like P(s) = (sTA1s + b1s,…,sTAms + bms) where s and each bi are length n vectors and each Ai is an n-by-n matrix. Given P,P(s) for random s, the MQ problem is to find s. We call it quadratic because we multiply the elements of s by itself.
+
+The MQ problem is believed to be hard to solve even for a quantum computer. But because P is made up of quadratic equations, proving knowledge of a solution with VOLEitH is fairly cheap, yielding KuMQuat signatures as small as 2.6KB.
+
+When compared to other post-quantum signatures like ML-DSA or FN-DSA, these numbers don't look especially impressive. But how VOLEitH compares to other schemes in a particular category of constructions is beside the point. For MOLE, we'll need to strike a balance between performance and the ability to build many types of credential systems. To that end, we need one more ingredient.
+
+Multivariate signatures
+
+Another way to build signatures from MQ maps involves embedding some additional mathematical structure into the map. In the Unbalanced Oil and Vinegar (UOV) signature scheme, the public key is an MQ map P, and a signature is a vector s satisfying P(s) = t, where t is obtained by hashing and salting the message to be signed.
+
+The secret key for this signature scheme is a trapdoor for P with which the signer can derive solutions to the MQ equations. The trapdoor reveals to the signer a hidden partitioning of the variables of each quadratic equation into “oil” and “vinegar” variables. Oil variables are never multiplied by one another, so fixing the vinegar values turns the equations into a linear system that the signer can solve for the oil values. In the public key, oil and vinegar variables are mixed together in a way that hides this structure in the map.
+
+UOV is also a candidate in NIST's ongoing signature standardization effort. It has one of the smallest signatures among the candidates, at just 135 bytes. The trade-off is that it has the largest public keys, at 46.6KB. MAYO is another multivariate candidate with much smaller public keys, at the cost of slightly larger signatures.
+
+The key thing to take away here is that the arithmetic complexity of evaluating a UOV (or MAYO) signature is comparable to evaluating an MQ instance. Both are public quadratic maps over small binary fields, making them a good fit for VOLEitH. This brings us to the breakthrough.
+
+Blind signatures from VOLE-in-the-Head and UOV
+
+Earlier this year, a blind signature called PoMFRIT was published (Baum et al., USENIX Security 2026) that achieved what at the time was a record for candidate post-quantum constructions: 6.7KB for the blind signature itself and just a few hundred bytes for issuance. PoMFRIT is based on VOLE-in-the-Head and the MAYO multivariate signature. We can easily drive the size of the signature down to 4.3KB by swapping MAYO out for UOV. (This figure uses NIST round 3 parameters for UOV (uov-Ip) and FAEST-EM-128s.) The trade-off is larger public keys, but this pays off in applications where a public key can be cached and used sufficiently often.
+
+This is competitive with state-of-the-art lattice-based constructions. But the really good news is that building blocks of PoMFRIT can easily be reconfigured into all of the credential systems we've considered for MOLE, including endorsements. More on this in a bit: for now, let's look at how PoMFRIT works in more detail.
+
+A well-known paradigm for designing blind signatures is the following. First, the client places the message in the cryptographic equivalent of a sealed envelope, called a commitment. For our purposes, a commitment is simply the hash of the message together with some randomness generated by the client. To complete issuance, the signer simply signs the commitment directly.
+
+To construct the blind signature, the client produces a zero-knowledge proof of knowledge of the signature and the randomness it used to compute the commitment, called the opening. A verifier would use the signer's public key to verify this proof.
+
+Let's define a bit of notation to make this clearer:
+
+The client generates an opening r and sends a commitment c=H(m,r) to its message m to the issuer.
+
+The issuer produces a signature s=Sign(sk,c) and sends it to the client. It doesn’t learn the message as it’s hidden behind the hash.
+
+Finally, the client produces a proof π of knowledge of s,r for which Verify(pk,H(m,r))=1,
+
+The proof π is the blind signature. It can be verified by any party in possession of the issuer's public key pk and the message m.
+
+Unlinkability comes from the client presenting entirely different objects during the two phases: a commitment is shown to the issuer during issuance, and a zero-knowledge proof is shown to a verifier during presentation. Even if the issuer and verifier collude or are the same entity, they cannot link the sessions.
+
+The size of the proof π is dominated by evaluation of the hash, so we need to choose a hash function that is friendly for our proof system. For most proof systems, such proof-friendly hashes are not well studied, but for VOLEitH it turns out that the Keccak permutation used in SHAKE and TurboSHAKE is a good choice. Keccak’s bitwise operations translate natively into VOLEitH constraints: XOR becomes addition, AND becomes multiplication, and rotations simply rearrange values. (Many popular SNARKs, by contrast, are designed for large prime fields, making byte- and bit-oriented operations less natural to express.)
+
+Nevertheless, Keccak evaluations end up being the largest component of the VOLEitH proof, so we need to make sure we're using only the minimum necessary number of permutations. PoMFRIT requires two: one for the commitment and another for the signature. Concretely, the statement we prove is roughly P(s)=H(H(m,r),rs) where s is the signature, rs is a salt chosen by the issuer, P is the issuer's UOV public key, and H denotes the Keccak permutation with the output truncated to the appropriate length, which also prevents anyone from inverting.
+
+From blind signatures to endorsements and beyond
+
+Recall that for MOLE endorsements, we need something like a blind signature, but one that doesn't reveal the anchor that issued it. That is, we now have a sequence of anchor keys P1,…,PN, and the statement we now want to prove is Pi(s)=H(H(m,r),rs) for some anchor key Pi whose index i is now part of the hidden witness.
+
+With some care, we can write this as a set of constraints with roughly the same cost: two hashes and one MQ evaluation. We need to prove a bit more about the witness. What exactly? We won't spoil it for you: ZK circuit design is part of the craft of cryptographic engineering that makes it so fun. We'll just say the kind of thinking needed here is transferable to just about any modern proof system you might encounter.
+
+Even more advanced credential systems can be constructed in this framework, including the aforementioned anonymous credit tokens and anonymous rate-limited credentials. In both of these cases, the primary cost is an additional hash or two. Each of these also requires proving that part of the witness (e.g., the credit count) is in some expected range, but this is low cost in VOLEitH.
+
+Indeed, for every construction we have considered so far for MOLE, the primary cost is the size of the Keccak evaluation and how many times we need to evaluate it. This means that finding ways to reduce the amount of hashing yields improvements across the board.
+
+Optimizations
+
+Before we go any further, we need to acknowledge that cryptanalysis of multivariate cryptography is still relatively immature. We have seen advances against several parameter regimes in just the last couple of years, Both UOV and MAYO have weathered these attacks well, and an outright break of UOV and even MAYO seems more unlikely with every passing year. But we should at least expect the parameters to change in a way that adds a bit of cost to our constructions.
+
+On the other hand, it's not uncommon for credential systems used in practice to adopt a less-than-conservative security posture for the sake of performance in so far as it affects forgery resistance. This typically means relying on stronger-than-usual computational assumptions. That is, it's possible that a (pre-quantum) attack might come along that breaks anonymous credit tokens, but not ECDSA, despite the fact that they both use the same elliptic curve.
+
+Using fewer hashes
+
+PoMFRIT achieved its size record by doing precisely the same thing. Recall that the blind signature requires proving two hash evaluations, one by the client and the other by the issuer. PoMFRIT observes that VOLEitH proof generation can be split into two stages. In the first stage, the client commits to a random mask. It then hashes the message normally (outside of the ZK circuit), combines the result with the mask, and sends the masked target to the issuer. The issuer uses the UOV trapdoor to find a preimage of this target. In the second stage, the client completes the proof that the preimage and previously committed mask are consistent. The hash remains part of the protocol, but the issuer — acting as the VOLEitH verifier — can compute it directly rather than requiring the zero-knowledge proof to reproduce it.
+
+This strategy substantially reduces proof size, but it also changes our security posture. The plain UOV assumption is that no (quantum) attacker can find a pre-image for a random target without knowledge of the trapdoor. The corresponding one-more-UOV assumption (analogous to the one-more-MAYO assumption in the PoMFRIT paper) neatly captures the additional information available to the attacker as a result of this kind of optimization. The assumption, then, is that this additional information doesn't lead to an attack.
+
+This assumption may turn out to be overly optimistic. Recently, researchers at the University of California, San Diego, and INRIA managed to forge a 1024-bit RSA signature using a Privacy Pass issuer as a signing oracle. Fortunately, Privacy Pass uses 2048-bit RSA, which, in concert with other defense mechanisms, provides a pretty good security margin. Likewise, for UOV we might consider using NIST Level 3 parameters instead of Level 1.
+
+In any case, a bit more study will be required before we rely too heavily on these kinds of optimizations. It's worth emphasizing that a break here would only impact an attacker's ability to forge tokens, not the attacker's ability to violate a client's privacy.
+
+Making each hash cheaper
+
+Standard SHAKE uses a 1600-bit Keccak state with 24 applications of an underlying round function. However, since the SHA-3 standard was published, many have come to believe that 24 rounds is just too much crypto. TurboSHAKE works the same way, except the permutation uses 12 rounds instead of 24. This substantially reduces the size of VOLEitH proofs. In fact, we're quite comfortable with this security margin, and not just for this application.
+
+Another change to Keccak that reduces the proof size is to reduce the size of the state. 256 bits of the state are reserved for the capacity to get 128 bits security. That leaves 1344 bits that can be hashed in one go, which is more than we need. Reducing the state by half to 800 bits leaves us with a rate of 544 bits, which is plenty. On top of that, it even increases the security at the same number of rounds, as an attacker has less to play with. The smaller state means we’re using half the multiplications in our circuit, which reduces the size of the proof.
+
+Leaning into multivariate
+
+In an ideal world, we could avoid proving conventional hashes altogether by replacing each hash with something that composes more natively with the algebraic structure of our primitives. Indeed, those familiar with Pedersen commitments and their use in elliptic curve cryptography may wonder if commitments can be constructed from multivariate cryptography.
+
+This might look something like this: Fix public, random MQ maps F and G and commit to a message m using c=(m+F(r),G(r)). The advantage of this approach is that the degree of the constraints is the same as the degree of the constraints for the UOV signature. Not only does this make the proof smaller, it makes it far simpler, since we avoid evaluating symmetric crypto in ZK altogether.
+
+We experimented with this approach for our application, and it yielded some impressive results. However, it's not at all clear yet if the parameter regime in which multivariate commitments yield an improvement is also secure. Notably, the risk here is not just to unforgeability, but also to client privacy. A lot more study is needed.
+
+Another direction is to build an MQ-friendly pseudorandom generator (PRG).
+
+For typical VOLEitH parameters, adding an extra witness bit adds ten bits to the proof. There is a neat trick to make this a lot cheaper: only one bit of proof per bit of witness! Instead of using VOLEitH directly, we commit to a (relatively) short key. That key we stretch into a larger bitstream using a PRG with low-degree so that it can be computed cheaply in the circuit. Now, to add a witness bit w, we get one extra bit k from the PRG, and store the bit w XOR k in the proof.
+
+There is a performance trade-off: we need to compute the PRG and the witnesses start at degree 2 instead of 1. That especially increases prover time. Also the benefits on proof size only start to pay off when you need a decent number of witness bits.
+
+And of course you need a PRG! You can create a PRG using a random MQ instance, but that’s very slow and seems overly conservative. At the other end is the Goldreich PRG, which can be seen as an as-sparse-as-possible MQ PRG. We’d want something in between, but such PRGs haven’t received much study.
+
+Is MOLE ready for post-quantum?
+
+We already have post-quantum privacy today, so we have some time before we need to have a solution in place, but now is the time to develop alternatives.
+
+Multivariate cryptography looks to be a promising basis for easily building a variety of anonymous tokens and credentials. We're currently developing two schemes in this framework: VOLE-IHAT, a candidate for MOLE endorsements, and VOLE-ACT, a candidate for MOLE credentials. Our current cost estimates for these are shown in the table below. The numbers here are subject to change as we analyze and develop these constructions. We use UOV (uov-Ip) in each case, which means the public keys are all 46.6KB. VOLEitH uses the same parameters as FAEST-EM-128s:
+
+issuance
+
+presentation
+
+PoMFRIT (with UOV)
+
+<1KB
+
+4.3KB (redemption)
+
+VOLE-IHAT
+
+5.6KB
+
+6.5KB (redemption)
+
+VOLE-ACT
+
+5.4KB
+
+12.0KB (spend)
+
+These numbers are significantly larger than their classical counterparts. This comes as no great surprise, as ""PQ is big"" is really the main hallmark of the transition across the board. However, replacing RSA blind signatures with PoMFRIT has comparable overhead to replacing ECDSA with ML-DSA. The runtimes of these protocols are also excellent: each operation takes just a few milliseconds with our implementation. (Runtime can be improved by quite a bit, though at the cost of higher communication.)
+
+If these numbers hold, then we've already reached an important milestone: the transition to PQ anonymous credentials for the web can now shift from cryptography design to protocol engineering. In other words, we think we can make these numbers work. For example, whereas classical blind signatures might be cheap enough to redeem on every request, we'll have to figure out how to amortize a single redemption over multiple requests.
+
+We have some work to do before we get there. First, we need to make sure our protocols are sound, in particular by producing security proofs for them that show they are secure as long as UOV is secure. Second, we need to wait a bit for cryptanalysis of UOV to catch up. We encourage cryptographers to spend time with multivariate cryptography. Once the parameters stabilize, we believe these schemes will find a place in a ton of useful applications. We've only just scratched the surface so far."
+0b9652fca14e,0b9652fca14e,2026-11-06 05:25 UTC,General Security News,Cloudflare,The Register Security,AI Security; Threat Intelligence,Article,"AI agents are a 'bane' for some website operators, says Cloudflare",https://www.theregister.com/networks/2026/11/06/ai-agents-are-a-bane-for-some-website-operators-says-cloudflare/5308022,"Nation-state actors and criminals likely exploited the PHP2SHELL vulnerability before its disclosure, according to Cloudflare CEO Matthew Prince","Nation-state actors and criminals likely exploited the PHP2SHELL vulnerability before its disclosure, according to Cloudflare CEO Matthew Prince. “These vulnerabilities, like the PHP vulnerabilities that were disclosed the other day, had been in the wild for years,” Prince said on the company’s third quarter earnings call. “We're going back through our logs looking for any evidence that hackers or nation-state actors or others had been using them in the past. I know that we're going to find examples of that.” That was just one of the warnings he offered on the call, among them that some of Cloudflare’s customers believe AI agents are “a bane to their business and want to keep them away.” To explain why, Prince hypothesized that he could use an agent to find him a restaurant to eat at after he finishes his day of investor relations duties. “It might go and scour the internet and look at 1,000 different restaurants' websites, pull down 1,000 different menus, and then I might choose to only go to one of those,” he said. “The problem is that 999 of those restaurants have now had a cost that is just been applied to them, but they are not getting any benefit.” The CEO admitted that web searches have always driven some low-value traffic but feels the volume of agentic activity – which Cloudflare has previously predicted will be one thousand times greater than clicks from humans – means the problem is now at a different scale. Prince also had bad news for Kubernetes aficionados, because he thinks containers might become another casualty of the agentic age. The CEO allowed that containers are “a significant improvement over bare metal or even virtual machines,” and said they fueled the growth of hyperscale clouds and mobile applications. But he thinks containers are already cooked. “The container-based architecture of the hyperscalers and neoclouds just can't keep up in a cost-effective way with the new agentic paradigms of today,” he argued, again citing the 1000:1 ratio of bot:human traffic Cloudflare expects to see online any year now. That’s a Cloudflare-centric view, because Prince pitched the company’s serverless “Workers” service as an alternative to containers. The company also offers products that can either block agents, ameliorate the cost and traffic impacts of agentic activity, or allow organizations to monetize traffic generated by AI. Prince said demand for those products is growing fast, claiming that since July 1st, “approximately five percent” of the web opted in to Cloudflare’s content protection products. The CEO said Meta is already a customer, and said Zuck’s new “Muse” agents will benefit Cloudflare by creating more agentic traffic that third parties want to tame. He also pointed to year-on-year revenue growth of 39 percent, which saw quarterly revenue reach a record $782.5 million. And he thinks there are better days ahead, due to the terrible state of security. “It may seem like the sky is falling with the number of new security vulnerabilities that have been reported over the last few weeks,” Prince said. “I wish I could tell you we were through the worst, but we're not.” He thinks Cloudflare can profit from security misery because the extent of its activities and client base mean it is “among the first to receive quiet disclosure of new vulnerabilities” and remediates them before disclosure. Investors thought this all made sense, and in after-hours trading sent Cloudflare shares up by around 15 percent, meaning it recovered and then improved on losses that it incurred earlier after major US indices dropped around four percent as investors who worry tech stocks are overvalued. ®"
 e617b2a600b9,e617b2a600b9,2026-11-05 17:03 UTC,General Security News,Cloudflare,Cloudflare Security,AI Security,Article,Agents aren’t humans (but they kinda are),https://blog.cloudflare.com/trusted-agent-delegation/,"The bank can see an attack happening, but the only person it can ban is Ezra","AI Agents now act on the web for millions of people. To a Site, an Agent can take many forms. It may be indistinguishable from a human user carrying out a task, or it might look like one visitor carrying many Users. This removes the ability for the Site to recognize, serve, and hold accountable the user or users behind the Agent, and causes the Site to face the costs when something goes wrong. This post argues that in order for Sites to maximize the access they provide to Agents, the ecosystem must develop new mechanisms to preserve the relationship between Sites and Users. Traditionally, in Security and Fraud Prevention, that requires three things: Identity, Reputation, and Accountability, allowing Sites to answer: Is the person acting being truthful about who they are? Is that person trustworthy? And who answers for the action?
 
 “Personal AI Agents” (“Agents” for short) are automations that take instructions from a human (“User”) and pursue a goal by controlling a cloud computer or browser. They are usually hosted and maintained by an “Operator” as part of a managed service or consumer offering. Examples include Muse from Meta and dots from OpenAI, and more are launching all the time. Agents can potentially take any action online that their User could, without the limits that hold humans back. They don't tire, they run around the clock, they act in parallel, and they put up with friction no person would. Much of the web, from how Sites plan capacity to how they make money, assumes those limits.
@@ -1158,110 +1334,3 @@ We are already using this system internally to evaluate how consistently Verifie
 Want to learn more about how you can handle bots? Cloudflare customers can already use Bot Management to manage automated traffic and Bot Preference Sync to align their published preferences with their configured policies. To explore the ever-growing Verified bot population, see the trends on Radar.
 
 And if you are interested in helping build the future of bot identity and accountability, explore open roles at Cloudflare."
-7f63aa1ac504,7f63aa1ac504,2026-10-07 16:30 UTC,General Security News,Cloudflare,Cloudflare Security,AI Security,Article,Building an evidence-grounded agentic security operations harness on Cloudflare,https://blog.cloudflare.com/agentic-security-operations/,"A detection is a hypothesis, not proof that an exploit succeeded or an attack occurred","Security alerts rarely arrive one at a time. A single alert can cause a spike across the environment, requiring a human analyst to decide which alerts are related and what they mean. When multiple arrive at the same time, it can quickly overwhelm even a seasoned security analyst. Enter the alert paradox. Now, our built-in, multi-AI-agent security operations harness can handle more of this work at Cloudflare scale.
-
-Our Cloudflare Managed Defense AI agent harness speeds up the process of gathering data, connecting and aggregating detections, and accounting for missing sources while new alerts continue to arrive. To further analyze context, we make use of the OpenAI Daybreak Defense Network and our partnership with Anthropic. Cloudflare uses approved OpenAI Daybreak and Anthropic models, including GPT-5.6 Cyber and Mythos, for deeper model-backed analysis. Initial analysis and scoring is done with Clef, Cloudflare’s open-source decision model.
-
-Collecting evidence to understand what each alert means requires a lot of time. Even in a highly sophisticated Security Information and Event Management (SIEM), too much is still left for a human to review. Human analysts must gather data, connect and aggregate detections, and account for missing sources while new alerts continue to arrive.
-
-Think about every time a human analyst reviews an alert: ""Which should we silence? Which action should we take? Which alert should we ignore? Which should we resolve as false positives? Which should we resolve as true positives? Which should trigger our incident team?"" We address this predicament with our AI agent strategy. Our approach reduces all of those questions and gives Managed Defense Analysts a quick and consolidated view, directly providing insight into related alerts, admitted evidence, visible gaps, and recommended next steps. The result: cutting back on the time needed to analyze, and creating a hyper focus on actually getting security alerts resolved and mitigations deployed.
-
-Why a single agent fails
-
-Our first prototype showed the limits of one general-purpose agent. We provided the AI agent the whole investigation. It produced useful analysis, but it also hallucinated claims the evidence did not support. Telemetry, detector descriptions, policies, and threat intelligence were flattened into one prompt, which caused their distinct roles to merge together.
-
-We saw three recurring problems with our first single-shot AI agent harness:
-
-Context became authority. A detection is a hypothesis, not proof that an exploit succeeded or an attack occurred. A broad AI agent can blur that distinction.
-
-Scope drifted. An AI agent can query the wrong account, time range, or source. You can’t rely on a language model prompt to be a boundary.
-
-Failure disappeared. If a lookup times out, the result may not distinguish ""not checked"" from ""checked and not found.""
-
-To address these challenges we moved evidence collection and scope enforcement into application code, before model analysis begins.
-
-Recon first, inference second
-
-It's tempting to put an AI agent at every step. The front half of our harness has none.
-
-Before we even call inference, deterministic code runs a fixed set of reconnaissance workflows with versioned API calls. It collects the customer's identity, detection history, traffic baseline, enforcement outcome, and network observations. Each piece of data is stored with its source, version, and timestamp.
-
-Cloudflare sees both the request and the action applied to it. That lets the investigation connect the behavior that triggered an alert with both the control that fired and its outcome.
-
-The fixed recon snapshot also makes evaluation reproducible. If AI agents fetch their own data, two runs may disagree because their inputs changed. Here, the same snapshot can be replayed, so differences between specialist AI agents’ findings come from interpretation rather than retrieval.
-
-Filter noise early
-
-Most alerts are not incidents. The same rule often fires repeatedly on a known traffic pattern, and paging Managed Defense Analysts every time makes it easier to miss a real security incident.
-
-We needed a lightweight triage model to compare each alert with its reconnaissance data: Has this event been detected for the customer before? What did Managed Defense Analysts decide previously? Does the traffic look consistent with normal human behavior? Alerts scored with a high likelihood to be false positives skip analysis by the specialist AI agents.
-
-Clef, running on Workers AI, was the perfect fit for this type of fast agentic reasoning.
-
-Known high-volume noise is deterministically classified as passive when it arrives. It remains available as context but does not enter the active queue.
-
-Specialist AI agents handle the investigation
-
-For alerts that need deeper review, a coordinator AI agent runs four specialist AI agents in parallel:
-
-Traffic analysis reviews request behavior, historical changes, and enforcement.
-
-Customer context reviews earlier alerts, dispositions, and Managed Defense Analysts’ decisions.
-
-Global telemetry compares the activity with privacy-preserving Internet-wide signals.
-
-Threat intelligence checks indicators already admitted to the alert or case.
-
-A synthesis AI agent combines their typed findings into one advisory; it can’t fetch new evidence or choose a classification outside the approved vocabulary. Keeping each task narrow makes unsupported claims easier to catch, and recommendations easier to audit.
-
-Global context without customer data
-
-A security tool knows what happened inside the environment it is deployed in, but little about the world beyond it. Cloudflare compares an alert with patterns seen across its global network.
-
-For example, an IP may be targeting one site, scanning thousands of sites, or appearing for the first time. Those patterns carry different weights. To preserve customer privacy, the global telemetry specialist works only with aggregates; it never receives another customer's individual records or identity.
-
-This view combines features from Cloudflare's CDN, WAF, DDoS, Turnstile, Rate Limiting, and Cloudforce One threat intelligence. The synthesis AI agent weighs both global reputation and customer history. This ensures a globally common pattern can still be used on a per-customer basis, but does not automatically imply a widespread campaign for all customers.
-
-History is evidence
-
-Every evaluation is conscious of what came before it: the alert, the pattern, and which customer. The recon dossier records the alert's own track record including how many times this service alert has fired, how many of those were dispositioned as false positives, and what the Managed Defense Analyst concluded. An attack pattern that has been benign every time your Managed Defense Analysts have seen it is a very different object from the first sighting of something new, and the specialist AI agents are told which one they are looking at. Approved background context is retrieved from previous alerts and cases, so yesterday's conclusions are carried into today's decision, instead of being rebuilt from scratch.
-
-Our system aggregates related alerts into a consolidated case. In each case, we store evidence, findings, and recommendations. Our system deterministically joins and correlates this data, but we leave it to a Managed Defense Analyst to confirm the actual scope. Over time, a case can connect network, application, and Zero Trust evidence together, while tracking the source of the evidence for additional context and reference purposes.
-
-From evidence to decision
-
-Before analysis, the system creates a versioned evidence package with the subject, scope, time anchor, admitted evidence, policy versions, sources, and coverage gaps. Specialists must cite items in that package. Application code checks that every citation exists, belongs to the investigation, and supports the attached claim. Invalid findings are corrected or recorded as limitations.
-
-We lean on Clef a second time to score our evidence. Is the collected evidence enough for a decision? Does any of our collected evidence contradict? Based on this evidence, Clef picks from a deterministically reduced list of attack classifications and dispositions.
-
-Cloudflare's developer platform runs this process. Application code on Workers admits evidence and validates results; Workflows coordinates each stage and saves completed work before the next begins, so a failed stage reuses evidence and findings that already passed validation instead of starting over. D1 keeps investigation and advisory state, R2 holds bounded context and evidence artifacts. Case-chat state persists in Durable Objects, uses Flue, and is enriched with AI Search.
-
-Finally, an LLM-powered agent produces an advisory report using terms that Managed Defense Analysts already work with: affected surface, enforcement outcome, relevant controls, and next step. Managed Defense Analysts can inspect evidence, investigate further, revise the recommendation, or group alerts into a case. Application code fixes the customer scope before any model sees results, and gives each specialist only the evidence it needs. The model never receives authority to cross tenant boundaries or act for the Managed Defense Analysts.
-
-Handling incomplete evidence
-
-At network scale, a source will sometimes fail. A comparison may time out, metadata may be missing, or a threat intelligence lookup may return no match. The system keeps evidence already collected and records the gap.
-
-The advisory distinguishes three states:
-
-Not checked
-
-Checked, with no matching result
-
-Checked, with evidence supporting absence
-
-If global telemetry is unavailable, the system can describe what is unusual for the customer but cannot say whether the pattern is widespread. When the evidence is insufficient, it makes no classification or disposition recommendation.
-
-Remediation
-
-A useful recommendation should lead to a solution, rather than a ticket. The advisory might suggest a rate limiting rule for an abusive path, a WAF custom rule for a signature, or a DDoS protection change. For fully managed customers, Managed Defense Analysts can apply the suggested rules; other customers will receive their recommendations in the dashboard and through their chosen alert path.
-
-In the end, the Managed Defense Analyst remains responsible for the decision and any mitigation. Each alert and case includes the evidence behind the AI agent’s recommendation, which empowers the Managed Defense Analyst to reach a conclusion by accepting or updating the AI agent’s advice.
-
-What comes next
-
-Managed Defense Analysts remain responsible for judgment. The AI agent harness handles more of the repetitive work: assembling investigations, connecting related events, and showing the evidence behind each recommendation. Over the next few quarters, we plan to add a Custom Managed level with more flexibility for each organization.
-
-We also plan to explore continuous AI agents that monitor Cloudflare traffic and surface patterns that fixed rules and thresholds may miss.
-
-The early beta is available in Cloudflare Managed Defense for eligible application-security alerts and cases. If you already use Cloudflare WAF, DDoS protection, Magic Transit, or another supported product, talk to your enterprise account team about adding Managed Defense."

@@ -1,47 +1,37 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-719d3c9eae33,719d3c9eae33,2026-11-04 21:04 UTC,Vulnerabilities & Patching,Barracuda,Security Affairs,Vulnerability Management; Network Security; Email and Collaboration Security,Article,Two Barracuda ESG Flaws Could Be Combined for Full Root Access; Patches Released,https://securityaffairs.com/202440/security/two-barracuda-esg-flaws-could-be-combined-for-full-root-access-patches-released.html,An attacker with administrator privileges could exploit it to execute operating system commands as root,"Barracuda patched two flaws that can be chained to give attackers root access to Email Security Gateway appliances.
+c0645c70a9dc,c0645c70a9dc,2026-11-06 11:09 UTC,General Security News,Barracuda,The Hacker News,Email and Collaboration Security; Vulnerability Management; Identity Security Posture Management; Network Security,Article,Experts Demonstrate Barracuda Email Security Gateway Chain Enabling Root Access Without Login,https://thehackernews.com/2026/11/experts-demonstrate-barracuda-email.html,"watchTowr also released a detection tool that checks whether an appliance is vulnerable, but has not published an exploit","Two flaws in Barracuda's Email Security Gateway, an email-filtering appliance, can be chained to run commands on it as root, its highest level of access, with no login required.
 
-Barracuda has patched two vulnerabilities that can be chained to gain root access to its Email Security Gateway (ESG) appliances. CVE-2026-116606 (CVSS score of 9.3) is an authentication bypass that lets unauthenticated attackers modify appliance configurations. CVE-2026-111560 (CVSS score of 8.6) is a command injection flaw affecting six Barracuda products.
+The company released patches on Monday, and the security firm watchTowr detailed the attack chain on Thursday.
 
-An attacker with administrator privileges could exploit it to execute operating system commands as root.
+One flaw, CVE-2026-116606, is an authorization bypass. An unauthenticated attacker can use it to restore a crafted configuration backup and change the appliance's global settings.
 
-“Barracuda has identified two vulnerabilities affecting certain Barracuda products: a pre-authentication authorization bypass vulnerability and a command injection vulnerability. The vulnerabilities have been assigned CVE-2026-116606 and CVE-2026-111560, respectively.” states the advisory. “Successful exploitation requires an attacker to have access to the administrative interface of an affected product. If exploited in combination, these vulnerabilities could allow an attacker to bypass authorization controls and obtain root access to the device.”
+The other, CVE-2026-111560, is a command injection. It runs commands as root but normally needs an administrator account, and on the Email Security Gateway the bypass gives an attacker that access. Chained, the two let an attacker reach root with no login.
 
-Barracuda quickly began fixing the problem and released security patches for affected products. Customers should check the affected products and follow the remediation guidance, make sure their systems use the latest firmware, and install all security patches.
+Affected Products and Fixes
 
-It has released patches and urges customers to update their systems, below are the affected products:
+The authorization bypass affects only the Email Security Gateway. The command injection reaches five other products, but on those it still needs an administrator account.
 
-Email Security Gateway (ESG) — affected by both vulnerabilities; patch with BNSF-40425 for version 9.4.017 or later, or BNSF-40430 for versions below 9.4.017.
+Mandiant, which assigned the two CVE records, rates the bypass 9.3 out of 10 and the command injection 8.6. Barracuda has released a patch for each affected product and lists the fixed firmware in its security advisory. The Email Security Gateway is fixed in version 9.4.0.030 and later.
 
-Load Balancer Application Delivery Controller (ADC) — affected by CVE-2026-111560; patch with BNADC-16586.
+What to Do
 
-Message Archiver (BMA) — affected by CVE-2026-111560; patch with BNMA-32468.
+The advisory sets out three steps:
 
-WAF Control Center (WCC) — affected by CVE-2026-111560; patch with BNWF-60060.
+Apply the patch for each affected product, or upgrade to the fixed firmware listed above.
 
-Web Application Firewall (WAF) — affected by CVE-2026-111560; patch with BNADC-16586.
+If you cannot patch at once, limit the appliance's administration interface to trusted internal networks.
 
-Web Security Gateway (WSG) — affected by CVE-2026-111560; patch with BNYF-24789.
+If you have turned automatic patching off, switch it back on.
 
-The vendor recommends that customers:
+How the Chain Works
 
-Restrict administrative interfaces to trusted internal networks and use network access controls to reduce exposure.
+In its technical analysis, watchTowr traced the chain through the appliance's code. A failed password change returns the attacker a low-privilege role instead of stopping the request, which leaves a backup-restore function open to someone who has not logged in.
 
-Check that devices are running the latest firmware and that all security patches are installed.
+That function accepts an uploaded backup, and the restored data includes a timezone value that the appliance later runs as a shell command with root privileges. Barracuda guards backups with a checksum, but the secret used to compute it is built into the code, allowing an attacker to forge a valid checksum. The firm showed the attack by writing a file to the appliance as root.
 
-If a device is several versions behind, install updates step by step; more than one update may be needed.
+As of this week, neither flaw appears in CISA's Known Exploited Vulnerabilities (KEV catalog), and no public report ties either to an attack. watchTowr also released a detection tool that checks whether an appliance is vulnerable, but has not published an exploit.
 
-Contact Barracuda Support if help is required.
-
-“If a patch has not been automatically applied, customers should manually apply the appropriate patch as soon as possible. If customers have turned off automatic patching, Barracuda recommends setting devices to automatically receive patches.” concludes the advisory.
-
-“Guidance on how to manually apply the patch or update firmware can be found on Barracuda Campus.”
-
-Follow me on Twitter: @securityaffairs and Facebook and Mastodon
-
-Pierluigi Paganini
-
-(SecurityAffairs – hacking, Barracuda)"
+The Email Security Gateway was hit in the 2023 attacks by a group tracked as UNC4841, which exploited a different flaw, CVE-2023-2868, as a zero-day. That case is unrelated to the two flaws patched this week, and nothing ties the new pair to any attacker."
 da0597da4bf8,da0597da4bf8,2026-11-04 04:23 UTC,General Security News,Barracuda,CSO Online,Network Security; Vulnerability Management; Email and Collaboration Security; Identity Security Posture Management,Article,Barracuda’s security appliances have a security problem of their own,https://www.csoonline.com/article/4244334/barracudas-security-appliances-have-a-security-problem-of-their-own.html,"The company has disclosed two critical and high-severity vulnerabilities that, if chained together, could allow threat actors to bypass authorization controls and gain root...","Barracuda, which offers a wide variety of cybersecurity devices, has been bitten by a bug itself.
 
 The company has disclosed two critical and high-severity vulnerabilities that, if chained together, could allow threat actors to bypass authorization controls and gain root access to devices.
