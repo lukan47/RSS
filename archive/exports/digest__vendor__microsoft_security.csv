@@ -1,4 +1,840 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+0e7a4959ce29,0e7a4959ce29,2026-11-05 23:46 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,AI Security; Threat Intelligence; Code Security; Data Security Posture Management,Article,Threat actors use agentic AI tooling to find and abuse exposed secrets,https://www.microsoft.com/en-us/security/blog/2026/11/05/threat-actors-use-agentic-ai-tooling-to-find-and-abuse-exposed-secrets/,"Microsoft Defender coordinates detection, prevention, investigation, and response across endpoints, identities, email, and apps to provide integrated protection against attacks...","In this article
+
+From exposed secrets to cloud compromise
+
+Follow-on actions
+
+Mitigating application credential abuse activity
+
+Defending against agentic AI attacks
+
+Microsoft detections
+
+Advanced hunting queries
+
+Microsoft Threat Intelligence has observed threat actors using an agentic AI offensive framework to search public GitHub repositories for exposed secrets, including credentials, application credentials, and AI inference-related API keys across multiple applications and cloud services. These threat actors can then use the secrets for further malicious activity against the compromised organization.
+
+Searching open code repositories for exposed credentials, secrets, keys, and other authentication material is a well-documented technique that has historically been limited by the time required for human operators to find code repositories, review the data in the repositories, and leverage authentication material for further action. However, agentic tooling like ARTEX allows threat actors to not only scan for secrets across multiple repositories at a quicker pace but also use the agents to analyze the output and conduct follow-on attacks, cutting down on the need for the threat actor to have hands-on-keyboard interactions throughout the attack chain. In at least one case, Microsoft observed an AI agent advance from scanning GitHub for secrets to exfiltrating data from Azure Key Vault in just five minutes.
+
+Microsoft has also investigated follow-on activity involving the misuse of valid application credentials. As early as October 28, 2026, Microsoft began observing successful service principal sign-ins from the IP address 199.19.77[.]84 involving multiple application IDs across some impacted customers, including cases where a multitenant application credential was compromised at the source (vendor-owned application) and used to access multiple downstream tenants. The threat actor used the compromised credentials for cloud resource discovery, and credential and data exfiltration, including from Azure Key Vaults and Storage Accounts, and abuse of Azure AI services consistent with the activity described above. Additionally, Microsoft observed malicious activity originating from two IP addresses potentially associated with this campaign. We identified malicious operations from 65.87.223[.]26, including indications of vulnerability exploitation by embedded shell commands in a user agent and attempts to obtain App Service authentication tokens. A similar campaign involving the same IPs addressed was also reported by Todyl. Separately, Microsoft observed reconnaissance operations from 157.22.126[.]128 targeting AI workloads deployed by victims on Azure AI services.
+
+Microsoft encourages organizations to scan their code in GitHub and determine where any secrets are present. In addition to removing the secrets from the code base, affected organizations should immediately rotate any exposed keys or credentials. GitHub monitors public repositories by automatically scanning for secrets. In addition to scanning their own repositories, organizations can enable public monitoring through GitHub to detect secrets leaked in secondary public repositories across GitHub. This extends secret scanning beyond the repositories an enterprise owns to follow potential secret exposure across the platform. GitHub Advanced Security for Azure DevOps scans for credentials and other sensitive content in source code. Push protection can also block supported secrets before they’re pushed. Organizations need either GitHub Advanced Security for Azure DevOps or, for organizations using the standalone experience, GitHub Secret Protection for Azure DevOps enabled.
+
+Secrets are exposed in public repositories when code containing the secret is committed to GitHub. Developers might store secrets in configuration files, scripts, or other code to quickly operationalize the OAuth application or avoid configuring more modern authentication flows. Organizations can reduce exposure by protecting workload identities and secrets, enforcing least privilege, safeguarding recovery resources, and enabling relevant Microsoft Defender for Cloud protections. Publicly exposed credentials remain usable until revoked or rotated; removing the original disclosure alone does not remediate the exposure. Microsoft recommends that developers migrate OAuth applications away from secret-based authentication. While storing long-lived application client secrets in code is a common practice, using managed identities for application authentication eliminates the possibility of secret exposure in code, manual processes associated with secret management, and barriers to securely scaling applications.
+
+This activity illustrates an ongoing trend of threat actors accelerating all stages of the attack chain with agentic AI penetration testing frameworks, including ARTEX. As these capabilities evolve, defenders must similarly use AI to investigate and respond across large environments.
+
+From exposed secrets to cloud compromise
+
+Starting in August 2026, Microsoft observed threat actors using an agentic AI offensive framework to submit large volumes of queries to GitHub for secrets. The queries submitted by the AI framework often included the name of a target organization, keywords for secrets, a keyword linked to cloud services, or a keyword linked to another AI service provider. Organizations that find their secrets exposed in public repositories must assume that the exposed secrets and associated applications are compromised.
+
+Follow-on actions
+
+Credential abuse via Entra ID
+
+In one follow-on attack that began as early as October 28, 2026, an agentic framework used valid leaked or stolen application credentials to access Microsoft Entra ID tenants of certain organizations and connected Azure and Microsoft 365 resources. The sign-ins primarily came from two IP addresses: 199.19.77[.]84 and 199.19.77[.]18. The latter IP address is a Tor exit node, which might be associated with unrelated malicious activity, including from unrelated sources. The agent successfully conducted service principal sign-ins on dozens of associated applications across multiple tenants.. Service principals are the identities that applications use to authenticate and give direct, programmatic access to whatever the application is authorized to reach.
+
+The threat actor targeted operations that return credentials, including storage account keys, App Service settings, connection strings and publishing credentials, AI and machine learning (ML) connections and datastores, and Azure Kubernetes Service (AKS) user credentials. The compromised applications subsequently accessed SharePoint and OneDrive in the targeted organization tenants, including file downloads and mailbox-item access. In some tenants, the threat actor sent Microsoft Graph API requests, which were mostly searches to find content of interest. The threat actor enumerated subscriptions, resource groups, permissions, AI model deployments, and service configurations in Azure to map the environment.
+
+Additionally, the threat actor attempted to validate stolen Azure resources, including compromised Azure AI services, as identified using Defender for Cloud’s AI threat protection. Observed activity suggests that the threat actor might have attempted to abuse some of these compromised AI resources to facilitate their broader attack activity.
+
+Figure 1. Tactics, techniques, and procedures (TTPs) observed across the credential abuse attack chain
+
+Cloud API adjustments indicative of adaptive behavior
+
+Additionally in this attack the agent’s operations on a victim’s Azure Resource Manager (ARM) instance originating from 199.19.77[.]84 demonstrated sequences consistent with adaptive troubleshooting, where failed cloud API requests were followed by changes to HTTP methods or API versions and subsequent HTTP 200 responses:
+
+A batch of ARM requests attempting to enumerate secret metadata across multiple Azure Key Vault resources returned HTTP 400 (Bad Request). These requests specified a version associated with Key Vault’s data-plane APIs against ARM (control-plane) APIs. Approximately 28 seconds after the first failed response, a batch rerun began against the same vault resource paths using the ARM API version 2023-07-01 and returned HTTP 200.
+
+A GET request to enumerate an Azure SQL server’s firewall rules specified an outdated API version and returned HTTP 400. Approximately 60 seconds after that request, a matching GET began using a supported version and subsequently returned HTTP 200. The URL changed only in its api-version parameter.
+
+An ARM POST request to an Application Insights query endpoint returned HTTP 400 because an outdated API version was specified. Approximately 80 seconds after the failed request, another POST began against the same endpoint, specifying a supported API version, and subsequently returned HTTP 200.
+
+OAuth application abuse
+
+In multiple cases, Microsoft observed the same agentic AI tools subsequently obtain a token for a single-tenant OAuth application in the same target organization, then use the compromised OAuth application to enumerate other cloud resources within the organization. In some cases, the agents exfiltrated secrets from the organization’s Azure Key Vault. The agents once authenticated have also searched Azure DevOps for secrets. Until the secrets are revoked or rotated, they can allow a threat actor to maintain persistence in the organization, compromise additional identities, or hijack resources. In one observed case, an AI agent progressed from searching for the client secrets in GitHub to exfiltrating data from Azure Key Vault in five minutes.
+
+The agents also used the compromised OAuth application to use the Run Command, which runs scripts in Azure VMs. With access to this functionality on a VM, a threat actor can access unsecured credentials and other stored data, compromise associated workload identities, or run code that provides persistence or lateral movement.
+
+During this activity, the AI agents repeatedly demonstrated a focus on credentials that provide access to AI services, such as API keys for major AI service providers and OAuth applications with access to Foundry Tools (previously known as Azure Cognitive Services). Multiple public reports have documented threat actors using agentic AI tools to compromise credentials for AI services, sometimes to run the same agentic AI workflow.
+
+Mitigating application credential abuse activity
+
+Microsoft recommends the following mitigation steps to contain, detect, and investigate this threat.
+
+Containment
+
+Block 199.19.77[.]84/32 as a named location in a Conditional Access policy targeting workload identities, assigned directly to service principals, and in a user-scoped block policy to cover replayed sessions. Note that workload identity policies require Workload ID Premium licensing and cover only single-tenant apps registered in your tenant. Block the exact IP rather than the whole ASN.
+
+For affected users, revoke Entra sessions, Azure DevOps PATs and SSH keys.
+
+For any affected application, remove all client secrets, certificates and federated credentials, including those added by the threat actor and disable the service principal if needed. Tokens already issued remain valid until expiry.
+
+Rotate everything stored in any Key Vault the affected application could read, and any credentials found in accessed documents.
+
+MSPs: Review Partner Center access, GDAP relationships, and customer tenants, and notify affected customers per your agreements.
+
+Detection and hunting
+
+Review Entra service principal and non-interactive sign-in logs for 199.19.77[.]84 and 199.19.77[.]18 including failed attempts. Sign-in errors AADSTS7000215 (invalid secret) or AADSTS7000222 (expired secret) indicate someone holds a credential for your app; a failure followed by a success is urgent.
+
+Review Azure Activity, Key Vault and Storage diagnostics, Entra audit, Azure DevOps audit and Microsoft 365 unified audit logs for the address, including secret reads, blob and file downloads, and changes to apps, permissions or pipelines.
+
+In Azure DevOps auditing, review PAT creation and first use, federated service connections, pipeline runs and edits, and unfamiliar user agents. Enable auditing if it is off.
+
+Look for behavior as well as the IP: one address authenticating to three or more service principals with mixed success, or one app requesting tokens across Azure Resource Manager, Key Vault, Storage and Graph in a short window. Search as far back as retention allows.
+
+Defending against agentic AI attacks
+
+Threat actors can and do change the source IP address, user agent strings, and other fingerprints left by the agentic AI penetration testing tools they use. This can make identifying and blocking malicious network traffic early difficult for defenders.
+
+Several behavioral signals can help organizations determine that they are being targeted by threat actors using agentic AI. Agentic AI frameworks scanning a target send a wide variety of requests in a brief time and retry variations on the same technique or move on to next-stage actions at machine speed. Agentic AI frameworks use existing penetration testing tools. For example, ARTEX by default uses Nmap, curl, wget, Python HTTP clients, Norma SDK WebFetch, and headless Chromium through Playwright, among others. These tools may send network traffic with distinctive characteristics, such as default user agent strings. While blocking network traffic with these characteristics will not stop an attack by an AI agent, which will quickly change them, identifying them can alert defenders to the activity.
+
+Defensive honeypots, decoys, tarpits, and fake wins can pull autonomous AI attacks away from legitimate targets. Honeypots and decoy surfaces such as Microsoft Sentinel Deception give the agent attractive but worthless targets to pursue. Tarpits consume the agent’s time and budget. Fake wins present convincing evidence that the agent’s objective is complete, which can cause it to stop on a false success. In Microsoft’s testing, these controls helped reduce the attack traffic reaching real assets and produced high-confidence, attribution-quality signal.
+
+Microsoft recommends the following mitigations to reduce the impact of this threat.
+
+Protect and continuously assess application credentials and secrets. Avoid storing service principal credentials, storage keys, connection strings, and other secrets in source code, configuration files, public repositories, issues, or other locations where they might be inadvertently exposed. To find credentials in source code, consider using tools like GitHub Advanced Security or other OWASP source code analysis tools.
+
+Rotate compromised or exposed credentials immediately and establish credential lifecycle practices. Treat credentials that have been publicly exposed as compromised, even if the original location has subsequently been edited or deleted. Removing the content does not invalidate the credential or eliminate copies retained in edit history, caches, archives, logs, or other systems. Immediately revoke or rotate the affected credentials and investigate their historical use. Where supported, organizations should favor mechanisms that reduce reliance on long-lived credentials. Learn more about protecting secrets with Defender for Cloud.
+
+Enable appropriate Microsoft Defender for Cloud plans for critical Azure workloads. Consider enabling workload protections relevant to the resources in your environment, including Defender for Resource Manager, Defender for Storage, Defender for Key Vault, Defender for App Service, and Defender for Databases. Learn more in the Microsoft Defender for Cloud overview.
+
+Apply least privilege to service principals and other workload identities. Review the Azure role-based access control (RBAC) permissions assigned to service principals and restrict their privileges to the resources and operations required by their applications. Learn more about best practices for Azure RBAC.
+
+Protect backup and recovery infrastructure as part of resilience. Restrict access to backup and recovery resources and closely monitor attempts to modify or remove their protection controls. Learn more about Azure Backup security best practices.
+
+Hardening OAuth applications against compromise involves managing the permissions of the applications in your organization and securing application secrets. To triage applications in your environment, enforce security policies with new applications as they are created, and address existing applications over time beginning with the most recent ones.
+
+Identify and catalog applications running in your cloud environment. The Cloud app catalog page in Defender for Cloud Apps is one service that can help accomplish this.
+
+Use Microsoft Defender for Cloud Apps Cloud Discovery tools to identify unmanaged apps, and prioritize the most frequently used apps to migrate and integrate.
+
+Use Conditional Access policies for workload identities. Consider augmenting identity signals with workload identity risk protection.
+
+Set permission restrictions to limit who can create an application in the tenant. This can be achieved by setting the ability for users to register apps to “No” and limiting the application developer role to privileged users. Review the list of least privileged roles by task to help scope role-based access control in your environment.
+
+Integrate enterprise applications with Microsoft Entra ID.
+
+Microsoft detections
+
+Microsoft Defender and Microsoft Sentinel customers can refer to the list of applicable detections below. Microsoft Defender coordinates detection, prevention, investigation, and response across endpoints, identities, email, and apps to provide integrated protection against attacks like the threat discussed in this blog.
+
+Tactic
+
+Observed activity
+
+Microsoft Defender and Sentinel coverage
+
+Initial access
+
+Multiple identity-protection alerts identified authentication attempts from anonymized or high-risk infrastructure. This pattern can indicate attempted access through proxy, VPN, or previously reported malicious network sources.
+
+Microsoft Entra ID Protection – Anonymous IP address
+
+Initial access
+
+Attack-analysis detections identified OAuth application activity consistent with compromise. This type of detection is useful when evaluating whether an app identity, rather than only a user identity, may have been abused.
+
+Microsoft Defender XDR – Potentially compromised OAuth application identified through attack activity analysis
+
+Initial access, Discovery
+
+Unattributed network indicators related to ARTEX use are flagged by Microsoft Threat Intelligence research and surfaced across multiple alerts. Suspected ARTEX use can include activity beyond the GitHub repository scanning activity discussed in this blog.
+
+Microsoft Sentinel – Abnormal Deny Rate for Source IP– Abnormal Port to Protocol– Inbound Network Attack detected– Malformed user agent– Password spray attack against Azure AD application Microsoft Defender XDR – Account compromised following a password-spray attack– Anomalous OAuth device code authentication activity– Multiple Service Principal Sign-ins from Single IP– Graph API activity from a Microsoft threat intelligence IP addressMicrosoft Defender for Cloud Apps – Activities from suspicious user agents– Multiple failed login attempts– Multiple failed user log on attempts to an app– OAuth application activity from an uncommonly visited ISP– Suspicious OAuth app registration Microsoft Defender for Cloud – Key vault unusual access denied – user/application accessing high volume of denied key vaults– Access from an unusual location to a sensitive blob container– Azure Resource Manager operation from suspicious IP address Microsoft Entra ID Protection – Atypical travelMalicious IP addressPassword Spray– Verified threat actor IP
+
+Credential access
+
+Identity-protection detections observed password spray behavior. This indicates repeated authentication attempts across accounts or tenants using a common source pattern.
+
+Microsoft Entra ID Protection – Password spray Microsoft Defender for Identity – Suspicious service principal sign-in following credential addition
+
+Credential access
+
+Azure Key Vault access
+
+Microsoft Defender for Cloud (Defender for Key Vault) – Unusual operation pattern in a key vault– High volume of operations in a key vault– Unusual application accessed a key vault– Suspicious secret listing and query in a key vault– Unusual access to the key vault from a suspicious IP (Non-Microsoft or External)
+
+Command and control
+
+Suspicious Microsoft Graph API usage was observed from campaign infrastructure. The activity involved Graph requests that can support discovery, collection, or follow-on cloud operations.
+
+Microsoft Defender for Identity– Suspicious Entra Graph API query observed
+
+Advanced hunting queries
+
+The following hunting queries are related to the October 28 Entra ID service principal sign-in activity.
+
+Find successful and failed application sign-ins from the suspicious IP addresses
+
+let startTime = datetime(2026-10-28T00:00:00Z); let endTime = now(); EntraIdSpnSignInEvents | where Timestamp between (startTime .. endTime) | where IPAddress in (""199.19.77.84"") | project Timestamp, TenantId, Application, ApplicationId, ServicePrincipalName, ServicePrincipalId, ResourceDisplayName, ResourceId, ResourceTenantId, IPAddress, ErrorCode, UserAgent, CorrelationId, RequestId | order by Timestamp asc
+
+Find Microsoft Graph API requests from the two IP addresses, including searches and response status
+
+let startTime = datetime(2026-10-28T00:00:00Z); let endTime = now(); GraphAPIAuditEvents | where Timestamp between (startTime .. endTime) | where IpAddress in (""199.19.77.84"") | project Timestamp, TenantId, ApplicationId, ServicePrincipalId, AccountObjectId, IpAddress, RequestMethod, RequestUri, ResponseStatusCode, ResponseSize, Scopes, EntityType, TargetWorkload, UniqueTokenIdentifier, ClientRequestId, OperationId, RequestId | order by Timestamp asc
+
+Find available Microsoft 365 and Microsoft Azure cloud activity details from the suspicious IP addresses
+
+let startTime = datetime(2026-10-28T00:00:00Z); let endTime = now(); CloudAppEvents | where Timestamp between (startTime .. endTime) | where IPAddress in (""199.19.77.84"") | project Timestamp, Application, CloudAppId = ApplicationId, ActionType, ActivityType, AccountType, AccountDisplayName, AccountId, AccountObjectId, IPAddress, UserAgent, ObjectName, ObjectType, ObjectId, ActivityObjects, ReportId, RawEventData | order by Timestamp asc
+
+CloudAuditEvents table to identify suspicious controlplane operations
+
+CloudAuditEvents | where IPAddress has_any ('199.19.77.84','65.87.223.26')
+
+CloudStorageEvents table to identify possible exfiltration from Storage Accounts.
+
+CloudStorageAggregatedEvents | where IPAddress in ('199.19.77.84','65.87.223.26') | where SuccessfulOperationsCount > 0
+
+Microsoft Security Copilot
+
+Microsoft Security Copilot is embedded in Microsoft Defender and provides security teams with AI-powered capabilities to summarize incidents, analyze files and scripts, summarize identities, use guided responses, and generate device summaries, hunting queries, and incident reports.
+
+Customers can also deploy AI agents, including the following Microsoft Security Copilot agents, to perform security tasks efficiently:
+
+Threat Intelligence Briefing agent
+
+Phishing Triage agent
+
+Threat Hunting agent
+
+Dynamic Threat Detection agent
+
+Security Copilot is also available as a standalone experience where customers can perform specific security-related tasks, such as incident investigation, user analysis, and vulnerability impact assessment. In addition, Security Copilot offers developer scenarios that allow customers to build, test, publish, and integrate AI agents and plugins to meet unique security needs.
+
+Threat intelligence reports
+
+Microsoft Defender XDR customers can use threat analytics reports in the Defender portal (requires license for at least one Defender XDR product) to get the most up-to-date information about the activity and techniques discussed in this blog. These reports provide intelligence, protection information, and recommended actions to prevent, mitigate, or respond to associated threats found in customer environments.
+
+Activity Profile: Stolen application credentials used to sign in as Entra ID workload identities and access Azure, Microsoft 365 resources
+
+Microsoft Security Copilot customers can also use the Microsoft Security Copilot integration in Microsoft Defender Threat Intelligence, either in the Security Copilot standalone portal or in the embedded experience in the Microsoft Defender portal to get more information about this threat.
+
+Learn more
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+The post Threat actors use agentic AI tooling to find and abuse exposed secrets appeared first on Microsoft Security Blog."
+48ca617bec7b,48ca617bec7b,2026-11-05 17:10 UTC,General Security News,Microsoft Security,Microsoft Security Blog,Server & Workload Protection; Threat and Exposure Management; Vulnerability Management,Article,New investments to reduce on-premises security risk,https://techcommunity.microsoft.com/blog/microsoft-security-blog/new-investments-to-reduce-on-premises-security-risk/4570381,"Since September 2026, Microsoft has released not only Critical but also Important security updates outside the traditional Patch Tuesday schedule when faster action is needed,...","On-premises servers can be essential to business operations, but they are increasingly attractive targets to attackers. AI can help less-skilled actors analyze software, develop malicious tools, and repeat attack workflows at greater speed and scale, shortening the window between exposure and exploitation. Organizations need to strengthen security faster without disrupting the critical workloads they rely on. Today, we’re announcing a new on-premises security initiative, initially focused on server workloads. The initiative brings together guidance, migration, and product investments to help customers understand and prioritize risk, reduce their on-premises footprint wherever possible, and strengthen critical workloads that need to remain. Guidance for the initiative will soon be available through Secure Now, which also includes our AI readiness checklist in Microsoft Security Exposure Management and guidance for strengthening foundational security.
+
+Understand Identify the most important on-premises risks and prioritize actions customers can take now.
+
+Reduce Move workloads to Microsoft 365 where possible to take advantage of cloud-based security, resilience, and continuous innovation.
+
+Secure Strengthen critical workloads that need to remain on-premises and reduce the manual work required to keep them secure.
+
+This approach starts with understanding where to focus—and extends to making supported on-premises products more secure by default.
+
+Modernize where you can, and strengthen the security of what must remain.
+
+Making supported on-premises workloads more secure by default
+
+Within the Secure pillar of the on-premises security initiative, we’re also hardening the products themselves through On-Premises Baseline Security Mode, starting with supported Exchange Server, SharePoint Server, and Skype for Business Server workloads.
+
+On-Premises Baseline Security Mode
+
+On-Premises Baseline Security Mode is designed to make the default security posture stronger—reducing the number of recommended security settings administrators must configure and maintain manually. For supported on-premises server workloads, it starts with a validated and tested secure-by-default configuration from initial deployment, while preserving administrator control. Building on protections available today, it progressively establishes and maintains more of the recommended security posture through the products themselves, adapting the baseline as threats and Microsoft security guidance evolve.
+
+The result is less manual effort and a stronger security posture maintained increasingly through the products themselves. We’re advancing this work across three areas: Patch, Configure, and Protect.
+
+Figure 1: On-Premises Baseline Security Mode builds on capabilities available today across Patch, Configure, and Protect, with greater automation and stronger defaults coming over time.
+
+Patch: close known vulnerabilities faster
+
+The need is clear in our deployment data: many Exchange Server deployments are not running the current security update, including a substantial share on unsupported versions. Closing this protection gap requires both releasing fixes faster and helping customers apply them sooner.
+
+Today. Since September 2026, Microsoft has released not only Critical but also Important security updates outside the traditional Patch Tuesday schedule when faster action is needed, helping customers address known vulnerabilities sooner.
+
+Next. In Q1 calendar year 2027, we’re targeting automatic application of security updates after a fixed period following release in connected SharePoint Server, Exchange Server, and Skype for Business Server environments.
+
+Release fixes faster, then help those fixes reach servers faster.
+
+Configure: make the safer posture easier to maintain
+
+Security requires more than current software. Configuration and permissions can drift over time, creating gaps between the intended security posture and the environment administrators are operating. Customers need a clearer way to identify those gaps, establish recommended settings, and maintain them as environments evolve.
+
+Today. Tenant Configuration Management can help customers assess supported SharePoint, Exchange, and Skype for Business Server environments and identify where permissions are broader than intended.
+
+Next. In Q1 2027, we plan to introduce hardened default configurations for SharePoint Server, Exchange Server, and Skype for Business Server, moving from identifying configuration risk toward establishing Microsoft-recommended security settings by default. We also plan to identify configuration drift so administrators can see when environments move away from that baseline.
+
+Make the safer configuration easier to establish and harder to unintentionally lose.
+
+Protect: reduce exposure when threats can’t wait for a patch
+
+Some threats emerge before a permanent security update is available and fully deployed. During that window, customers need mitigations that can reduce exposure quickly without replacing the underlying security update.
+
+Today. Emergency Mitigation Service can automatically apply interim mitigations for certain emerging vulnerabilities, helping reduce exposure while a permanent security update is prepared and deployed. Mitigation addresses the immediate risk; the security update addresses the underlying vulnerability.
+
+Next. In December 2026, we plan to introduce Emergency Mitigation Service 2.0 for Exchange Server and Skype for Business Server, enabling it by default and expanding the security mitigations it can apply. In January 2027, we are planning to extend Emergency Mitigation Service 2.0 to cover SharePoint Server.
+
+When threats move faster, protection needs to move faster too.
+
+Act today, prepare for what comes next
+
+Taken together, these investments represent an important shift: from providing customers with security guidance and tools toward building the recommended security posture into the products themselves.
+
+Microsoft continues to recommend moving workloads to Microsoft 365 wherever possible. Start by identifying which workloads can move and which must remain on-premises. For those that remain, move to supported releases, assess exposure, apply current security updates, and enable available protections.
+
+The Exchange Server, SharePoint Server, and Skype for Business Server teams will publish additional guidance on available protections, upcoming capabilities, and actions customers can take now. We also plan to bring practitioner-focused on-premises guidance to Secure Now to help organizations assess their environment, identify critical actions, and prioritize the steps they can take.
+
+Join us at Microsoft Ignite for Secure your on-prem estate (BRK215) to explore the initiative, upcoming investments, and steps you can take now.
+
+Modernize where you can. Strengthen the security of what must remain.
+
+The post New investments to reduce on-premises security risk appeared first on Microsoft Security Blog."
+7f55bb76112f,f653dee337ce,2026-11-05 17:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Endpoint Security,Article,​​​​What’s new in Microsoft Security: November 2026,https://www.microsoft.com/en-us/security/blog/2026/11/05/whats-new-in-microsoft-security-november-2026/,"Now generally available, Defender discovers more than 50 supported local AI agents by observing their activity and brings the agent, device, account, and configured MCP context...","Endpoint administrators need to keep elevated access accountable at scale. Security teams also need a clearer view of expert-led protection and a simpler way to deploy SQL Server protection in Azure Government. As AI agents gain access to business data and tools, organizations need ways to limit their authority and adapt protection as risk changes. This month’s Microsoft Intune and Microsoft Defender updates introduce capabilities across these areas, alongside new Secure AI capabilities for agent access. A recent Secure Now update in Microsoft Security Exposure Management also connects information on recent threats to focused initiatives for reducing exposure.
+
+Here’s what’s new:
+
+Limit agent authority to the task with Dynamic Permissions
+
+Give agents task-scoped authority and adapt access as risk changes
+
+As agents gain access to business data and tools, organizations need ways to manage what each agent is allowed to do. Dynamic Permissions provides an agent its own permissions and authority, scoped to its current task and for only as long as the task requires. As the agent works, Dynamic Agent Risk assesses whether the agent’s authority aligns with changing behavior and context. Dynamic Conditional Access can then respond proportionately by narrowing permissions, restricting access to resources, or requiring human approval for higher-impact actions. Together, these capabilities are designed to help organizations tailor agent authority before an agent acts and adjust access as risk changes. See how security can respond when an agent steps outside its task.
+
+Contain local AI agents with Microsoft Execution Containers
+
+Apply least-privilege boundaries to help limit access on Windows
+
+Microsoft Execution Containers (MXC), now generally available, gives organizations an operating system-enforced containment layer for AI agents, designed to limit what an agent can access. Rather than relying on the agent to behave within intended boundaries, MXC applies least-privilege controls across files, networks, processes, and user interactions, with additional isolation options for higher-risk scenarios. Organizations can tune and validate policies before enforcing them broadly, while upcoming integration with Microsoft Intune, Microsoft Entra, and Microsoft Agent 365 is intended to extend governance and attribution across the enterprise. Discover more about this policy-driven containment for AI agents.
+
+Scale least privilege with Microsoft Intune Endpoint Privilege Management
+
+Expand least-privilege scenarios with new system settings support and simpler tenant onboarding
+
+Microsoft Intune Endpoint Privilege Management continues to expand the tasks standard users can complete without broad administrator rights. With new system settings support, standard users can change IPv4, IPv6, and DNS server values on their device’s network adapters through Endpoint Privilege Management, while administrators determine how those changes are elevated. For user-confirmed changes, administrators can require a business justification, Windows authentication, or both before the change is applied. Along with tenant onboarding updates, these improvements support organizations as they get started with and expand their use of Endpoint Privilege Management. Explore how to get started with system settings support in Endpoint Privilege Management.
+
+Get started with Microsoft Intune Endpoint Privilege Management
+
+Simplify security operations with Defender Experts
+
+See what Defender Experts are investigating in a consolidated experience
+
+As threats move faster and security environments grow more complex, security teams need to quickly understand what matters and when to act. New Microsoft Defender Experts MDR experiences in the Microsoft Defender portal bring ongoing expert work into focus with a consolidated overview page with updated navigation and visibility into hunts. Teams can review active and completed hunts, see findings from Defender Experts, and identify items that may require follow-up. Learn more about the new Defender Experts MDR experiences.
+
+Get around-the-clock defense with Microsoft Defender Experts MDR
+
+Extend protection and discover local agents with Microsoft Defender
+
+Simplify deployment and expand SQL protection
+
+The enhanced agent for Defender for SQL Servers on machines is now generally available for resource- and subscription-level enablement in Azure Government cloud. The enhanced agent uses existing SQL infrastructure, eliminating the need to deploy the Azure Monitor Agent for this scenario. Security teams can spend less time on deployment and extend protection across their SQL Server environments. Learn more about the enhanced agent and how to get started.
+
+Discover local AI agents and their configured MCPs on Windows and macOS
+
+On endpoints, Microsoft Defender is extending discovery capabilities for supported local AI agents and their configured model context protocols (MCPs) across Windows and macOS. Now generally available, Defender discovers more than 50 supported local AI agents by observing their activity and brings the agent, device, account, and configured MCP context together to help security teams understand local AI agent activity in their environment. Learn more about local agents.
+
+Explore Microsoft Defender solutions
+
+Improve security posture with Microsoft Security Exposure Management
+
+Prioritize foundational security controls with Secure Now
+
+AI-enabled attacks can take advantage of familiar weaknesses, including excessive permissions, unprotected authentication flows, and exposed systems. Secure Now now pairs information about recent threats with focused initiatives across security domains. Security teams can use that context to identify foundational controls that need attention, review the recommended actions, and prioritize work intended to reduce exposure. The update helps connect information about observed attack patterns with security improvements teams can consider in their own environments.
+
+Learn more about Microsoft Security Exposure Management
+
+Learn how to address agentic AI’s security challenges
+
+From agentic inventory and observability to stopping AI runtime threats
+
+An inventory is only the starting point for managing Al agent risk. Organizations also need to consider ownership, limits on what agents can access, how risk is reassessed as agents operate, and protections against emerging threats. “Don’t Leave AI Exposed” provides security professionals, IT administrators, and developers with actionable guidance on managing risk across the agent lifecycle. Download the guide for considerations spanning agent inventory, ownership, access, monitoring, and runtime protection.
+
+Stay in the Loop
+
+Security teams need a clear account of what is changing across the portfolio and where those changes can strengthen their operations. In the Loop brings together the latest Microsoft Security updates and their implications for your security strategy. Explore earlier editions and check back for the next drop.
+
+See Microsoft Security innovations in action at Microsoft Ignite, November 17-20, 2026, in San Francisco or online.
+
+To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
+
+The post ​​​​What’s new in Microsoft Security: November 2026 appeared first on Microsoft Security Blog."
+c159a62dbd32,c159a62dbd32,2026-11-05 16:00 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Threat Intelligence; Email and Collaboration Security; Identity Security Posture Management; Endpoint Security,Article,Email threat landscape: Q3 2026 trends and insights,https://www.microsoft.com/en-us/security/blog/2026/11/05/email-threat-landscape-q3-2026-trends-and-insights/,"In September, purchase order and payroll lures used disguised archives to deliver Agent Tesla, malware commonly used to collect credentials and other information","In this article
+
+Spoofed sender domains
+
+QR code phishing attacks
+
+CAPTCHA-gated phishing tactics
+
+Malicious payloads
+
+Business contact impersonation
+
+Microsoft Teams threats
+
+Notable phishing campaigns
+
+Defending against email and collaboration threats
+
+Hunting queries
+
+Indicators of compromise (IOCs)
+
+Microsoft Threat Intelligence detected approximately 7.3 billion email-based phishing threats from July through September, including a sharp increase to nearly 3 billion in September alone, up 41% from August. Yet the increase did not extend across the techniques that had driven threat actor activity earlier in the year. QR code phishing remained far below its early-year peak, while CAPTCHA-gated phishing reversed several months of decline, driven in part by renewed use of SVG attachments.
+
+Q2 in review
+
+Shifting tactics and other trends ›
+
+Figure 1. Monthly detected email threat volume (January – September 2026)
+
+The quarter also highlighted how sender identity and security exceptions can shape the outcome of detected threats. Microsoft detected approximately 129 million malicious messages spoofing the sender domains of tracked business services. Many were delivered because organization- or user-configured exceptions overrode security protections, even after the messages failed authentication checks and were identified as malicious, showing how overly broad exceptions intended to preserve legitimate workflows can also expose them to impersonation. In Microsoft Teams, attackers increasingly used ordinary personal names rather than explicit help desk identities while continuing to use live interactions for social engineering. Across malicious attachment activity more broadly, credential theft remained the dominant objective in Q3.
+
+Two campaigns observed during the quarter illustrate the range of activity behind these trends. An August campaign targeting legal organizations used personalized salary review documents and QR codes to lead recipients into device code phishing, despite the broader decline in QR code attacks. In September, purchase order and payroll lures used disguised archives to deliver Agent Tesla, malware commonly used to collect credentials and other information. Together, the campaigns show how familiar business requests remained effective lures across distinct attack paths.
+
+TYCOON2FA
+
+Inside the PhaaS platform ›
+
+The effects of the March disruption of the Tycoon2FA phishing-as-a-service (PhaaS) platform also remained evident. By July, Microsoft detected approximately 21,000 phishing messages linked to the platform, down 99.8% from 8.9 million in February, the last full month before the operation.
+
+Figure 2. Tycoon2FA-linked phishing email volume (January 2026 – July 2026)
+
+This blog provides a view of email threat activity across Q3 2026, examining shifts in phishing techniques, malicious payloads, business contact impersonation (BCI), and Teams-based threats. We also highlight spoofed business-service sender domains and two campaigns that show how attackers used familiar work requests to make malicious messages appear credible. Together with recommendations, Microsoft Defender detections, and hunting queries, these findings can help defenders assess where existing protections may be weakened and investigate activity across email and collaboration platforms.
+
+Spoofed sender domains
+
+Requests to sign a document, review an invoice, or respond to a survey are routine business communications. Attackers exploit that familiarity by spoofing the sender domains of the legitimate services that deliver them. Rather than relying only on a misleading display name or a lookalike domain, these messages claim the service’s actual domain as their sender identity.
+
+Microsoft detected approximately 129 million malicious messages spoofing the business-service domains tracked in this analysis during Q3. Activity had remained consistently high since at least May, at roughly 41 million to 46 million messages a month. DocuSign was the most frequently spoofed brand in September, accounting for 29% of that month’s total. Adobe, SurveyMonkey, and Barracuda also saw increases toward the end of the quarter, even as overall spoofing volume remained broadly steady.
+
+Figure 3. Malicious messages spoofing tracked business-service sender domains (May – September 2026)
+
+The more consequential finding was how security exceptions affected these messages after detection. Despite failing email authentication checks and being identified as malicious, many were associated with tenant- or user-level overrides. In September, overrides applied to 63% of messages with a recorded security outcome, with tenant-level overrides accounting for most of them.
+
+The figures do not establish that recipients opened the messages or that accounts were compromised. They do show why exception policies deserve attention alongside detection coverage. An organization may create an exception to avoid interrupting a legitimate business workflow, but an overly broad exception can also weaken protection against messages impersonating that workflow. Familiar branding is not a substitute for an authenticated sender.
+
+QR code phishing attacks
+
+QR code phishing ended Q3 far below the levels seen during its early-year surge. Microsoft detected approximately 12.1 million attacks over the quarter, down 67% from Q2. The decline continued through September despite the broader increase in email threats, leaving monthly QR code volume 86% below its March peak.
+
+Figure 4. Monthly QR code phishing volume (January – September 2026)
+
+Much of the volume reduction came from the attachments that had supported that earlier growth:
+
+PDF attachments remained the most common delivery format in Q3, accounting for 78% of QR code attacks in July and August before dropping to 61% in September. Nonetheless, the volume of PDFs carrying malicious QR codes fell by roughly 65% by the end of the quarter.
+
+DOC/DOCX attachments accounted for 14% of QR code attacks in July and August before rising to 20% in September. Word document delivery volume similarly contracted in Q3, falling 39% between July and September following a sharp drop at the start of the quarter.
+
+Email-embedded QR codes increased from 5% of attacks in July to 12% in September. After dropping to near-zero in Q2, the volume of malicious QR codes embedded in email bodies more than tripled by the end of Q3, although the method remained a smaller delivery category than attachments.
+
+Figure 5. QR code phishing delivery method share by month (January – September 2026)
+
+The distinction between delivery methods matters for inspection coverage, but not for the recipient’s experience: either attachment or embedded formats can move a user from a message on a managed device to a phishing page on a personal phone. The reduction in volume has not changed that underlying challenge.
+
+CAPTCHA-gated phishing tactics
+
+CAPTCHA-gated phishing began to recover while QR code attacks continued to fall. By September, Microsoft detected 3.1 million CAPTCHA-gated attacks, nearly twice the volume seen at July’s low. Activity remained well below its March peak, but the recovery ended several months of sustained decline.
+
+Figure 6. CAPTCHA-gated phishing volume (January – September 2026)
+
+The increase in CAPTCHA-gated phishing attacks was not confined to a single attachment format as delivery methods shifted throughout Q3, though SVG attachments were central to the initial recovery.
+
+SVG attachment volume increased sixfold in August, accounting for almost half of September’s total CAPTCHA-gated phishing attacks. Up from 17% of attacks in July, SVGs represented 65% of CAPTCHA-gated phishing attacks in August, remained elevated at 49% in September, and were the leading delivery method at the quarter end.
+
+Email-embedded URLs accounted for 49% of attacks in July before falling to 19% in August as SVG activity surged. URL-delivered attacks more than doubled in September, reclaiming 30% of attacks.
+
+PDF attachments declined from 22% of attacks in July to 12% in August, remaining at 12% in September.
+
+HTML attachments declined from 9% of attacks in July to 2% in August, then more than tripled in volume in September to account for 6% of attacks.
+
+DOC/DOCX attachments remained comparatively uncommon throughout Q3, representing only 1% of attacks each month.
+
+Figure 7. CAPTCHA-gated phishing distribution method share by month (April – September 2026)
+
+Malicious payloads
+
+The dominant risk from malicious attachments continued to be credential theft, not malware installation. Approximately 94-96% of payload-based attacks during Q3 directed recipients toward a phishing site or presented a fraudulent sign-in page locally. An attachment did not need to install software to put an account at risk.
+
+HTML and PDF attachments remained the two most common malicious payload types during Q3, together accounting for approximately 56–62% of payload-based attacks each month, while the more significant change was the return of SVG files:
+
+Figure 8. Malicious payloads by type
+
+HTML attachments accounted for nearly two-thirds of malicious payloads and remained relatively steady across the quarter. HTML files ranked first in July at 32% of attacks before declining to 26% in August and recovering to 29% in September.
+
+PDF attachments accounted for 27–30% of attacks and were the leading payload type in August and September. Volume remained comparatively stable, declining only 2% between July and September.
+
+SVG attachments increased from 13% of attacks in July to 20% in August, when volume reached 10.1 million—the highest monthly volume in more than a year. Volume then fell 34% in September, although SVGs still represented 13% of attacks and remained roughly 50% higher than the monthly average for the first half of 2026.
+
+DOC/DOCX attachments declined from approximately 5% of attacks in July and August to less than 3% in September, falling 76% below its monthly average volume for the first half of 2026.
+
+ZIP/GZIP attachments declined from 5% of attacks in July to 3% in August before recovering slightly to 4% in September. Raw volume remained 24% below July.
+
+The reduced use of Word documents alongside the renewed use of SVG files left a different mix of attachment threats, though credential theft remained the dominant objective.
+
+Figure 9. Malicious payload file type distribution by month (June – September 2026)
+
+CAPTCHA-gated phishing accounted for only part of the malicious SVG activity. The resurgence was therefore broader than the use of SVG files to deliver that particular technique.
+
+Business contact impersonation
+
+Microsoft defines business contact impersonation (BCI) as a text-based attack targeting enterprise users that impersonates a trusted entity for the purpose of persuading a recipient into initiating a fraudulent financial transaction or sending the attacker sensitive documents.
+
+BCI volume declined throughout Q3, totaling approximately 6.2 million attacks. That was substantially below Q2, although the comparison is influenced by the unusually large spike in April. By September, monthly activity had fallen to its lowest level since at least July 2025.
+
+Figure 10. Monthly BCI attack volume (January – September 2026)
+
+The reduction in overall volume also concealed differences among financial lures. Generic messages continued to dominate initial BCI contact during Q3, but explicit task and financial requests gained share as overall attack volume declined:
+
+Generic outreach messages, such as “Are you at your desk?”, accounted for 82% of attacks in July and August before declining to 79% in September. Raw volume fell 14% across the quarter, reinforcing that operators still overwhelmingly favored establishing contact before introducing a fraudulent request.
+
+Generic task requests represented 8–10% of attacks during Q3, increasing from 9% in July to 10% in September despite a 9% decline in raw volume.
+
+Within the smaller subset of explicit financial requests:
+
+Payroll update requests were the most common financial lure, accounting for 6% of attacks in July and August and 7% in September. Raw volume remained broadly stable at approximately 126,000–130,000 attacks per month.
+
+Invoice payment requests recovered from June’s low. Volume increased 34% in July, 25% in August, and 89% in September, more than tripling between June and September. Their share reached 3% in September, its highest level since March.
+
+Gift card requests remained at 2% of attacks each month, while raw volume declined 9% from July to September.
+
+Figure 11. Initial BCI email content by type (Q3 2026)
+
+The decline in BCI overall did not extend equally to the requests reaching payment and payroll staff.
+
+Microsoft Teams threats
+
+Microsoft observed approximately 141,000 malicious Teams call attempts during Q3. Activity peaked in July before declining 31% by September, although September volume remained 38% above the monthly average for the first half of 2026. Teams-based attacks continued to use live interactions across chat, voice, screen sharing, and remote-support tools to facilitate remote access, credential theft, and hands-on-keyboard compromise.
+
+Figure 12. Monthly observed malicious Microsoft Teams calls (January – September 2026)
+
+Attackers increasingly moved away from display names that explicitly announced an IT- or tech-related support role. Ordinary personal-name display names rose from 46% of the observed July sample to 88% in September, while explicit help desk identities fell from 17% to 2%.
+
+Figure 13. Malicious Teams call impersonation comparison (Q3 2026)
+
+This shift does not necessarily mean attackers abandoned IT support stories. A personal name can accompany a claim to work for the help desk, while the underlying account address retains technical or service-related wording. More targeted attempts also used domains resembling the intended victim organization’s domain, emphasizing that the visible name is only one part of the impersonation.
+
+Voice phishing attempts peaked in July and then receded, but September volume remained above the levels observed early in 2026. Calls were concentrated during recipients’ weekday working hours, when a live response was more likely. These attempts included unanswered, rejected, and short-lived calls, partly reflecting Microsoft’s expanding visibility and ongoing efforts to strengthen protective measures against social engineering abuse. Attemps should not be interpreted as successful attacker interactions.
+
+Notable phishing campaigns
+
+The following campaigns were observed during the quarter and highlight notable credential phishing, BCI, and malware delivery activity. For analysis of a separate Teams-based IT-support impersonation campaign observed in August, see Impersonating IT support: Threat actors turn remote session into enterprise-wide access.
+
+Salary review lure delivers personalized QR code attachment for device code credential capture targeting legal organizations
+
+On August 19, 2026, Microsoft Defender Research observed a phishing campaign targeting more than 10,000 users across more than 4,800 organizations, almost exclusively located in the United States. While most phishing attacks typically don’t focus on a single vertical, this campaign targeted the professional services sector, specifically law firms and legal organizations. Messages in this campaign were sent out over a 13-hour period between 13:27 UTC on August 19, 2026, and 2:59 UTC on August 20, 2026.
+
+Figure 14. Intended campaign targets by industry
+
+Emails in this campaign were sent with the subject line “Salary Review” from smtp[@]wekash[.]net via Amazon Simple Email Service. The email body carried no visible text and the sole payload was a Word document attachment named Your-Q3-Compensation-Summary.docx.
+
+Figure 15. Sample of the campaign document attachment
+
+The Word document impersonated the recipient’s own organization, displaying company branding and addressing the recipient by name. The message claimed that the recipient’s compensation had been revised following a Q2 performance review and that updated details were ready for review. A QR code in the document carried an instruction to scan it to access the revised details. This approach moved the phishing URL out of the email body and into an image, bypassing email gateway controls that scan text-based links but do not decode QR code images.
+
+Scanning the QR code would have directed users to an attacker-controlled phishing page impersonating a Microsoft OneDrive sign-in portal hosted on the domain splace[.]co[.]za. The page presented an alphanumeric code and instructed recipients to copy it and proceed to the Microsoft sign-in portal.
+
+Figure 16. Sample phishing landing page
+
+The phishing page used a device code phishing technique, which works by making an authentication request to Microsoft’s device authentication service before the recipient arrived, receiving a user code in return, and embedding that code into the page. When a recipient copied the code and proceeded, the page redirected them to the legitimate Microsoft device authentication portal at microsoft.com/devicelogin, where they entered the code and signed in. Completing that sign in would have transferred a valid session token to the attacker. The token granted persistent access to the recipient’s Microsoft 365 account without ever exposing the password and without re-triggering multifactor authentication (MFA). A countdown timer on the page signaled that each code had a limited validity window, pressing recipients to act quickly.
+
+Spanish-language purchase order and payroll campaign leads to Agent Tesla malware
+
+On September 21, 2026, Microsoft Defender Research observed a phishing campaign targeting more than 56,000 users across more than 8,100 organizations. The campaign primarily targeted users in Spanish-speaking countries, with Colombia accounting for the largest share of intended recipients (15%), followed by the United States (12%), Mexico (12%), Chile (11%), and Spain (8%). Like most large-scale phishing attacks, this campaign did not focus on a single vertical, but instead targeted a broad range of industries, most notably retail and consumer goods (27%), manufacturing and agriculture (19%), and financial services (13%). Messages in this campaign were sent out over an almost nine-hour period between 14:57 UTC and 23:35 UTC on September 21, 2026.
+
+Figure 17. Timeline of campaign message volume
+
+Two lure variations were observed throughout the duration of the campaign: a purchase order theme, which was used in 63% of messages, and a payroll theme, which was used in the remaining 37%. Both variations were sent from the address contacto06[@]carloxmextos[.]org. Sender Policy Framework (SPF), DomainKeys Identified Mail (DKIM), and Domain-based Message Authentication, Reporting, and Conformance (DMARC) all passed for that domain, so the messages did not depend on simple address forgery. The actor changed the display name to resemble a sales or human resources identity associated with the recipient’s organization. That combination gave the messages technically valid authentication while using the visible sender identity and familiar business context to support the impersonation.
+
+The purchase order lure variation used the reply-style subject “Re: solicitud de cotización”. Its body said, “Buen Dia”, claimed that a purchase order was attached, and asked the recipient to confirm receipt before closing with the lowercase “saludos”. The abrupt wording, inconsistent capitalization, and copied professional signature made the message look like a short continuation of an existing commercial exchange while avoiding details that a recipient could easily challenge.
+
+The attached file, Nuevo orden de compra – 21092026.pdf.uu, was a RAR archive despite its uncommon .uu ending and PDF-like name. Inside it was Nuevo orden de compra – 21092026.pdf.js, a JavaScript downloader whose second extension exposed the executable script type only after extraction. If run, the script fetched a file named Lincoln.ps1 from a campaign-controlled object in Firebase Storage, and that PowerShell payload led to Agent Tesla malware. The nested archive and misleading extensions separated the visible business document theme from the code that executed, while the cloud-hosted download gave the actor a remotely accessible staging point.
+
+Figure 18. Redacted rendering of the purchase order lure email
+
+The payroll-themed lure used the subject “Nomina 21.09.2026”. It addressed the recipient by name, said the September 21 payroll list was attached, and signed off as a human resources manager. The date-specific payroll pretext created an immediate work-related reason to open the file, while the personalized greeting made a bulk message appear locally relevant.
+
+The payroll lure’s attachment, Nomina 21.09.2026.xml.001, was also a RAR archive. Extraction produced Nomina 21.09.2026.xml.exe, an Agent Tesla executable disguised with an XML-themed double extension. Unlike the purchase order delivery chain, this branch did not require a separate downloader in the supplied evidence, but both paths used the same sender infrastructure, attachment camouflage, date, and malware family. Agent Tesla is commonly used to collect credentials and other information from an infected host, so the shared final payload suggested that credential and information theft were the campaign’s likely objective.
+
+Figure 19. Redacted rendering of the payroll lure email
+
+Defending against email and collaboration threats
+
+Microsoft recommends the following mitigations to reduce the impact of this threat. Check the recommendations card for the deployment status of monitored mitigations.
+
+Microsoft helps organizations reduce the risk of phishing and social engineering in Teams through user awareness and layered, built-in protections. Users should exercise caution with external connection requests and messages, including verifying a sender’s identity and requests before acting on them. Administrators can also block external Teams users and specify which users in their organization are permitted to chat or meet with people outside the enterprise. These flexible controls help organizations manage risk for employees in sensitive roles and departments. Teams will also be introducing AI-powered phishing detection that uses conversation context to identify phishing and social engineering in higher-risk messaging scenarios, particularly first-contact chats with external users. Together, these measures help organizations collaborate more securely in Teams.
+
+Review the recommended settings for Exchange Online Protection and Microsoft Defender for Office 365 to ensure your organization has established essential defenses and knows how to monitor and respond to threat activity.
+
+Invest in user awareness training and phishing simulations. Attack simulation training in Microsoft Defender for Office 365, which also includes simulating phishing messages in Microsoft Teams, is one approach to running realistic attack scenarios in your organization.
+
+Enable Zero-hour auto purge (ZAP) in Defender for Office 365 to quarantine sent mail in response to newly acquired threat intelligence and retroactively neutralize malicious phishing, spam, or malware messages that have already been delivered to mailboxes.
+
+Responders can also manually check for and purge unwanted emails containing URLs and/or Subject fields that are similar, but not identical, to those of known bad messages. Investigate malicious email that was delivered in Microsoft 365 and use Threat Explorer to find and delete phishing emails.
+
+Turn on Safe Links and Safe Attachments in Microsoft Defender for Office 365.
+
+Enable network protection in Microsoft Defender for Endpoint.
+
+Encourage users to use Microsoft Edge and other web browsers that support Microsoft Defender SmartScreen, which identifies and blocks malicious websites, including phishing sites, scam sites, and sites that host malware.
+
+Enable passwordless authentication methods (for example, Windows Hello, FIDO keys, or Microsoft Authenticator) for accounts that support passwordless. For accounts that still require passwords, use authenticator apps like Microsoft Authenticator for MFA. Refer to this article for the different authentication methods and features.
+
+Conditional access policies can also be scoped to strengthen privileged accounts with phishing-resistant MFA.
+
+Configure automatic attack disruption in Microsoft Defender XDR. Automatic attack disruption is designed to contain attacks in progress, limit the impact on an organization’s assets, and provide more time for security teams to remediate the attack fully.
+
+Microsoft Defender detections
+
+Microsoft Defender customers can refer to the list of applicable detections below. Microsoft Defender coordinates detection, prevention, investigation, and response across endpoints, identities, email, and apps to provide integrated protection against attacks like the threat discussed in this blog.
+
+Microsoft Defender for Endpoint
+
+The following alert might indicate threat activity associated with this threat. The alert, however, can be triggered by unrelated threat activity.
+
+Suspicious activity likely indicative of a connection to an adversary-in-the-middle (AiTM) phishing site
+
+Microsoft Defender for Office 365
+
+The following alerts might indicate threat activity associated with this threat. These alerts, however, can be triggered by unrelated threat activity.
+
+A potentially malicious URL click was detected
+
+A user clicked through to a potentially malicious URL
+
+Suspicious email sending patterns detected
+
+Email messages containing malicious URL removed after delivery
+
+Email messages removed after delivery
+
+Email reported by user as malware or phish
+
+Microsoft Security Copilot
+
+Microsoft Security Copilot is embedded in Microsoft Defender and provides security teams with AI-powered capabilities to summarize incidents, analyze files and scripts, summarize identities, use guided responses, and generate device summaries, hunting queries, and incident reports.
+
+Customers can also deploy AI agents, including the following Microsoft Security Copilot agents, to perform security tasks efficiently:
+
+Threat Intelligence Briefing agent
+
+Phishing Triage agent
+
+Threat Hunting agent
+
+Dynamic Threat Detection agent
+
+Security Copilot is also available as a standalone experience where customers can perform specific security-related tasks, such as incident investigation, user analysis, and vulnerability impact assessment. In addition, Security Copilot offers developer scenarios that allow customers to build, test, publish, and integrate AI agents and plugins to meet unique security needs.
+
+Threat intelligence reports
+
+Microsoft Defender XDR customers can use the following threat analytics reports in the Defender portal (requires license for at least one Defender XDR product) to get the most up-to-date information about the activity and techniques discussed in this blog. These reports provide intelligence, protection information, and recommended actions to prevent, mitigate, or respond to associated threats found in customer environments.
+
+Activity Profile: Email threat landscape, September 2026
+
+Activity Profile: Email threat landscape, August 2026
+
+Activity Profile: Email threat landscape, July 2026
+
+Tool Profile: Tycoon2FA
+
+Actor Profile: Storm-1747
+
+Technique Profile: QR code phishing
+
+Technique Profile: ClickFix technique leverages clipboard to run malicious commands
+
+Threat Overview Profile: Business email compromise
+
+Threat Overview Profile: Adversary-in-the-middle credential phishing
+
+Activity Profile: Salary review lure delivers personalized QR code attachment for device code credential capture targeting legal organizations
+
+Activity Profile: Spanish-language purchase-order and payroll campaign leads to Agent Tesla malware
+
+Microsoft Security Copilot customers can also use the Microsoft Security Copilot integration in Microsoft Defender Threat Intelligence, either in the Security Copilot standalone portal or in the embedded experience in the Microsoft Defender portal to get more information about this threat actor.
+
+Hunting queries
+
+Microsoft Defender XDR
+
+Microsoft Defender XDR customers can run the following advanced hunting queries to find related activity in their networks:
+
+Salary review campaign emails by sender address
+
+The following query identifies emails associated with the August 19 campaign using a message’s sending email address.
+
+EmailEvents | where SenderMailFromAddress == “smtp@wekash.net”
+
+Spanish-language purchase order and payroll campaign emails by sender address
+
+The following query identifies emails associated with the September 21 campaign using a message’s sending email address.
+
+EmailEvents | where SenderMailFromAddress == ""contacto06@carloxmextos.org""
+
+Indicators of compromise (IOCs)
+
+Indicator
+
+Type
+
+Description
+
+First seen
+
+Last seen
+
+wekash[.]net
+
+Domain
+
+Sender domain used to distribute campaign emails via Amazon SES
+
+2026-08-19
+
+2026-08-20
+
+smtp@wekash[.]net
+
+Email address
+
+Sender email address observed in campaign messages
+
+2026-08-19
+
+2026-08-20
+
+Your-Q3-Compensation-Summary.docx
+
+File name
+
+Word document attachment carrying the compensation lure and QR code
+
+2026-08-19
+
+2026-08-20
+
+splace[.]co[.]za
+
+Domain
+
+Domain hosting phishing content
+
+2026-08-19
+
+2026-08-20
+
+https://splace[.]co[.]za/0987643345678908765421234567890987654320987654321223456787654/onedrive/
+
+URL
+
+URL hosting phishing content
+
+2026-08-19
+
+2026-08-20
+
+carloxmextos[.]org
+
+Domain
+
+Authenticated domain used to send both campaign variations
+
+2026-09-21
+
+contacto06@carloxmextos[.]org
+
+Email address
+
+Sender address used for both observed lure variations
+
+2026-09-21
+
+Nuevo orden de compra – 21092026.pdf.uu
+
+File name
+
+RAR attachment used in the purchase order variation
+
+2026-09-21
+
+Nuevo orden de compra – 21092026.pdf.js
+
+File name
+
+JavaScript downloader contained in the purchase order archive
+
+2026-09-21
+
+Lincoln.ps1
+
+File name
+
+PowerShell payload downloaded by the purchase order branch
+
+2026-09-21
+
+Nomina 21.09.2026.xml.001
+
+File name
+
+RAR attachment used in the payroll variation
+
+2026-09-21
+
+Nomina 21.09.2026.xml.exe
+
+File name
+
+Agent Tesla executable contained in the payroll archive
+
+2026-09-21
+
+BEDD2297739632DA8EE470367295FE976E55BE74D628DCAEE7FA98121EE530F1
+
+SHA-256
+
+SHA-256 of the purchase order RAR attachment
+
+2026-09-21
+
+CE832350C165522DB03DB040CA07917976D1A91F97E7016EA36DCC6B53E0EB13
+
+SHA-256
+
+SHA-256 of the JavaScript downloader
+
+2026-09-21
+
+F8B49891D15A578E4DE28FECF99D0D78DB6B2C3DA81CD51C931B8D128E60C187
+
+SHA-256
+
+SHA-256 of the PowerShell payload associated with Agent Tesla delivery
+
+2026-09-21
+
+C438B9A3BB67E2C10EFF0D01513422DC17DCE7C5508303A680E46F3DCEC886EF
+
+SHA-256
+
+SHA-256 of the payroll RAR attachment
+
+2026-09-21
+
+72966B30BBD87E42C683D2AC7A42BB62021FC14389D508551432FFD70D62F33A
+
+SHA-256
+
+SHA-256 of the Agent Tesla executable from the payroll variation
+
+2026-09-21
+
+Learn more
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+The post Email threat landscape: Q3 2026 trends and insights appeared first on Microsoft Security Blog."
 0cb5cd9e1582,0cb5cd9e1582,2026-11-03 17:32 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Threat Intelligence; Endpoint Security; Network Security,Article,Fake-download campaign uses trojanized installers to deliver monetization payloads,https://www.microsoft.com/en-us/security/blog/2026/11/03/fake-download-campaign-uses-trojanized-installers-deliver-monetization-payloads/,In this article Attack chain overview Mitigation and protection guidance Learn More Microsoft Threat Intelligence has identified an evolving fake-download campaign targeting...,"In this article
 
 Attack chain overview
@@ -1794,477 +2630,3 @@ To get notified about new publications and to join discussions on social media, 
 To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
 
 The post Tracking AI adoption in North Korean threat actor tradecraft appeared first on Microsoft Security Blog."
-6ca0eaaa8a26,6ca0eaaa8a26,2026-10-28 16:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Identity Security Posture Management; Phishing Simulations,Article,The CISO’s evolving role: Protecting and defending in the agentic era,https://www.microsoft.com/en-us/security/blog/2026/10/28/the-cisos-evolving-role-protecting-and-defending-in-the-agentic-era/,And we have to rethink how we defend that enterprise as attackers use AI to move faster and operate at greater scale,"October is Cybersecurity Awareness Month, and it’s a good time to think about how much the world has changed for chief information security officers (CISOs) in the last 12 months.
-
-A year ago, we thought we were already in the thick of AI and starting to understand it. Since then, agents have spread across the enterprise faster than most organizations anticipated. According to our Work Trend Index Annual Report, the number of active agents in the Microsoft 365 ecosystem grew 15-fold year over year and 18-fold in large enterprises. Employees are building and deploying AI systems that can access company data, interact with applications, and take actions on their behalf. These systems are built with good intentions, but even well-intentioned agents can introduce risk when access and behavior are not appropriately governed.
-
-At the same time, more people inside our companies are building with AI. Many of them haven’t written code in years, if ever, and they aren’t necessarily thinking about security the way a security team would. That isn’t a criticism. It’s how quickly the technology has expanded who can build and what they can accomplish.
-
-For CISOs, this creates two fundamental shifts. We have to protect an enterprise that increasingly operates through AI and agents. And we have to rethink how we defend that enterprise as attackers use AI to move faster and operate at greater scale. When I talk with CISOs, these are the two challenges I keep coming back to. We need to enable innovation without introducing unmanaged risk, and we need to modernize defense without losing the security fundamentals that still matter.
-
-Get the 2026 Work Trend Index report
-
-For builders: Build securely in the agentic era
-
-Cybersecurity awareness has always been about people. This year, it has to include the people building agents. If you’re a developer, a builder, or someone who has just realized that AI can help you design and build things, this part is for you.
-
-Give your agents their own identities. Where supported and appropriate, assign agents governed identities rather than personal or shared credentials. When something goes wrong, you need to know which agent did it and be able to shut it off.
-
-Protect the data your agents touch. If an agent can reach information, assume it will use it. Make sure the right data protections are in place before you connect it. And remember that the agent will not think like you. It doesn’t share your judgment or your sense of what is appropriate. If you give it access to information or systems, it will act on that access, and that can quickly become a problem.
-
-Your CISO wants you to build. They also need to know what’s being built, so they can help you do it safely. The best thing you can do for your security leader is to have the identity and data conversation early, before you build, not after.
-
-For CISOs: Protect the enterprise as agent adoption grows
-
-Your first job is to put guardrails in place so people can innovate carefully, without slowing them down. Good guardrails help teams move faster because they know where the lines are.
-
-Start with observability, and make it deep. You need to know which agents exist, who owns them, what they can reach, and what they’re doing. You can’t protect what you can’t see. Deep observability also means knowing when an agent’s behavior changes, so your team can step in before a small issue becomes a big one.
-
-Then hold people’s feet to the fire on identity and data. These are the two areas where I wouldn’t give any ground. Every agent needs a governed identity with only the access it needs, and the data it can reach needs to be classified and protected. When those two are in place, most other decisions get easier. Here’s how we’re approaching agent governance.
-
-For CISOs: Defending differently
-
-Your second job is to defend differently than you have historically done.
-
-Attackers are using AI to move faster, and our latest Microsoft Digital Defense Report shows how much that is compressing the time defenders have to respond. But defending differently isn’t simply about adopting faster tools. It’s about changing how security teams turn information into action. The more integrated your environment is, the faster you’ll be able to see an attack and respond to it. An attack rarely shows up in just one place. Signals across identity, endpoints, applications, and cloud environments need to come together with threat intelligence and organizational context so defenders can understand what’s happening and respond before an incident escalates. When your tools work together, your team sees the full picture instead of pieces of it. It also requires a security approach built to continuously assess risk, make decisions, and act at the speed threats are developing.
-
-You also need the right threat intelligence and the right partner. Threat intelligence helps organizations understand how threats are changing, which ones matter to their environment, and where to focus their defenses. Working with partners that have visibility across industries and organizations can provide broader context than an individual organization may have on its own. And you’re not going to operate at this speed without agents helping you. The same capabilities that make attacks faster can make defense faster, with agents working alongside your analysts to investigate and respond. That’s why we’re bringing integrated security operations and agentic defense together.
-
-Two jobs, one goal
-
-The pace of change over the last year has been significant, and it is likely to continue. None of this means slowing down. The CISOs I talk with want their companies to innovate. They need to protect the enterprise as it uses AI and the increasing speed of AI-enabled threats.
-
-Prepare for an agent-driven workplace
-
-Explore Work Trend Index insights on the changing role of agents at work and the trends shaping how organizations operate.
-
-Explore the Work Trend Index
-
-If you’re building with AI, bring your security team in early and have the identity and data conversation. If you’re a CISO, focus on those two jobs and make sure you have the right partners for both.
-
-To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
-
-The post The CISO’s evolving role: Protecting and defending in the agentic era appeared first on Microsoft Security Blog."
-5220751be12e,f930d079f3dd,2026-10-23 18:12 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Code Security; Identity Security Posture Management; Endpoint Security,Article,Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks,https://www.microsoft.com/en-us/security/blog/2026/10/23/inside-the-litellm-1-107-0-supply-chain-compromise-credential-theft-through-python-startup-hooks/,Attack overview LiteLLM is commonly deployed as a gateway between applications and model providers,"In this article
-
-Attack overview
-
-Technical details
-
-Mitigation and protection guidance
-
-Indicators of compromise
-
-References
-
-Learn More
-
-On October 21, 2026, a compromised LiteLLM 1.107.0 release was published to the Python Package Index (PyPI) and distributed through official container images. The malicious package added files that Python could execute during normal interpreter initialization. An application did not need to import LiteLLM for the payload to run: starting Python in an affected environment could be enough.
-
-Microsoft analyzed two execution paths in the affected wheels: a credential collector launched through a path extension, and a Unix-oriented loader persisted through site-specific configuration. The collector targeted authentication material across developer tools, AI applications, cloud environments, browsers, and infrastructure. A separate database module attempted to read selected credential and model-configuration records from the LiteLLM proxy.
-
-Endpoint observations on Windows and macOS matched the recovered collector’s discovery, encryption, and outbound-connection behavior. In one Windows example, a routine Python invocation to install an unrelated dependency activated the collector. This distinction matters for response: investigators should not start Python or pip inside a suspect environment to determine whether the malicious package is present.
-
-This blog explains the startup mechanisms, the credentials the payload could reach, and the evidence defenders can use to investigate exposure. It also provides Microsoft Defender detection information, advanced hunting queries, and recovery guidance. Removing the package or a release tag is not sufficient recovery. Organizations must address the affected Python environment, any surviving processes, and credentials accessible to the compromised identity.
-
-Attack overview
-
-LiteLLM is commonly deployed as a gateway between applications and model providers. In that position it may have access to model-provider API keys, database connection strings, workload identities, routing configuration, and tenant policy data. The same package is also used on developer workstations, build agents, test systems, and containers, which widened the set of environments that could be exposed by the compromised release.
-
-According to LiteLLM maintainers, stolen developer GitHub credentials were used to alter the release workflow and redirect it to the lookalike repository Berri-AI/litellm rather than the legitimate BerriAI/litellm repository. A credential associated with another developer account was then used to satisfy a production approval step. Microsoft has not independently determined how the attacker first accessed the upstream environment or obtained those credentials.
-
-The compromised package used Python startup mechanisms to execute malicious code automatically, meaning exposure was not limited to systems actively using a LiteLLM gateway. Developer workstations, continuous integration and continuous delivery/deployment (CI/CD) agents, test environments, containers, and other systems that started Python with the affected package installed could also execute the payload. The malicious code supported credential collection and, on Unix-based systems, retrieval and execution of additional Python code.
-
-Figure 1: Compromised LiteLLM 1.107.0 execution flow.
-
-1. Compromised package distribution
-
-The compromised LiteLLM 1.107.0 release delivered malicious Python startup files to environments where the package was installed.
-
-2. Automatic payload execution
-
-Python startup processing launched the credential collector without requiring the application to actively use LiteLLM gateway functionality.
-
-3. Credential and sensitive-data collection
-
-The collector targeted developer credentials, cloud credentials, browser data, SSH material, environment variables, and LiteLLM database data accessible to the affected process.
-
-4. Encryption and exfiltration
-
-Collected data was encrypted and transmitted to an attacker-controlled endpoint.
-
-5. Conditional retrieval and execution of additional code
-
-On Unix-based systems, the payload supported retrieving and executing additional Python code, although this activity was not confirmed.
-
-Technical details
-
-Compromised package distribution and automatic payload execution
-
-The compromised wheel packaged cook.pth, cook.py, and sitecustomize.py under litellm-1.107.0.data/purelib/. During installation, these files were relocated into the Python environment’s library directory, outside the normal litellm application directory. This placement enabled execution through Python’s normal site initialization, which processes executable import statements in .pth files and later attempts to import the sitecustomize module.
-
-The first execution path began with the single executable line in cook.pth: “import cook”. This loaded cook.py, whose wrapper Base64-decoded and zlib-decompressed an embedded Python program before executing the recovered source. The program identified itself as PRIVCOLLECT and performed credential collection in a daemon thread.
-
-Figure 2. The executable .pth line imports cook, and the recovered collector starts a daemon thread after checking its inherited environment flag.
-
-Before starting the thread, the collector checked the inherited PRIVCOLLECT_ACTIVE environment variable. A nonempty value caused it to return; otherwise, it set the flag, limiting duplicate collection in descendant processes. After an upload returned HTTP 200, it attempted to write /tmp/.pc_once_72129118c59f5636c0bb. These duplicate-suppression gates were not containment controls: startup alone did not prove collection or upload completed, because a short-lived process could exit before the thread finished, while write failures or temporary-storage changes could leave the marker absent.
-
-Figure 3. Encode Cook.py file and decoded PRIVCOLLECT credential Stealer configuration.
-
-A second startup mechanism used sitecustomize.py, providing a separate Unix-oriented execution path with an embedded collector and functionality to retrieve and execute additional Python code from a remote host. Remote retrieval and execution through this path were not confirmed.
-
-Together, these mechanisms extended potential exposure beyond active LiteLLM deployments: simply starting Python in an affected environment could activate the malicious code, even when LiteLLM itself was never imported. Because the startup files resided outside the litellm application directory, removing only the application files could leave the malicious startup components behind.
-
-Credential and sensitive-data collection
-
-The recovered collector was designed to gather sensitive authentication material across developer tools, AI applications, cloud environments, browsers, and infrastructure. It runs multiple collection modules sequentially with independent error handling, allowing collection to continue even when individual targets are unavailable or inaccessible.
-
-Target
-
-Recovered collection behavior
-
-Developer and AI tools
-
-Reads selected authentication and configuration files for AI assistants, integrated development environments (IDEs) , GitHub Copilot, VS Code, and MCP integrations. Collects fixed paths and top-level JSON files in selected tool directories under a collection budget.
-
-Source control and package ecosystems
-
-Searches Git credentials, package-manager configuration, selected dotenv files, and private-key extensions. Shallow directory walks and file-size limits constrain these searches.
-
-Cloud and workload credentials
-
-Reads AWS, Azure CLI, and Google Cloud configuration or credential caches; Kubernetes service-account files; Docker configuration; and mounted secrets. It also attempts AWS and GCP metadata credential retrieval.
-
-Browsers and user histories
-
-Accesses Chromium-family and Firefox credential-related data and browsing history, plus shell, database-client, and interactive-tool histories. Password decryption is platform- and format-dependent.
-
-Process environments
-
-Collects its own environment and, on Linux, other process environments readable through procfs. This can expose secrets beyond variables explicitly configured for the LiteLLM process.
-
-Private keys and infrastructure
-
-Targets readable Secure Shell (SSH) material and selected GNU Privacy Guard (GPG), Transport Layor Security (TLS), CI/CD, Vault, and infrastructure-tool configuration. A target appearing in the code does not establish successful access.
-
-LiteLLM proxy data
-
-When its prerequisites are satisfied, starts a Python child using Prisma to read selected fields from two proxy database tables, with a 500-row limit for each query
-
-Encryption and exfiltration
-
-After collection, the payload serializes module results and host metadata as JSON. Each run generates a 32-byte AES key and a 16-byte initialization vector. AES-256-CBC encrypts the collection document; an embedded 4,096-bit RSA public key wraps the AES key using OAEP. The OpenSSL path tries SHA-256 and then SHA-1 for OAEP, and the resulting metadata records the selected digest.
-
-Figure 4. The collector generates a fresh AES key and IV, wraps the key with RSA, and packages the encrypted collection in a gzip tar archive before attempting upload. Selected code excerpts are wrapped for readability.
-
-The collector places three members in a gzip-compressed tar archive: data.bin, containing the initialization vector (IV) and encrypted collection; key.bin, containing the wrapped AES key; and hdr.json, containing plaintext envelope metadata. It then attempts an HTTP POST to hxxp://www[.]litellm[.]dev/healthcheck, using application/octet-stream, a fixed browser-like User-Agent, and a body checksum in an X-SHA256 header. The upload routine retries and treats only HTTP 200 as success.
-
-The OpenSSL backend creates temporary directories beginning with .pc_e_, stages input and output files and removes them after use.
-
-Conditional retrieval and execution of additional code
-
-In addition to the credential collector, the compromised package contained a separate Unix-oriented loader in sitecustomize.py, designed to retrieve and execute additional Python code. When Python starts, the loader takes an exclusive lock on /tmp/remote_code_loader.lock so that only one instance runs per host and detaches into the background. Each cycle reads a GitHub-hosted domain.txt file, which acts as a mutable pointer to an attacker-controlled server.
-
-Figure 5. The remote-loader path checks the pointer and DNS before retrieving code, then compiles and executes the response without a content-signature check.
-
-If a valid server address is returned and successfully resolved, the loader is designed to request /codepy from that server, compile the returned content, and execute it as Python code within the affected environment. This gives the attacker a mechanism to change the second-stage payload without publishing another compromised LiteLLM package. This loader is separate from the credential collector delivered directly in the compromised package.
-
-At the time the cited researchers examined domain.txt, it was empty and no second-stage retrieval or execution was confirmed. Because the file could be changed, the loader remained a re-armable remote-code execution mechanism.
-
-Mitigation and protection guidance
-
-Microsoft recommends the following actions for organizations that installed, mirrored, or built images with LiteLLM 1.107.0:
-
-Find and contain every affected copy. Identify LiteLLM 1.107.0 across installed environments, uv and pip caches, internal package mirrors, lock files, build outputs, and container images. Scope mutable container tags and the relevant exposure windows once validated and compare artifacts with the customer-ready hashes in the indicators of compromise section. For background, see secure software supply chain practices and Docker image digests. Digests are preferable to mutable tags because they identify immutable image content.
-
-Prevent Python execution and investigate from outside the environment. Isolate affected developer workstations, build agents, test systems, containers, and AI gateway hosts. Where operationally safe, stop running Python processes and prevent automation from restarting them. Do not run python, pip, or other commands that invoke the affected interpreter during evidence collection; inspect the environment with trusted tools from a known-clean system. Python normally processes site configuration, including executable import lines in .pth files, during initialization.
-
-Rebuild from verified artifacts. Confirm that cook.pth, cook.py, and sitecustomize.py were removed from the environment library path. Rebuilding is more reliable than assuming that deleting the litellm directory cleaned the top-level startup files.
-
-Rotate reachable credentials from a known-clean machine. Include model-provider keys, cloud and workload credentials, CI/CD secrets, source-control and registry tokens, SSH and GPG keys, AI coding-tool tokens, and browser sessions available to the affected identity. On proxy hosts, include stored provider credentials and DATABASE_URL. Revoke affected identity sessions rather than assuming password or key rotation immediately invalidates every active token or application session. See revoke user access in Microsoft Entra ID.
-
-Correlate before declaring compromise. Combine file hashes, Python process ancestry, .pc_e_ cryptographic staging, network destination, workload identity, and subsequent cloud or identity use. Do not use package presence or a generic filename as the sole verdict.
-
-Strengthen dependency controls. Use hash-pinned lock files, verify package and image provenance, use container digests instead of floating tags, and admit packages to internal mirrors only after review. See best practices for a secure software supply chain and dependency scanning in Azure DevOps.
-
-Restrict outbound access. Developer workstations, build agents, test systems, containers, and AI gateway hosts should not have unrestricted outbound HTTP access unless required. Route outbound traffic through managed egress controls, deny unnecessary destinations, and allowlist required services. See control outbound internet access from Azure.
-
-Enable Microsoft Defender for Endpoint protections. Onboard supported developer workstations, build agents, and AI gateway servers to Microsoft Defender for Endpoint, and enable Microsoft Defender Antivirus real-time and cloud-delivered protection where supported. See configure always-on protection and configure cloud protection.
-
-Microsoft Defender XDR detections
-
-As of October 22, 2026, the following Microsoft Defender Antivirus signatures and Microsoft Defender for Endpoint alerts were available for activity associated with the compromised LiteLLM 1.107.0 release. Detection names and availability may change as protection is updated.
-
-Tactic
-
-Observed activity
-
-Microsoft Defender coverage
-
-Initial Access / Execution
-
-Malicious components associated with the compromised package are detected and blocked; related suspicious script and network activity is identified across endpoints and cloud workloads.
-
-Microsoft Defender Antivirus – Trojan:PyPI/Stealer.SA – Trojan:PyPI/LiteLlmSupplyChain.A – Trojan:PyPI/LiteLlmSupplyChain.B – Backdoor:PyPI/LiteLlmSupplyChain.C Microsoft Defender for Endpoint– Suspicious script launched – Suspicious network connection observed
-
-Command and Control / Credential Access
-
-Credential-like data is staged by Python and followed by network activity to a public destination, including malicious-domain lookups and OpenSSL activity associated with the compromise.
-
-Microsoft Defender for Endpoint – Possible theft of passwords and other sensitive web browser information – Suspicious OpenSSL command launch Microsoft Defender for Cloud Microsoft Defender for Cloud triggers below detections for related activity in Azure App Service and Kubernetes workloads:– OpenSSL activity associated with possible LiteLLM compromise detected – DNS lookup of a known malicious domain
-
-Vulnerability Management
-
-Devices vulnerable to this security issue are surfaced for remediation.
-
-Microsoft Defender Vulnerability Management– Endpoints exposure tab in the Microsoft Defender portal: TVM-2026-0003
-
-Threat intelligence reports
-
-Microsoft customers can use the following reports in Microsoft products to get the most up-to-date information about the threat actor, malicious activity, and techniques discussed in this blog. This report provides intelligence, protection information, and recommended actions to prevent, mitigate, or respond to associated threats found in customer environments.
-
-Microsoft Defender XDR Threat analytics
-
-Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks
-
-Advanced hunting
-
-These queries support investigation of the stages discussed above. Select the appropriate lookback in Defender XDR and correlate results with environment, process and identity evidence. They are investigation leads, not standalone verdicts.
-
-Connections to the collector domain
-
-Normalize URL/hostname observations before matching the campaign domain. The query rejects suffix lookalikes such as www[.]litellm[.]dev[.]example; a match still needs process and workload context.
-
-DeviceNetworkEvents | extend UrlForParsing = iff(RemoteUrl contains ""://"", RemoteUrl, strcat(""http://"", RemoteUrl)) | extend RemoteHost = trim_end(@""\."", tolower(tostring(parse_url(UrlForParsing).Host))) | where RemoteHost in (""www.litellm.dev"", ""litellm.dev"") | project Timestamp, DeviceId, DeviceName, ActionType, RemoteUrl, RemoteIP, RemotePort, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
-
-Known startup-file hashes
-
-The four hashes cover LF and CRLF variants. A missing SHA-256 field limits this hunt; a generic filename is not an equivalent match.
-
-DeviceFileEvents | where SHA256 in~ ( ""9dd0a3926f96a37eb86cf1ee2310d9be93139cc4ebef3ef9e2efe9531390be25"", ""03ac2a8b752605d1d7710979c17ff18b03dd978203ba23ba97fd8ce3d6f897ea"", ""34bef04fe88ac9d0aae0475630b1738681d15b94f233ac8aa46eacf5968305fa"", ""b6122440d0d9cb1eb1ade9933f49214da8c31288de7710c076c2680dfa528465"", ""7f191632e7320705d154b85204f1ae546b543acbd7e8861229b76f5042b92bdb"", ""84dc8c82c0a4a4a62552ef826b49fcc86d1a5c4a5d0f2c06665723f93d129d7d"") | project Timestamp, DeviceId, DeviceName, ActionType, FileName, FolderPath, SHA256, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
-
-Inline database-collection program
-
-Look for the sensitive table/field pair together with the query API, serialization and complete output-suppression pattern. Legitimate exports may overlap. The recovered parent’s /proc prerequisite limits its applicability; raw arguments are omitted because they can contain a database secret.
-
-DeviceProcessEvents | where FileName startswith ""python"" or FileName startswith ""platform-python"" | where strlen(ProcessCommandLine) <= 4096 | where ProcessCommandLine contains_cs ""-c "" | where (ProcessCommandLine contains_cs ""LiteLLM_CredentialsTable"" and ProcessCommandLine contains_cs ""credential_values"") or (ProcessCommandLine contains_cs ""LiteLLM_ProxyModelTable"" and ProcessCommandLine contains_cs ""litellm_params"") | where ProcessCommandLine contains_cs ""query_raw"" | where ProcessCommandLine contains_cs ""json.dumps("" or ProcessCommandLine contains_cs ""json.dump("" | where ProcessCommandLine contains_cs ""os.devnull"" and ProcessCommandLine contains_cs ""os.dup2"" | project Timestamp, DeviceId, DeviceName, FileName, ProcessId, ProcessCreationTime, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
-
-Collector-like encryption staging
-
-The staging prefix plus encryption operation identifies a behavioral lead, not an upload or a uniquely malicious OpenSSL invocation. Alternate backends are outside this query, and key-bearing arguments are not projected.
-
-DeviceProcessEvents | where FileName in~ (""openssl"", ""openssl.exe"") | where ProcessCommandLine contains_cs "".pc_e_"" | where (ProcessCommandLine contains_cs "" enc "" and ProcessCommandLine contains_cs ""-aes-256-cbc"") or ProcessCommandLine contains_cs "" pkeyutl "" or ProcessCommandLine contains_cs "" rsautl "" | extend CryptoOperation = iff( ProcessCommandLine contains_cs "" enc "", ""AES packaging"", ""RSA wrapping"") | project Timestamp, DeviceId, DeviceName, FileName, CryptoOperation, ProcessId, ProcessCreationTime, InitiatingProcessFileName, InitiatingProcessId, InitiatingProcessCreationTime, ReportId
-
-Vulnerability/Posture Check | Is the device potentially exposed to the affected Litellm?
-
-Use this query to identify devices potentially exposed to TVM-2026-0003. A match indicates potential exposure, not confirmed exploitation or compromise.
-
-DeviceTvmSoftwareVulnerabilities | where CveId == ""TVM-2026-0003""
-
-CloudProcessEvents query to detect encryption before exfiltration
-
-Identifies OpenSSL public-key encryption using /tmp/.pc_ staging paths, consistent with key wrapping before potential exfiltration.
-
-CloudProcessEvents | where ProcessName == 'openssl' and ProcessCurrentWorkingDirectory has_any ('/runner/','/app','/tmp/') and ProcessCommandLine has_all ('pkeyutl','-encrypt','-pubin') and ProcessCommandLine contains '/tmp/.pc_'
-
-MITRE ATT&CK techniques observed
-
-Microsoft mapped the following techniques based on observed activity and analysis of the recovered malicious components; individual entries note where behavior was not confirmed. For standard industry documentation, refer to the MITRE ATT&CK framework.
-
-Initial Access
-
-T1195.001 Compromise Software Dependencies and Development Tools | Malicious files shipped in LiteLLM 1.107.0 wheels and images; upstream release abuse reported by the maintainer.
-
-Persistence
-
-T1546.018 Event Triggered Execution: Python Startup Hooks | cook.pth and sitecustomize.py run during Python site initialization.
-
-Execution
-
-T1059.006 Command and Scripting Interpreter: Python | The collector runs in the interpreter; an inline Python child performs database queries.
-
-Defense Evasion
-
-T1027.013 Obfuscated Files or Information: Encrypted/Encoded File | Collector source is embedded as Base64-encoded, zlib-compressed content.
-
-T1140 Deobfuscate/Decode Files or Information | cook.py decodes and decompresses the collector at runtime.
-
-Credential Access
-
-T1552.001 Unsecured Credentials: Credentials In Files | Reads authentication and configuration files for developer, AI, and cloud tools.
-
-T1552.004 Unsecured Credentials: Private Keys | Reads selected SSH, GPG, and TLS key material.
-
-T1552.005 Unsecured Credentials: Cloud Instance Metadata API | Requests AWS and GCP credentials from metadata services; returned credentials were not confirmed in Microsoft telemetry.
-
-T1555.003 Credentials from Password Stores: Credentials from Web Browsers | Copies browser databases and supports selected Chromium password recovery on Windows.
-
-Discovery
-
-T1082 System Information Discovery | systeminfo was launched by Python in an observed Windows sequence.
-
-T1016 System Network Configuration Discovery | ipconfig, route, arp, and netstat were launched by the same Python process.
-
-Collection
-
-T1005 Data from Local System | Collects selected local histories, environment variables, and configuration.
-
-Command and Control
-
-T1102.001 Web Service: Dead Drop Resolver | The loader reads its server address from a specific GitHub-hosted file.
-
-T1105 Ingress Tool Transfer | The loader can retrieve Python code from /codepy; retrieval and execution were not confirmed.
-
-Indicators of compromise
-
-URLs are defanged. Use precise roles and context rather than blocking shared infrastructure indiscriminately.
-
-Indicator
-
-Type
-
-Role
-
-www[.]litellm[.]dev
-
-Domain
-
-Exfiltration Domain
-
-hxxp://www[.]litellm[.]dev/healthcheck
-
-URL
-
-Exfiltration URL
-
-hxxps://raw[.]githubusercontent[.]com/letters9813/pythonclient-test/main/domain.txt
-
-URL
-
-C2 dead-drop URL
-
-9dd0a3926f96a37eb86cf1ee2310d9be93139cc4ebef3ef9e2efe9531390be25
-
-SHA-256
-
-cook.py, variant
-
-03ac2a8b752605d1d7710979c17ff18b03dd978203ba23ba97fd8ce3d6f897ea
-
-SHA-256
-
-cook.py, Windows wheel variant
-
-34bef04fe88ac9d0aae0475630b1738681d15b94f233ac8aa46eacf5968305fa
-
-SHA-256
-
-sitecustomize.py, variant
-
-b6122440d0d9cb1eb1ade9933f49214da8c31288de7710c076c2680dfa528465
-
-SHA-256
-
-sitecustomize.py, Windows wheel variant
-
-7f191632e7320705d154b85204f1ae546b543acbd7e8861229b76f5042b92bdb
-
-SHA-256
-
-cook.pth
-
-84dc8c82c0a4a4a62552ef826b49fcc86d1a5c4a5d0f2c06665723f93d129d7d
-
-SHA-256
-
-cook.pth, variant
-
-/tmp/remote_code_loader.lock
-
-file
-
-Lock file created by the background loader.
-
-/tmp/.pc_once_72129118c59f5636c0bb
-
-file
-
-Marker written after stolen data was sent.
-
-7598727f209d717041db37f7dca271d3a7d328a279890e0e1d55375729aeb86d
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-macosx_10_12_x86_64.whl
-
-0aaf7ba346d41ef2f40390436738b001180d5a1c03aa093f121078a9969d9a1a
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-macosx_11_0_arm64.whl
-
-668169d35b87bf51324080390b1b1c5ab12bd335cfe5f1a99e3689abd5e02ae6
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-manylinux_2_28_aarch64.whl
-
-462d0c9f67ca522d9e0e4acd245e90b36ce0d5353604a66bb7c43a1ec4a6fcf7
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-manylinux_2_28_x86_64.whl
-
-c2e32d0ce2548aa662c18bf5001911a79fe5b30cf8357132275add02fdcde054
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-musllinux_1_2_aarch64.whl
-
-1bbce8caa94f01c0aaa0b7ddae51553a8a32e1ce53d96d44fe583272aff7ad00
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-musllinux_1_2_x86_64.whl
-
-12d4ccc5c6f8d35cf4f2cf233b7f3e418e863e657d81ff5f5fc9e210005b9484
-
-SHA-256
-
-litellm-1.107.0-cp310-abi3-win_amd64.whl
-
-References
-
-LiteLLM, Contained: Oct 21, 2026 LiteLLM release v1.107.0 Compromised
-
-Python Software Foundation, Site-specific configuration hook.
-
-Learn More
-
-For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
-
-To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
-
-To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
-
-Review our documentation to learn more about our real-time protection capabilities and see how to enable them within your organization.
-
-Learn more about securing Copilot Studio agents with Microsoft Defender
-
-Evaluate your AI readiness with our latest Zero Trust for AI workshop.
-
-Microsoft 365 Copilot AI security documentation
-
-How Microsoft discovers and mitigates evolving attacks against AI guardrails
-
-Prompt injection protection in Microsoft Defender for Office 365 – official documentation of the prompt injection protection in Microsoft Defender for Office 365.
-
-How Microsoft discovers and mitigates evolving attacks against AI guardrails | Microsoft Security Blog
-
-Manipulating AI memory for profit: The rise of AI Recommendation Poisoning | Microsoft Security Blog – a related example of an AI-era technique observed in email traffic
-
-Defending the inbox against prompt injection attacks | Microsoft Defender for Office 365 Blog – feature announcement introducing prompt injection protection in Microsoft Defender for Office 365.
-
-Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
-
-The post Inside the LiteLLM 1.107.0 supply chain compromise: Credential theft through Python startup hooks appeared first on Microsoft Security Blog."
