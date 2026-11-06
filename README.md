@@ -1,6 +1,6 @@
 # CI Overwatch
 
-A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from the RSS feeds listed below, removes duplicates, sorts them into categories and modules, keeps every article it has ever seen, and publishes an auto-updating dashboard twice daily.
+A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from the RSS feeds listed below, removes duplicates, sorts them into categories and modules, keeps every article it has ever seen, and publishes an auto-updating dashboard three times a day.
 
 **Dashboard:** https://lukan47.github.io/RSS/
 **All articles (filter and export):** https://lukan47.github.io/RSS/archive/data/explorer.html
@@ -29,7 +29,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - **Exports are generated in the browser** when you click a button in the popup or on the all-articles page; nothing is saved per click (the `archive/exports/` files are written on every scheduled run)
 - **Full article text** is saved for export only (never shown on the dashboard) and can be included in any export
 - Search box (press `/`), category, vendor and module filters and a history dropdown of previous digests (last 30 runs)
-- Updates automatically at **6:00 AM and 6:00 PM PHT** via GitHub Actions
+- Updates automatically three times a day, at about **6 AM, 2 PM and 10 PM PHT**, via GitHub Actions
 - Email notification via Gmail on each update
 
 ## Watchlist and e-mail alert
@@ -42,7 +42,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 
 Vendors must be spelled as in the tracked-vendor list below. Keywords match the article title; a keyword starting with `~` only matches as a whole word. Edit the file on GitHub; the next run picks it up.
 
-Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and `WATCHLIST_HTML` (matches from the last 13 hours) to the workflow environment. To put them in the e-mail, edit `.github/workflows/notify.yml` on GitHub (the push token cannot change workflow files) and add to the *Send Gmail notification* step:
+Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and `WATCHLIST_HTML` (matches from the last 9 hours) to the workflow environment. To put them in the e-mail, edit `.github/workflows/notify.yml` on GitHub (the push token cannot change workflow files) and add to the *Send Gmail notification* step:
 
 ```yaml
           subject: "Cybersecurity Digest — ${{ env.TODAY }} (${{ env.WATCHLIST_COUNT }} watchlist)"

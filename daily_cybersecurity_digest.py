@@ -151,7 +151,7 @@ SOURCES_URL        = REPORT_URL + "archive/data/sources.html"
 SOURCE_HEALTH_FILE = os.path.join(DATA_DIR, "source_health.json")
 MOVERS_FILE        = os.path.join(DATA_DIR, "movers.json")
 WATCHLIST_FILE     = "watchlist.json"
-WATCH_ALERT_HOURS  = 13       # a watchlist match this recent goes in the e-mail (runs are 12 hours apart)
+WATCH_ALERT_HOURS  = 9        # a watchlist match this recent goes in the e-mail (runs are 8 hours apart, plus start-up delay)
 STALE_SOURCE_DAYS  = 14       # a feed with no new article for this long is flagged Stale
 FEED_STATUS: dict = {}        # source name -> {"ok", "error", "items"} for this run (filled by fetch_feed)
 LEGACY_FULLTEXT_CACHE = os.path.join(ARCHIVE_DIR, "_cache", "fulltext_cache.json")
@@ -2937,7 +2937,7 @@ def build_html(articles: list[dict], label: str, history: list[dict] | None = No
   </div>
 </div>
 
-<footer>Updated twice daily · 6:00 AM &amp; 6:00 PM PHT · lukan47/RSS</footer>
+<footer>Updated three times daily · about 6 AM, 2 PM &amp; 10 PM PHT · lukan47/RSS</footer>
 {MODAL_HTML}
 <script>
 {MODAL_JS}
