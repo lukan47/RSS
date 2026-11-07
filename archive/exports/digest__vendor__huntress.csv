@@ -1,4 +1,85 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+c403616bc1bb,c403616bc1bb,2026-11-06 21:00 UTC,General Security News,Huntress,Huntress Blog,Identity Security Posture Management; Endpoint Security; Server & Workload Protection; Network Security,Article,Brute Force Sentry for Managed SIEM | Huntress,https://www.huntress.com/blog/brute-force-sentry,"Brute Force Sentry normalizes both into one authentication surface, so a single detection can follow the attack from the first failure to the login","Today, Huntress Managed SIEM's Brute Force Sentry is available to all Managed SIEM customers. It turns the brute force attacks our SOC sees in the field into detections that fire earlier, with the evidence and hardening guidance you need to close the gap. Brute Force Sentry watches your internet-facing login surfaces, including RDP, RD Gateway, and the RDWeb portal on Windows and SSH on Linux. When a run of failed logons ends in a successful one, the Huntress SOC investigates.
+
+Every exposed login gets knocked on, and most of that knocking is bots cycling through ""administrator"" on a gateway someone set up years ago. The trouble is that one burst out of thousands ends in a working login, and a generic threshold rule treats it the same as the rest.
+
+Brute Force Sentry is built to find that one.
+
+RDP is still a front door attackers use
+
+Huntress research ties RDP to 10–20% of how advanced attackers break into networks. Plenty of organizations don't realize their RDWeb portal or RD Gateway is reachable from the internet until someone starts working through usernames on it.
+
+RDWeb and RD Gateway behave a lot like an SSL VPN portal. Authentication happens at the web portal, before the user ever reaches an endpoint, so that portal is where attackers line up.
+
+Most SIEMs handle brute force with a single threshold rule, something like ""X failed logons in Y minutes."" Set it low and your team drowns in alerts from bots that never get in. Set it high and a slow spray across dozens of accounts slips right under it. In both cases, the rule can't answer the question you care about: did one of those attempts work?
+
+How Brute Force Sentry works
+
+Brute Force Sentry reads the authentication telemetry your Managed SIEM already collects across all three platforms: Windows Security events (4624, 4625, 4740, 4776) and RD Gateway's own connection log, Linux sshd, and macOS, and splits ""brute force"" into the distinct tradecraft it really is:
+
+Traditional brute force: one source guessing against a few accounts until something works
+
+Distributed brute force: many sources working the same account, each staying quiet enough on its own to look unremarkable
+
+Spraying: a short list of common credentials tried across many accounts
+
+Credential stuffing: username and password pairs from earlier breaches, tested to see which still work
+
+Username enumeration: repeated attempts against accounts that don't exist, probing for valid names before the guessing starts
+
+It reads each platform in its own language. Windows spreads a single authentication across several event IDs, with the failure reason buried in a status code and the credential check sometimes landing on a domain controller instead of the machine being attacked. Linux writes one sshd line that already separates a wrong password from an attempt against an account that was never real. Rather than flatten both into a lowest common denominator, we normalize them into one authentication record that keeps what each platform knows, so the detection logic is identical everywhere and nothing is lost in translation.
+
+It's tuned per surface, not set once.. Each one gets its own narrow correlation detection in place of a single noisy rule. Our researchers tuned every detection per login surface against historical partner data, then validated it against simulated real-world attacks in the lab before the SOC got it.
+
+It correlates across providers. The failed sign-ins and the success that follows are often recorded by two different systems on the same host. Brute Force Sentry normalizes both into one authentication surface, so a single detection can follow the attack from the first failure to the login.
+
+It turns itself on, and tells you when it can't. Brute Force Sentry activates per organization once the telemetry it needs is flowing. If that telemetry is missing, it shows as unavailable along with the reason, so a quiet dashboard means Huntress checked and found nothing.
+
+The accounts they go after aren't the ones you're watching
+
+Across the compromises Huntress has worked, the accounts that fell weren't always domain admins. They were the ones nobody owns; shared logins created for a device, a front desk, or a one off integration, with a password nobody has rotated since and an MFA exemption nobody remembers granting. They don't surface on a privileged-account review, and they don't belong to anyone who'd notice them being used. That's exactly why attackers reach for them first, and the pattern holds whichever door they come through: a Windows desktop or gateway, a Linux server, or a Mac sharing its screen.
+
+Brute Force Sentry surfaces the usernames being attempted, not just how many times. That includes the ones that don't exist. A run of failures against accounts that were never real is username enumeration, someone working a list, learning your naming convention before they start guessing passwords in earnest. Catching that tells you an attack is being set up rather than already underway. And seeing which real accounts an attacker keeps returning to tell you which credentials to rotate tonight, not next quarter.
+
+About 1,700 attempts in 72 seconds
+
+In June 2026, the Huntress SOC handled a compromise at an organization running Remote Desktop Gateway. The attacker hit eight accounts with 212 to 215 failed logons each, roughly 1,700 attempts in 72 seconds, and then got in.
+
+Every one of those failures was sitting in the gateway host's event logs. The successful login that came right after was recorded by RD Gateway, a different provider on the same host. Connecting the two took a detection that didn't exist yet, and Brute Force Sentry was built to make that connection.
+
+To see how often this pattern shows up, we reviewed 30 confirmed RDWeb/RDG compromises during the first four weeks of testing. In 20 of them, Brute Force Sentry's signal would have reached the SOC up to an hour earlier. That's an hour between the attacker's first guess and their first move inside the network, and it's an hour our analysts can spend containing the account.
+
+An attacker who gets in through your gateway keeps moving, so the sooner you see the login, the less of the network they've touched.
+
+What you'll see in the portal
+
+Most brute force activity never succeeds, and until now partners haven't seen any of it. Brute Force Sentry shows it as it happens, so you can act on your own terms before something breaks through:
+
+Exposed surfaces: which internet-facing login surfaces are under attack, including ones you may not have known were reachable
+
+Targeted accounts: the accounts attackers keep coming back to
+
+Sources: where the attempts come from, and which sources keep returning
+
+Compromises: successful logins that followed a run of failures, each linked to its Incident Report
+
+You're notified on compromise, and you can opt in to notifications for every attempt, successful or not.
+
+Figure 1: Brute Force Sentry dashboard
+
+Less noise for you, more proof for your customers
+
+If you're an MSP, you've probably told a client their RD Gateway needs MFA or belongs behind a VPN. Brute Force Sentry gives you their own data to make that case, starting with whether the portal should be exposed at all: which accounts were targeted last week, how many attempts were made, and where they came from. Pair that with the hardening guidance in each finding, and the conversation moves from ""we should"" to ""here's what happened.""
+
+Internal IT teams get the same benefit. You don't have to become a Windows event log specialist to tell whether a burst of 4625s was background noise or the start of an intrusion, because the Huntress SOC is already looking at the ones that matter.
+
+Built from the attacks our SOC works
+
+Brute Force Sentry started with a real incident and a gap our analysts could name. That's how we want Managed SIEM to keep growing: take the attacks our SOC sees in partner environments and turn them into detections that fire earlier, with the evidence attached.
+
+Every exposed login gets knocked on. Now you'll know which knock got answered.
+
+Already on Huntress Managed SIEM? It's included for all Managed SIEM customers and turns on automatically once your Windows authentication telemetry is flowing. New to Managed SIEM? Book a demo to see Brute Force Sentry and the Huntress SOC in action."
 a0653f5e325f,a0653f5e325f,2026-11-05 15:00 UTC,General Security News,Huntress,Huntress Blog,Phishing Simulations; Endpoint Security; Email and Collaboration Security,Article,Defense Drill Interventions,https://www.huntress.com/blog/defense-drill-interventions,"Join us on November 17 for the livestream ""Training at SOC Speed: How New Threats Lead to New Defense Drills,"" as we'll give you the first look at Defense Drills and Attack...","You just had a user fall for a ClickFix attack, but thankfully, Attack Disruption from Managed EDR shut it down before the attacker could launch an infostealer. Now, you'd think this means the threat has been mitigated and you can move on. But there's just one problem…a few minutes later, the same user falls for the exact same ClickFix attack again.
 
 This is something our Security Operations Center (SOC) has seen happen over and over again since we launched the Attack Disruption Engine in April 2026. In fact, of the over 25,000 hosts we've seen with a ClickFix signal, 29% made more than one attempt. That's thousands of people falling for a real-world ClickFix attack without any lessons learned.
