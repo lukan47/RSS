@@ -1,4 +1,538 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+8c94f14028a7,8c94f14028a7,2026-11-09 14:00 UTC,"Attacks, Breaches & Threat Intel",Huntress,Huntress Blog,File Security; Threat Intelligence; Vulnerability Management; Identity Security Posture Management,Article,"Inside an AhsayCBS Intrusion: Hidden Webshells, a CryptoMiner, and a C2 Implant",https://www.huntress.com/blog/ahsaycbs-webshells,"Background In early October, Huntress began seeing threat actors exploit two flaws in AhsayCBS, the management console for Ahsay's backup software: CVE-2026-105133, an...","Background
+
+In early October, Huntress began seeing threat actors exploit two flaws in AhsayCBS, the management console for Ahsay's backup software: CVE-2026-105133, an authentication bypass, and CVE-2026-105134, unauthenticated remote code execution as SYSTEM through /rps/api/json/UpdateReceivers.do. Our original blog post covered the first wave: webshells, an XMRig miner dressed up as Microsoft Edge, and a script that hid the miner from Task Manager. Ahsay has since released hotfixes (10.3.4.45 for v10, and 9.15.2.70 for v7 through v9), and we verified that 10.3.4.45 blocks the entry point we saw.
+
+The impacted organization's servers in this post were exploited between October 8 and October 11, 2026, which was before Ahsay released its hotfixes. During our investigation into the attack, we analyzed webshells, loaders, and an implant that the threat actor used during the attack.
+
+This activity matches the campaign in our first post. We tied it to AhsayCBS exploitation because the webshells sat inside AhsayCBS's own web directories, the AhsayCBS access logs show an exploit source address that is listed in that post, and one of the servers also held files matching that post's indicators.
+
+When organizations apply hotfixes, it mitigates the issue moving forward, but if a compromise has already happened it does not remove files an actor has already planted. If your AhsayCBS servers were exposed before patching, it's worth searching your environment for the artifacts in this post.
+
+What we found, at a glance
+
+Our initial report described incidents that involved a quick smash and grab: a webshell or a few commands, then a miner. However, this incident reflects a much larger intrusion with more patience; the operator planted shells in several places, ran two different miners, staged tunneling tools, and installed a custom implant, all on servers whose job is to hold backups. The rest of this post takes apart the pieces one at a time.
+
+Figure 1: An overview of what the operator left on the exploited servers
+
+Webshells, in several flavors
+
+Overall, we saw five webshell families during our investigation (seen in the table below), all with varying parameters and characteristics.
+
+One of the most common webshells we found in this environment was small in size: it compared a hardcoded key in the p parameter against its own copy and returned a plain 404 if the key is wrong, so a scanner that does not know the key would see an empty page. With the right key, the c parameter would be passed to cmd.exe /c and the output would come back Base64-encoded.
+
+The second webshell family included w and d parameters, which were designed to write Base64-decoded bytes to any path the service account can reach and make it easy to drop more tools. Every file carried its own key (always 12 hex characters followed by a capital P).
+
+The third family looked completely different, and included files named status_ followed by six random letters. These shells used auth, cmd, del, and rm parameters: they were designed to run commands, recursively delete any path they are given, and delete themselves. To the latter point, defenders should keep in mind that the shell can delete itself after use, so not finding the file on disk does not prove it was never present.
+
+A smaller variant of this family, named st_ followed by six random letters, drops the authentication and the delete function. It takes c with no authentication at all, plus a get=env parameter that prints the application home, the Catalina base, the operating system and the temp directory, and an rm=1 parameter that deletes the file.
+
+Family
+
+Parameters and behavior
+
+Keyed command shell
+
+p key (a wrong key returns 404), c command run through cmd.exe /c, output Base64-encoded. a and b return a sum, which works as a quick liveness check.
+
+Keyed shell with file write
+
+Same as above, plus w (path) and d (Base64 data) to write a file.
+
+status_ / st_ shells
+
+auth secret, cmd command, del path (recursive delete), rm=1 (self-delete). Secrets seen include 32-character hex strings and simple passwords.
+
+nsmind.jsp
+
+Signed API with exec, cd, upload and download actions, described below.
+
+AhsayCBS.jsp
+
+Loader for an encrypted payload hidden in a PNG, described below.
+
+The folder locations where we found these webshells gave us further insight into how the attack might vary across operating systems. The impacted servers here ran Windows: however, the exploit also attempted Linux-style installation paths, suggesting the exploit was not tailored to one operating system.
+
+In addition to webapps\cbs and webapps\rps in the real install, we found copies in directories matching Linux-style paths, including /opt/AhsayCBS, /usr/local/AhsayCBS, and /home/ahsay/AhsayCBS. On one of the affected Windows servers, these appeared as folders under C:\opt, C:\usr, and C:\home, with a staging folder, C:\ahsay_tf, holding another copy. That suggests the exploit was not designed for a specific operating system or install path, and simply tried every likely location.
+
+The copies outside the live install were not served by the web application, so they probably cannot be used as shells on Windows, but they are a reliable tell. Several shells also sat in random six-character folders, each containing its own app, conf, and webapps\cbs subfolders. These imitate the structure of an AhsayCBS install, but none of the components are part of the real application. Some of those folders held empty pb_ marker files in the conf folder, and folders named ahsay_poc_*, ahsay_tf, ahsay_th and ahsay_t0 showed up in Program Files.
+
+Figure 2: Shell locations on a Windows host: the live install, and the Linux-style paths the exploit also tries
+
+A webshell that hides inside an image
+
+One of the webshell families, AhsayCBS.jsp (in webapps\rps), was disguised as an image-preview service: it was designed to extract encrypted code from uploaded PNGs and run it in memory while making its traffic resemble ordinary image requests.
+
+The webshell's disguise as an internal image preview service even extended down to a comment block describing a watermark endpoint. The webshell used only JSP implicit objects and fully qualified class names, meaning it would compile on any servlet container and on Java Development Kit (JDK) 6 and later.
+
+On the sample we saw, the webshell was designed to work as follows:
+
+First, the operator POSTs a PNG.
+
+Then the page reads the least-significant bit of each pixel's red, green and blue values, one pixel at a time.
+
+It strings those bits together and packs them into bytes, with the first bit read becoming the most significant bit of each byte.
+
+That rebuilds a four-byte big-endian length followed by that many bytes of payload, which it then decrypts with AES.
+
+The key is hardcoded, and the cipher is Java's default AES transformation (translating to ECB mode with PKCS5 padding).
+
+On the first request, the decrypted bytes are loaded as a Java class through a small custom ClassLoader and stored in the application context under the attribute name QuCh, and the page answers with its built-in cover image. On later requests, it creates an instance of that class, hands it the request, an output buffer and the decrypted data through calls to equals(), and calls toString() to run it. Whatever the class produces is encrypted again and written into a new PNG.
+
+Passing arguments through equals() is a convention used by some open-source in-memory webshell frameworks, though we have not tied this one to a specific framework. The practical effect is that the functionality arrives per request and lives in memory. The access log showed what looked like image traffic, and there was no c or p parameter to search for. We analyzed the loader, not the class it receives, so we cannot confirm what the operator actually ran through it.
+
+Figure 3: How AhsayCBS.jsp turns an uploaded image into running code
+
+A webshell with a signed API
+
+Not every shell was a one-liner. nsmind.jsp, also in webapps\rps, behaved like a small remote administration service.
+
+In the sample we saw, every request must carry an X-Auth-Token header that matches a hardcoded API key, plus X-Timestamp, X-Nonce and an X-Signature header holding an HMAC-SHA256 of the request parameters. The timestamp has to be within five minutes of the server's clock, and each nonce is stored in the application context so a captured request cannot be replayed. A request that fails any check gets a short JSON error, so the page behaves like an ordinary API that rejects unauthenticated callers.
+
+Behind the checks, the action parameter selects exec, cd, upload or download. exec runs the command through cmd.exe /c (after chcp 65001, so output comes back as UTF-8) and tracks the working directory between calls, so the operator gets a persistent shell. upload and download move files in chunks using an offset parameter, with a limit of 4 GB per file, which means a large file can be pulled off the server through many small requests.
+
+On a server that holds backups, this download action is the part to worry about: it is a ready-made exfiltration channel that looks like normal API traffic. We did not see logs showing download in use, so we cannot say what, if anything, was taken.
+
+The files also showed the operator iterating. In the same rps folder we found three timestamp-named folders, each holding a single copy of a shell. The oldest held the simple cmd, del and rm shell described above, and the two newer ones contained nsmind.jsp, which suggested the operator upgraded from a basic shell to this tool. We also found byte-identical copies of nsmind.jsp and AhsayCBS.jsp on two of the servers, which pointed to one operator or one script working across hosts.
+
+A second miner, with its own persistence
+
+The Edge-themed miner analyzed in our initial blog was not the only one: we also found another miner in our follow-up investigation.
+
+The XMRig miner we observed (kvm-agent.exe) is configured like a standard XMRig build: donate level 0, MSR access enabled (the same capability the WinRing0 driver in the first post provides), and TLS connections on port 443 to SupportXMR pools. The wallet and password differed from the Kryptex pool and user listed in the first post, making us believe this was a separate miner and not a second copy of the first. We found the same file, with the same hash, on two servers, and the task on both was created the same night and edited within seconds of each other, which again points to one operator or one script working across hosts.
+
+During our analysis, we found a scheduled task named kvm running as SYSTEM every minute. Its command used a tasklist to check whether kvm-agent.exe was running and, if it wasn't, it would start it from C:\Windows\SysWOW64\kvm-agent. This means that if the miner was killed, it would be back up and running within a minute. The task's start time was set well before the intrusion (making it look older than it was in task listings).
+
+Figure 4: The kvm scheduled task (start time elided)
+
+A Python implant that only runs where it was staged
+
+The most interesting file we pulled was main.py, which sits in an embedded Python distribution under the SYSTEM profile and is started from a Run key through explorer.exe. The script is only a wrapper: Base64, then lzma, then a marshaled Python code object that it passes to exec. Decoding it without running it shows that the code was compiled from a file called heap_shellcode_runner_bound_weaponized.py.
+
+The code computes the SHA-256 of the host's MachineGuid and looks for a file with that name next to main.py. Based on the bytecode, if the marker file is missing, the script exits. That would keep the implant from running in a sandbox or on an analyst's machine, because the marker only exists on the host it was provisioned for. We did not find a marker file in the folder we collected, so either it was not part of what we pulled or it was removed. If the marker is present, the script copies a 673 KB blob into an executable heap (HeapCreate, HeapAlloc, RtlMoveMemory) and starts it on a new thread with CreateThread.
+
+Figure 5: The implant's execution flow, reconstructed from static analysis
+
+Figure 6: The decoded logic, reconstructed from the code object
+
+The blob starts with a short bootstrap that calls a reflective loader at the end of the blob, which in turn maps an x64 DLL carried inside it. The DLL is C++ with a JSON library and imports very little: bcrypt, KERNEL32, OLEAUT32 and SHLWAPI, with the networking functions resolved at run time. It has no export table, no PDB path and no version resource, so the usual attribution breadcrumbs have been stripped.
+
+Its strings include the C2 URL hxxps://creepexplosiondarknight[.]com/d, a JSON content type, a mutex, and string fragments (dns.quad with 9.net, and dns.goog) consistent with DNS-over-HTTPS lookups through Quad9 and Google. It also reads MachineGuid and Windows version information, which fits host identification. We have not identified the malware family and have not watched the implant run, so what it does after it checks in is still an open question.
+
+Figure 7: Selected strings from the embedded DLL (C2 defanged)
+
+The rest of the toolkit
+
+Around those pieces, the same environment held the tunneling tools gost and chisel, staged in .st<id> folders as wust<id>a.exe and wust<id>b.exe, the remote access tools AnyDesk, Atera and Splashtop, a local account named wdguest, and a Mimikatz package on disk. We also saw Microsoft Defender exclusions that covered C:\ProgramData, C:\Windows, temp folders, the dropper processes, and the AhsayCBS service process (cbssvcX64.exe). These exclusions would have reduced Defender's ability to scan files in those locations and files accessed by the excluded processes, creating broad blind spots for the operator's tooling.
+
+Backup servers as a target
+
+Everything above ran on servers whose purpose is to hold or manage backups. On a related Veeam server in the same environment, we also saw a command consistent with NetExec's Veeam credential-theft module: a PowerShell script, apparently launched remotely through WMI, that queried the VeeamBackup PostgreSQL database for stored credentials and decrypted them with DPAPI. Backup software holds credentials for hypervisors, repositories and domain accounts. We cannot say how many of those credentials were retrieved, but the pairing of an Ahsay foothold with a Veeam credential query suggested the operator was interested in backup infrastructure on purpose, not by accident.
+
+What to check for
+
+Patching closes the entry point. It does not clean up what already happened, so on any server that was exposed before the hotfix, look for:
+
+Unexpected .jsp files under webapps\cbs and webapps\rps, especially random names and the status_ and st_ patterns, and requests to UpdateReceivers.do in the AhsayCBS access logs
+
+Folders named ahsay_*, home, opt, srv or usr at the root of the drive or in Program Files, and timestamp-named folders (year-month-day-hour-minute-second) next to the shells, which in some cases held a single copy of one
+
+Scheduled tasks and services you did not create, including a SYSTEM task with a one-minute repeat that tests for a process with tasklist
+
+Defender exclusions you did not add, especially for C:\ProgramData, C:\Windows and the AhsayCBS service process
+
+An embedded Python install under the SYSTEM profile and a Run key that launches it
+
+A few behaviors make useful detections even when the files are gone:
+
+python.exe or pythonw.exe running from a path under the SYSTEM profile
+
+Outbound requests to public DNS-over-HTTPS resolvers from a process that is not a browser
+
+New .jsp files created under the AhsayCBS web directories
+
+The parent-child pattern our earlier Sigma rule already looks for, where cbssvcX64.exe spawns a command shell.
+
+If you find any of the above, we recommend a full re-image from a trusted backup and rotating credentials stored on or reachable from the server, including those saved in AhsayCBS and in any backup software on the same network.
+
+Indicators of Compromise (IOCs)
+
+Item
+
+Description
+
+creepexplosiondarknight[.]com
+
+hxxps://creepexplosiondarknight[.]com/d
+
+Command-and-control for the Python-based implant
+
+pool.supportxmr[.]com:443
+
+pool-fr.supportxmr[.]com:443
+
+104.243.43[.]115:443
+
+Wallet: 83YFdNe2X8KhKnAERfr2hmN8L3tCKatsheuViWhF6qp2ZA4R8rRkBCgMknEycYqasNbX7C5BSrTp97zHUsUHJoZrR6f5SeX
+
+Password: zero
+
+Mining pools and wallet used by kvm-agent.exe
+
+kvm-agent.exe (C:\Windows\SysWOW64\kvm-agent\)
+
+SHA256:
+
+8245c7e7d944923f1608592f6c3473dcc6e3a3e43df3dd1c6257e7880948787b
+
+config.json
+
+SHA256:
+
+a87002c32723f1849b3ad17b1fe6da732c9810b54b08501be21f5b1fcd882a59
+
+Task XML
+
+SHA256:
+
+f76dae028e0c43248c128b3bf609e8d660ce0bf44b53ab9e097887e6f5206eb5
+
+Scheduled task: kvm
+
+XMRig miner, its configuration and its persistence (SYSTEM, every minute, backdated start time)
+
+main.py
+
+SHA256:
+
+8aac187bae71f75fa2dde03dcb4a9279c982182ee8254ae96e7a6626fe4c7617
+
+Decoded payload (marshal object)
+
+SHA256:
+
+91b3cc9d6421b651ec85a16062af3ba26700dad2eea4a8a7e42fdd2e422f8803
+
+Embedded blob (bootstrap, x64 DLL and loader)
+
+SHA256:
+
+6953618238eb40f45b584e52aca22cebbe8ba03e9a80c15c6b593f51f7e49527
+
+x64 DLL
+
+SHA256:
+
+bb2472cf5dc7e5c94216d355bf84fba2c8d088d03d61a1ac0d78639049cf5e1f
+
+Reflective loader tail
+
+SHA256:
+
+e79c91e8157fef862be8cbe80bdf57b87a541416717265f81f669d751fca4a3d
+
+Python loader and the payload extracted from it (compiled from heap_shellcode_runner_bound_weaponized.py). The marker file is named with the SHA-256 of the host's MachineGuid.
+
+AhsayCBS.jsp (webapps\rps)
+
+SHA256:
+
+6c7a4061bcf08df5fe4a49d37442dc650d751be1a91a8bc802edff213e4d5e61
+
+AES key: 3c6e0b8a9c15224a<
+
+Application attribute: QuCh
+
+JSP loader that reads an encrypted payload from PNG pixel data and runs it in memory
+
+nsmind.jsp (webapps\rps)
+
+SHA256:
+
+6c695baad1d81ed49194d07a79381292c0466208ff1a9862c0c55f971d6a409f
+
+X-Auth-Token / API key: NS_f1ChEBy4SCYGyIDkYcsWOivwtWyXt5il
+
+HMAC-SHA256 secret: NS_aAXMPsB8zsMdkVbjTp6zicnj9w8Hkaew
+
+JSP webshell with signed requests, command execution and chunked file upload and download
+
+a2b59a4bb296604b.jsp
+
+SHA256:
+
+e6e576a634166a16bdbfc09b14e7cf8eab90015d2dfa67dd73f3968ee869229b
+
+Key parameter p: 323ced5cf1f4P
+
+Keyed JSP webshell that runs commands and returns Base64-encoded output. Related shells share this code and carry different keys, and some add a file-write function (w and d).
+
+323ced5cf1f4P12cd58cda26eP232e4490b603P6285464221f1P be115f87eeeePfcd82493f072P 907936468353P 5a5f101c0b95P 61fb05ae8043P b97484f05302Pf41488204365P 490909ce85c8P 7f5b08e99153P d6809ec4f4c9P 908147ad2a6cP ccd4e0ca2eb3P 9bf5d40f7ca6P d00a5c6cbce5P be4f92982444P
+
+Hardcoded keys (parameter p) found in the keyed shells
+
+Fixed secrets: nobody, mysecret123
+
+SHA256 (nobody shell):
+
+7a13e59d816d68a071a8648e62a7c3c7f929a61c618a2133ab6f511da24f979d
+
+SHA256 (unauthenticated st_ shell):
+
+875d0986ddaa51bfb5e03b06df1213cc3bb7966588d6153bdda57f2e3671e986
+
+SHA256 (earlier cmd/del/rm shell):
+
+818bb464271a539c96bcbbfea1db7d5a722512041ed8ed10d3f6c7f366190044
+
+status_*.jsp and st_*.jsp shells (parameters auth, cmd, del, rm, get=env)
+
+acbe51127a7e4a3b8f7cde6e857b5e4d<
+
+d650dd0fc643fadabe5f41b94c7826d5
+
+ee808b1dac987d19b1b864f18538116f
+
+82e58ea5839581846e19be5d0c414436
+
+c048c97c8160fb2df89e217d475c50b4
+
+db64a245782d2d619d10eae73ef0f196
+
+1b755d215b43b8e7da25a80386493568
+
+7d33dc36088a8c20ee109f33d01d63c7
+
+d5f0289bf84876023eb6ccdc92ddb05a
+
+3b44593c393edff904c99fbdea0ea90c
+
+f4f9b5b4836090e26a6ec717b26db7c8
+
+38d0eff2318a20a88175704af57d1bc4
+
+2df09294da360fffd01142f29b17c6cd
+
+07043828c4e2c55eaf2be9e6cb7205cc
+
+f08fc3eea3db76e7ba45cda42de5cafa
+
+4126a061ddda3f433da5def0a7c79955
+
+7de8cd835a7f6400bbb01d8b78bfc811
+
+7dd5c4a904893cad2b757205dc224014
+
+208143f41c1d6148842b7ed5d817f122
+
+310161c45b193e923c8c99e0c21a2a0c
+
+Per-host 32-character auth secrets found in status_*.jsp shells
+
+gost
+
+SHA256:
+
+6f6b66cbdc4a5aa5685d0017abd3f65843a28bcc2bb4e5b78d6d12a844a51aa8
+
+chisel
+
+SHA256:
+
+ca5f8e5247f1a044b8be45ef03187726b9af3ac30fd93fb5bb54144e34ed3738
+
+Tunneling tools staged in .st<id> folders as wust<id>a.exe and wust<id>b.exe
+
+Folders: ahsay_poc_*, ahsay_tf, ahsay_th, ahsay_t0, C:\home, C:\opt, C:\srv, C:\usr, C:\AhsayCBS
+
+Local account: wdguest
+
+Folders created at the drive root or in Program Files during exploitation, and a local account created by the operator
+
+MITRE ATT&CK Mapping
+
+Tactic
+
+Technique ID
+
+Technique Name
+
+Description
+
+Initial Access
+
+T1190
+
+Exploit Public-Facing Application
+
+Chained CVE-2026-105133 and CVE-2026-105134 against internet-exposed AhsayCBS
+
+Execution
+
+T1059.003
+
+Command and Scripting Interpreter: Windows Command Shell
+
+Webshells ran commands through cmd.exe /c
+
+T1059.006
+
+Command and Scripting Interpreter: Python
+
+main.py ran from an embedded Python distribution
+
+Persistence
+
+T1505.003
+
+Server Software Component: Web Shell
+
+Five families of JSP webshells in webapps\cbs and webapps\rps
+
+T1053.005
+
+Scheduled Task/Job: Scheduled Task
+
+The kvm task relaunched the miner every minute as SYSTEM
+
+T1547.001
+
+Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder
+
+A Run key started the Python implant
+
+Defense Evasion
+
+T1562.001
+
+Impair Defenses: Disable or Modify Tools
+
+Defender exclusions for system paths, file extensions and the AhsayCBS service process
+
+T1027
+
+Obfuscated Files or Information
+
+main.py was base64, lzma and marshal wrapped; shells used hard-coded keys and signed requests
+
+T1027.003
+
+Obfuscated Files or Information: Steganography
+
+AhsayCBS.jsp read an AES-encrypted payload from the least-significant bits of PNG pixels
+
+T1620
+
+Reflective Code Loading
+
+The implant loaded an x64 DLL through a reflective loader; the JSP loader defined a Java class in memory
+
+T1480.001
+
+Execution Guardrails: Environmental Keying
+
+The implant required a marker file named after the SHA-256 of the host's MachineGuid
+
+Credential Access
+
+T1555
+
+Credentials from Password Stores
+
+A command consistent with NetExec's Veeam module queried stored backup credentials
+
+Command and Control
+
+T1071.001
+
+Application Layer Protocol: Web Protocols
+
+The implant used HTTPS to creepexplosiondarknight[.]com
+
+T1572
+
+Protocol Tunneling
+
+gost and chisel tunneling tools
+
+T1219
+
+Remote Access Software
+
+AnyDesk, Atera and Splashtop
+
+Impact
+
+T1496.001
+
+Resource Hijacking: Compute Hijacking
+
+kvm-agent.exe, an XMRig miner with MSR access enabled
+
+References
+
+Threat Actors Exploit Critical AhsayCBS Flaws to Drop Webshells and XMRig Cryptominer:https://www.huntress.com/blog/ahsaycbs-flaws-exploit"
+6b9ea8646dd9,6b9ea8646dd9,2026-11-09 14:00 UTC,General Security News,Huntress,Huntress Blog,Other/General,Article,Sasha Roshan Takes Security Education Beyond the Demo,https://www.huntress.com/blog/employee-spotlight-sasha-roshan,"On YouTube, he breaks down subjects that can sound intimidating, including security teams, attack techniques, and identity-based threats","Sasha Roshan is a Senior Sales Engineer at Huntress and a cybersecurity educator. His work sits at the point where technical expertise meets real-world security needs. He helps customers and partners understand what they're trying to protect, and he asks the questions that reveal the real problem before showing how Huntress can help.
+
+That can mean preparing a customer demonstration, helping a partner work through a technical scenario, presenting a webinar, supporting an event, or collaborating with colleagues on content and on building hacking environments. No two weeks look exactly the same, but the common thread is communication. The technical detail needs to be accurate, and it also needs to be relevant to the person in front of him.
+
+""The best conversations are not product tours,"" Sasha says. ""They're about helping someone understand what's happening in their environment and how the attack happens, what matters most, and what they can do next.""
+
+Sasha on BBC
+
+What one partner actually needed to know
+
+One partner conversation shows how Sasha approaches the work. A partner had questions about day-to-day operations, asking what would happen overnight and how their team could avoid drowning in false positives. Just as important was understanding who would make decisions when something serious was detected.
+
+Sasha built the conversation around that operational journey and kept product terminology to a minimum. He walked through how the Huntress SOC handles detection and response, and how the service works alongside Microsoft Defender. He then showed what escalation looks like in practice. Once the discussion tracked the partner's real concerns, it moved from general interest to a concrete next step. Sasha and the team proposed a trial in the partner's environment and scheduled a follow-up to plan the deployment.
+
+For Sasha, the experience reinforced where a Sales Engineer adds the most value. It comes from helping someone see the decision in front of them clearly enough to choose what to do next.
+
+Sasha doing what he does best: Educating the community
+
+Taking sales engineering beyond the one-to-one conversation
+
+In previous roles, Sasha's focus was mainly on supporting individual customer or partner conversations. At Huntress, he's been able to take what he learns from those conversations and turn it into education for a much wider audience.
+
+He contributes to livestreams, workshops, newsletter content, videos, and presentations. He also helps shape Huntress Wire, Huntress' global newsletter, and creates cybersecurity content for LinkedIn and YouTube. Sasha hadn't had the opportunity to combine sales engineering with public education at this scale before.
+
+""I've been able to spread my wings further and wider,"" Sasha says. ""I now get involved with what I've always wanted to do: education.""
+
+That broader role has also given him the chance to represent Huntress publicly. He's spoken at partner and customer events, webinars, and industry gatherings, including a presentation alongside the Cyber Crime Unit at Metropolitan Police Headquarters in London. Each experience has helped him grow as a presenter and find clearer ways to make complex cybersecurity topics approachable.
+
+Making cybersecurity easier to navigate
+
+For Sasha, the meaningful part of the work isn't simply explaining technology but helping people feel more confident about what to do next.
+
+Cybersecurity can feel overwhelming from the outside. Threats change quickly, the terminology can be difficult to navigate, and many organizations don't have unlimited time or resources. Sasha enjoys helping make that picture clearer, whether he's speaking with a customer or partner, presenting to a live audience, or recording a video for someone who's learning on their own.
+
+His focus includes areas such as identity security and security posture management, where small gaps can create meaningful risk. On YouTube, he breaks down subjects that can sound intimidating, including security teams, attack techniques, and identity-based threats. Across every format, Sasha tries to take something complicated and leave people better equipped to protect themselves.
+
+Doing that well means knowing the audience and being able to explain the same idea from more than one angle. Creating content sharpens Sasha's thinking, while speaking with live audiences helps him understand which explanations resonate. Both make him a better Sales Engineer.
+
+Sharing knowledge, as usual
+
+Growing with support and opportunity
+
+Huntress has given Sasha room to develop beyond a traditional definition of sales engineering. He's been able to build technical depth while also growing as a presenter, educator, and industry voice. He now helps lead Huntress Managed ISPM for the Sales Engineering team.
+
+Sasha walks you through Huntress Managed ISPM
+
+Colleagues review his content, help with event preparation, collaborate on video and marketing work, and share their own expertise. That teamwork makes it easier to take on something new and improve the work along the way.
+
+Sasha also values the variety. One day, his impact may come from helping a customer make a confident decision. Another day, it may come from a partner event of a video that shows someone why identity protection deserves their attention. The combination of mission, learning, and opportunity keeps him excited about the work.
+
+Outside Huntress, Sasha teaches martial arts and is an active black belt with the International Taekwon-Do Federation (ITF). Like cybersecurity education, martial arts requires steady practice and helping others improve.
+
+Advice for future Sales Engineers
+
+Sasha's advice to someone considering a role like his is to stay willing to learn, and do not underestimate the value of clear communication.
+
+""You do not need to know everything on day one,"" he says. ""We will provide you with the tools and resources, but we can't teach ambition, and at Huntress, we are incredibly hungry""
+
+For him, the right mindset starts with asking good questions, understanding the problem behind the technology, and continuing to develop your knowledge.
+
+If you're interested in combining technical work with education, communication, and making a difference, check out the Huntress Careers page."
 c403616bc1bb,c403616bc1bb,2026-11-06 21:00 UTC,General Security News,Huntress,Huntress Blog,Identity Security Posture Management; Endpoint Security; Server & Workload Protection; Network Security,Article,Brute Force Sentry for Managed SIEM | Huntress,https://www.huntress.com/blog/brute-force-sentry,"Brute Force Sentry normalizes both into one authentication surface, so a single detection can follow the attack from the first failure to the login","Today, Huntress Managed SIEM's Brute Force Sentry is available to all Managed SIEM customers. It turns the brute force attacks our SOC sees in the field into detections that fire earlier, with the evidence and hardening guidance you need to close the gap. Brute Force Sentry watches your internet-facing login surfaces, including RDP, RD Gateway, and the RDWeb portal on Windows and SSH on Linux. When a run of failed logons ends in a successful one, the Huntress SOC investigates.
 
 Every exposed login gets knocked on, and most of that knocking is bots cycling through ""administrator"" on a gateway someone set up years ago. The trouble is that one burst out of thousands ends in a working login, and a generic threshold rule treats it the same as the rest.

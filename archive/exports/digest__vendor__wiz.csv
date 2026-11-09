@@ -1,4 +1,269 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+4fdc92594a63,4fdc92594a63,2026-11-09 14:56 UTC,"Attacks, Breaches & Threat Intel",Wiz,Wiz Blog,Identity Security Posture Management; Threat Intelligence,Article,Trusted by Default: Qubole Cross-Account Access Abused in the Wild,https://www.wiz.io/blog/qubole-cross-account-access-abused-in-the-wild,"Once inside multiple victim AWS environments, the threat actor enumerated resources, collected configuration and secrets, accessed S3 data, and validated additional credentials...","Third-party integrations are one of the most common ways organizations grant outside parties access to their cloud environments. Working with Sentra and Mandiant, Wiz observed a threat actor using IAM credentials from an AWS account associated with Qubole between October 14 and October 26, 2026. The actor used these credentials to assume IAM roles that customers had created to trust Qubole's account. Once inside multiple victim AWS environments, the threat actor enumerated resources, collected configuration and secrets, accessed S3 data, and validated additional credentials it discovered along the way.
+
+Sentra identified suspicious activity across several of their customer environments, recognized it as a broad supply chain attack, and shared the information with Wiz, prompting this investigation. This post describes what Wiz observed, how defenders can hunt for it, and how to reduce exposure from third-party cross-account trust relationships. Wiz customers can refer to our Threat Intel Center advisory for this activity.
+
+Background: How Cross-Account Vendor Access Works
+
+Many SaaS platforms that operate inside a customer's AWS account, including data processing platforms like Qubole, use cross-account IAM roles. During onboarding, the customer creates a role in their own account with a trust policy that allows the vendor's AWS account to assume it, typically gated by an External ID:
+
+{ ""Effect"": ""Allow"", ""Principal"": { ""AWS"": ""arn:aws:iam::<vendor-account-id>:root"" }, ""Action"": ""sts:AssumeRole"", ""Condition"": { ""StringEquals"": { ""sts:ExternalId"": ""<external-id>"" } } }
+
+When the vendor needs to act in the customer's environment, an identity in the vendor's account calls sts:AssumeRole with the role ARN and External ID, and receives temporary credentials scoped to the customer's role.
+
+What We Observed
+
+Initial Access: Role Assumption from the Vendor Account
+
+The first activity Wiz CIRT observed occurred on October 14, when an IP address belonging to Mullvad VPN (45.83.220[.]211) called AssumeRole against integration roles in customer environments. The calls originated from AWS account 805246085872, which we observe Qubole's platform using to assume roles in customer environments, and used the IAM user AIDA3W7DIFLYOLTK63SFS. Across the affected environments, Wiz CIRT has not observed this IAM user in any activity other than that associated with this threat actor.
+
+From October 15, most of the activity came from a VPS hosted by OVH (57.129.54[.]120). On October 18, the threat actor began using a second IAM user from the same account, AIDAJYRRH5Y3A7AAJM2HW, which also carries legitimate Qubole platform traffic from AWS infrastructure. The same day, a second Mullvad address (185.209.199[.]73) assumed integration roles across multiple victim environments in quick succession. Every AssumeRole request we attributed to the threat actor included an External ID, and every one succeeded.
+
+Most of the roles the threat actor assumed were not otherwise in use. In a majority of the environments Wiz CIRT observed, the threat actor's requests were the only AssumeRole activity from the vendor account in October. The trust policies were still in place, so the requests succeeded.
+
+Discovery
+
+The threat actor used role session names that followed a consistent format of the prefix quiam-, followed by a suffix describing the actions taken. This includes session names such as quiam-enum and quiam-scope-full.
+
+Once inside an environment, the threat actor enumerated broadly across services. Including:
+
+Storage and data: ListBuckets, ListObjects, GetDatabases, ListTables, DescribeClusters
+
+Compute: DescribeInstances, DescribeImages, DescribeSecurityGroups, DescribeVpcs
+
+Databases: DescribeDBInstances, DescribeDBSnapshots
+
+Identity and keys: ListRoles, ListKeys, ListAliases, DescribeKey, GetKeyPolicy
+
+Credential Harvesting and Secret Validation
+
+The threat actor targeted common places where credentials are stored in AWS:
+
+Lambda: the threat actor listed Lambda functions and called GetFunctionConfiguration on each, which returns function environment variables.
+
+Secrets Manager: ListSecrets followed by GetSecretValue
+
+SSM Parameter Store: DescribeParameters and GetParameter.
+
+The threat actor used TruffleHog to test credentials it found in victim environments. These belonged to the affected organizations, not to the vendor:
+
+AWS: TruffleHog called GetCallerIdentity with discovered IAM user access keys. The call needs no permissions and confirms whether a key is valid. The threat actor checked keys from several AWS accounts in bursts lasting seconds.
+
+Entra ID: TruffleHog signed in as Entra ID service principals using discovered client secrets.
+
+Okta: TruffleHog requested OAuth tokens using discovered Okta client credentials.
+
+Data Access and Exfiltration
+
+Using the assumed integration roles, the threat actor exfiltrated data from S3. The sequence was consistent across environments: assume a role, call ListBuckets to see what the role could reach, call ListObjects and HeadObject to enumerate and inspect the contents, then call GetObject to download them. The threat actor appears to have been opportunistic. Rather than looking for specific data, it read from whatever buckets each role could reach, in some cases downloading entire buckets in a single session.
+
+To detect this kind of exfiltration, organizations should make sure S3 data events in CloudTrail or S3 server access logs are enabled for buckets that hold sensitive data. CloudTrail management events record the role assumption and the bucket listing, but not the object reads that make up the data exfiltration.
+
+.iso Image Hints At Additional Operations
+
+In addition to the intrusions above, Wiz Research identified, via Validin, an ISO file that was hosted on the 57.129.54[.]120 IP address during the time it was controlled by the threat actor. This file, sso_agent.iso, (SHA-256 65f061281c9a712e9502793dc4c5035cae490b84da05f7d4223cefa65ad396e4) is a bootable linux image that we believe is designed to be remotely booted on a victim machine. When the iso is started it begins a 90 minute clock, gathers system information and uploads interfaces and disk and partition lists to the 57.129.54[.]120 IP address. It then polls the same IP address via TCP port 23458 for input and runs it as a shell script. This polling continues until the 90 minute timer is up when a hard reboot is triggered, erasing any evidence of the malicious iso. While the polling command can run any script sent to it, the iso is set to load the ntfs3 driver at boot, suggesting that it is designed to target windows operating systems.
+
+Wiz has not identified any deployments of this iso and cannot confirm if or how it has been used.
+
+Attribution and Motivation
+
+Wiz has not identified any ties between this campaign and other publicly reported activity. The targeting and data theft appear opportunistic and do not match typical state-backed priorities; however we don’t have any direct insight into the motivation of the threat actor or how they may use the stolen data.
+
+Additional Qubole Related Activity
+
+Wiz also identified a separate set of malicious activity involving Qubole integrations. We have not been able to link it to the role assumption activity described above.
+
+From October 8 to October 11, an actor used customer-owned AWS access keys that we believe were created for Qubole integrations. On October 8, the actor tested all of these keys within a single hour. In a small number of cases, the actor went on to compromise the victim's cloud environment.
+
+Detection and Hunting
+
+Organizations that have integrated with Qubole should review CloudTrail from October 1, 2026 onward, in every account that holds an integration role:
+
+AssumeRole events where userIdentity.accountId is 805246085872 and sourceIPAddress is not an AWS address. All legitimate platform traffic we observed came from AWS infrastructure.
+
+AssumeRole events where userIdentity.principalId is AIDA3W7DIFLYOLTK63SFS. In the environments we observed, only the threat actor used this IAM user, so any activity from it warrants investigation.
+
+AssumeRole events where userIdentity.principalId is AIDAJYRRH5Y3A7AAJM2HW and sourceIPAddress is not an AWS address. This IAM user also carries legitimate platform traffic from AWS infrastructure, so filter on the source address to separate the threat actor's use from normal activity.
+
+Any activity from the IP addresses in the IOC tables below. The Mullvad addresses are shared VPN exit nodes, so activity from them alone is not conclusive.
+
+GetCallerIdentity calls with a TruffleHog user agent paired with any IOC IP address, which show the credentials the threat actor tried to validate. Check your identity provider's sign-in logs for the same user agent.
+
+For every role session you find, review all subsequent activity from that session, especially Secrets Manager, SSM Parameter Store, Lambda and S3. If the threat actor assumed an integration role, rotate every secret, parameter and Lambda environment variable the role could read, and revoke active sessions for the role. Rotating a credential does not end temporary sessions that were already issued.
+
+Wiz Defend customers ingesting CloudTrail will see Wiz Threats for IAM Role Assumed From New or Inactive Account and Unusual non-human access to AWS through third-party VPN.
+
+Recommendations for Defenders
+
+Inventory third-party trust relationships. Identify every IAM role whose trust policy allows an external account. Wiz customers can use the Security Graph to list roles that trust external AWS accounts, along with the permissions and data those roles can reach. [Security Graph Query]
+
+Remove trust for integrations you no longer use. Many victim environments had no legitimate vendor traffic during this activity. Those roles still accepted the threat actor's requests. Delete integration roles you no longer use, or remove the vendor account from their trust policies.
+
+Narrow the trusted principal. Where the vendor supports it, replace the account :root principal with the specific IAM principal the vendor uses. Add an aws:SourceIp or aws:SourceVpce condition that limits role assumption to the vendor's documented network ranges. With these conditions in place, a valid External ID from an unexpected identity or network is rejected. In this activity, a source IP condition alone would have blocked every role assumption we observed.
+
+Treat the External ID as non-secret. It is logged in plaintext in CloudTrail and is often stored by the vendor and in infrastructure-as-code. Don't rely on it as the only control. After an event like this, rotate it in coordination with the vendor, and use a distinct value per role where supported.
+
+Limit what integration roles can reach. Review the permissions attached to vendor roles. Access to Lambda configuration, Secrets Manager, SSM parameters and broad S3 read is often granted for convenience. Ensure the principle of least privilege is followed.
+
+Alert on third-party role assumption from new networks. Vendor traffic usually comes from a known set of cloud networks. An AssumeRole from a vendor account through a VPN or a hosting provider the vendor has never used is a high-signal detection.
+
+Make sure your logs cover every account. Use an organization trail that covers all accounts and regions, and enable S3 data events or S3 server access logs for sensitive buckets. In several affected environments, missing logs meant responders could not see which S3 objects the threat actor read.
+
+SaaS providers, lock down the principals your customers trust. Customers extend trust to the principals in your account, so those principals are effectively credentials to every customer environment at once. Assume customer roles from workload roles with short-lived credentials rather than long-lived IAM user keys, restrict where those principals can be used with aws:SourceIp or aws:SourceVpc conditions, publish your egress ranges so customers can pin their trust policies, and monitor your own CloudTrail for AssumeRole calls into customer accounts from unexpected networks.
+
+Indicators of Compromise
+
+Network Indicators
+
+Indicator
+
+ASO
+
+First Seen
+
+Last Seen
+
+Notes
+
+57.129.54[.]120
+
+OVH GmbH
+
+2026-10-15
+
+2026-10-26
+
+Primary address for role assumption, enumeration, and credential harvesting.
+
+2001:41d0:70d[:]7800::
+
+OVH GmbH
+
+2026-10-16
+
+2026-10-24
+
+Credential enumeration and verification.
+
+45.83.220[.]211
+
+31173 Services AB
+
+2026-10-14
+
+2026-10-15
+
+Used to assume roles within customer accounts.
+
+185.209.199[.]73
+
+31173 Services AB
+
+2026-10-18
+
+2026-10-21
+
+Used to assume roles within customer accounts.
+
+89.37.63[.]175
+
+Datacamp Limited (Registered to Mullvlad VPN AB)
+
+2026-10-25
+
+Used to assume roles within customer accounts.
+
+Identity Indicators
+
+Indicator
+
+Type
+
+Notes
+
+805246085872
+
+AWS Account ID
+
+Source account for all observed role assumptions. Also used for legitimate Qubole platform activity
+
+AIDA3W7DIFLYOLTK63SFS
+
+IAM Principal ID
+
+IAM user in 805246085872. Observed only in threat actor activity.
+
+AIDAJYRRH5Y3A7AAJM2HW
+
+IAM Principal ID
+
+IAM user in 805246085872. Used by the threat actor from October 18. Also present in legitimate platform activity from AWS infrastructure
+
+quiam-*
+
+Role session names
+
+Session names used by the threat actor
+
+User Agents
+
+User Agent
+
+First Seen
+
+Last Seen
+
+Notes
+
+Boto3/1.37.9 md/Botocore#1.37.9 ua/2.1 os/linux#6.12.111+deb13-amd64 md/arch#x86_64 lang/python#3.13.5
+
+2026-10-15
+
+2026-10-26
+
+Most common user agent. Used for role assumption, enumeration, and credential harvesting. Treat a match as suspicious only alongside the listed IPs, principal IDs, or another indicator from this post.
+
+aws-cli/2.37.12 md/awscrt#0.37.0 ua/2.1 os/linux#6.12.111+deb13-amd64 md/arch#x86_64 lang/python#3.14.6
+
+2026-10-21
+
+2026-10-26
+
+This is a common AWS CLI release. Treat a match as suspicious only alongside the listed IP or another indicator from this post.
+
+Boto3/1.43.108 md/Botocore#1.43.108 ua/2.1 os/linux#6.1.0-53-arm64 md/arch#aarch64 lang/python#3.11.2
+
+2026-10-18
+
+2026-10-21
+
+Used in the role assumption sweep across multiple environments. Treat a match as suspicious only alongside the listed IP or another indicator from this post.
+
+Boto3/1.43.113 md/Botocore#1.43.113 ua/2.1 os/linux#7.0.0-38-generic md/arch#x86_64 lang/python#3.12.3
+
+2026-10-14
+
+2026-10-25
+
+Used for role assumptions. Treat a match as suspicious only alongside the listed IPs or another indicator from this post.
+
+TruffleHog
+
+2026-10-16
+
+2026-10-19
+
+Used to validate credentials, through AWS GetCallerIdentity and Entra ID sign-ins. Also run by legitimate security teams. Treat a match as suspicious only alongside the listed IPs or another indicator from this post.
+
+Host Indicators
+
+File Name
+
+Hash
+
+sso_agent.iso
+
+MD5: 086d4a83181971e883c53a4c44f46da2 SHA-1: 1c7437dac21630f53c0b888b50662c6487e23fd7 SHA-256: 65f061281c9a712e9502793dc4c5035cae490b84da05f7d4223cefa65ad396e4"
 f40a98e19be1,f40a98e19be1,2026-11-03 13:00 UTC,General Security News,Wiz,Wiz Blog,AI Security; Threat and Exposure Management; Vulnerability Management,Article,The ROI of Agentic Remediation: Real-World Results with Wiz Green Agent,https://www.wiz.io/blog/green-agent-agentic-remediation,"When an active zero-day like the recent PHP2Shell vulnerability breaks, security tools light up within minutes, flagging critical production risks that demand an immediate fix","When an active zero-day like the recent PHP2Shell vulnerability breaks, security tools light up within minutes, flagging critical production risks that demand an immediate fix. And while AI has accelerated how quickly vulnerabilities are discovered, fixing them still waits on human coordination.
 
 However, implementing that fix extends far beyond the security team and becomes an organization-wide initiative. Security teams discover the risk, but they don't own the code, the infrastructure, or the deployment pipelines. Resolving the issue requires coordinating across three distinct teams, each with their own set of priorities:
