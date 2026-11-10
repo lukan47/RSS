@@ -1,4 +1,60 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+d7dcf5614d18,d7dcf5614d18,2026-11-10 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,Network Security,Article,"DoppelCart Fraud Network Grows to More Than 250,000 Domains",https://www.recordedfuture.com/blog/doppelcart-fraud-network-grows-domains,"According to subsequent reporting by Malwarebytes and BleepingComputer, fraudulent checkout pages transmit shoppers’ personal and payment information to attacker-controlled...","Summary
+
+This article examines DoppelCart, a large-scale shopping fraud network encompassing approximately 261,700 suspected domains identified by Recorded Future. These fraudulent storefronts copy legitimate retailers’ branding and product listings to deceive shoppers into disclosing personal and payment information, with some also capturing bank-issued verification codes to authorize fraudulent transactions. This research highlights the network’s widespread impersonation of US brands, evolving hosting infrastructure, and use of shared payment-routing configurations and the Medusa e-commerce platform. With approximately 40% of observed DoppelCart websites remaining active, understanding these patterns can help retailers identify brand impersonation and help consumers recognize fraudulent shopping sites.
+
+Background
+
+In September 2026, German cybersecurity company Nebty exposed DoppelCart, a large-scale online shopping fraud network with over 119,000 websites. The fraudulent storefronts copy legitimate retailers’ product listings, images, and descriptions to deceive shoppers into entering payment information.
+
+Researchers identified shared website designs, code, and infrastructure across thousands of suspicious storefronts, eventually linking the domains to the DoppelCart cluster. Most websites used .shop web addresses, and many advertised steep discounts, including offers of 65% off, to attract shoppers. Although the websites shared technical characteristics, Nebty cautioned that the findings did not establish whether a single criminal organization operated the entire network.
+
+According to subsequent reporting by Malwarebytes and BleepingComputer, fraudulent checkout pages transmit shoppers’ personal and payment information to attacker-controlled servers in real time. Some also capture one-time verification codes issued by banks, potentially allowing criminals to authorize transactions while victims believe they are completing legitimate purchases.
+
+Domains Discovered by Recorded Future
+
+Primarily between March and October 2026, Recorded Future used proprietary methods to identify approximately 261,700 unique apex domains that are likely part of the DoppelCart fraud network. Based on our collections, a few thousand DoppelCart detections began appearing in January 2026 and increased during March. Our detections peaked during the months of June and July, with a sharp drop-off in new hosts starting in August.
+
+While new host growth mostly plateaued thereafter, a drop-off in new detections is not necessarily an indicator that operations are abating. More likely, it reflects that many previously registered domains remain active, and that operators may have shifted their focus to maintaining existing infrastructure rather than expanding it. Based on data from Recorded Future® Web Scans, approximately 40% of suspect websites in this cluster observed prior to October 17, 2026, remain active.
+
+Figure 1: Total DoppelCart domains between January 2026 and October 2026, identified via content-based Recorded Future web detections (Source: Recorded Future)"
+9a739ce20d70,9a739ce20d70,2026-11-10 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,Server & Workload Protection; Network Security; Endpoint Security; Vulnerability Management,Article,GhostFrame: A new ESXi Implant Linked to Settra Ransomware,https://www.recordedfuture.com/blog/ghostframe-esxi-implant-settra-ransomware,"Operators must already have root-level access to the ESXi host to deploy and execute the implant, as the implant does not exploit a vulnerability to gain access","Implant Deployment and Persistence
+
+GhostFrame includes an integrated builder that generates an ESXi implant named vmhostd-core. The interface provides operators with deployment instructions, including compiling the binary, manually disabling the ESXi firewall, and executing the implant from a datastore. Operators must already have root-level access to the ESXi host to deploy and execute the implant, as the implant does not exploit a vulnerability to gain access.
+
+Analysis of a recovered GhostFrame Executable and Linkable Format (ELF) sample revealed that the implant establishes persistence by copying itself to /opt/vmhostd-core and modifying the ESXi boot script /etc/rc.local.d/local.sh. The modified script executes the implant and repeatedly disables the ESXi firewall and the execInstalledOnly security control, which restricts the execution of unsigned binaries. These commands run approximately every five seconds, allowing the implant to disable the controls again if an administrator attempts to restore them. The implant also executes /sbin/auto-backup.sh to preserve the modified configuration across reboots. To blend into the ESXi environment, the implant appears as vmhostd, a name that resembles VMware’s legitimate vmware-hostd daemon, by modifying its process name and command-line representation.
+
+C2 Communications and Payload Execution
+
+GhostFrame’s implant uses a distinctive connection strategy to communicate with its C2 server. Rather than relying on a single destination port, the analyzed sample attempts simultaneous Transmission Control Protocol (TCP) connections across six ports: 53, 2222, 3389, 4444, 8443, and 9443. The implant uses the first successful connection for C2 communications and closes the remaining connections. If no connection succeeds within thirty seconds, it retries after a randomized delay between five and twelve seconds. This behavior can produce six near-simultaneous TCP SYN packets from an infected ESXi host to the same destination IP address, providing defenders with a potentially distinctive network detection opportunity.
+
+Once connected, the implant functions primarily as an in-memory shellcode loader. It receives machine code from the C2 server, allocates executable memory, and executes the received payload without writing it to disk. If executable memory cannot be allocated, the implant can instead establish a conventional /bin/sh reverse shell.
+
+Post-Exploitation Capabilities
+
+In addition to maintaining access to the hypervisor, GhostFrame allows operators to interact directly with the VMs hosted on the compromised ESXi system. GhostFrame can enumerate registered VMs, display their names and power states, manipulate VM power states, and create or delete snapshots. It also supports enabling Virtual Network Computing (VNC) access to individual VMs and relaying graphical sessions through the GhostFrame C2 infrastructure to the management panel. This allows operators to interact with the guest VMs without establishing a separate direct connection to the guest system.
+
+GhostFrame can also expose the ESXi HTML Host Client through an operator-controlled tunnel, allowing direct access to the hypervisor’s management interface from the GhostFrame panel.
+
+For network pivots, GhostFrame includes a SOCKS5 proxy component named gfsox. Once gfsox is deployed to a compromised ESXi host, this component allows operators to route network traffic through the hypervisor, potentially reaching internal systems and services that are otherwise inaccessible from the internet.
+
+One of GhostFrame’s more significant capabilities is its integration of multiple credential-access mechanisms. Analysis of the frontend revealed a component named sdkmon, which the interface describes as a credential interceptor. According to the frontend, the component can modify the ESXi service configuration and intercept authentication traffic, allowing it to capture usernames and passwords from subsequent ESXi logins.
+
+GhostFrame also integrates VMkatz, an open-source credential-harvesting tool. The interface supports extracting credential data through VM memory snapshots, virtual disk images, combined memory and disk analysis, or recursive scanning of all VMs on a datastore. These methods are associated with NTLM hashes, WDigest credentials, Kerberos tickets, Security Account Manager (SAM) and Local Security Authority (LSA) secrets, and credential data from NTDS.dit.
+
+Together, these capabilities suggest that an operator controlling an ESXi host may be able to obtain credentials from hosted Windows systems without first deploying conventional credential-stealing malware inside each VM.
+
+GhostFrame’s combination of persistent hypervisor access, remote VM management, network pivoting, and credential harvesting makes it particularly relevant to ransomware and other financially motivated intrusion operations. Its observed use in activity associated with Settra ransomware provides an example of how the framework has been used in the wild.
+
+TAG 218: From VPN To Hypervisor
+
+Insikt Group identified GhostFrame while monitoring the operator infrastructure behind a threat activity group it designates TAG-218, whose activity overlaps with Settra ransomware operations.
+
+Using Recorded Future® Network Intelligence, Insikt Group observed a cluster of victim-facing servers attributed to TAG-218 targeting virtual private network (VPN) appliances across the US and Europe between late August and October 2026, predominantly SonicWall, Palo Alto Networks, and Fortinet devices. Four of the targeted organizations were subsequently published on the Settra ransomware leak site.
+
+These victim-facing servers also connect to TAG-218 tooling, including two GhostFrame C2 servers and a MeshCentral remote monitoring and management server used for persistence that was previously attributed to Settra intrusions by Huntress. On October 12, 2026, a victim Fortinet VPN appliance was observed beaconing to both GhostFrame and MeshCentral in the same period, placing GhostFrame within the TAG-218 intrusion chain.
+
+Figure 2: TAG-218 infrastructure (Source: Recorded Future)"
 6ba0b595cad4,6ba0b595cad4,2026-11-06 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,Server & Workload Protection; Network Security; Vulnerability Management,Article,October 2026 CVE Landscape,https://www.recordedfuture.com/blog/october-2026-cve-landscape,Quick reference: October 2026 vulnerability table All 69 vulnerabilities below were actively exploited or operationally weaponized in October 2026,"In October 2026, Insikt Group® identified 82 high-impact vulnerabilities to prioritize for remediation, 52 of which had a Very Critical Recorded Future Risk Score. This represents a 13% decrease from the 94 vulnerabilities reported in September.
 
 36 of October’s high-impact CVEs were surfaced through the US Cybersecurity and Infrastructure Security Agency (CISA)’s Known Exploited Vulnerabilities (KEV) catalog, 33 were reported in open sources and validated by Insikt Group, and 13 were exclusively surfaced through honeypot data.

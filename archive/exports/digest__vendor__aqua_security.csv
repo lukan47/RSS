@@ -1,4 +1,121 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+8c8e36447c45,8c8e36447c45,2026-11-10 14:56 UTC,General Security News,Aqua Security,Aqua Security Blog,AI Security; Identity Security Posture Management,Article,Why Does AI Agent Security in Banking Require More Than Alerts?,https://www.aquasec.com/blog/ai-agent-security-banking-runtime/,An agent can use legitimate credentials to create financial exposure without exploiting a vulnerability,"TL;DR: AI agent security in banking requires controls that can deny prohibited workload actions before they complete, because an alert does not revoke an agent’s authority. An agent can use legitimate credentials to create financial exposure without exploiting a vulnerability. Aquasec combines deep runtime visibility with local enforcement through its full agent architecture, applying configured policies inside running workloads without waiting for centralized analysis. That control complements identity restrictions and transaction approvals, blocking supported operations that violate policy while the agent is executing.
+
+What is the control gap in AI agent security?
+
+Your bank’s exposure extends to the authority an agent’s workload gives it, which can be much broader than its assigned task. AI agent security must connect that task to enforceable limits on access and execution.
+
+In Kubernetes, that authority can come from a service account, an associated cloud role, mounted credentials and available network paths. Instructions to inspect records do not remove credentials or close connections. A carefully written prompt therefore leaves the workload’s technical permissions unchanged. The agent can still attempt actions the business never intended it to take.
+
+Why do internal AI agents require their own runtime controls?
+
+Connecting an agent to production tools gives its decisions consequences inside your environment. A badly scoped instruction or a malicious prompt embedded in a document can lead it toward actions its existing access permits.
+
+Blocking external agents at a customer login does nothing to constrain an internal agent using a workload identity. The bank still owns that exposure inside its clusters. Security cannot wait for a software exploit to establish that intervention is necessary, because an unwanted operation may use a valid credential and an allowed connection.
+
+Where do access reviews and alerts fall short for AI agents?
+
+Identity controls, image scanning and patching remain essential. They reduce unnecessary authority and address vulnerable software. A posture finding, however, leaves the identified access available until something changes it.
+
+Adding runtime telemetry does not automatically close that gap. A sensor can observe an operation without being able to deny it locally. In a model that exports telemetry for centralized analysis and response, execution can continue while the decision is made.
+
+For an agent connected to a financial system, that distinction is consequential. Investigating a completed operation and preventing that operation from completing produce different outcomes for the bank.
+
+How should banks separate AI agent observation from action?
+
+An agent assigned to inspect transactions should not automatically receive the authority to initiate them. Use dedicated identities and restrict available credentials to the resources its task requires. Require application approval for consequential operations, with read access limited to necessary records.
+
+Then carry those boundaries into the running workload. Define the executable behavior and network destinations the task needs and enforce restrictions on supported operations outside that scope. The controls should hold when the agent misinterprets an instruction, without depending on the model to recognize its own mistake.
+
+How does Aquasec enforce AI agent workload boundaries?
+
+We put the enforcement decision inside the running workload through the Aquasec Enforcer. Our full agent architecture combines detailed runtime telemetry with local policy decisions at the kernel layer. In enforcement mode, it can deny supported operations that violate configured policy without waiting for centralized analysis or an analyst response.
+
+Drift Prevention makes that distinction concrete. When an agent attempts to execute a binary introduced after deployment, the configured control can block execution. Network policies can also deny connections to prohibited destinations, restricting paths that the workload’s identity permissions might otherwise leave available.
+
+Those controls act on the operation itself. Security teams get a way to constrain supported workload behavior while permissions are corrected, without making termination of the entire container the default response. Application authorization remains responsible for deciding which transactions an agent may perform.
+
+How do AI agent security approaches compare at execution?
+
+Evaluate what happens to the attempted operation. The comparison below separates finding driven posture from telemetry led detection without local enforcement. Aquasec entries assume supported controls configured for enforcement.
+
+Dimension
+
+Traditional approach
+
+Modern approach
+
+Aquasec approach
+
+Primary function
+
+Identify excessive access
+
+Detect workload behavior
+
+Enforce workload policy
+
+Decision path
+
+Remediation workflow
+
+Central analysis and response
+
+Local enforcement
+
+Prohibited operation
+
+Remains possible until corrected
+
+May continue during response
+
+Supported action denied
+
+Evidence
+
+Configuration finding
+
+Detection event
+
+Policy event and enforcement result
+
+The architectural distinction is whether the security component can apply the restriction inside the workload, without waiting for a separate response workflow.
+
+How can an AI agent create financial exposure without an exploit?
+
+Valid access can turn a poorly scoped task into an unintended transaction.
+
+Example: A reconciliation agent is asked to resolve a failed settlement. Its workload holds a payment credential and can reach an internal transfer service. Without a separate approval check, it could attempt the settlement again from another funding account. Every step can use an allowed operation.
+
+This hypothetical scenario explains the exposure; it is not a reported customer incident or a measured product result. The missing boundary is between the assigned task and the authority available to complete it.
+
+What mistakes weaken AI agent workload controls?
+
+Exceptions can reopen the access a runtime policy was intended to restrict. Do not approve broad exceptions just to remove a block. Validate the required dependency and limit the exception to what the application needs.
+
+Do not treat a permitted connection as transaction approval. If read and transfer operations share the same allowed service, the application must authorize them separately. Workload network restrictions do not determine whether an individual financial transaction is legitimate.
+
+What should banks demand from AI agent security next?
+
+Banks should make demonstrated enforcement a condition of expanding AI agent access. Before giving an agent greater authority, require evidence that the controls protecting its workload can stop the prohibited behavior they are designed to address. An alert that leaves the operation untouched does not meet that standard.
+
+We put that enforcement inside the running workload through the Aquasec Enforcer. Our full agent architecture combines deep runtime visibility with local policy enforcement, allowing configured controls to block supported operations without waiting for centralized analysis or an analyst response. That gives banks a way to restrict what an agent’s workload can execute, alongside the identity and application controls governing its access
+
+Watch this demo to see how Aquasec runtime enforcement changes the outcome of these attacks in Kubernetes.
+
+FAQ
+
+How does Aquasec differentiate AI agent security from runtime monitoring?
+
+Aquasec combines runtime telemetry with local policy enforcement through a full agent architecture. For supported operations in enforcement mode, the workload does not need to wait for centralized analysis before a configured restriction can deny the action.
+
+Can AI agent security stop misuse of valid credentials?
+
+Aquasec can deny supported workload operations that violate configured policy even when credentials are available. A request that remains permitted still needs authorization and any required approval within the application.
+
+Does this AI agent security strategy cover externally hosted agents?
+
+Aquasec enforcement applies to supported workloads where it is deployed. Protecting a bank’s clusters does not automatically protect agents running on laptops or external platforms. Those deployments require their own access controls."
 8cd1f404b82c,8cd1f404b82c,2026-11-06 14:03 UTC,General Security News,Aqua Security,Aqua Security Blog,Container Security,Article,Integrate Aquasec and Jenkins to Stop Unsafe Images Before They Run,https://www.aquasec.com/blog/integrate-aquasec-and-jenkins-to-stop-unsafe-images-before-they-run/,How does the Aquasec and Jenkins integration work,"How does the Aquasec and Jenkins integration work?
 
 The Aqua Security Scanner plugin is installed from the central Jenkins plugin repository, or deployed manually from its .hpi file. It is configured under Manage Jenkins, System, in the Aqua Security section. There an administrator sets the Aquasec scanner image, the Aquasec server URL and a scanner token. Both values come from the deployment command of a CI/CD scanner group. Aquasec SaaS accepts token authentication only, so username and password authentication is not an option for SaaS environments.
