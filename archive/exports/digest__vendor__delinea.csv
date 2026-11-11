@@ -1,4 +1,65 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+88e1e9299a6f,441b4addc7ea,2026-11-11 15:53 UTC,General Security News,Delinea,Delinea Blog,Vulnerability Management,Article,"Node2Shell and eMudhra: 2 Unrelated Problems, 1 Node.js release",https://delinea.com/blog/node2shell-and-emudhra-2-unrelated-problems-1-node.js-release,"js released a security update addressing CVE-2026-111497, a remote code execution vulnerability in its bundled Brotli decoder","What you will learn
+
+Find out how Node2Shell and the eMudhra CA compromise differ, why Node.js 24.22.1 addresses both, why patching a host doesn’t fix old containers, and what each risk means for machine identities.
+
+On October 21, 2026, Node.js released a security update addressing CVE-2026-111497, a remote code execution vulnerability in its bundled Brotli decoder. The same release updated its root certificates and added checks for blocked public keys following the compromise of eight eMudhra intermediate certificate authorities.
+
+The incidents are unrelated. Node2Shell involves memory corruption, while eMudhra involves CA private keys recoverable from public certificates. But both sit within components that applications trust without controlling: a decoder that handles external data, and a certificate authority that vouches for who is on the other end. One is about what happens when untrusted data reaches a vulnerable component. The other is about whether that data came from the service the application meant to contact.
+
+Node2Shell: from compressed data to code execution
+
+Node2Shell, as Imperva named the vulnerability, affects the Brotli decoder used by Node.js to decompress HTTP traffic. When the decoder encounters an invalid block transition, it continues processing instead of rejecting the data, writing beyond the allocated buffer.
+
+Imperva demonstrated remote code execution on the official Node.js 24.22.0 Linux arm64 image using malicious Brotli data in HTTP request bodies and responses processed by fetch(). The researchers needed several attempts to achieve code execution.
+
+Not every Node.js application is exposed. A basic HTTP server doesn’t automatically decompress Brotli requests, but Express applications with compatible body parsers can. The built-in fetch() API also decompresses Brotli responses, creating another entry point.
+
+Node.js fixed the vulnerability in versions 22.23.4, 24.22.1 and 26.12.1.
+
+Exploitation has already moved beyond laboratory demonstrations
+
+On October 27, CISA added CVE-2026-111497 to its Known Exploited Vulnerabilities catalog. Researchers have observed exploitation attempts against vulnerable Node.js installations, although the publicly analyzed attempts have not established successful compromise.
+
+The bigger issue is that Brotli isn’t specific to Node.js. The underlying bug is in Google’s Brotli library, which is used by other applications and runtimes, so other software bundling affected versions needs to be checked separately. Whether a particular application is exposed depends on how the library is integrated and whether untrusted data reaches the vulnerable decoder.
+
+eMudhra: When a trusted CA key isn’t secret
+
+Four days earlier, on October 17, a researcher reported that eight eMudhra intermediate CAs had private keys recoverable from their public certificates. Although the keys used P-384, their private values were smaller than 256, making recovery a matter of checking at most 256 possibilities. That wasn’t an elliptic-curve weakness.
+
+According to eMudhra’s preliminary explanation, a mistake during an April 2025 key-generation ceremony led to a weaker set of keys being used. The keys remained recoverable for roughly 18 months. There is no confirmed exploitation, but they could have been used to issue forged certificates. Six intermediates were for TLS and two for code signing, and eMudhra says none issued end-entity certificates.
+
+Chrome blocked the affected TLS keys on October 17, followed by Firefox. Google found no TLS certificates from the affected intermediates in Certificate Transparency logs before the block. That protected browsers, but many applications don’t receive browser blocklists.
+
+Sectigo had also cross-signed all eight intermediates, creating alternative certificate chains involving the same compromised keys. It revoked those certificates on October 19, but clients without updated trust or revocation information could still accept an affected chain.
+
+Google removed the emSign ECC Root CA - G3 from the Chrome Root Store, with distribution scheduled for October 27. This also affects legitimate certificates under that root. On October 22, eMudhra announced that it was leaving the global TLS certificate business, so organizations using its publicly trusted TLS certificates need a replacement plan.
+
+Apple's response shows why updating trust isn't always straightforward. Apple began blocking the compromised TLS intermediates on October 19 and the affected root on October 23. Safari, Mail, and applications using Apple's security frameworks receive these protections automatically. But some macOS command-line tools, including curl and git, can still accept the affected certificates because they use a separate certificate bundle. Apple says a future software update will address this gap.
+
+One release, both fixes
+
+That brings us back to Node.js. Version 24.22.1 included the Brotli fix, TLS hostname-verification fixes, updated NSS root certificates removing trust in the emSign ECC Root CA - G3, and checks for blocked public keys.
+
+Shipping a fix is only half the job. Trigger.dev updated its Node.js runtimes and removed trust in the compromised eMudhra CAs in v4.7.7, but existing deployments still need to be redeployed. The same applies to containers: patching the host doesn’t update an old Node.js binary or CA bundle inside an image.
+
+What this means for machine identities
+
+The two problems threaten credentials in different ways. Successful Node2Shell exploitation grants an attacker code execution inside the application process, putting credentials accessible to that process at risk.
+
+With eMudhra, an attacker who can redirect a connection and present a forged certificate accepted by the client could impersonate a trusted service. This could expose authentication tokens sent to that service. But the same trusted connection could also be used to deliver malicious content to the application.
+
+For example, the attacker could return a Brotli-compressed response to a vulnerable Node.js application. If the application processes it through the affected decoder, the certificate compromise could provide a delivery path for Node2Shell.
+
+There's no public evidence that the eMudhra keys were exploited or that this combined attack has occurred.
+
+What's next?
+
+In the next blog of this series, we will look at whether the two vulnerabilities can be combined into a working attack chain. Can a forged certificate be used to deliver a malicious Brotli response to a vulnerable Node.js application? What conditions would make that possible, and where would the attack fail?
+
+We'll also investigate the broader impact of the Brotli vulnerability. Node.js is one affected implementation, but the underlying library is used elsewhere. The question is which other applications expose the vulnerable decoder to untrusted data, and whether the impact goes beyond what Imperva demonstrated.
+
+Our next blog will focus on what happens after a successful compromise, particularly the risks to application credentials, service accounts, and other machine identities."
 bc0bf77559e4,bc0bf77559e4,2026-11-10 13:00 UTC,"Attacks, Breaches & Threat Intel",Delinea,Delinea Blog,AI Security; Identity Security Posture Management,Article,Defending Against AI-driven Attacks: AI Identity Security,https://delinea.com/blog/defending-against-ai-driven-attacks-ai-identity-security,Part 1 just wrapped after six weekly sessions on the first of security’s two jobs with AI: defending against AI-driven attacks,"What you will learn
 
 87% of leaders say their identity posture is ready for AI-driven automation, yet 46% admit their AI identity governance is deficient. You’ll find out how AI agents exploit access you already granted, and five steps this quarter to reduce standing privilege and give every non-human identity an owner.
@@ -650,148 +711,3 @@ Enforce AI agent access at runtime. Limit the credentials, tools and network des
 A stolen password gives an attacker one identity; a stolen signing key lets them create as many as they want
 
 The Delinea Platform helps organizations discover identities, analyze privilege risk and enforce access control at the moment of action. By extending Privileged Access Management (PAM) from the point of access to the moment of action, organizations can control what AI agents, humans and machines can do, and for how long."
-d6a58518ef04,d6a58518ef04,2026-10-15 13:14 UTC,General Security News,Delinea,Delinea Blog,AI Security; Identity Security Posture Management,Article,Can Security Controls Keep Up With Fast-Moving AI?,https://delinea.com/blog/can-security-controls-keep-up-with-fast-moving-ai,"Why identity controls break for AI agents, and how to fix three gaps: attribute every action to the person who launched the agent, replace standing access with just-in-time...","What you will learn
-
-Why identity controls break for AI agents, and how to fix three gaps: attribute every action to the person who launched the agent, replace standing access with just-in-time access and enforce policy in front of key systems.
-
-Consider a common scenario. A platform engineer builds an agent to sort support tickets. The agent reads the ticket queue, looks up customer accounts in the production database and posts summaries in Slack. The engineer connects the agent with an API token from the engineer's own account, because the token already works and the agent can't complete an MFA prompt. The security team approves access once, at setup.
-
-A year later, the engineer has moved to another team. The agent still runs under the engineer's identity with its day-one permissions, and nobody has reviewed its scope. Then a ticket arrives with an instruction buried in the text. The agent follows the instruction, queries a table it was never meant to touch and posts the results back into the ticket. Every log entry points to the engineer, who hasn't worked on the project in months.
-
-Nobody in that scenario was careless. The agent arrived faster than the controls built to govern it could respond. By the time anyone noticed a problem, the agent had been in production for a year, reading tickets, querying customer records and acting under a person's identity.
-
-Agents add to an identity problem that was already growing. Industry estimates of how far non-human identities (NHIs) outnumber people nearly doubled in one year, from 46:1, to 82:1, according to the Delinea 2026 Identity Security Report. In the same report, 46% of organizations admit their identity governance around AI systems is deficient. The question for security leaders isn't whether agents need new controls. The question is which existing controls still hold, and where agents break them.
-
-What still works: Access security fundamentals haven’t changed
-
-The core principles of access security apply to agents the same way they apply to people: least privilege, defined scope, monitoring and approval before access is granted.
-
-An agent with a narrow, documented scope, a named owner and logged actions is a manageable risk, the same as a contractor
-
-Vaulting, least privilege, session recording and approval gates all still work.
-
-What doesn’t hold is what those controls take for granted. Most controls were built around a human pace: a person requests access, someone approves it and a review checks access months later.
-
-An agent is asking for access constantly, so the approval ends up happening once at setup, and then nobody checks it again until the next review. By then the agent has been running for months and has taken thousands of actions no one has reviewed. The support-ticket agent ran for a full year that way.
-
-The controls also count on whatever you provisioned behaving the same way tomorrow as it did today. That assumption holds for service accounts, but not for agents. The same agent with the same permissions will do different things depending on what it reads and who it’s talking to, so the action you approved on Monday might mean something different by Friday. The support-ticket agent behaved as designed for a year, until one ticket changed what the agent did.
-
-Gap 1: Identity controls assume a human is making the decision
-
-Identity and access management (IAM) and multi-factor authentication (MFA) were built around a person: someone logs in, a prompt shows up on their phone, the person decides whether to approve the login. The model depends on a person reading the prompt and making that decision.
-
-Agents behave differently from both people and services accounts, which puts them in their own identity class. An agent can’t complete an MFA prompt, and the developer building the agent usually has a session or an API token that already works, so the agent runs on that token. From then on, every system the agent touches and every action it takes gets recorded under the developer’s identity, with nothing to show that an agent was involved.
-
-Human
-
-Service account
-
-Agent
-
-MFA
-
-Yes
-
-N/A
-
-Can't complete
-
-Review cycle
-
-Quarterly
-
-Annual
-
-Rarely reviewed
-
-Behavior
-
-Consistent
-
-Changes based on input
-
-Attribution
-
-Clear
-
-Often inherited from developer
-
-The gap surfaces when someone needs answers. An auditor asks who approved the agent’s access to this application, and often nobody can say, because the access was approved for a person and the agent just inherited it. An incident responder finds a command that ran under an employee’s account and can't tell whether the employee or an agent ran the command. In the support-ticket scenario, the responder finds a query against the customer database under the engineer's account, a year after the engineer left the project.
-
-In the 2026 Identity Security Report, 80% of organizations said they can't always understand why an NHI took a privileged action. That number is for service accounts and agents combined.
-
-How do you keep up?
-
-Tie each agent to the person who launched it.
-
-Grant only the access the task needs.
-
-Maintain attribution. Every logged action should show both the agent that took it and the person it acted for.
-
-Gap 2: Access is granted once and rarely reviewed
-
-When an agent is set up, it needs OAuth or API scopes to do its job. Usually those scopes get granted broadly, because nobody knows yet exactly what the agent will need, and granting more access up from is easier than coming back for more. Nobody treats the agent as an account that needs review, so it never enters a review cycle. A year later, the agent still holds its day-one permissions. A person with that much access would have been through several access reviews by then.
-
-Standing privilege is risky for any identity, and the risk is higher for agents. An agent acts on what it reads, so a stray instruction in a ticket or an email can trigger it to use any access it already has. The agent is working as designed. It has no reliable way to tell an instruction it should follow from one it shouldn’t. One instruction hidden in a ticket was enough for the support-ticket agent to query a table it was never meant to touch.
-
-Agents move at machine speed. The gap between something going wrong and the damage being done is usually shorter than anyone’s ability to notice.
-
-Many organizations still depend on standing access. In the 2026 Identity Security Report, 59% said they lack a viable alternative to standing access for NHIs and AI agents. Organizations were more than twice as likely to rely on long-lived credentials (35%) as on just-in-time (JIT) access (17%).
-
-How do you keep up?
-
-Remove standing access where the risk is highest.
-
-Grant just-in-time access per task, scoped to what the task needs.
-
-End access automatically when the task is done.
-
-Keep credentials out of the agent’s hands where possible.
-
-Enforce continuous authorization. Place a policy gateway between the agent and the systems an agent reaches, so the gateway evaluates each request against a policy in real time.
-
-Where possible, the credential should stay out of the agent's hands entirely, so the agent has nothing to hold or leak.
-
-Access has to be granted automatically, at the moment the agent needs it, because a process that needs a person to step in each time won't keep pace with an agent. JIT access controls when the agent gets in. Under a continuous authorization model, the gateway then evaluates each request the agent makes against policy and denies the requests outside the scope of the task.
-
-Gap 3: Control can’t wait for discovery
-
-Most organizations can't see all the agents running in their environment. In the 2026 Identity Security Report, more than half of organizations said they regularly find unsanctioned AI tools or agents in their environment, and only 28% said they can detect that activity in real time.
-
-Agents slip past discovery in two ways. Some agents are gone before anything looks for them, because an agent can spin up, act and disappear in minutes, while most organizations take hours or days to detect unsanctioned AI, according to the 2026 Identity Security Report. Other agents run for months and still never appear, because nothing about them was registered. They have no installer, no license record and no product name for a discovery tool to find.
-
-Confidence runs ahead of that reality. In the same report, 82% of organizations said they are confident they can discover NHIs with access to production systems, but only 30% said they validate NHI and agent activity in real time.
-
-A complete inventory would not solve the problem either. Agents appear and disappear daily, so an inventory is out of date the moment it is finished. An inventory also shows which agents exist, not what each agent can reach right now.
-
-Multi-agent systems make the picture harder to trace. Each additional agent adds access paths and handoffs, and when something breaks, tracing the failure back to the agent or step that caused it takes longer with each layer. Long-lived API tokens passed between agents and servers add risk at each hop, whether the connection runs over Model Context Protocol (MCP) or another protocol.
-
-How do you keep up?
-
-Start with the systems that can do the most damage: production database, customer records, deployment pipeline.
-
-Put a policy gateway in front of those systems.
-
-Let gating reveal which agents are trying to reach them.
-
-Keep discovery running in parallel, expanding control as it finds more.
-
-Where the kill switch fits
-
-A lot of the conversation about rogue agents comes down to the emergency shutoff. People want to know who owns it, whether a kill switch at 2 a.m. is already too late and what happens when an agent is holding live credentials at the moment something goes wrong. In most cases, 2 a.m. is too late, because an agent moving at machine speed has usually finished the damage before anyone reaches the switch. In the support-ticket scenario, a kill switch would've stopped the agent only after the results were already posted in the ticket.
-
-Security teams end up asking those questions when the controls upstream didn’t keep up. An agent with no standing credentials, a clear record of whose authority it acted under, and a full log of its actions rarely creates a 2 a.m. emergency.
-
-A common objection is that this slows AI down. In the 2026 Identity Security Report, 90% of organizations said they’re under pressure to loosen access controls to support AI automation. Loosening controls isn't the only path to speed. When controls are already in place, each new agent goes through a process that already exists, instead of starting a new security debate.
-
-Can security controls keep up with fast-moving AI?
-
-The fundamentals can. Least privilege, scoped access and approval still apply to agents. What has to change is when security teams enforce those controls. Under those controls, the support-ticket agent would run under its own identity, linked to the engineer who launched the agent. The agent would receive read access to the ticket queue for each task, and a policy gateway would deny the request for a table outside that task.
-
-Attribution has to follow each agent back to the person who launched it. Access has to be granted per task, not once at setup. Enforcement has to sit in front of the systems that matter, whether or not discovery has found the agent making the request. Controls enforced at the moment of the request can keep pace with an agent. Controls enforced only at setup leave security teams responding after the damage is done.
-
-Learn why AI agents need their own identity class and how to govern agent access at runtime. Download Securing Agentic AI.
-
-EBOOK Your AI agents require a distinct identity class
-
-Gain a clear framework for reducing your risk while supporting responsible AI adoption."

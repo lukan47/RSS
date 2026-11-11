@@ -1,4 +1,91 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a217acd4ba9b,a217acd4ba9b,2026-11-11 16:00 UTC,General Security News,Fortinet,Fortinet Blog,AI Security; Network Security,Article,Beyond the Kill Switch: Containing AI Agents at Machine Speed,https://feeds.fortinet.com/~/972831824/0/fortinet/blogs~Beyond-the-Kill-Switch-Containing-AI-Agents-at-Machine-Speed,"Fortinet and FortiGuard Labs bring critical threat research and operational experience to that effort, helping identify suspicious patterns in tool use and data access and...","AI agents can retrieve information, use tools, and trigger actions across multiple systems before a security team can assess their decisions. If an agent begins operating outside its authorized purpose, the organization must immediately contain the risk and determine which parts of the business process can safely continue. However, harmful actions unfold faster than human defenders can respond.
+
+Closing this gap is a focus of Fortinet’s recent contributions to the World Economic Forum Centre for Cybersecurity’s Cyber Frontiers: AI and Cybersecurity initiative. Fortinet’s participation includes an in-person meeting in San Francisco last month and ongoing initiative workshops. Through this collaboration, we bring a practitioner’s perspective on translating agent governance into enforceable controls.
+
+Effective containment requires AI-enabled security that detects signs of misuse and automatically triggers controls to restrict an agent’s actions. Enforcement must extend beyond prompts to the agent’s tools, credentials, active context, and stored memory. These controls must also give security teams time to assess an incident and choose an appropriate response. An agent kill switch remains an essential last resort when narrower interventions cannot reliably contain the risk. However, it must be designed to support business continuity, allowing it to stop an affected agent while safe, authorized work continues.
+
+Here are critical steps every organization can take to secure their AI agent deployments:
+
+1. Establish What an Agent Is Allowed to Do
+
+Detecting misuse begins with a clear understanding of an AI agent’s legitimate role. Before deployment, organizations must define the agent’s identity, purpose, accountable owner, and authorized scope. This scope needs to specify which tools it can invoke, what information it can access, and which actions it can delegate.
+
+With those boundaries established, AI-enabled monitoring can assess whether an agent’s activity remains consistent with its assigned task. That assessment must go beyond checking credentials: An agent using valid credentials and permitted tools can still request an inappropriate operation or access information unrelated to its purpose.
+
+When monitoring detects a deviation, the first priority is to limit potential harm. Whether the cause is a compromise, faulty instructions, or a routine error, containment must begin before the uncertainty is resolved. Predefined intervention criteria should specify which actions to block, which permissions to restrict, and which cases require human review.
+
+Defining those criteria beforehand requires an understanding of both attack behavior and legitimate operations. Fortinet and FortiGuard Labs bring critical threat research and operational experience to that effort, helping identify suspicious patterns in tool use and data access and linking those signals to proportionate controls.
+
+2. Use Deception to Strengthen Detection
+
+Deception techniques can generate useful detection signals. Fortinet’s deception technologies include deploying decoy assets and credentials to identify credential misuse and lateral movement. Agentic workflows can build on this approach: A canary credential or decoy tool outside an agent’s authorized task, for example, could reveal an attempt to exceed its scope. That signal could trigger a targeted restriction or pause while a person assesses the situation.
+
+For threat researchers, the key question is how reliably these techniques translate into agent behavior. Testing should determine how to interpret the signal in context—including benign discovery and configuration errors—and what response is warranted. Agent-specific applications should also be validated before organizations rely on them for containment.
+
+3. Contain Risk While Preserving Verified Work
+
+Responses must address both potential harm and whatever remains trustworthy. Consider a hypothetical security operations agent investigating suspicious activity. If the agent recommends isolating a production system without verifying its business dependencies, acting on that recommendation could cause as much harm as the threat it is intended to contain.
+
+Unless a preapproved containment policy authorizes an action, an approval gate should pause the isolation request before execution. This gives an analyst time to assess potential operational consequences. Authorized evidence collection can continue as long as the process remains secure and appropriately restricted. If the agent’s identity or working context may be compromised, move supporting work to a trusted process or analyst using trusted tools, and treat suspect evidence as untrusted data.
+
+Graduated containment provides several ways to make that distinction operational:
+
+Throttle authorized activity. Limit tool-call rates, concurrent tasks, execution time, and the number of retries or delegated steps. This constrains automation loops and creates time to investigate. Unauthorized actions or imminent harm require an immediate block or stronger containment.
+
+Restrict permissions and connectivity. Remove write access, disable specific tools, or limit network destinations. Use task-scoped credentials with short lifetimes so you can withdraw authority without disrupting unrelated services. Read-only access also warrants scrutiny when sensitive information could be transmitted elsewhere.
+
+Limit active context. The context window contains the instructions, history, and retrieved content supplied to the model for its next decision. The application can cap how much task data enters that window and restrict retrieval to approved sources. If context may be poisoned, preserve a snapshot and rebuild it from a trusted task definition and validated state. Simply shortening the window is insufficient: It can discard necessary instructions while leaving malicious content in place.
+
+Restrict persistent memory. Stored conversation history, summaries, and retrieval records can influence later decisions. Limit the records an agent can read or write, separate memory by task or user, apply expiration rules, and quarantine suspect entries. Clearing active context does not remove poisoned persistent memory, and neither operation revokes the agent’s tool permissions.
+
+Require additional approval. Hold higher-risk actions for review by an authorized person. Bind approval to the specific operation, target, parameters, and scope. A material change should require another decision.
+
+Pause or isolate the affected work. Suspend the agent or a workflow branch, preserve evidence, and keep suspect outputs from reaching downstream systems. Continue other work only when its dependencies and controls can be independently validated; treat evidence from suspect sources as untrusted data.
+
+These options can be combined according to the incident. They are not a mandatory sequence: Active compromise or imminent harm may warrant an immediate stop.
+
+4. Enforce Limits Where Agents Act
+
+A gateway model offers a practical way to enforce these restrictions. Agent requests to models, tools, APIs, and services must pass through control points that evaluate them before execution. A policy decision point then determines whether a request is allowed, requires approval, or must be denied. An enforcement point at the gateway, tool executor, or receiving service enforces that decision. Both must operate outside the acting agent’s authority.
+
+Agent-aware enforcement should link each request to an identifiable agent, an accountable owner, a delegated task, and an authorized scope. It should evaluate the operation and its parameters, the destination, the resource’s sensitivity, and any delegation involved. In the security operations example above, this means setting separate authorization requirements for evidence collection and production isolation.
+
+AI guardrails can inspect prompts, retrieved content, responses, and proposed tool calls for signs of injection, data leakage, or other policy violations. Tool authorization must still independently verify which actions are permitted. An agent’s claim that an action is safe or that approval has been granted does not constitute authorization. If required approval or policy checks fail, the affected high-risk action should remain blocked.
+
+The architecture must also account for bypass paths. Blocking a single connector is ineffective if an agent can access the same function through another tool or delegate the task to an unrestricted agent. You must cover all relevant execution paths and verify authorization in the systems receiving requests. The agent application and storage controls should also manage context and memory restrictions; a gateway alone cannot enforce every aspect of the workflow.
+
+This separation aligns with OWASP’s AI Agent Security guidance, which recommends enforcing authorization outside the agent’s context, validating approvals for specific tool calls, and isolating and limiting memory.
+
+Fortinet’s work on AI security reflects this architecture. FortiAIGate provides a runtime gateway with guardrails for prompts, responses, and agent tool traffic and adds automated AI validation, agent security, and real-time protection. These capabilities support independent inspection and policy enforcement. Organizations must also implement the task-specific permissions, memory controls, and continuity procedures described here.
+
+5. Define Human Decisions Before an Incident
+
+Automated enforcement enables timely intervention, but humans must still define the policies that govern it. Before deployment, teams should agree on which signals trigger restrictions, who can intervene, and when an incident calls for escalation or a complete stop.
+
+Higher-risk actions that require approval should remain blocked until a decision is made. Escalation deadlines and safe fallback procedures should account for situations where no reviewer is available. Organizations should also test whether their staffing and escalation processes can handle the volume of decisions generated by agents.
+
+Reviewers also need evidence to support a decision: what the agent attempted to do, which actions it completed, which restrictions are in effect, and which systems or data may be affected. Without that context, an alert can leave someone responsible for a decision they’re not equipped to make.
+
+6. Design Your Emergency Kill Switch for Business Continuity
+
+An emergency stop should revoke the suspect agent’s authority while preserving the underlying business process wherever it remains safe. This includes halting the affected run through the orchestration layer, revoking its task credentials and sessions, and propagating restrictions to child agents and delegated jobs. You should also block new tool calls at external enforcement points and cancel queued work. In-flight operations require explicit handling: cancel them where supported, determine what has already completed, and reconcile or compensate for completed changes where possible.
+
+Continuity depends on having a tested fallback in place in advance. Keep unfinished work in a protected queue, and hand validated tasks to an analyst, a constrained playbook, or an independently trusted service. For example, a SOC can keep receiving and routing alerts while suspending the suspect agent’s response privileges. The fallback must not automatically inherit the same compromised context, memory, or credentials.
+
+Keep checkpoints and action records outside the agent’s control so a replacement agent or analyst can distinguish completed actions from pending work and reduce the risk of duplicate execution. These records support a controlled handoff, but continuity also requires a tested fallback. A kill switch alone cannot keep the business process running safely. If no safe fallback exists, the affected process may need to be paused.
+
+Before an agent resumes, responders should verify affected systems, address the root cause of the incident, and validate a trusted configuration, context, and memory state. A designated person should authorize restoration, and permissions should be returned incrementally where appropriate. Exercises should test the entire workflow, including revocation, delegated tasks, fallback operations, and safe resumption.
+
+Turn Collaboration into Operational Guidance
+
+Implementing such controls requires cooperation across the agentic ecosystem. Enterprises rely on model developers and tool providers for visibility and enforceable boundaries. Security researchers need operational feedback to evaluate detection methods. Policymakers need to understand where technical controls can support accountability and where gaps remain.
+
+Cyber Frontiers brings together public- and private-sector perspectives on securing agentic AI. Through our participation, we share Fortinet’s operational experience while learning from organizations with systems, constraints, and consequences of failure that differ from our own. Comparing approaches helps clarify responsibilities and assess whether proposed safeguards can work when agents interact across organizational boundaries.
+
+The practical value comes from sharing what organizations learn when those safeguards are tested: which observations warranted intervention, how quickly restrictions took effect, whether delegated tasks were halted, and what enabled safe operations to continue. Organizations can apply these lessons to test their own workflows before expanding agent autonomy. Those tests should demonstrate that controls can detect misuse, apply proportionate restrictions, and give an accountable person the evidence and authority to decide what happens next.
+
+Learn more about the forum’s Cyber Frontiers initiative and its work to support secure adoption across the agentic economy."
 abaa5b128929,abaa5b128929,2026-11-11 12:10 UTC,Vulnerabilities & Patching,Fortinet,SecurityWeek,Vulnerability Management; Identity Security Posture Management,Article,Fortinet Patches Nearly 100 Vulnerabilities,https://www.securityweek.com/fortinet-patches-nearly-100-vulnerabilities/,"Approximately 17 of the newly resolved flaws are critical-severity issues, several of which could be exploited for arbitrary code execution","Fortinet on Tuesday dropped 89 new security advisories that address nearly 100 vulnerabilities across its products.
 
 The massive release comes three weeks after the company announced it has integrated frontier AI models into its product security testing and can discover security defects more efficiently.
@@ -559,69 +646,6 @@ FortiSASE Sovereign and its new on-premises management option addresses these re
 
 Learn more about how FortiSASE Sovereign supports your organization’s security and sovereignty requirements."
 12d537cb1c0a,d896ae424e5b,2026-10-28 16:05 UTC,Business & Industry News,Fortinet,Fortinet IR News,Other/General,Article,Fortinet Reports Strong Third Quarter 2026 Financial Results,https://investor.fortinet.com/news-releases/news-release-details/fortinet-reports-strong-third-quarter-2026-financial-results,Raises 2026 revenue guidance to 20% year over year growth Highlights Revenue grew 20% year over year to $2.08 billion Product revenue grew 37% year over year to $765 million Billings grew 29% year over year to $2.34 billion 1 GAAP operating margin of 34% Non-GAAP operating margin of 38% 1 GAAP,Raises 2026 revenue guidance to 20% year over year growth Highlights Revenue grew 20% year over year to $2.08 billion Product revenue grew 37% year over year to $765 million Billings grew 29% year over year to $2.34 billion 1 GAAP operating margin of 34% Non-GAAP operating margin of 38% 1 GAAP
-4721158403ad,4721158403ad,2026-10-27 15:00 UTC,General Security News,Fortinet,Fortinet Blog,AI Security; Compliance Management; Server & Workload Protection,Article,Use Fortinet Solutions to Secure Enterprise AI Workloads on Oracle Cloud Infrastructure,https://feeds.fortinet.com/~/972028370/0/fortinet/blogs~Use-Fortinet-Solutions-to-Secure-Enterprise-AI-Workloads-on-Oracle-Cloud-Infrastructure,"<p>Fortinet solutions secure Oracle enterprise AI workloads, combining AI guardrails, governance, and cost control with Oracle Cloud Infrastructure services.</p><img align=""left"" border=""0"" height=""1"" width=""1"" alt="""" hspace=""0"" src=""https://feeds.fortinet.com/~/i/972028370/0/fortinet/blogs"">","The enterprise AI landscape is rapidly moving from isolated experiments to production systems embedded in business workflows. As organizations give AI applications access to proprietary data, code repositories, and critical enterprise tools, security can no longer be an afterthought. Enterprise AI risks go beyond prompts and responses to include the actions agents take. Monitoring chat interfaces alone is no longer enough to protect enterprise tools, code, and databases.
-
-Enterprises need granular, dynamic controls to monitor incoming prompts, outgoing tool calls, and automated actions for unsafe, malicious, or policy-violating behavior. To address these needs, customers can combine the power of Oracle Cloud Infrastructure (OCI) models, agent capabilities, and platform governance with Fortinet solutions that are available on OCI Marketplace. For example, FortiAIGate AI guardrails, cost controls, and runtime protection can help organizations scale AI while maintaining operational control. FortiAIGate introduces high-performance guardrails, cost control, role-based workspaces, and one-click compliance policies.
-
-Balancing AI Autonomy with Enterprise Control
-
-A recent Wall Street Journal report illustrates how increasingly capable AI agents can boost productivity while also exposing sensitive information, misinterpreting instructions, or taking unintended actions. In one case, an agent shared personal financial information in a company Slack channel, showing how quickly a routine task can become a security and privacy incident.
-
-As development teams expand AI capabilities across applications, platform and security teams must establish consistent, centralized controls. Without a unified governance framework, teams may apply different permissions, safeguards, data-access policies, and monitoring practices to AI, creating gaps that attackers—or unintended AI behavior—could exploit.
-
-Centralized controls establish clear guardrails for how AI systems access data, interact with applications, take action, and handle sensitive information. They also support consistent identity management, least-privilege access, auditability, and policy enforcement across the enterprise.
-
-Embedding governance and security into the platform enables organizations to help developers innovate quickly while maintaining visibility, reducing risk, and protecting business-critical data. As AI capabilities expand faster, scaling security and governance alongside them becomes increasingly essential.
-
-Building and Governing AI Applications with OCI
-
-Customers can use OCI Enterprise AI with Fortinet solutions like FortiAIGate to help development teams prototype, scale, and launch AI agents while maintaining visibility, data governance, and security. OCI Enterprise AI consists of three integrated layers that help organizations build, orchestrate, and govern enterprise AI applications:
-
-OCI Enterprise AI Models: Organizations can access and integrate multiple frontier models through a single interface, simplifying adoption and scaling of advanced models as needs and expertise grow.
-
-OCI Enterprise AI Agents: Managed tools, standard protocols, and open-source frameworks help teams build, orchestrate, and deploy agentic workflows.
-
-OCI Enterprise AI Governance: Security, compliance, access controls, and runtime guardrails support data protection and regulatory alignment across the AI lifecycle.
-
-Moving an AI prototype to production introduces challenges related to latency, security, cost, and maintenance. OCI Enterprise AI addresses these challenges through four capabilities:
-
-Managed model access: Oracle manages infrastructure provisioning and scaling. Dedicated AI clusters provide reserved model capacity to ensure predictable performance and throughput.
-
-Familiar APIs: OCI supports industry-standard API formats, including OpenAI-compatible interfaces, helping engineering teams adapt existing application logic with minimal code changes.
-
-Open ecosystem: Support for open-source frameworks and open-weight models gives developers the flexibility to select and replace components as requirements change.
-
-Ready-to-use runtime guardrails: Customers can adopt Oracle’s provided guardrails to help detect security risks and potentially harmful content.
-
-FortiAIGate Secures and Governs OCI AI Apps and Agents
-
-Alongside OCI Enterprise AI’s cloud-native controls, enterprises running production workloads need centralized security inspection and visibility across interactions among applications, AI agents, and model providers. FortiAIGate is a self-hosted AI gateway for large language models (LLMs), agents, and Model Context Protocol (MCP) tools. From a single control point, organizations can block AI attacks and data leaks, enforce usage policies, and cap spending by user, team, and project.
-
-Part of the Fortinet AI-Native Security Fabric, FortiAIGate runs on the organization’s infrastructure as a containerized, GPU-accelerated reverse proxy. Positioned between applications and models, it inspects prompts and responses and applies AI-specific guardrails to traffic passing through the gateway.
-
-Two capabilities support this approach:
-
-High-performance inspection: GPU acceleration and high-accuracy, low-latency guardrails enable inspection at production traffic volumes across predefined and custom policies.
-
-Self-hosted deployments: Organizations can deploy the gateway in their own cloud infrastructure or private data center and retain control over inspection and gateway logs. Model requests are still sent to the providers they select.
-
-FortiAIGate Controls for AI Applications and Workflows
-
-Workspaces with roles: FortiAIGate uses organizations, workspaces, and projects to organize users, model access, and manage application resources. Administrators assign roles and resource permissions to support centralized control and delegated team administration. Each team has its own workspace, with its own policies, models, and logs, under central governance.
-
-Multilayered, high-performance guardrails: FortiAIGate integrates Virtue AI’s high-accuracy, low-latency guardrails to inspect prompts and outputs for unsafe, harmful, or policy-violating content. These guardrails inspect prompts and responses across nine languages. Built-in data loss prevention detects 35 types of sensitive data and then blocks or redacts it. Administrators can write custom detectors in natural language, specifying what to block and what to allow.
-
-MCP protection: MCP tool scanning inspects tool lists, tool calls, and tool responses in both directions. It detects prompt injection, data leaks, and toxic content in agent traffic to and from MCP servers.
-
-Compliance and policy: More than 50 predefined policies cover AI governance frameworks, data privacy laws, industry regulations, and security frameworks. Administrators add each one with a single click and customize the rules to fit the business. Workspace policies go through an approval workflow before taking effect. Logs of prompts, outputs, and tool calls routed through the gateway provide evidence for audits.
-
-Model access and cost control: FortiAIGate tracks request costs based on provider pricing. Administrators set budgets for the organization, each workspace, project, user, and virtual key, and control which models each team can access. Budgets reset daily, weekly, or monthly, and FortiAIGate blocks requests when the spending limit is reached. Rate limits cap requests and tokens per minute. Guardrails also block malicious prompts and Denial-of-Wallet attacks before requests reach the model.
-
-LLM proxy and intelligent routing: FortiAIGate provides content-based routing, reverse proxy capabilities, and load balancing across model groups. Administrators can configure fallback rules to create an ordered recovery chain for a primary AI model. Content-aware routing routes routine tasks to lower-cost models and reserves premium models for work that requires them.
-
-FortiAIGate and OCI Reference Architecture
-
-Figure 1 illustrates how OCI Enterprise AI and FortiAIGate can work together to secure AI applications and agents. FortiAIGate can run on GPU-enabled Oracle Kubernetes Engine (OKE) worker nodes to inspect traffic to and from OCI Enterprise AI and external model providers."
 254908f0db7d,254908f0db7d,2026-10-27 09:00 UTC,Product & Roadmap,Fortinet,Fortinet IR News,Zero Trust Secure Access,Article,Fortinet Expands Unified SASE to Simplify Microbranch Security,https://investor.fortinet.com/news-releases/news-release-details/fortinet-expands-unified-sase-simplify-microbranch-security,"FortiLink SASE service brings cloud-delivered security and centralized management to wired and wireless devices SUNNYVALE, Calif., Oct. 27, 2026 (GLOBE NEWSWIRE) -- Fortinet ® (NASDAQ: FTNT), the global cybersecurity leader driving the convergence of networking and security, today announced the","FortiLink SASE service brings cloud-delivered security and centralized management to wired and wireless devices SUNNYVALE, Calif., Oct. 27, 2026 (GLOBE NEWSWIRE) -- Fortinet ® (NASDAQ: FTNT), the global cybersecurity leader driving the convergence of networking and security, today announced the"
 b4e09a81841a,b4e09a81841a,2026-10-26 09:00 UTC,Product & Roadmap,Fortinet,Fortinet IR News,AI Security; Network Security,Article,Fortinet Expands AI Security with the FortiGuard Inline AI Security Service,https://investor.fortinet.com/news-releases/news-release-details/fortinet-expands-ai-security-fortiguard-inline-ai-security,"New cloud-delivered service brings advanced AI guardrails and inspection to FortiGate firewalls, backed by continued FortiAIGate innovation SUNNYVALE, Calif., Oct. 26, 2026 (GLOBE NEWSWIRE) -- Fortinet ® (NASDAQ: FTNT), the global cybersecurity leader driving the convergence of networking and","New cloud-delivered service brings advanced AI guardrails and inspection to FortiGate firewalls, backed by continued FortiAIGate innovation SUNNYVALE, Calif., Oct. 26, 2026 (GLOBE NEWSWIRE) -- Fortinet ® (NASDAQ: FTNT), the global cybersecurity leader driving the convergence of networking and"
 7898769e72b5,7898769e72b5,2026-10-23 05:11 UTC,Vulnerabilities & Patching,Fortinet,Australian ACSC,Vulnerability Management; Identity Security Posture Management,Article,Critical vulnerabilities in Fortinet products,https://www.cyber.gov.au/alert/critical-vulnerabilities-in-fortinet-products,Fortinet have announced critical vulnerabilities in Fortinet products and are releasing critical security updates for a wide range of products,"Fortinet have announced critical vulnerabilities in Fortinet products and are releasing critical security updates for a wide range of products. Fortinet are advising customers to complete the security updates as a priority.
@@ -665,45 +689,3 @@ Implementing strong credentials and mandating Multi-Factor Authentication (MFA) 
 Where to get help
 
 Organisations that have been impacted, suspect impact or require advice and assistance can contact us via 1300 CYBER1 (1300 292 371), or at www.cyber.gov.au/submit-a-report."
-51b259a23e95,51b259a23e95,2026-10-15 00:00 UTC,Vulnerabilities & Patching,Fortinet,ZDI Published Advisories,Vulnerability Management; File Security,Article,ZDI-26-772: Fortinet FortiSandbox Admin Profile Improper Handling of Exceptional Conditions Denial-of-Service Vulnerability,http://www.zerodayinitiative.com/advisories/ZDI-26-772/,Vulnerability Details This vulnerability allows remote attackers to create a denial-of-service condition on affected installations of Fortinet FortiSandbox,"Vulnerability Details
-
-This vulnerability allows remote attackers to create a denial-of-service condition on affected installations of Fortinet FortiSandbox. Authentication is required to exploit this vulnerability.
-
-The specific flaw exists within the handling of the users field. The issue results from the lack of proper handling of error conditions. An attacker can leverage this vulnerability to create a denial-of-service condition on the system.
-
-Additional Details
-
-Fortinet has issued an update to correct this vulnerability. More details can be found at: https://fortiguard.fortinet.com/psirt/FG-IR-26-176
-
-Disclosure Timeline
-
-2026-06-19 - Vulnerability reported to vendor
-
-2026-10-15 - Coordinated public release of advisory
-
-2026-10-15 - Advisory Updated
-
-Credit
-
-Jason McFadyen of TrendAI Research"
-11a51abb6f45,11a51abb6f45,2026-10-15 00:00 UTC,Vulnerabilities & Patching,Fortinet,ZDI Published Advisories,Vulnerability Management; Identity Security Posture Management; File Security,Article,ZDI-26-771: Fortinet FortiSandbox login_user_profile Hard-Coded Credentials Authentication Bypass Vulnerability,http://www.zerodayinitiative.com/advisories/ZDI-26-771/,Vulnerability Details This vulnerability allows remote attackers to bypass authentication on affected installations of Fortinet FortiSandbox,"Vulnerability Details
-
-This vulnerability allows remote attackers to bypass authentication on affected installations of Fortinet FortiSandbox. Authentication is not required to exploit this vulnerability.
-
-The specific flaw exists within the authentication mechanism. The issue results from the use of hard-coded credentials. An attacker can leverage this vulnerability to bypass authentication on the system.
-
-Additional Details
-
-Fortinet has issued an update to correct this vulnerability. More details can be found at: https://fortiguard.fortinet.com/psirt/FG-IR-26-185
-
-Disclosure Timeline
-
-2026-06-19 - Vulnerability reported to vendor
-
-2026-10-15 - Coordinated public release of advisory
-
-2026-10-15 - Advisory Updated
-
-Credit
-
-Jason McFadyen of TrendAI Research"
