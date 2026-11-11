@@ -6,7 +6,6 @@ Email notification is handled by GitHub Actions (.github/workflows/notify.yml).
 """
 
 import collections
-import difflib
 import hashlib
 import http.client
 import email.utils
@@ -78,8 +77,6 @@ FEEDS = [
     ("Zscaler ThreatLabz", "https://www.zscaler.com/blogs/feeds/security-research"),
     ("Kaspersky Blog",          "https://www.kaspersky.com/blog/feed/"),
     ("Securelist (Kaspersky)",  "https://securelist.com/feed/"),
-    ("Sophos News - Threat Research", "https://news.sophos.com/en-us/category/threat-research/feed/"),
-    ("Sophos News - SecOps",    "https://news.sophos.com/en-us/category/security-operations/feed/"),
     ("ESET WeLiveSecurity",     "https://feeds.feedburner.com/eset/blog"),
     ("SentinelLabs",            "https://www.sentinelone.com/labs/feed/"),
     ("Check Point Blog",        "https://blog.checkpoint.com/feed/"),
@@ -124,6 +121,15 @@ FEEDS = [
     ("KnowBe4 Blog",                    "https://blog.knowbe4.com/rss.xml"),
     ("Cofense Blog",                    "https://cofense.com/feed/"),
     ("Cato Networks Blog",              "https://www.catonetworks.com/blog/feed/"),
+    ("Sophos Blogs",                    "https://www.sophos.com/en-us/blog/feed?id=blt6f15f4f7deaf4242"),
+    ("Fortinet Blog",                   "https://feeds.fortinet.com/fortinet/blogs"),
+    ("Cisco Newsroom",                  "https://newsroom.cisco.com/c/services/i/servlets/newsroom/rssfeed.json"),  # serves RSS despite the .json name
+    ("Cloudflare Blog",                 "https://blog.cloudflare.com/rss/"),
+    ("Tenable Cyber Exposure Alerts",   "https://www.tenable.com/blog/cyber-exposure-alerts/feed"),
+    ("Tenable in the News",             "https://www.tenable.com/media/in-the-news/feed"),
+    ("Tenable Product Security Advisories", "https://www.tenable.com/security/feed"),
+    ("Trend Micro Media Coverage",      "https://newsroom.trendmicro.com/media-coverage?pagetemplate=rss"),
+    ("Microsoft Official Blog",         "https://blogs.microsoft.com/feed/"),
     # ── Podcasts ─────────────────────────────────────────────────────────
     ("CyberWire Daily",         "https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast"),
     ("Darknet Diaries",         "https://feeds.megaphone.fm/darknetdiaries"),
@@ -269,6 +275,7 @@ SOURCE_CATEGORY = {
     "Trend Micro Newsroom": "Business & Industry News",
     "CISA Advisories": "Vulnerabilities & Patching", "Exploit-DB": "Vulnerabilities & Patching",
     "ZDI Published Advisories": "Vulnerabilities & Patching", "Zero Day Initiative Blog": "Vulnerabilities & Patching",
+    "Tenable Product Security Advisories": "Vulnerabilities & Patching",
     "CIRCL KEV (exploited CVEs)": "Vulnerabilities & Patching", "Google Project Zero": "Vulnerabilities & Patching",
 }
 FALLBACK_CATEGORY = "General Security News"
@@ -600,7 +607,9 @@ def _item_link(item) -> str:
 
 def fetch_feed(name: str, url: str) -> list[dict]:
     try:
-        req = Request(url, headers={"User-Agent": "CyberCompetitiveDailyFeed/1.0"})
+        # Some sites (the investor-relations feeds) answer 403 to a request without an Accept header
+        req = Request(url, headers={"User-Agent": "CyberCompetitiveDailyFeed/1.0",
+                                    "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5"})
         with urlopen(req, timeout=FETCH_TIMEOUT) as resp:
             raw = resp.read()
     except (URLError, OSError) as exc:
@@ -1712,51 +1721,18 @@ def filter_recent(articles: list[dict], hours: int = LOOKBACK_HOURS) -> list[dic
     return sorted(recent, key=lambda a: a["date"], reverse=True) + undated
 
 
-_STOP_WORDS = {
-    "a", "an", "the", "and", "or", "for", "of", "in", "on", "at", "to",
-    "is", "are", "was", "were", "be", "been", "have", "has", "had", "with",
-    "from", "by", "as", "its", "not", "but", "this", "that", "over", "after",
-    "new", "says", "said", "via", "how", "why", "what", "when", "who",
-    "into", "than", "more", "your", "about", "just", "using", "used",
-}
-
-
-def _keywords(title: str) -> set[str]:
-    words = re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)*', title.lower())
-    return {w for w in words if len(w) >= 4 and w not in _STOP_WORDS}
-
-
-def deduplicate(articles: list[dict], threshold: float = 0.80, keyword_overlap: int = 3) -> list[dict]:
-    seen_urls: set[str] = set()
-    unique:    list[dict] = []
-
+def unique_by_url(articles: list[dict]) -> list[dict]:
+    """One entry per article URL (the same URL as an article ID). Articles that cover the same story are all kept:
+    assign_stories() groups them and the dashboard shows one card per story, so nothing is thrown away here."""
+    seen: set[str] = set()
+    unique: list[dict] = []
     for article in articles:
-        url = article["link"].strip().rstrip("/")
-        if url and url in seen_urls:
+        key = article_id(article["link"]) if article.get("link") else ""
+        if key and key in seen:
             continue
-
-        title     = article["title"].lower()
-        title_kws = _keywords(article["title"])
-        is_duplicate = False
-
-        for kept in unique:
-            if difflib.SequenceMatcher(None, title, kept["title"].lower()).ratio() >= threshold:
-                is_duplicate = True
-                break
-            if len(title_kws & _keywords(kept["title"])) >= keyword_overlap:
-                is_duplicate = True
-                break
-
-        if is_duplicate:
-            continue
-
-        if url:
-            seen_urls.add(url)
+        if key:
+            seen.add(key)
         unique.append(article)
-
-    removed = len(articles) - len(unique)
-    if removed:
-        print(f"  [INFO] Deduplication removed {removed} redundant article(s).", file=sys.stderr)
     return unique
 
 
@@ -1788,7 +1764,9 @@ SOURCE_VENDOR = {
     "Rapid7 Blog": "Rapid7", "Tenable Blog": "Tenable", "Qualys Blog": "Qualys", "Qualys IR News": "Qualys",
     "Zscaler ThreatLabz": "Zscaler",
     "Kaspersky Blog": "Kaspersky", "Securelist (Kaspersky)": "Kaspersky",
-    "Sophos News - Threat Research": "Sophos", "Sophos News - SecOps": "Sophos",
+    "Sophos Blogs": "Sophos", "Fortinet Blog": "Fortinet", "Cisco Newsroom": "Cisco Security", "Cloudflare Blog": "Cloudflare",
+    "Tenable Cyber Exposure Alerts": "Tenable", "Tenable in the News": "Tenable", "Tenable Product Security Advisories": "Tenable",
+    "Trend Micro Media Coverage": "Trend Micro",
     "ESET WeLiveSecurity": "ESET",
     "Check Point Blog": "Check Point", "Check Point Research": "Check Point",
     "Bitdefender Business Insights": "Bitdefender",
@@ -3789,8 +3767,8 @@ def main() -> None:
         print("  [INFO] No articles in last 24h, showing all fetched articles.", file=sys.stderr)
         recent = articles
 
-    recent = deduplicate(recent)
-    print(f"  {len(recent)} unique article(s) after deduplication.", file=sys.stderr)
+    recent = unique_by_url(recent)
+    print(f"  {len(recent)} unique article(s) by URL.", file=sys.stderr)
 
     # ── Master store: every article ever seen (feeds + archive backfill) ──────────────────
     master = load_master()
