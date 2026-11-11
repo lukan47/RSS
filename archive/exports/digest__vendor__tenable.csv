@@ -1,5 +1,1135 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-8d86a5549dc0,63b6032bac7b,2026-11-09 17:00 UTC,"Policy, Legal & Compliance",Tenable,Tenable Blog,Vulnerability Management,Article,U.S. urges critical infrastructure orgs to secure refrigeration systems ASAP after EU supermarket and blood bank attacks,https://www.tenable.com/blog/u-s-urges-critical-infrastructure-orgs-to-secure-refrigeration-systems-asap-after-eu,Visualize attack paths and prevent lateral movement: Threat actors frequently exploit web-exposed IT infrastructure to pivot laterally into critical OT environments,"Following recent cyber attacks on French blood banks and European supermarkets, U.S. federal agencies are urging critical infrastructure organizations to immediately secure industrial refrigeration systems against remote tampering and temperature manipulation.
+c2144bee8896,99d6c260eab2,2026-11-11 00:55 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Able2Shell: Frequently asked questions for reported N-able N-central zero-day vulnerabilities,https://www.tenable.com/blog/able2shell-frequently-asked-questions-for-reported-n-able-n-central-zero-day-vulnerabilities,"As of November 10, there are no details available for any threat actor activity connected to Able2Shell exploitation","N-able released a hotfix for N-central that fixes seven CVEs after a researcher published proof-of-concept code for 33 alleged zero-day vulnerabilities. The researcher says one attack chain needs no credentials.
+
+Key Takeaways
+
+Able2Shell is a set of 33 alleged vulnerabilities in N-able N-central, published with proof-of-concept code. The researcher says one chain lets an unauthenticated attacker run commands on the server.
+
+Security firms report exploitation attempts against N-central honeypots, but as of November 10, no confirmed compromise of a customer server has been reported.
+
+N-able released N-central 2026.4 Hotfix 2 on November 10. It fixes seven CVEs.
+
+Background
+
+Tenable's Research Special Operations (RSO) team has compiled this blog to answer Frequently Asked Questions (FAQ) regarding Able2Shell, a set of reported zero-day vulnerabilities in N-able N-central.
+
+FAQ
+
+When was Able2Shell first disclosed?
+
+A researcher operating under the GitHub account “Oracle-Security” published a write-up titled “Able2Shell” in the account’s CVEs repository. It describes 33 alleged N-central vulnerabilities with proof-of-concept code. The earliest README commit is dated November 9, 2026 at 04:14 UTC. N-able described the release as a public disclosure by an independent security researcher. N-able does not state whether it was notified in advance and does not name the researcher.
+
+What are the vulnerabilities associated with Able2Shell?
+
+On November 10, N-able published seven CVE records for vulnerabilities fixed in N-central 2026.4 Hotfix 2. On its status page, N-able says the release addresses “the most critical November 9 vulnerabilities” and that a follow-up hotfix will provide further security updates. The page lists all seven as related CVEs. One, CVE-2026-91000, had been reserved on September 14, before the public Able2Shell disclosure.
+
+CVE
+
+Description (per N-able)
+
+CVSSv4
+
+CVE-2026-125883
+
+Multiple XML external entity (XXE) vulnerabilities
+
+9.3
+
+CVE-2026-125881
+
+Schema-hint server-side request forgery (SSRF) via service import schema validation
+
+9.3
+
+CVE-2026-125878
+
+Multiple OGNL injection vulnerabilities
+
+8.7
+
+CVE-2026-125879
+
+Local privilege escalation to root via nable-writable syslog-ng config
+
+8.6
+
+CVE-2026-125882
+
+Remote code execution via file repository upload path traversal
+
+8.6
+
+CVE-2026-91000
+
+Insecure IPC channels lead to local privilege escalation
+
+8.4
+
+CVE-2026-125880
+
+Stored cross-site scripting (XSS) via MMS3 patch metadata (admin context)
+
+8.3
+
+N-able’s CVE titles match several finding types in the researcher’s README, but N-able has not said which of the 33 findings each CVE addresses. N-able credits CVE-2026-125882 to Nate Fair of Sprocket Security, and a file repository path traversal also appears in the README.
+
+Is Able2Shell one vulnerability or several?
+
+Several. The README lists 33 findings, and some of them are steps in longer exploit chains built from other entries on the same list. The researcher lists four exploit chains. The rest are standalone findings.
+
+Chain
+
+Login needed
+
+Reaches
+
+Service import XXE
+
+None
+
+Commands as the nable account
+
+MMS3 stored XSS to OGNL execution
+
+None to plant, but an administrator has to view it
+
+Commands as the nable account
+
+MMS3 stored XSS to Audit Export
+
+None to plant, but an administrator has to view it
+
+Commands as root
+
+SIS file path traversal to syslog installer
+
+Yes
+
+Commands as root
+
+The researcher describes the XXE chain as credential-free, and N-able's record for CVE-2026-125883 lists no privileges and no user interaction as required. The researcher’s proof-of-concept takes several identifiers as inputs, and other findings in the README describe anonymous ways to obtain some of them. The XXE step has the appliance fetch a file from an attacker-hosted server.For the MMS3 chains, the researcher says an unauthenticated attacker can plant the script, which runs when a logged-in administrator views the poisoned patch details. N-able’s record for CVE-2026-125880 lists high privileges and active user interaction.
+
+How severe is Able2Shell?
+
+Two of the four chains reach root: MMS3 stored XSS to Audit Export, and SIS path traversal to syslog. The XXE chain runs commands as the nable account (uid 992), and the researcher’s proof-of-concept can also create an administrator account. N-able’s CVSSv4 scores for the seven CVEs range from 8.3 to 9.3, and N-able calls Hotfix 2 a critical security update.
+
+Has N-able confirmed the findings?
+
+N-able has published seven CVEs and a hotfix, but it has not mapped its CVEs to the researcher’s 33 findings or commented on them individually. Before the hotfix, N-able said it was responding to the public disclosure of critical vulnerabilities in N-central by an independent security researcher.
+
+Which versions are affected?
+
+N-able's CVE records list N-central versions before 26.4.1 as affected (the record for CVE-2026-91000 writes this as 2026.4.1), and the fixed build is 2026.4.1.26. The researcher says all testing was done on N-central Appliance 2026.4.0.31, which the researcher describes as a pre-release build, and that ""most if not all vulnerabilities should work on previous versions.""
+
+Is the hosted N-central service affected?
+
+N-able took its hosted N-central environments offline as a precaution after the disclosure, and its status page lists hosted N-central in the Americas, APAC and Europe among the affected services. On November 10, N-able said all hosted N-central servers across all global regions had been upgraded to the new release. Hosted customers still upgrade their own Agents and Probes.
+
+Has Able2Shell been exploited in the wild?
+
+N-able's status page says it is observing “scanning activity associated with the published proof-of-concept code.” Huntress reported N-able’s statement that it had no evidence that any customer environment had been successfully exploited, and said on November 10 that it had not observed evidence of Able2Shell exploitation in its partners’ environments.
+
+Beazley Security Labs updated its November 9 advisory on November 10 with watchTowr’s report of exploitation attempts against its N-central honeypots. Beazley Security Labs says a confirmed compromise of a customer server “has not been reported.”
+
+Previdian reports exploitation attempts against its N-central decoy environment, not confirmed compromise. Its decoys recorded 68 events from one source IP address starting on November 9, including XXE and sensitive-file access attempts. Previdian says these do not show a completed account takeover or command execution, or a full replay of the published chain.
+
+Which threat actors are exploiting Able2Shell?
+
+As of November 10, there are no details available for any threat actor activity connected to Able2Shell exploitation.
+
+Is there a proof-of-concept (PoC) available?
+
+Yes. The researcher’s README includes Python proof-of-concept code for the alleged vulnerabilities, tested against N-central Appliance 2026.4.0.31.
+
+How does this relate to earlier N-central vulnerabilities?
+
+Able2Shell is a newly disclosed set of vulnerabilities, and it is not known whether any relate to earlier N-central flaws. None of the seven CVEs fixed in Hotfix 2 is in CISA’s Known Exploited Vulnerabilities (KEV) catalog as of November 10. Five earlier N-central CVEs are in the KEV catalog:
+
+CVE
+
+Description
+
+Date Added to KEV
+
+CVE-2026-86218
+
+Static code injection
+
+September 8, 2026
+
+CVE-2026-18556
+
+Authentication bypass
+
+August 4, 2026
+
+CVE-2026-18577
+
+Authentication bypass
+
+August 3, 2026
+
+CVE-2025-8876
+
+Command injection
+
+August 13, 2025
+
+CVE-2025-8875
+
+Insecure deserialization
+
+August 13, 2025
+
+Are patches or mitigations available?
+
+Yes. On November 10, N-able released N-central 2026.4 Hotfix 2 (build 2026.4.1.26), which fixes the seven CVEs above. According to N-able, on-premises customers upgrade their own servers, while N-able upgrades hosted servers. All customers also upgrade their Agents and Probes, Agents first, because an upgraded Probe cannot communicate with Agents that have not been upgraded. Until an on-premises server is upgraded, N-able recommends keeping it offline. A follow-up hotfix with further security updates is also planned. Hotfix 2 removes legacy mobile device management (MDM). The release notes list N-central’s built-in remote control as temporarily disabled, while Take Control continues to work.Are there indicators of compromise?
+
+Yes. Beazley Security Labs and Previdian have published network indicators tied to exploitation attempts, including source IP addresses and the SOAP endpoints targeted. Huntress recommends reviewing login and authentication activity from November 8 onward, and watching for anomalous remote access sessions, newly deployed scripts and unauthorized new administrator accounts.
+
+Has Tenable released product coverage?
+
+A list of Tenable plugins for these vulnerabilities can be found on the individual CVE pages:
+
+CVE-2026-125883
+
+CVE-2026-125881
+
+CVE-2026-125878
+
+CVE-2026-125879
+
+CVE-2026-125882
+
+CVE-2026-91000
+
+CVE-2026-125880
+
+This list may contain plugins released after this blog’s publication.
+
+Has Tenable classified any of these vulnerabilities under Vulnerability Watch?
+
+Yes. Tenable has classified CVE-2026-125883 as a Vulnerability of Interest (VOI) under Vulnerability Watch. CVE-2026-125878, CVE-2026-125881 and CVE-2026-125882 are each classified as a Vulnerability Being Monitored (VBM).
+
+Get more information
+
+Able2Shell write-up (Oracle-Security on GitHub)
+
+N-central 2026.4 HF2 Release Notes
+
+Beazley Security Labs: Emerging Threat: Critical Vulnerabilities in N-able N-central
+
+Previdian: N-able N-central critical vulnerabilities, what we know so far
+
+Huntress: N-able Disables Cloud Services Following Disclosure of ""Able2Shell"" Exploit Chains
+
+Field Effect: N-able takes N-central offline as alleged zero-day exploits surface"
+eb2a34ee4994,eb2a34ee4994,2026-11-10 14:01 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,Microsoft’s November 2026 Patch Tuesday addresses 1093 CVEs (CVE-2026-124194),https://www.tenable.com/blog/microsoft-november-2026-patch-tuesday-addresses-1093-cves-cve-2026-124194,"<ol data-sanitized-class=""blog-severity-badges""><li data-list-item-id=""e63238f20bb19407a7605a3537e91b6b3"" data-sanitized-class=""blog-severity-badges critical""><span data-sanitized-class=""number"">63</span>Critical</li><li data-list-item-id=""e6947860280ec1e21e0e1ff92ebf6cfc4"" data-sanitized-class=""blo","63Critical
+
+1029Important
+
+1Moderate
+
+0Low
+
+Microsoft addresses 1093 CVEs in the eleventh Patch Tuesday of 2026.
+
+Microsoft patched 1093 CVEs in its November 2026 Patch Tuesday release, with 63 rated critical, 1029 rated as important, and one rated as moderate.
+
+This month’s update includes patches for 287 products and components. The following table lists the products with the most CVEs patched this month. A full list of patched products is available in the appendix.
+
+Rank
+
+Product
+
+CVE Count
+
+1
+
+Microsoft Office Word
+
+65
+
+2
+
+Microsoft Office Excel
+
+64
+
+3
+
+SQL Server
+
+53
+
+4
+
+Windows Advanced Rasterization Platform
+
+37
+
+5
+
+Windows Installer
+
+36
+
+6
+
+Windows Graphics Kernel
+
+35
+
+7
+
+Windows Kernel
+
+28
+
+8
+
+Microsoft Office SharePoint
+
+27
+
+9
+
+Windows DNS
+
+22
+
+10 (Tie)
+
+Microsoft Office Outlook
+
+20
+
+10 (Tie)
+
+Windows Print Spooler Components
+
+20
+
+Elevation of Privilege (EoP) vulnerabilities accounted for 48.9% of the vulnerabilities patched this month, followed by remote code execution (RCE) vulnerabilities at 27.1%.
+
+Moderate
+
+CVE-2026-124194 | Microsoft Outlook spoofing vulnerability
+
+CVE-2026-124194 is a spoofing vulnerability in Microsoft Outlook. It received a CVSSv3 score of 6.5 and is rated moderate. An attacker could exploit this vulnerability by convincing a target to open a crafted Microsoft Office file. Successful exploitation would allow an attacker to obtain the target’s valid NTLMv2 hash, which can then be used to impersonate that user in follow-on attacks.
+
+According to Microsoft, this vulnerability was exploited in the wild as a zero-day. Additionally, the advisory credits this discovery to a security researcher that used Claude, the large language model (LLM) from Anthropic, though no specific version of Claude was noted in the advisory.
+
+Critical
+
+CVE-2026-118146 | Windows Active Directory Domain Services remote code execution vulnerability
+
+CVE-2026-118146 is an RCE vulnerability affecting Windows Active Directory Domain Services. It received a CVSSv3 score of 8.8 and is rated as critical. An authenticated attacker could exploit an incorrect authorization in Active Directory Domain Services to execute code over a network. Successful exploitation would allow an attacker to execute arbitrary code on the affected system. It was assessed as “Exploitation More Likely.”
+
+Important
+
+CVE-2026-120002 | Microsoft SharePoint Server elevation of privilege vulnerability
+
+CVE-2026-120002 is an EoP vulnerability affecting Microsoft SharePoint Server. It received a CVSSv3 score of 9.9 and is rated as important. An authenticated attacker could exploit an incorrect authorization in Microsoft Office SharePoint to elevate privileges over a network. Successful exploitation would allow an attacker to gain elevated privileges. It was assessed as “Exploitation Less Likely.”
+
+Critical
+
+CVE-2026-118207 | Microsoft Exchange Server remote code execution vulnerability
+
+CVE-2026-118207 is an RCE vulnerability affecting Microsoft Exchange Server. It received a CVSSv3 score of 8.8 and is rated as critical. An authenticated attacker could send malformed input to Microsoft Exchange Server, causing code to execute over a network. Successful exploitation would allow an attacker to execute arbitrary code on the affected system. It was assessed as “Exploitation More Likely.”
+
+Critical
+
+CVE-2026-119952 | Windows Schannel remote code execution vulnerability
+
+CVE-2026-119952 is an RCE vulnerability affecting Windows Schannel. It received a CVSSv3 score of 8.1 and is rated as critical. An unauthenticated attacker could exploit an observable timing discrepancy in Windows Schannel to execute code over a network. Successful exploitation would allow an attacker to execute arbitrary code on the affected system. It was assessed as “Exploitation More Likely.”
+
+Additional Notable CVEs
+
+The following CVEs also merit attention based on severity, exploitability, or CVSSv3 score:
+
+CVE
+
+Product
+
+Impact
+
+CVSSv3
+
+Exploitability
+
+Notes
+
+CVE-2026-121663
+
+Visual Studio Code
+
+Security Feature Bypass
+
+8.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-121662
+
+Visual Studio Code
+
+Remote Code Execution
+
+8.6
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-113862
+
+Windows Network Address Translation (NAT)
+
+Remote Code Execution
+
+8.1
+
+Exploitation More Likely
+
+Critical
+
+CVE-2026-105501
+
+Windows Installer
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-105524
+
+Windows Management Instrumentation
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-109473
+
+Windows Kernel
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-112811
+
+Windows Print Spooler Components
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-116714
+
+Windows AppX Deployment Service
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-119818
+
+Windows Text Services Framework
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-119853
+
+Remote Access API
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-119886
+
+Windows Telephony Service
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-119892
+
+Windows Installer
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-119903
+
+Windows Installer
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-83563
+
+Winlogon
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-88230
+
+Windows LUA File Virtualization Filter Driver
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+Additional CVEs addressed this month are listed in Microsoft’s Security Update Guide.
+
+Tenable Solutions
+
+A list of all the plugins released for Microsoft’s November 2026 Patch Tuesday update can be found here. As always, we recommend patching systems as soon as possible and regularly scanning your environment to identify those systems yet to be patched.
+
+For more specific guidance on best practices for vulnerability assessments, refer to our blog post on How to Perform Efficient Vulnerability Assessments with Tenable.
+
+Product Appendix
+
+.NET
+
+AMD Zen
+
+ASP.NET Core
+
+Active Directory Domain Services
+
+ActiveSyncProvider
+
+Aspire
+
+Azure CLI
+
+Azure Confidential Clean Rooms
+
+Azure CycleCloud
+
+Azure DevOps
+
+Azure DevOps Server
+
+Azure File Sync
+
+Azure Firmware
+
+Azure Front Door (AFD)
+
+Azure Local
+
+Azure Managed Grafana
+
+Azure NFS mount helper (aznfs)
+
+Azure OpenAI
+
+Azure Pipelines
+
+Connected Devices Platform Service (Cdpsvc)
+
+Data Deduplication
+
+Data Sharing Service Client
+
+Desktop Window Manager
+
+Github Copilot
+
+Graphic Fonts
+
+HEIF Image Extensions
+
+HID Parser Library
+
+HID class driver
+
+JDBC Driver for SQL Server
+
+Kernel Transaction Manager
+
+Mailslot File System
+
+Microsoft 365 Agents SDK
+
+Microsoft Account
+
+Microsoft ActiveX Installer Service
+
+Microsoft Authentication Library (MSAL) for Node.js
+
+Microsoft Authentication Library for JavaScript
+
+Microsoft Azure Kubernetes Service
+
+Microsoft Bluetooth Driver
+
+Microsoft Color Management
+
+Microsoft Configuration Manager
+
+Microsoft Defender
+
+Microsoft Dynamics 365 (on-premises)
+
+Microsoft Entra Private Network Connector
+
+Microsoft Exchange Server
+
+Microsoft Graph
+
+Microsoft Graphics Component
+
+Microsoft High Performance Computing (HPC) Pack
+
+Microsoft Input Method Editor (IME)
+
+Microsoft JScript
+
+Microsoft Local Security Authority Server (lsasrv)
+
+Microsoft MCP Gateway
+
+Microsoft Office
+
+Microsoft Office Access
+
+Microsoft Office Excel
+
+Microsoft Office Outlook
+
+Microsoft Office PowerPoint
+
+Microsoft Office SharePoint
+
+Microsoft Office Visio
+
+Microsoft Office Word
+
+Microsoft PowerShell
+
+Microsoft PowerShell Core
+
+Microsoft QUIC
+
+Microsoft Remote Registry Service
+
+Microsoft Streaming Service
+
+Microsoft Teams
+
+Microsoft Teams for Android
+
+Microsoft Trace Data Helper
+
+Microsoft WDAC OLE DB provider for SQL
+
+Microsoft Windows App Store
+
+Microsoft Windows Codecs Library
+
+Microsoft Windows Media Foundation
+
+Microsoft Windows SCSI Class System File
+
+Microsoft Windows Search Component
+
+Microsoft Windows Speech
+
+Microsoft XPS Document Converter
+
+Quality Windows Audio/Video Experience (QWAVE) service
+
+RPC Runtime
+
+Reliable Multicast Transport Driver (RMCAST)
+
+Remote Desktop Client
+
+Remote Desktop Gateway Service
+
+Role: DNS Server
+
+SQL Server
+
+Secondary Logon
+
+Servicing Stack Updates
+
+Software Protection Platform (SPP)
+
+Storport.sys Driver
+
+Virtual Hard Disk (VHD) Miniport Driver
+
+Visual Studio
+
+Visual Studio Code
+
+Visual Studio Code - GitHub Pull Requests and Issues Extension
+
+Windows Active Directory
+
+Windows Active Directory Certificate Services
+
+Windows Admin Center
+
+Windows Advanced Rasterization Platform
+
+Windows Ancillary Function Driver for WinSock
+
+Windows App Readiness Service
+
+Windows AppContainer
+
+Windows AppX Deployment Service
+
+Windows AppX Package Manager
+
+Windows Audio Service
+
+Windows Autopilot
+
+Windows Background Intelligent Transfer Service (BITS)
+
+Windows Backup Engine
+
+Windows Bind Filter Driver
+
+Windows Biometric Service
+
+Windows BitLocker
+
+Windows Bluetooth A2DP driver
+
+Windows Bluetooth Port Driver
+
+Windows Bluetooth Service
+
+Windows Broadcast DVR User Service
+
+Windows Broker Infrastructure Service
+
+Windows Brokering File System
+
+Windows CD-ROM Driver
+
+Windows CNG Key Isolation Service
+
+Windows COM
+
+Windows COM+ Event System Service
+
+Windows Camera Frame Server Monitor
+
+Windows Client for NFS
+
+Windows Clipboard Virtual Channel Extension
+
+Windows Cloud Files Mini Filter Driver
+
+Windows Composite Image File System
+
+Windows Connected User Experiences and Telemetry
+
+Windows Connection Manager Service
+
+Windows Container Isolation FS Filter Driver (unionfs.sys)
+
+Windows Container Manager Service
+
+Windows Cred SSProvider Protocol
+
+Windows Credential Manager
+
+Windows Credential User Interface
+
+Windows DHCP Client
+
+Windows DHCP Server
+
+Windows DIAL Client
+
+Windows DNS
+
+Windows DPAPI (Data Protection Application Programming Interface)
+
+Windows DWM Core Library
+
+Windows Defender Firewall Service
+
+Windows Deployment Services
+
+Windows Device Association Service
+
+Windows Device Inventory
+
+Windows Devices Human Interface
+
+Windows Diagnostic Policy Service
+
+Windows DirectX
+
+Windows Distributed File System (DFS)
+
+Windows Distributed Transaction Coordinator
+
+Windows Encrypting File System (EFS)
+
+Windows Enhanced Storage
+
+Windows Error Reporting
+
+Windows Event Collector Service
+
+Windows Event Logging Service
+
+Windows Event Viewer
+
+Windows FTP Service
+
+Windows Failover Cluster
+
+Windows Fast FAT Driver
+
+Windows Feedback Hub
+
+Windows File Server Resource Management Service
+
+Windows FileCrypt Driver
+
+Windows Filter Manager
+
+Windows Filtering Platform (WFP)
+
+Windows Function Discovery Resource Publication
+
+Windows Function Discovery SSDP Provider
+
+Windows GDI
+
+Windows Graphics Kernel
+
+Windows HTTP.sys
+
+Windows Hyper-V
+
+Windows IKE Extension
+
+Windows IP Translation Configuration Service
+
+Windows Image Acquisition
+
+Windows Imaging Component
+
+Windows Input System
+
+Windows Installer
+
+Windows Internet (wininet.dll)
+
+Windows Internet Connection Sharing (ICS)
+
+Windows Internet Information Services
+
+Windows Inventory Backup
+
+Windows Kerberos
+
+Windows Kernel
+
+Windows Kernel-Mode Drivers
+
+Windows LDAP - Lightweight Directory Access Protocol
+
+Windows LUAFV
+
+Windows Language Experience Service
+
+Windows Layer-2 Bridge Network Driver
+
+Windows Link Layer Topology Discovery Protocol
+
+Windows Link-Layer Discovery Protocol (LLDP)
+
+Windows Local Security Authority Subsystem Service (LSASS)
+
+Windows Local Session Manager (LSM)
+
+Windows MIDI Service Module
+
+Windows Management Instrumentation
+
+Windows Management Services
+
+Windows Maps
+
+Windows Media Player
+
+Windows Message Queuing
+
+Windows Message Queuing Queue Manager
+
+Windows Microsoft Account Sign-in Assistant
+
+Windows Microsoft DirectMusic
+
+Windows Mobile Device Management
+
+Windows Modern Device Management (MDM)
+
+Windows Multiple Provider Router
+
+Windows NTFS
+
+Windows NTLM
+
+Windows NetBIOS
+
+Windows Network Address Translation (NAT)
+
+Windows Network Connected Devices Auto-Setup Service
+
+Windows Network Connection Broker
+
+Windows Network File System
+
+Windows ODBC Driver
+
+Windows OLE
+
+Windows OLE DB
+
+Windows Overlay Filter
+
+Windows PCI Bus Driver
+
+Windows Partition Management Driver
+
+Windows Performance Counters
+
+Windows Performance Monitor
+
+Windows Phone Service
+
+Windows Point-to-Point Protocol over Ethernet (PPPoE)
+
+Windows PowerShell
+
+Windows Print Spooler Components
+
+Windows PrintWorkflowUserSvc
+
+Windows Program Compatibility Assistant Service
+
+Windows Projected File System
+
+Windows Projected File System Filter Driver
+
+Windows Push Notification Core
+
+Windows Push Notifications
+
+Windows RNDIS
+
+Windows Raw Image Extension
+
+Windows Redirected Drive Buffering
+
+Windows Remote Access API
+
+Windows Remote Access Connection Manager
+
+Windows Remote Assistance
+
+Windows Remote Desktop
+
+Windows Remote Desktop Services
+
+Windows Remote Procedure Call
+
+Windows Remote Procedure Call Runtime
+
+Windows Resilient File System (ReFS)
+
+Windows Rich Text Edit Control
+
+Windows SMB
+
+Windows SMB Client
+
+Windows SMB Server
+
+Windows SMB Server Network Transport Driver (srvnet.sys)
+
+Windows SSDP Service
+
+Windows Sandbox
+
+Windows Schannel
+
+Windows Secure Kernel Mode
+
+Windows Secure Socket Tunneling Protocol (SSTP)
+
+Windows Security Account Manager
+
+Windows Security Center
+
+Windows Sensor Data Service
+
+Windows Server for NFS
+
+Windows Setup and Deployment
+
+Windows Shell
+
+Windows Smart Card
+
+Windows State Repository Service
+
+Windows StateRepository API
+
+Windows Storage
+
+Windows Storage Spaces Controller
+
+Windows Storport Miniport Driver
+
+Windows Subsystem for Linux
+
+Windows System Events Broker
+
+Windows TCP/IP
+
+Windows TPM
+
+Windows Task Scheduler
+
+Windows Telephony Service
+
+Windows Text Services Framework
+
+Windows USB Audio Class driver (usbaudio.sys)
+
+Windows USB Driver
+
+Windows USB Hub Driver
+
+Windows USB Scanner Driver
+
+Windows USB Video Driver
+
+Windows USM Communication Manager
+
+Windows Universal Disk Format File System Driver (UDFS)
+
+Windows Update Stack
+
+Windows User Manager Service
+
+Windows VMSwitch
+
+Windows Virtual Filtering Platform (VFP)
+
+Windows Volume Shadow Copy
+
+Windows WLAN Service
+
+Windows Win32K
+
+Windows WinHTTP
+
+Windows Wireless Networking
+
+Windows XWizard Framework
+
+Windows Xbox Live Networking Service
+
+Windows eSCL Scanner
+
+Windows exFAT File System
+
+Windows iSCSI
+
+Windows iSCSI Target Service
+
+Winlogon
+
+Winsock
+
+Xbox
+
+vhdmp.sys
+
+Get more information
+
+Microsoft’s November 2026 Security Updates
+
+Tenable plugins for Microsoft November 2026 Patch Tuesday Security Updates"
+8d86a5549dc0,3787a902ddcb,2026-11-09 17:00 UTC,"Policy, Legal & Compliance",Tenable,Tenable Blog,Vulnerability Management,Article,U.S. urges critical infrastructure orgs to secure refrigeration systems ASAP after EU supermarket and blood bank attacks,https://www.tenable.com/blog/u-s-urges-critical-infrastructure-orgs-to-secure-refrigeration-systems-asap-after-eu,Visualize attack paths and prevent lateral movement: Threat actors frequently exploit web-exposed IT infrastructure to pivot laterally into critical OT environments,"Following recent cyber attacks on French blood banks and European supermarkets, U.S. federal agencies are urging critical infrastructure organizations to immediately secure industrial refrigeration systems against remote tampering and temperature manipulation.
 
 Key takeaways
 
@@ -70,7 +1200,30 @@ CISA, FBI, HHS, USDA, and DOT Urge Critical Infrastructure To Strengthen Industr
 French authorities probe cyberattack targeting nation’s blood supply (Cybersecurity Dive)
 
 French blood banks hit alongside cyberattack on European supermarkets (Reuters)"
-ea0d34b77347,72375819775f,2026-10-29 21:42 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management; Network Security; Threat Intelligence,Article,php2shell one week later: Why one exploit doesn’t work everywhere,https://www.tenable.com/blog/php2shell-one-week-later-why-one-exploit-doesnt-work-everywhere,"What can we learn from this Inevitably, when a remote code execution vulnerability is discovered in a broadly deployed core component of the services we use, a knee-jerk...","php2shell raised fears of mass exploitation. A week of testing by our research team found that working exploits had to be fitted to each target’s exact PHP setup. Systems that share one build, such as network appliances, are the exception: one tuned exploit can reach every device that runs it.
+aaed308740f4,aaed308740f4,2026-10-30 04:00 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Identity Security Posture Management; Vulnerability Management,Article,[R1] Tenable Identity Exposure Versions 3.93.6 and 3.77.18 Fix Multiple Vulnerabilities,https://www.tenable.com/security/tns-2026-34,"<span>[R1] Tenable Identity Exposure Versions 3.93.6 and 3.77.18 Fix Multiple Vulnerabilities</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-30T00:00:00-04:00"" title=""Friday, October 30, 2026 - 00:0","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
+ea0d34b77347,2b62329cc6f4,2026-10-29 21:42 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management; Network Security; Threat Intelligence,Article,php2shell one week later: Why one exploit doesn’t work everywhere,https://www.tenable.com/blog/php2shell-one-week-later-why-one-exploit-doesnt-work-everywhere,"What can we learn from this Inevitably, when a remote code execution vulnerability is discovered in a broadly deployed core component of the services we use, a knee-jerk...","php2shell raised fears of mass exploitation. A week of testing by our research team found that working exploits had to be fitted to each target’s exact PHP setup. Systems that share one build, such as network appliances, are the exception: one tuned exploit can reach every device that runs it.
 
 Key takeaways
 
@@ -209,7 +1362,394 @@ Censys dashboard: https://php2shell.censys.com/
 Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
 
 Learn more about Tenable One, the Exposure Management Platform for the modern attack surface."
-d73bef6baadb,72375819775f,2026-10-26 15:48 UTC,General Security News,Tenable,Tenable Blog,Threat and Exposure Management; Vulnerability Management; Attack Surface Discovery,Article,Discover and remediate PHP2Shell exposure with Tenable,https://www.tenable.com/blog/discover-and-remediate-php2shell-exposure-with-tenable,""" Hexa returns a summary of what PHP2Shell does, how an attacker might attempt to exploit it, and recommended next steps for exposures found in the environment","Learn how to use Tenable solutions to find vulnerable PHP versions, prioritize remediation, and patch the critical PHP2Shell vulnerabilities (CVE-2026-109618 and CVE-2026-109619) faster.
+f510b0438229,f510b0438229,2026-10-28 20:38 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,[R1] Tenable Plugin Feed ID #202610282338 Fixes One Vulnerability,https://www.tenable.com/security/tns-2026-33,"<span>[R1] Tenable Plugin Feed ID #202610282338 Fixes One Vulnerability</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-28T16:38:28-04:00"" title=""Wednesday, October 28, 2026 - 16:38"">Wed, 10/28/2026 ","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
+fa05fdd338ad,fa05fdd338ad,2026-10-27 09:00 UTC,General Security News,Tenable,Tenable Blog,Phishing Simulations; AI Security; Attack Surface Discovery,Article,Whole-of-state defense: How SLED agencies can secure critical infrastructure in the AI era,https://www.tenable.com/blog/whole-of-state-security-sled-critical-infrastructure,"The NASCIO-GDIT brief cites emerging threats such as automated reconnaissance, and it urges states to prepare for an increase in AI-enabled attacks on critical infrastructure,...","AI is widening the attack surface of the critical infrastructure facilities and services that state, local, and education (SLED) organizations run. In the final post of our Cybersecurity Awareness Month series, we explain how a whole-of-state security approach can help SLED agencies protect their critical infrastructure.
+
+Key takeaways
+
+Because cyber attackers prey on under-resourced targets, they often go after SLED organizations, especially those that operate critical infrastructure, including water systems, hospitals, mass transit, emergency services, and schools.
+
+In the latest research from the National Association of State Chief Information Officers (NASCIO), nearly 90% of state CIOs rated cyberattacks on critical systems as a high concern.
+
+AI expands the attack surface in two fundamental ways: SLED agencies and employees adopt AI tools and AI-built apps faster than security teams can authorize and inventory them, while attackers use AI automation to find weak points faster.
+
+A whole-of-state cybersecurity approach treats state agencies, counties, cities, school districts, and utilities as one defensive perimeter, with shared visibility, shared services, and clear governance.
+
+Cyber attackers often look for the weakest link that can offer them an entry point into larger targets. If they can’t crack a state agency’s hardened systems, they’ll try to breach it in a roundabout way by first breaking into a small town’s water utility, a rural school district, or a county dispatch center, and then attempt to move laterally toward the bigger target.
+
+When one of those weak links fails, the consequences can reach well beyond the breached agency: halted 911 dispatches, disrupted water service, exposed resident data, and more.
+
+AI is further complicating the picture.
+
+State, local, and education (SLED) organizations are adopting AI quickly to improve efficiency, employees are building applications with it informally, and adversaries are using it to speed up reconnaissance. Each of those developments is making it harder for security teams to protect SLED agencies.
+
+In this fourth and final blog in our Cybersecurity Awareness Month series, we focus on what that expanding AI attack surface means for state, local, and education cybersecurity leaders responsible for critical infrastructure, and how whole-of-state cybersecurity can help them stay ahead.
+
+Why SLED critical infrastructure is a prime target
+
+SLED organizations operate critical infrastructure, such as water treatment plants, transportation systems, public hospitals, schools, and emergency communications, across many of the 16 critical infrastructure sectors categorized by the Cybersecurity and Infrastructure Security Agency (CISA).
+
+State technology leaders are concerned about protecting these critical infrastructure facilities and services from cyber attacks, as “The Expanding Cyber Perimeter” report, published in September by the National Association of State Chief Information Officers (NASCIO) and General Dynamics Information Technology (GDIT), found.
+
+Here are five key findings from the report, which drew on the 2026 NASCIO State CIO Survey, the 2026 NASCIO-Deloitte Cybersecurity Study, and interviews with state CISOs:
+
+Nearly 90% of state CIOs rate cyber attacks on critical systems as a high concern. The rest rate them as moderate.
+
+State CIOs report low confidence in local governments’ cyber practices. The report’s authors also say it’s unclear how states should help local governments and independent local government entities, like special districts.
+
+Water and wastewater plants, dams, hospitals, and transportation services face the greatest cyber risk.
+
+Many systems run on aging or proprietary operational technology (OT) with no upgrade path, and broad remote access increases their cyber risk.
+
+Small communities and special districts often have limited cyber staff, aging equipment, and complex OT with few controls. With hundreds of such entities in a single state, attackers have plenty of entry points to try.
+
+Responsibility is also murky. According to the NASCIO-GDIT report, it’s often unclear which agency is responsible for responding to an attack on critical infrastructure, especially where legal authority, governance, or partnerships aren’t in place.
+
+Cyber risk extends beyond technical and geographical boundaries. When an attacker breaches systems of a county water utility or a school district, the incident can have widespread consequences.
+
+State and local officials and their CIOs and CISOs should stop treating these incidents as one city’s or one county’s problem. Robert Beach, then CTO of the City of Cocoa, Florida, and a member of the Multi-State Information Sharing and Analysis Center (MS-ISAC) executive committee, told StateScoop last year that an attack on critical infrastructure “is an attack on the nation.”
+
+Insiders add another layer of risk. Another MS-ISAC report, “Strengthening Critical Infrastructure: SLTT Progress & Priorities,” published in August 2025, flagged excessive access to system controls as a vulnerability. The report recommended agencies review who can reach their networks and disable credentials promptly when employees leave.
+
+The 2026 NASCIO-Deloitte study underscores the risk, noting that attackers exploit compromised credentials and former employee accounts, so regular access reviews and prompt offboarding remain essential.
+
+Recent cyber attacks against water systems have made the threat very real. On July 30, the Federal Bureau of Investigation (FBI) and the Environmental Protection Agency (EPA) warned that water and wastewater sector utilities in at least seven states had reported cyber attacks, leading in some cases to degraded water operations.
+
+That same day, the CISA said it had observed “a significant increase in cyber threat actors targeting programmable logic controllers” in the water and wastewater sector.
+
+“Threat actors targeting exposed PLCs have modified passwords to lock out operators and disconnected the PLCs by changing their IP addresses. This activity has resulted in boil water notices and sustained manual operations,” the CISA alert reads.
+
+A week earlier, CISA and several federal agencies had published a joint advisory warning critical infrastructure organizations in the government, water, and energy sectors of “ongoing cyber exploitation of internet-connected OT devices.”
+
+Tenable researchers recommend removing internet-exposed PLCs and setting their mode switches to “Run”, among other steps. The U.S. government is also tightening cybersecurity regulations for water and wastewater utilities.
+
+Federal and state leaders are mobilizing, too.
+
+In August, Texas Governor Greg Abbott, National Cyber Director Sean Cairncross, and Texas Cyber Command Chief Vice Admiral (Ret.) TJ White launched Project Watershed at a roundtable in San Antonio, Texas, which I was honored to attend. Project Watershed is a joint effort aimed at strengthening the cybersecurity of Texas water and wastewater systems against threats from hostile foreign adversaries.
+
+Governor Abbott said that through the project, “our communities and water systems will be better secured from the onslaught of cyber-attacks.”
+
+Protecting the water systems Americans rely on every day is a shared responsibility, and Project Watershed shows the kind of public-private collaboration a whole-of-state approach depends on.
+
+How AI expands the attack surface
+
+AI has moved from pilot project to operational reality in state government. NASCIO’s 2026 research shows AI overtaking cybersecurity as the top policy priority for state CIOs, the first time in more than a decade that cybersecurity loses the top spot.
+
+AI adoption is good news for service delivery, but it also increases SLED agencies’ cyber risk. Three forces drive the rise in cyber risk:
+
+Employees build and adopt AI tools on their own. As we covered earlier in this series, non-technical staff can now use AI tools to generate working applications using natural-language prompts, often without permission from the IT and security departments. In a government setting, those unsanctioned apps can access resident data, case management systems, and internal credentials, all without testing, patching, or monitoring.
+
+AI shows up inside the software SLED agencies already own, as vendors quietly add AI features and connectors to their products, which can expand data access and permissions without the awareness of the IT and security teams.
+
+Attackers use automation to move faster. The NASCIO-GDIT brief cites emerging threats such as automated reconnaissance, and it urges states to prepare for an increase in AI-enabled attacks on critical infrastructure, as the window between when an exposure appears and when attackers exploit it keeps shrinking.
+
+For critical infrastructure operators, the stakes rise further. Their aging OT systems with broad remote access are already a soft target. Unvetted AI apps, over-permissioned connectors, and automated scanning by attackers quickly multiply the number of paths an attacker can chain together.
+
+The key for SLED agency CISOs is to see their exposures across IT, OT, cloud, identity, and AI as one connected picture, and to prioritize and act on the ones an attacker could realistically exploit to reach systems that matter to public safety. An exposure management program can help SLED agencies address this cyber risk with comprehensive visibility, prioritization, and AI-assisted action.
+
+What a whole-of-state approach looks like
+
+A whole-of-state approach treats state agencies, local governments, schools, and utilities as one defensive perimeter instead of a collection of individual, siloed organizations.
+
+The state government should share governance frameworks, visibility of IT/OT assets and security findings, and cybersecurity capabilities so the smallest entity doesn’t have to defend itself alone.
+
+As Tenable’s Matt Kucik explains in the blog, “Whole-of-state cybersecurity: Uniting SLED agencies for maximum impact,” success starts with leadership and vision, open communication, and an actionable plan.
+
+The model is gaining ground. The NASCIO-GDIT report found that 73% of states responding to the 2026 State CIO Survey include critical infrastructure cyber protection in their whole-of-state plans. It calls these models the main framework emerging for statewide resilience. Maturity varies widely, though. Four building blocks separate strong programs from weak ones:
+
+Governance and clear roles. CISA’s state cybersecurity governance case studies highlight Georgia and Virginia, which use formal structures to treat cyber risk as a collective priority. They have proactively defined who is in charge of prevention, who is in charge of responding, and who is in charge of generating incident reports.
+
+Shared visibility. You can’t prioritize what you can’t see. A statewide view of assets and exposures lets a small water district benefit from the same insight as a large state agency.
+
+Shared services. In Utah, its federally funded shared services program offers endpoint protection, patching, training, and incident response to roughly 80% of local government entities in the state. The state secured an additional $1.5 million for water-sector cybersecurity.
+
+Trust earned through results. What local partners need from the state is faster remediation, lower costs, and fewer surprises. New Jersey CISO Michael Geraghty made this point in the NASCIO-GDIT report: Telling local governments you’re from the state and here to help doesn’t earn their trust. Results do.
+
+It’s also key to share information quickly. Terry Loftus, CIO of the San Diego County Office of Education and an MS-ISAC committee member, told StateScoop that many districts learn of attacks when they receive a ransomware demand.
+
+State cybersecurity agencies should build channels that proactively push threat intelligence and exposure data to every entity in their state, to increase the chances of preventing attacks.
+
+Five steps SLED agencies can take to boost their cyber defenses
+
+Here’s Tenable’s advice on where to start, whether you lead a state agency, a county IT shop, a school district, or a municipal utility:
+
+Create and continuously update a complete inventory of your critical infrastructure assets, including OT systems, remote access paths, and AI tools and apps. Start with the systems that affect public health and safety.
+
+Prioritize by exploitability and impact. Don’t chase every finding. Focus on the exposures an attacker could realistically chain together to reach water, power, health, or emergency systems. Removing internet-exposed controllers and securing any remote access paths to them should be the highest priority.
+
+Share visibility across jurisdictions. Give small entities access to the same insight larger agencies have, whether through statewide tooling, shared services, or regular information-sharing forums.
+
+Govern AI use before it sprawls. Set clear policies, approved-tool lists, and training for employees who build with AI.
+
+Check if State and Local Cybersecurity Grant Program (SLCGP) funding is still available in your state to help fund these priorities.
+
+How Tenable can help SLED agencies
+
+Tenable One gives security teams unified visibility, insights and action across their organizations’ attack surface, including IT, cloud, identity, AI, and OT.
+
+Tenable One OT Exposure capabilities extend that visibility, insight, and action to the OT and extended internet of things (xIoT) devices used by many critical infrastructure organizations.
+
+With Tenable One, SLED teams can see what they have, understand which exposures matter most, and take prioritized actions, maximizing staff and grant dollars to drive down cyber risk.
+
+The City of Raleigh in North Carolina, for example, uses Tenable to ensure the safety and sustainability of its public water systems. To see how Tenable supports statewide programs, explore our state, local, and education solutions and learn how Tenable helps meet SLCGP requirements.
+
+Looking ahead
+
+The attack surface is growing, a trend that AI is accelerating. Federal funding is shrinking, and its future is uncertain. Yet the fundamentals of resilience stay the same: know your assets, understand your exposures, share what you learn, and act together before an attacker forces your hand.
+
+No single state or jurisdiction has solved this, and no single tool will. A whole-of-state approach gives SLED organizations the best chance to stay ahead of the threats facing the critical services residents rely on every day.
+
+Learn how Tenable helps SLED organizations implement statewide exposure management and align with SLCGP requirements.
+
+Read the first three blogs in the Cybersecurity Awareness Month series:
+
+How to mitigate the risk from AI-generated apps built by your ‘citizen coder’ employees
+
+Critical infrastructure orgs face heightened cyber risk from nation-state groups, AI threats
+
+How to contain shadow AI, as it takes on multiple forms and spreads throughout your environment"
+accb8659d5cd,15b5fe82f315,2026-10-26 21:19 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Brotli2Shell: Frequently asked questions for Google Brotli decoder vulnerability (CVE-2026-111497),https://www.tenable.com/blog/brotli2shell-frequently-asked-questions-for-google-brotli-decoder-cve-2026-111497,A list of Tenable plugins for this vulnerability can be found on the individual CVE page for CVE-2026-111497 as they're released,"Researchers have demonstrated remote code execution through CVE-2026-111497, an out-of-bounds write in Google's Brotli decoder library, and public proofs-of-concept (PoCs) are available. Software that uses the decoder includes Node.js, .NET, Bun, Envoy Proxy, Istio, Python HTTP clients and PHP for Windows.
+
+Change log
+
+Update October 28: Added a section on how reliable exploitation of CVE-2026-111497 has been so far, based on research from ELLIO and Imperva.
+
+Click here to review the change log history
+
+Update October 28: Added a section on how reliable exploitation of CVE-2026-111497 has been so far, based on research from ELLIO and Imperva.
+
+Update October 27: CISA added CVE-2026-111497 to its KEV catalog.
+
+October 26: Original publication.
+
+Key Takeaways
+
+CVE-2026-111497, known as Brotli2Shell and by several other names, is an out-of-bounds write in Google's Brotli decoder library that Google, the CVE Numbering Authority (CNA), scored 9.2 under CVSSv4.0.
+
+Any application that decompresses attacker-controlled data with a vulnerable Brotli decoder is potentially at risk, including Node.js, .NET, Bun, Envoy Proxy, Istio, Python HTTP clients, FFmpeg, Apache Arrow and ClickHouse.
+
+Patches are available for Google Brotli and the major runtimes, though some projects had not shipped a fixed release as of October 26, and applications that bundle their own copy of Brotli each need their own fix.
+
+Background
+
+Tenable's Research Special Operations (RSO) team has compiled this blog to answer Frequently Asked Questions (FAQ) regarding Brotli2Shell, a vulnerability in Google's Brotli C decoder library, which Node.js, .NET and other software embed.
+
+FAQ
+
+What is Brotli2Shell?
+
+Brotli2Shell is one of several names for CVE-2026-111497, a memory corruption flaw in Google's open-source Brotli compression library. Some researchers call it Node2Shell, after Node.js, which disclosed the flaw in its October 21 security advisory. Others use HTTP2Shell, since the same bug reaches HTTP software outside Node.js. It has circulated as Broccoli2Shell as well. We use Brotli2Shell because the bug sits in the Brotli decoder itself, not in any one downstream product.
+
+What is the vulnerability associated with Brotli2Shell?
+
+CVE-2026-111497 is an out-of-bounds write vulnerability in the Google Brotli C decoder library.
+
+CVE
+
+Description
+
+CVSSv4.0
+
+CVE-2026-111497
+
+Google Brotli decoder out-of-bounds write vulnerability
+
+9.2
+
+An attacker can trigger the flaw by getting an application to decompress crafted Brotli data. Two common paths are a compressed HTTP response sent to a client that decompresses it automatically, and a compressed request body sent to a server that decompresses incoming content. The impact ranges from a process crash to potential remote code execution, and the bug can also leak process memory.
+
+Note on severity scoring: Google, as the CNA, scored the flaw 9.2 (CVSSv4.0) with vector CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N. Microsoft rates it 8.1 (CVSSv3.1) for .NET.
+
+When was CVE-2026-111497 first disclosed?
+
+Google committed the upstream fix to the Brotli source repository on February 27. Node.js publicly disclosed the vulnerability on October 21 in its security advisory, the same day Google released fixed Brotli versions. Envoy Proxy and Istio had already shipped fixed releases earlier in October without naming the flaw. NVD published the CVE record on October 22. Brotli 1.2.1 and brotlicffi 1.2.1.0 both reached the Python Package Index (PyPI) on October 22. On October 25, Microsoft released .NET security updates.
+
+What software is affected by CVE-2026-111497?
+
+The risk applies wherever an application decompresses Brotli data an attacker can control, whether that data arrives over HTTP in either direction or inside a file.
+
+Project
+
+Affected versions
+
+Fixed versions
+
+Google Brotli
+
+1.0.3 to 1.0.9, 1.1.0, 1.2.0
+
+1.0.10, 1.1.1, 1.2.1
+
+Node.js
+
+< 22.23.4, < 24.22.1, < 26.12.1
+
+22.23.4, 24.22.1, 26.12.1
+
+Bun
+
+>= 1.0.21, < 1.4.4
+
+1.4.4
+
+Envoy Proxy
+
+<= 1.36.11, <= 1.37.7, <= 1.38.5, <= 1.39.2
+
+1.36.12, 1.37.8, 1.38.6, 1.39.3, 1.40.0
+
+Istio
+
+< 1.29.9, < 1.30.6, < 1.31.2
+
+1.29.9, 1.30.6, 1.31.2
+
+Microsoft .NET 8
+
+< 8.0.33
+
+8.0.33
+
+Microsoft .NET 9
+
+< 9.0.22
+
+9.0.22
+
+Microsoft .NET 10
+
+< 10.0.14
+
+10.0.14
+
+Microsoft .NET 11
+
+< Release Candidate 3
+
+Release Candidate 3
+
+Python Brotli
+
+1.0.3 to 1.2.0
+
+1.2.1
+
+Python brotlicffi
+
+1.0.3 to 1.2.0.x
+
+1.2.1.0
+
+PHP for Windows
+
+Windows builds that bundle Brotli 1.0.3 to 1.2.0
+
+8.2.35-1, 8.3.36-1, 8.4.27-1, 8.5.12-1
+
+Node.js release lines that have reached end of support, including 20, 23 and 25, do not receive a fixed release. Akamai said its telemetry ""shows that 61% of networks are running affected Node.js versions.""
+
+JFrog Security Research showed that the flaw also reaches FFmpeg through the libjxl library, by way of Brotli-compressed metadata in JPEG XL files. JFrog obtained instruction-pointer control in FFmpeg with a crafted JPEG XL file but did not demonstrate code execution. The same research produced an infinite-loop denial of service in Apache Arrow, which uses Brotli for compressed Parquet data, with a crafted 534-byte input, and crashed a tested ClickHouse server with a single malformed Brotli-compressed HTTP request. Python HTTP clients such as urllib3, requests, httpx and aiohttp are also in scope when the Brotli or brotlicffi package is installed.
+
+Does updating the system Brotli library fix the issue?
+
+It depends on where the software gets its decoder. Programs that load the operating system's copy of Brotli pick up the fix once they restart. Node.js, Bun and other applications that ship with a built-in copy keep the flawed decoder until a fixed release of that application is installed.
+
+Is every .NET, Envoy Proxy or Istio installation exposed?
+
+No. These platforms are exposed only when Brotli decompression is in use.
+
+.NET: Microsoft says an application ""is not exposed merely because an affected .NET package is installed,"" and ASP.NET Core request decompression and HttpClient automatic response decompression are off by default. Applications are in scope when they use ASP.NET Core request decompression, HttpClient response decompression, or the Brotli APIs in System.IO.Compression such as BrotliStream and BrotliDecoder. NativeAOT and self-contained applications pick up the fix only when they are rebuilt and redeployed. Microsoft says .NET Framework is not affected.
+
+Envoy Proxy and Istio: Envoy Proxy is exposed only when its Brotli decompressor is configured, and Istio users are potentially affected when they enable Brotli decompression, for example through an EnvoyFilter. Istio 1.29 reached end of support on October 15. Its 1.29.9 release includes the fix.
+
+Is PHP affected by CVE-2026-111497?
+
+PHP's official Windows builds are affected, because they include their own copy of Brotli. On October 26, PHP released updated Windows builds that bundle Brotli 1.2.1. PHP names its cURL extension as the route to the flaw in those builds, once automatic decompression of HTTP responses is enabled. cURL keeps that setting off unless an application or HTTP client library enables it. On other platforms, PHP can still reach a vulnerable decoder through the system Brotli library or through the PHP brotli extension, which bundles its own copy and fixed the flaw in version 0.21.1. The PHP source releases are unchanged, and this flaw is separate from the PHP2Shell vulnerabilities covered in our FAQ.
+
+Is CVE-2026-111497 being exploited in the wild?
+
+On October 26, threat intelligence firm ELLIO reported that its sensors recorded an exploitation attempt against CVE-2026-111497. ELLIO said the attempt targeted Node.js 24.22.0 on x86-64 and combined code copied from public PoCs with an original exploit chain. Tenable has not independently confirmed this activity. On October 27, CISA added CVE-2026-111497 to its Known Exploited Vulnerabilities (KEV) catalog, with a remediation due date of November 10 for Federal Civilian Executive Branch (FCEB) agencies.
+
+Has Tenable Research classified this vulnerability as part of Vulnerability Watch?
+
+Yes. CVE-2026-111497 has been classified as a “Vulnerability of Interest” as part of Vulnerability Watch.
+
+Is there a proof-of-concept (PoC) available for CVE-2026-111497?
+
+Yes. Public PoCs for CVE-2026-111497 are available on GitHub. The Imperva Red Team demonstrated code execution against the official Node.js 24.22.0 Linux arm64 image after multiple attempts, and has not released that exploit. At least one public PoC on GitHub claims code execution against Node.js 24.22.0 under narrow lab conditions. ELLIO said it reproduced code execution against the official Node.js 24.22.0 build on x86-64.
+
+How reliable is exploitation of CVE-2026-111497?
+
+According to ELLIO, an exploit has to be tuned to the specific Node.js build it targets. ELLIO reported that an exploit tuned for the official Node.js 24.22.0 build on x86-64 produced nothing in 10,000 attempts against Node.js 22.23.3 and 26.12.0, which each need their own memory offsets. Even against the matching build, most of ELLIO's 400 lab attempts against an Express server crashed the worker process instead of returning a shell, but where workers restart automatically, an attacker gets repeated tries. The exploit request ELLIO captured in the wild did not produce a shell in 50 lab attempts against a vulnerable Node.js 24.22.0 target. Imperva also needed multiple attempts to achieve code execution against Node.js 24.22.0 on Linux arm64.
+
+Are patches or mitigations available for CVE-2026-111497?
+
+Fixed versions for Google Brotli, Node.js, Bun, Envoy Proxy, Istio, .NET, the Python Brotli packages and PHP for Windows are listed in the table above. As of October 26, ClickHouse had merged a fix without shipping a release, and the Apache Arrow issue remained open.
+
+Patching does not reach code that is already running. The fixed decoder takes effect in a process or scheduled job only after a restart, and in a container only after its image is rebuilt and redeployed.
+
+Where patching is delayed, the Patch the Planet mitigation guide and the broccoli2shell.com tracker list temporary steps that reduce exposure:
+
+Blocking requests marked Content-Encoding: br at the proxy or load balancer, so they stop before anything decompresses them. This step does nothing for applications that fetch Brotli responses from attacker-controlled servers, and turning off Brotli compression on an origin server or CDN has no effect on decompression.
+
+Turning off Brotli decoding in HTTP clients. Taking br out of the Accept-Encoding header falls short by itself, since a hostile server can still reply with Brotli-encoded data.
+
+Disabling the Brotli decompressor filter in Envoy Proxy and Istio in both directions. A disabled filter forwards compressed bytes as they arrive, which leaves any downstream service that decodes Brotli at risk.
+
+Removing the Brotli or brotlicffi package from Python environments until a patched version is in place.
+
+Are there any indicators of compromise for CVE-2026-111497?
+
+ELLIO published the source IP address and a payload hash for the exploitation attempt it observed. They are available in ELLIO's blog post.
+
+Has Tenable released product coverage for CVE-2026-111497?
+
+A list of Tenable plugins for this vulnerability can be found on the individual CVE page for CVE-2026-111497 as they're released. This link will display all available plugins for this vulnerability, including upcoming plugins in our Plugins Pipeline.
+
+Get more information
+
+Node.js: Wednesday, October 21, 2026 Security Releases
+
+JFrog Security Research: Brotli2Shell: Beyond Node(2Shell) and HTTP(2Shell)
+
+Microsoft Security Advisory CVE-2026-111497: .NET Brotli Decoder Out-of-bounds Write Vulnerability
+
+Imperva: Node2Shell: From Brotli Data to Remote Code Execution
+
+PHP: Updated PHP Windows builds for Brotli security fix
+
+ELLIO: Node2Shell: remote code execution on stock Node.js builds (CVE-2026-111497)
+
+Akamai: Inside Node2Shell: A Closer Look at CVE-2026-111497
+
+Patch the Planet: Brotli decoder vulnerability
+
+Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
+
+Learn more about Tenable One, the Exposure Management Platform for the modern attack surface."
+d73bef6baadb,2b62329cc6f4,2026-10-26 15:48 UTC,General Security News,Tenable,Tenable Blog,Threat and Exposure Management; Vulnerability Management; Attack Surface Discovery,Article,Discover and remediate PHP2Shell exposure with Tenable,https://www.tenable.com/blog/discover-and-remediate-php2shell-exposure-with-tenable,""" Hexa returns a summary of what PHP2Shell does, how an attacker might attempt to exploit it, and recommended next steps for exposures found in the environment","Learn how to use Tenable solutions to find vulnerable PHP versions, prioritize remediation, and patch the critical PHP2Shell vulnerabilities (CVE-2026-109618 and CVE-2026-109619) faster.
 
 Key takeaways
 
@@ -328,7 +1868,998 @@ Watch the On-Demand Webinar Using Tenable to close PHP2Shell vulnerabilities: A 
 Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
 
 Learn more about Tenable One, the Exposure Management platform for the modern attack surface."
-63a679ae82ed,72375819775f,2026-10-22 18:04 UTC,"Attacks, Breaches & Threat Intel",Tenable,Tenable Blog,Threat Intelligence; Identity Security Posture Management; Vulnerability Management,Article,The adversary economy: How threat actors are reacting to PHP2Shell,https://www.tenable.com/blog/php2shell-vulnerability-threat-actor-response,"They evaluate this exposure in precisely the same terms as a CISO assessing a critical unpatched vulnerability: the question is not whether someone will attempt exploitation,...","Two critical PHP vulnerabilities sent criminal forum operators scrambling to protect their own infrastructure, revealing that threat actors face the same exposure management challenges as the organizations they target.
+06f5dbc69a9a,06f5dbc69a9a,2026-10-26 15:07 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management; Network Security,Article,[R1] Tenable Network Monitor 6.6.0 Fixes Multiple Vulnerabilities,https://www.tenable.com/security/tns-2026-32,"<span>[R1] Tenable Network Monitor 6.6.0 Fixes Multiple Vulnerabilities</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-26T11:07:43-04:00"" title=""Monday, October 26, 2026 - 11:07"">Mon, 10/26/2026 - 1","[R1] Tenable Network Monitor 6.6.0 Fixes Multiple Vulnerabilities Arnie Cabral Mon, 10/26/2026 - 11:07
+
+Tenable Network Monitor leverages third-party software to help provide underlying functionality. Several of the third-party components (OpenSSL, curl, expat, libxml2) were found to contain vulnerabilities, and updated versions have been made available by the providers.
+
+Out of caution and in line with best practice, Tenable has opted to upgrade these components to address the potential impact of the issues. Tenable Network Monitor 6.6.0 updates OpenSSL to version 3.5.9, curl to version 8.21.0, expat to version 2.9.0 and libxml2 to version 2.15.4 to address the identified vulnerabilities.
+
+Component
+
+CVE ID
+
+Severity
+
+CVSSv3 Base/Temporal
+
+CVSSv3 Vector
+
+OpenSSL
+
+CVE-2026-35189
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-35191
+
+Low
+
+3.7 / 3.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-42772
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-54872
+
+Low
+
+3.7 / 3.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-54873
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-54875
+
+Low
+
+3.7 / 3.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-72897
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-75804
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-75805
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-75806
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-77696
+
+Low
+
+3.7 / 3.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-84784
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-75803
+
+Critical
+
+9.1 / 8.4
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-14456
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-14457
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-18798
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-54874
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-63072
+
+Critical
+
+9.8 / 9.1
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-63073
+
+Critical
+
+9.8 / 9.1
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-63074
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-63075
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-63076
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-34180
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-34181
+
+High
+
+7.4 / 6.9
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-34182
+
+Critical
+
+9.1 / 8.4
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-34183
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-42764
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-42766
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+OpenSSL
+
+CVE-2026-42767
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-3805
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-3784
+
+Medium
+
+6.5 / 6.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-3783
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-1965
+
+Medium
+
+6.5 / 6.0
+
+CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-7168
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-7009
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-6429
+
+Medium
+
+5.3 / 4.9
+
+CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-6276
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-6253
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-5773
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-5545
+
+Medium
+
+6.5 / 6.0
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-4873
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-11586
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-11564
+
+Critical
+
+9.1 / 8.4
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-11352
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-9547
+
+High
+
+7.4 / 6.9
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-9546
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-9545
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-9080
+
+High
+
+7.3 / 6.8
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-9079
+
+Critical
+
+9.8 / 9.1
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8932
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8927
+
+Critical
+
+9.1 / 8.4
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8926
+
+Critical
+
+9.1 / 8.4
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8925
+
+Critical
+
+9.8 / 9.1
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8924
+
+Critical
+
+9.1 / 8.4
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8458
+
+Medium
+
+6.5 / 6.0
+
+CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N/E:F/RL:O/RC:C
+
+curl
+
+CVE-2026-8286
+
+High
+
+8.1 / 7.5
+
+CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-45186
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-50219
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56131
+
+Medium
+
+4.9 / 4.6
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56132
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56403
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56404
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56405
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56406
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56407
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56408
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56409
+
+Medium
+
+6.5 / 6.0
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56410
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56411
+
+Medium
+
+6.9 / 6.4
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-56412
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-66046
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-76641
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-76957
+
+High
+
+7.8 / 7.2
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-76956
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-93990
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-77214
+
+High
+
+8.2 / 7.6
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:L/E:F/RL:O/RC:C
+
+expat
+
+CVE-2026-102633
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-0989
+
+Low
+
+3.7 / 3.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-0990
+
+Medium
+
+5.9 / 5.5
+
+CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-0992
+
+Low
+
+2.9 / 2.7
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-1757
+
+Medium
+
+6.2 / 5.8
+
+CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-6732
+
+High
+
+7.5 / 7.0
+
+CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-74860
+
+High
+
+8.5 / 7.9
+
+CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-76781
+
+Medium
+
+5.5 / 5.1
+
+CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86137
+
+Medium
+
+6.1 / 5.7
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:L/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86138
+
+High
+
+7.8 / 7.2
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86139
+
+High
+
+7.8 / 7.2
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86140
+
+High
+
+7.8 / 7.2
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86141
+
+Low
+
+3.3 / 3.1
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86142
+
+High
+
+7.8 / 7.2
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86143
+
+High
+
+7.3 / 6.8
+
+CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-86144
+
+Medium
+
+5.6 / 5.2
+
+CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:C/C:L/I:L/A:L/E:F/RL:O/RC:C
+
+libxml2
+
+CVE-2026-11979
+
+High
+
+7.8 / 7.2
+
+CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H/E:F/RL:O/RC:C"
+4b58e59ab99e,d49109ad8501,2026-10-23 20:14 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,"[R1] Stand-alone Security Patch Available for Tenable Enclave Security Versions 1.7.0, 1.8.0, 1.9.1: SC-202610.2",https://www.tenable.com/security/tns-2026-31,"<span>[R1] Stand-alone Security Patch Available for Tenable Enclave Security Versions 1.7.0, 1.8.0, 1.9.1: SC-202610.2</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-23T16:14:14-04:00"" title=""Friday","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
+9fbcb7bd8e88,d49109ad8501,2026-10-23 19:52 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,"[R1] Stand-alone Security Patch Available for Tenable Security Center Versions 6.6.0, 6.7.2, 6.8.0, 6.9.1: SC-202610.2",https://www.tenable.com/security/tns-2026-30,"<span>[R1] Stand-alone Security Patch Available for Tenable Security Center Versions 6.6.0, 6.7.2, 6.8.0, 6.9.1: SC-202610.2</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-23T15:52:48-04:00"" title=""","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
+63a679ae82ed,2b62329cc6f4,2026-10-22 18:04 UTC,"Attacks, Breaches & Threat Intel",Tenable,Tenable Blog,Threat Intelligence; Identity Security Posture Management; Vulnerability Management,Article,The adversary economy: How threat actors are reacting to PHP2Shell,https://www.tenable.com/blog/php2shell-vulnerability-threat-actor-response,"They evaluate this exposure in precisely the same terms as a CISO assessing a critical unpatched vulnerability: the question is not whether someone will attempt exploitation,...","Two critical PHP vulnerabilities sent criminal forum operators scrambling to protect their own infrastructure, revealing that threat actors face the same exposure management challenges as the organizations they target.
 
 Key takeaways
 
@@ -411,6 +2942,52 @@ What the Miasma campaign reveals about the new supply chain threat model and the
 Join Tenable’s Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
 
 Learn more about the Tenable One Exposure Management Platform, the exposure management platform for the modern attack surface."
+6200665e4c31,d49109ad8501,2026-10-22 14:37 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,"[R2] Stand-alone Security Patch Available for Tenable Enclave Security Versions 1.7.0, 1.8.0, 1.9.1: SC-202610.1",https://www.tenable.com/security/tns-2026-29,"<span>[R2] Stand-alone Security Patch Available for Tenable Enclave Security Versions 1.7.0, 1.8.0, 1.9.1: SC-202610.1</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-22T10:37:49-04:00"" title=""Thursd","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
+d49109ad8501,d49109ad8501,2026-10-22 14:06 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,"[R2] Stand-alone Security Patch Available for Tenable Security Center Versions 6.6.0, 6.7.2, 6.8.0, 6.9.1: SC-202610.1",https://www.tenable.com/security/tns-2026-28,"<span>[R2] Stand-alone Security Patch Available for Tenable Security Center Versions 6.6.0, 6.7.2, 6.8.0, 6.9.1: SC-202610.1</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-22T10:06:27-04:00"" title=""","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
 5fd53e3cb1be,5fd53e3cb1be,2026-10-22 09:00 UTC,General Security News,Tenable,Tenable Blog,AI Security; Data Security Posture Management; Threat and Exposure Management; Phishing Simulations,Article,"How to contain shadow AI, as it takes on multiple forms and spreads throughout your environment",https://www.tenable.com/blog/how-to-contain-shadow-ai-as-it-takes-on-multiple-forms-and-spreads-throughout-your-environment,"That way, you can see how your security issues combine to create attack paths that lead to your most critical systems and data","Shadow AI used to be confined to a few simple scenarios, such as AI chatbots and AI browser extensions. Today, it spans a broad spectrum of complex vectors, making it harder to detect and control. In the latest installment of our Cybersecurity Awareness Month blog series, learn how employee security training, AI usage governance, and exposure management can help you tackle shadow AI successfully.
 
 Key takeaways
@@ -693,3 +3270,1532 @@ How Tenable One AI Exposure protects multilingual users
 Threat actors do not limit themselves to English, and neither should your defenses. With this work, Tenable One AI Exposure extends the same detection quality (for jailbreaks, prompt injection, harmful content, and data exposure) natively across 10 languages, at production speed and without a translation bottleneck in the request path. As customers adopt AI in more markets and more languages, that multilingual coverage extends with them.
 
 Learn more about Tenable One AI Exposure"
+6d1121ec68e2,2b62329cc6f4,2026-10-21 05:01 UTC,Vulnerabilities & Patching,Tenable,Tenable Cyber Exposure Alerts,Vulnerability Management; Threat Intelligence,Article,"php2shell (CVE-2026-109618, CVE-2026-109619): Frequently asked questions about critical PHP remote code execution vulnerabilities",https://www.tenable.com/blog/php2shell-cve-2026-109618-cve-2026-109619-frequently-asked-questions-about-critical-php-remote,"<p><strong>Two critical PHP vulnerabilities could lead to unauthenticated remote code execution. Patches are available for supported PHP 8.x branches, and exploitation attempts began before public disclosure.</strong></p><div data-sanitized-id=""blog-change-log"" data-sanitized-class=""blog-change-log""","Two critical PHP vulnerabilities could lead to unauthenticated remote code execution. Patches are available for supported PHP 8.x branches, and exploitation attempts began before public disclosure.
+
+Change log
+
+Update October 28: Clarified Amazon Threat Intelligence's wording to say php2shell is seeing broad exploitation attempts in the wild. Added Dream Research's report of a campaign that chained php2shell with the Fragnesia Linux kernel flaw (CVE-2026-46300) to gain root access on firewalls.
+
+Click here to review the change log history
+
+Update October 28: Clarified Amazon Threat Intelligence's wording to say php2shell is seeing broad exploitation attempts in the wild. Added Dream Research's report of a campaign that chained php2shell with the Fragnesia Linux kernel flaw (CVE-2026-46300) to gain root access on firewalls.
+
+Update October 26: CISA added CVE-2026-109618 and CVE-2026-109619 to its KEV catalog. Added details on a regression in PHP 8.4.27 and 8.5.12 and on PHP's October 23 session upload progress advisory. Added a note on restarting PHP services after updating. Added Adel Karimi's report of successful exploitation against honeypot servers and Trail of Bits' report of working exploits against pre-patch PHP releases. Linked our Brotli2Shell FAQ for a separate fix in PHP's Windows builds.
+
+Update October 23: Updated the Tenable Security Center and Tenable Enclave Security patch to SC-202610.2 and added a Tenable knowledge base article.
+
+Update October 23: Added guidance on authenticated scanning and a dedicated view in Tenable Cloud Security. Reorganized the Tenable product coverage section.
+
+Update October 23: Updated the example Tenable Hexa AI prompt.
+
+Update October 22: Added security patch SC-202610.1 for Tenable Security Center and Tenable Enclave Security, plus a CyberAgents Exchange skill for reporting php2shell exposure. Added the status of these vulnerabilities in the CISA Known Exploited Vulnerabilities (KEV) catalog along with CISA's October 21 alert.
+
+Update October 21: Added Amazon Threat Intelligence's report of exploitation attempts beginning October 17, before public disclosure. Added Tenable Nessus plugins, including local checks for PHP packages from Linux distributions, along with guidance on using Tenable Hexa AI to find vulnerable PHP installations and create remediation tickets.
+
+Update October 21: PHP released patches and published its advisories. This post now includes vulnerability details, fixed versions, source backports for end-of-life branches, interim mitigation guidance, updated exploitation details and Tenable product coverage and Vulnerability Watch classification.
+
+October 21: Original publication based on limited public information ahead of PHP's official advisory.
+
+Key takeaways
+
+CVE-2026-109618 and CVE-2026-109619 are critical vulnerabilities in PHP. The PHP security team rates both CVSSv4.0 9.2 and says they can allow unauthenticated remote code execution.
+
+Amazon Threat Intelligence observed an exploitation attempt on October 17, four days before public disclosure. It says php2shell ""is now seeing broad exploitation attempts in the wild."" On October 26, CISA added both CVEs to its Known Exploited Vulnerabilities (KEV) catalog.
+
+On October 21, 2026, PHP released fixes in versions 8.5.12, 8.4.27, 8.3.36 and 8.2.35. End-of-life branches will not receive official releases, but the PHP security team published minimal source backports for PHP 7.4 through 8.1.
+
+Background
+
+Tenable's Research Special Operations (RSO) team has compiled this blog to answer Frequently Asked Questions (FAQ) regarding two critical vulnerabilities in PHP that were announced on October 20, 2026.
+
+FAQ
+
+When were these PHP vulnerabilities first disclosed?
+
+On October 20, 2026, the CVE identifiers circulated on Hacker News and social media. Later that day, the PHP security team published an advance notice of a security release scheduled for October 21 at 14:00 UTC (10:00 AM ET) to address two critical vulnerabilities. The notice said the team could release earlier if details became public or if exploitation appeared in the wild. CERT-EU also published an advisory (2026-018) naming both CVEs. According to the PHP Foundation, the release was originally scheduled for October 22 and was moved up by a day after the CVE identifiers leaked. On October 21, the PHP security team published its security advisory and released patches.
+
+A video shared by researcher Kirill Firsov demonstrates the exploit chain, dubbed php2shell. Firsov credited the video and exploit to researcher LCFR of Calif.io, which has since published a technical writeup. The PHP Foundation credited Calif, OpenAI and Wiz, among others, for their research and responsible disclosure. Calif and Wiz have both said they used AI models in their research.
+
+The PHP security team is giving advance notice: Upcoming security release Wed, Oct 21st 2026, 14:00UTC, two critical vulnerabilities, both rated CVSSv4 9.2.PHP users are encouraged to prepare to update. Earlier release if details become public or active exploit evidence.
+
+— The PHP Foundation (@ThePHPF) October 20, 2026
+
+What are CVE-2026-109618 and CVE-2026-109619?
+
+CVE
+
+Description
+
+CVSSv4.0
+
+CVE-2026-109618
+
+PHP Remote Code Execution Vulnerability (OOM Corruption)
+
+9.2
+
+CVE-2026-109619
+
+PHP Remote Code Execution Vulnerability (Stale Global State)
+
+9.2
+
+CVE-2026-109618 and CVE-2026-109619 are critical remote code execution (RCE) vulnerabilities in PHP. CVE-2026-109618 stems from how PHP handles out-of-memory (OOM) errors. If memory runs out while PHP's internal request data is only partially initialized, the cleanup that follows can treat that data as valid. CVE-2026-109619 is a use-after-free flaw. Leftover state from one request points to freed memory, and a later request handled by the same worker can then use it. According to PHP, both can be exploited by an unauthenticated remote attacker. PHP's advisory for CVE-2026-109619 also lists memory disclosure as a confirmed impact.
+
+PHP says every installation that serves web requests is at risk, including PHP-FPM, Apache with mod_php, php-cgi, FrankenPHP and LiteSpeed. PHP considers the risk highest for mod_php, where a demonstrated exploit can be triggered by an unauthenticated request before any application code runs.
+
+CVSS scores differ across sources. The PHP security team rates both vulnerabilities as CVSSv4.0 9.2. According to the PHP Foundation, the CVE identifiers that circulated before the release came with an incorrect CVSS score of 10.0.
+
+Which PHP versions are affected?
+
+According to Calif's technical writeup, the earliest affected code path it found dates to PHP 5.4.0. The PHP security team released the following fixed versions:
+
+Affected Versions
+
+Fixed Version
+
+PHP 8.5.x before 8.5.12
+
+8.5.12
+
+PHP 8.4.x before 8.4.27
+
+8.4.27
+
+PHP 8.3.x before 8.3.36
+
+8.3.36
+
+PHP 8.2.x before 8.2.35
+
+8.2.35
+
+PHP 7.4.x through 8.1.x
+
+No official release; minimal source backports from the PHP security team
+
+PHP 5.4.x through 7.3.x
+
+End-of-life, no fix from the PHP project
+
+According to PHP, Linux distributions and LTS vendors received the patches in advance. If you use distribution packages, check your vendor's advisories.
+
+On October 26, PHP released updated Windows builds, 8.5.12-1, 8.4.27-1, 8.3.36-1 and 8.2.35-1, that fix a separate vulnerability in their bundled Brotli library, CVE-2026-111497. The PHP source and runtime versions are unchanged. For details, see our Brotli2Shell FAQ.
+
+How widespread is PHP, and how many hosts are potentially affected?
+
+According to W3Techs, PHP is used by 69.3% of websites whose server-side language is known. Platforms such as WordPress, Drupal, Joomla, Laravel and Magento all run on PHP. Calif says it confirmed pre-authentication remote code execution against specific versions of popular PHP applications, including WordPress, Drupal, Joomla and Magento. Security researcher Silas Cutler's rough estimate is that over 1.3 million internet-exposed hosts are potentially vulnerable. A Shodan search by Henk Poley counts over 1.9 million internet-exposed hosts running PHP.
+
+Has exploitation been observed in the wild?
+
+On October 21, Cloudflare CTO Dane Knecht said the company is ""seeing early attacks emerging"" and is updating its mitigations as new attack vectors appear. watchTowr says it has reproduced both vulnerabilities and is observing exploitation attempts against both.
+
+Amazon Threat Intelligence said it observed a php2shell exploitation attempt against its MadPot honeypot network on October 17, four days before public disclosure. It said it is unclear how the attacker obtained exploit information. More attempts followed on October 21, with payloads and infrastructure that Amazon says suggest multiple actors. Amazon says it is unclear whether any of the October 21 attempts would have succeeded against real-world systems. It also says php2shell ""is now seeing broad exploitation attempts in the wild."" It recommends starting investigations from at least October 17, not from the disclosure date.
+
+On October 24, security researcher Adel Karimi reported successful exploitation against three honeypot servers running PHP 8.4.26. The exploit requests started shells that ran attacker commands. The report says the activity is consistent with CVE-2026-109618, and that it does not show use of CVE-2026-109619. It also says the traffic closely matches a family of publicly available proof-of-concept exploits. The honeypots used a single-worker Apache mod_php setup that was intentionally favorable to the exploit, and the report says the results are not a measure of how reliably the exploit works on other setups.
+
+On October 26, Dream Research reported finding artifacts of a campaign that chained a custom php2shell exploit with CVE-2026-46300, a Linux kernel privilege escalation flaw known as Fragnesia that we covered in a separate FAQ. According to Dream, the attacker gained root access on 24 internet-facing firewalls from an unnamed vendor, then used the same chain on an internal firewall management server reached through one of them. Some of these systems ""appeared to belong to a US government-affiliated environment."" Dream said the php2shell exploit was not a public one and needed precise memory offsets for each version of the firewall software. Dream has not named the vendor or the affected versions, and Tenable has not independently confirmed this activity.
+
+PHP sites behind Cloudflare already have an initial set of WAF rules deployed for the known exploit vectors in these vulnerabilities. The rules are available to all customers, including free.We are seeing early attacks emerging and are updating mitigations as new vectors show up.This is a STOPGAP only. Patch as soon as @ThePHPF releases the update at 14:00 UTC today.
+
+— Dane Knecht 🦭 (@dok2001) October 21, 2026
+
+Is there a proof-of-concept (PoC) available?
+
+Code claiming to exploit these vulnerabilities is circulating publicly, but we have not verified that any of it works against CVE-2026-109618 or CVE-2026-109619. Unverified exploit code is sometimes laced with malware, so treat it with caution. The PHP Foundation said the PHP security team inspected PoCs that appeared after the leak but ""did not identify any functional exploits at the time of release/public disclosure.""
+
+Since then, on October 26, Trail of Bits said it confirmed that php2shell exploits work against pre-patch releases of PHP 8.2 through 8.5, and its demo showed a shell on MediaWiki, Symfony, Laravel and phpBB.
+
+Are patches or mitigations available?
+
+Yes. The PHP security team released fixed versions on October 21 (see the table above). For end-of-life branches, it published minimal source backports for PHP 7.4 through 8.1, for those who build from source. If you run another end-of-life version, upgrade to a supported release or ask your distribution or LTS vendor.
+
+The PHP security team says updating is the only complete fix. For organizations that cannot update immediately, PHP's advisory lists configuration changes that reduce exposure to specific attack paths but do not make an installation safe. For CVE-2026-109618, PHP lists setting memory_limit=-1 in a way applications cannot override. For CVE-2026-109619, it lists setting session.upload_progress.enabled=0 and, on PHP 8.5, fatal_error_backtraces=0. PHP says to restart every PHP worker after these changes. PHP also suggests a container or cgroup memory limit as an availability boundary, though it says this is not a complete mitigation either.
+
+Installing updated PHP packages does not patch PHP processes that are already running. Google Cloud's guidance, which includes input from Mandiant, notes that PHP-FPM, Apache and other services that run PHP keep the vulnerable code in memory until they are restarted. The same guidance says to capture worker memory from servers that show signs of probing before restarting them, because a restart erases that evidence.
+
+CERT-EU also recommends that organizations that cannot update right away consider isolating internet-facing applications from public networks until a fix is applied and verified.
+
+Cloudflare has deployed WAF rules for the known exploit vectors, available to all customers including the free tier. Cloudflare describes this as a stopgap only. The rules only cover traffic routed through Cloudflare.
+
+Are there known issues with the new PHP releases?
+
+PHP developers confirmed a regression in PHP 8.4.27 and 8.5.12 that can crash PHP processes in some applications that use the SimpleXML extension. It is tracked as php-src issue #24488. PHP developers traced it to a separate garbage collector fix included in those releases, not to the patches for CVE-2026-109618 or CVE-2026-109619. A fix has been merged into the PHP source but, as of October 26, has not shipped in a release.
+
+On October 23, PHP published an informational advisory about what it calls an unlikely remote code execution vector in session upload progress, tracked as CVE-2026-115560. PHP says it only occurs under an unusual combination of configuration and application code. Until its next regular bugfix release, PHP suggests setting session.upload_progress.enabled=0, the same setting its CVE-2026-109619 advisory listed as a mitigation.
+
+Have PHP vulnerabilities been exploited before?
+
+Yes. Before php2shell, the CISA Known Exploited Vulnerabilities (KEV) catalog included three vulnerabilities in PHP itself. Two of them are known to have been used in ransomware campaigns:
+
+CVE
+
+Product
+
+Added to KEV
+
+Ransomware Use
+
+Tenable Blog
+
+CVE-2024-4577
+
+PHP (CGI)
+
+2024
+
+Known
+
+CVE-2024-4577: Proof of Concept Available for PHP-CGI Argument Injection Vulnerability
+
+CVE-2019-11043
+
+PHP-FPM
+
+2022
+
+Known
+
+CVE-2019-11043: Vulnerability in PHP-FPM Could Lead to Remote Code Execution on nginx
+
+The third, CVE-2012-1823, is a PHP-CGI flaw that CVE-2024-4577 later bypassed.
+
+Have these vulnerabilities been added to the CISA KEV catalog?
+
+Yes. On October 26, CISA added CVE-2026-109618 and CVE-2026-109619 to the KEV catalog, with a remediation due date of October 29 for Federal Civilian Executive Branch (FCEB) agencies.
+
+Has Tenable Research classified these vulnerabilities as part of Vulnerability Watch?
+
+Yes. CVE-2026-109618 and CVE-2026-109619 have been classified as “Vulnerability of Concern” as part of Vulnerability Watch.
+
+Is Tenable affected by these vulnerabilities?
+
+Tenable Security Center and Tenable Enclave Security include PHP. Out of caution, Tenable released stand-alone security patch SC-202610.2 for both products on October 23. It updates PHP to 8.2.35. Details are available in TNS-2026-30 for Tenable Security Center and TNS-2026-31 for Tenable Enclave Security. Tenable customers can find patch release notes in this knowledge base article. Advisories for Tenable products are published at tenable.com/security.
+
+Has Tenable released any product coverage for these vulnerabilities?
+
+Yes. The following Tenable Nessus plugin is available for these vulnerabilities:
+
+Plugin ID
+
+Name
+
+369483
+
+PHP < 8.2.35 / 8.3.x < 8.3.36 / 8.4.x < 8.4.27 / 8.5.x < 8.5.12 Multiple Vulnerabilities
+
+Tenable has also released local checks for PHP packages from Linux distributions, including Debian, Red Hat Enterprise Linux, Fedora and Gentoo. Additional distribution plugins will be released as vendors publish their fixes.
+
+The following Tenable One Web App Scanning plugins are available for these vulnerabilities:
+
+Plugin ID
+
+Name
+
+115719
+
+PHP 8.5.x < 8.5.12 Multiple Vulnerabilities
+
+115720
+
+PHP 8.4.x < 8.4.27 Multiple Vulnerabilities
+
+115721
+
+PHP 8.3.x < 8.3.36 Multiple Vulnerabilities
+
+115722
+
+PHP 8.2.x < 8.2.35 Multiple Vulnerabilities
+
+The following Tenable plugins are available to identify PHP installations and unsupported versions on affected systems:
+
+Plugin ID
+
+Name
+
+48243
+
+PHP Version Detection
+
+58987
+
+PHP Unsupported Version Detection
+
+200476
+
+PHP Scripting Language Installed (Windows)
+
+216936
+
+PHP Scripting Language Installed (Unix)
+
+A list of Tenable plugins for these vulnerabilities can be found on the individual CVE pages for CVE-2026-109618 and CVE-2026-109619 as they're released. These links will display all available plugins for these vulnerabilities, including upcoming plugins in our Plugins Pipeline.
+
+Do scans need to be authenticated?
+
+For PHP installed on hosts, credentialed or agent scans give the most complete results. Tenable Nessus plugin 369483 uses both local and remote checks. An unauthenticated scan can detect a vulnerable version only if the host exposes its PHP version over the network, so results vary by host. For web applications, Tenable One Web App Scanning plugins 115719 to 115722 work without authentication and check the PHP version the application exposes.
+
+How can Tenable customers find affected assets?
+
+Tenable One Vulnerability Management customers can use the Software tab in Explore to find assets running PHP. Filter by Product is equal to PHP, then compare each asset's PHP version against the fixed versions above. The tab is populated from scan results, so run credentialed or agent scans regularly to keep it current.
+
+Customers can also use Tenable One Attack Surface Management to find public-facing assets running PHP with this query: Programming Languages contains PHP.
+
+Tenable Cloud Security now has a dedicated view for PHP2Shell. It lists every detected instance of these vulnerabilities, and customers can filter or group results to find affected virtual machines and images, including AMIs and container images. Customers can find it under Risk > Emerging Threats.
+
+Tenable One customers can also use Tenable Hexa AI to find assets running vulnerable PHP versions in their organization and automatically create remediation tickets.
+
+An example Tenable Hexa AI prompt:
+
+Find all open vulnerability findings for CVE-2026-109618 or CVE-2026-109619 on assets seen in the last 14 days. Create remediation tickets for all systems vulnerable to CVE-2026-109618 and CVE-2026-109619. Assign the severity level as Critical and the due date as Immediate.
+
+Customers using the Tenable Hexa AI MCP can use the PHP2Shell Tenable Skill and other open-source AI agents available on the CyberAgents Exchange. The skill is read-only and produces a php2shell exposure report in HTML and PDF, with a CSV export.
+
+Get more information
+
+PHP Foundation on X: Advance notice of upcoming security release
+
+PHP.net Security Advisory: Critical remote code execution vulnerabilities
+
+PHP GitHub Advisory GHSA-w8hw-w9fx-j79w: RCE via OOM corruption (CVE-2026-109618)
+
+PHP GitHub Advisory GHSA-6wmf-4rv5-p3rp: RCE via stale global state (CVE-2026-109619)
+
+PHP Foundation: Today's PHP security release and how we're strengthening PHP security
+
+Calif: php2shell technical writeup
+
+Amazon Threat Intelligence: PHP2Shell exploitation prior to public disclosure in MadPot
+
+Adel Karimi: PHP2Shell exploitation observed: packet-to-process RCE evidence
+
+CERT-EU Security Advisory 2026-018
+
+Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
+
+Learn more about Tenable One, the Exposure Management Platform for the modern attack surface."
+fcebfb500052,fcebfb500052,2026-10-20 17:58 UTC,Vulnerabilities & Patching,Tenable,Tenable Cyber Exposure Alerts,Vulnerability Management,Article,Oracle October 2026 Critical Patch Update Addresses 1209 CVEs,https://www.tenable.com/blog/oracle-october-2026-critical-patch-update-addresses-1209-cves,"9% of all patches Background On October 20, Oracle released its Critical Patch Update (CPU) for October 2026, the final quarterly update of the year","Oracle addresses 1209 CVEs in its final quarterly update of 2026 with 1295 patches, including 112 critical updates.
+
+Key Takeaways
+
+The October 2026 Critical Patch Update (CPU) contains fixes for 1209 unique CVEs in 1295 security updates
+
+112 issues (8.6% of all patches) were assigned a critical severity rating
+
+Oracle Fusion Middleware received the highest number of patches at 206, accounting for 15.9% of all patches
+
+Background
+
+On October 20, Oracle released its Critical Patch Update (CPU) for October 2026, the final quarterly update of the year. This CPU contains fixes for 1209 unique CVEs in 1295 security updates across 33 Oracle product families. Out of the 1295 security updates published this quarter, 8.6% of patches were assigned a critical severity. Medium severity patches accounted for the bulk of security patches at 47.3%, followed by high severity patches at 36.7%.
+
+This quarter's update includes 112 critical patches across 95 CVEs.
+
+Severity
+
+Issues Patched
+
+CVEs
+
+Critical
+
+112
+
+95
+
+High
+
+475
+
+439
+
+Medium
+
+613
+
+582
+
+Low
+
+95
+
+93
+
+Total
+
+1295
+
+1209
+
+Analysis
+
+This quarter, the Oracle Fusion Middleware product family contained the highest number of patches at 206, accounting for 15.9% of the total patches, followed by Oracle E-Business Suite at 194 patches, which accounted for 15% of the total patches.
+
+A full breakdown of the patches for this CPU can be seen in the following table, which also includes a count of vulnerabilities that can be exploited over a network without authentication.
+
+Oracle Product Family
+
+Number of Patches
+
+Remote Exploit without Auth
+
+Oracle Fusion Middleware
+
+206
+
+134
+
+Oracle E-Business Suite
+
+194
+
+31
+
+Oracle Siebel CRM
+
+122
+
+66
+
+Oracle Communications
+
+110
+
+77
+
+Oracle PeopleSoft
+
+109
+
+41
+
+Oracle JD Edwards
+
+102
+
+44
+
+Oracle MySQL
+
+98
+
+29
+
+Oracle Java SE
+
+55
+
+49
+
+Oracle Supply Chain
+
+50
+
+19
+
+Oracle Essbase
+
+38
+
+14
+
+Oracle REST Data Services
+
+35
+
+11
+
+Oracle Analytics
+
+33
+
+14
+
+Oracle Systems
+
+28
+
+9
+
+Oracle Database Server
+
+14
+
+4
+
+Oracle Construction and Engineering
+
+13
+
+7
+
+Oracle Enterprise Manager
+
+12
+
+2
+
+Oracle GoldenGate
+
+11
+
+3
+
+Oracle Trusted Answer Search
+
+8
+
+1
+
+Oracle Utilities Applications
+
+8
+
+7
+
+Oracle Secure Backup
+
+6
+
+3
+
+Oracle Virtualization
+
+6
+
+0
+
+Oracle Autonomous Health Framework
+
+5
+
+1
+
+Oracle Financial Services Applications
+
+5
+
+Oracle Retail Applications
+
+5
+
+Oracle TimesTen In-Memory Database
+
+4
+
+0
+
+Oracle HealthCare Applications
+
+4
+
+Oracle Hospitality Applications
+
+4
+
+Oracle Commerce
+
+3
+
+2
+
+Oracle APEX
+
+2
+
+Oracle Application Testing Suite
+
+2
+
+0
+
+Oracle Global Lifecycle Management
+
+1
+
+0
+
+Oracle NoSQL Database
+
+1
+
+Oracle SQL Developer
+
+1
+
+Solution
+
+Customers are advised to apply all relevant patches in this CPU. Please refer to the October 2026 advisory for full details.
+
+Identifying affected systems
+
+A list of Tenable plugins to identify these vulnerabilities will appear here as they're released. This link uses a search filter to ensure that all matching plugin coverage will appear as it is released.
+
+Get more information
+
+Oracle Critical Patch Update Advisory - October 2026
+
+Oracle October 2026 Critical Patch Update Risk Matrices
+
+Oracle Advisory to CVE Map
+
+Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
+
+Learn more about Tenable One, the Exposure Management Platform for the modern attack surface."
+7997bfb2d718,7997bfb2d718,2026-10-13 17:49 UTC,Vulnerabilities & Patching,Tenable,Tenable Cyber Exposure Alerts,Vulnerability Management; Server & Workload Protection,Article,Microsoft’s October 2026 Patch Tuesday addresses 1407 CVEs (CVE-2026-96951),https://www.tenable.com/blog/microsofts-october-2026-patch-tuesday-addresses-1407-cves-cve-2026-96951,"<ol data-sanitized-class=""blog-severity-badges""><li data-list-item-id=""e2a781ec300b24d10c1a7cd2464f45748"" data-sanitized-class=""blog-severity-badges critical""><span data-sanitized-class=""number"">69</span>Critical</li><li data-list-item-id=""e5899adc6c1c643ec4ca12db2be77fd6b"" data-sanitized-class=""blo","69Critical
+
+1337Important
+
+0Moderate
+
+1Low
+
+Microsoft addresses 1407 CVEs in the tenth Patch Tuesday of 2026, marking the second consecutive month to reset the bar as the largest Patch Tuesday release. This month’s updates include patches for two zero days, including one that was exploited in the wild.
+
+Microsoft patched 1,407 CVEs in its October 2026 Patch Tuesday release, with 69 rated critical, 1,337 rated as important, and one rated as low.
+
+This month’s update includes patches for 301 products and components. The following table lists the products with the most CVEs patched this month. A full list of patched products is available in the appendix.
+
+Rank
+
+Product
+
+CVE Count
+
+1
+
+Microsoft Office Excel
+
+69
+
+2
+
+Role: DNS Server
+
+52
+
+3
+
+Windows Kernel
+
+46
+
+4
+
+Windows Installer
+
+38
+
+5
+
+Windows Win32 Kernel Subsystem
+
+36
+
+6
+
+Microsoft Office SharePoint
+
+34
+
+7
+
+Microsoft Windows Search Component
+
+29
+
+8
+
+Windows NTFS
+
+26
+
+9
+
+.NET
+
+25
+
+10 (Tie)
+
+Microsoft Office Word
+
+22
+
+10 (Tie)
+
+SQL Server
+
+22
+
+10 (Tie)
+
+Windows Error Reporting
+
+22
+
+Elevation of Privilege (EoP) vulnerabilities accounted for 47.9% of the vulnerabilities patched this month, followed by remote code execution (RCE) vulnerabilities at 22.3%.
+
+Important
+
+CVE-2026-96951 | Windows Shell security feature bypass vulnerability
+
+CVE-2026-96951 is a security feature bypass vulnerability affecting Windows Shell. It received a CVSSv3 score of 8.8 and was rated as important. According to Microsoft, this vulnerability was exploited in the wild as a zero-day.
+
+An attacker could exploit this vulnerability using social engineering tactics, via email or messages, to convince their target to open a malicious file. Successful exploitation would bypass the Mark of the Web (MOTW) security feature.
+
+This is the third flaw in Windows Shell that was exploited in the wild in 2026: CVE-2026-21510 was patched in February 2026’s Patch Tuesday while CVE-2026-32202 was patched in April 2026’s Patch Tuesday.
+
+Important
+
+CVE-2026-108398 |.NET Framework security feature bypass vulnerability
+
+CVE-2026-108398 is a security feature bypass vulnerability affecting.NET Framework. It received a CVSSv3 score of 8.8 and is rated as important. It was publicly disclosed prior to a patch being available.
+
+An attacker could exploit this vulnerability by registering a malicious.NET assembly on a vulnerable system to be loaded by a protected process. Successful exploitation would allow the attacker to bypass Windows Defender Application Control (WDAC).
+
+Critical
+
+CVE-2026-70229 | Windows Active Directory Domain Services remote code execution vulnerability
+
+CVE-2026-70229 is an RCE vulnerability affecting Windows Active Directory Domain Services (AD DS). It received a CVSSv3 score of 8.1 and is rated as critical. Microsoft assesses this vulnerability as “Exploitation More Likely” according to Microsoft’s Exploitability Index.
+
+An attacker could exploit this vulnerability by sending a crafted packet to the vulnerable AD DS service. Successful exploitation could grant an attacker code execution on the vulnerable system.
+
+Important
+
+CVE-2026-70279 | Microsoft Exchange Server spoofing vulnerability
+
+CVE-2026-70279 is a spoofing vulnerability affecting Microsoft Exchange Server. It received a CVSSv3 score of 9.3 and is rated as important. It was assessed as “Exploitation More Likely.” An attacker could exploit this vulnerability by convincing a target through social engineering to click on a malicious link. Successful exploitation against a target with administrative privileges would allow an attacker to access or modify organizational data.
+
+Critical
+
+CVE-2026-70571 | Microsoft Exchange Server remote code execution vulnerability
+
+CVE-2026-70571 is a remote code execution vulnerability affecting Microsoft Exchange Server. It received a CVSSv3 score of 8.1 and is rated as critical. It was assessed as “Exploitation More Likely.”
+
+An attacker could exploit this vulnerability by sending a malicious email to a vulnerable Microsoft Exchange server that would cause it to process the email using internal content-conversion. Successful exploitation would allow an attacker the ability to execute code on the Exchange server.
+
+Additional notable CVEs
+
+The following CVEs also merit attention based on severity, exploitability, or CVSSv3 score:
+
+CVE
+
+Product
+
+Impact
+
+CVSSv3
+
+Exploitability
+
+Notes
+
+CVE-2026-100214
+
+Dynamics Business Central
+
+Remote Code Execution
+
+8.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-102217
+
+WebDAV
+
+Elevation of Privilege
+
+8.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69918
+
+Windows Core Messaging
+
+Elevation of Privilege
+
+8.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-88159
+
+Windows Background Intelligent Transfer Service (BITS)
+
+Remote Code Execution
+
+8.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-96940
+
+Microsoft Exchange Server
+
+Elevation of Privilege
+
+8.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69673
+
+Windows Update
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69718
+
+Windows Update
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69733
+
+Windows Update
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69783
+
+Windows Update
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69880
+
+Desktop Window Manager
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69882
+
+Windows Update
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69923
+
+Windows AI
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-69926
+
+Desktop Window Manager
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+CVE-2026-70054
+
+Windows NetBIOS
+
+Elevation of Privilege
+
+7.8
+
+Exploitation More Likely
+
+Important
+
+Windows Server 2012 End of Support
+
+On October 13, the final year of Extended Security Updates (ESU) for Windows Server 2012 and Windows Server 2012 R2 ended. Microsoft will no longer release security updates for either version. To identify unsupported versions of Windows Server 2012, customers can use plugin ID 192813. To check the ESU status of Windows Server 2012 and 2012 R2 hosts, customers can use plugin ID 182965.
+
+Extended support for Windows 10 Enterprise 2016 Long-Term Servicing Branch (LTSB) and Windows 10 IoT Enterprise LTSB 2016 also ended on October 13. To identify Windows 10 Enterprise 2016 LTSB, customers can use plugin ID 192817.
+
+Windows Server 2022 End of Mainstream Support
+
+October 13, 2026 marks the end of mainstream support for Windows Server 2022. This month’s security update is the last one issued under mainstream support. The product now enters extended support, where it will continue receiving monthly security updates at no additional cost through October 14, 2031. Organizations still running Windows Server 2022 can begin evaluating an upgrade path to Windows Server 2025, the current LTSC release, which carries mainstream support through November 2029 and extended support through November 2034.
+
+Additional Microsoft Products End of Support
+
+As of October 13, several Microsoft products have reached end of support. Since these products will no longer receive security updates, we recommend upgrading to supported versions as soon as possible.
+
+Office 2021
+
+Office LTSC 2021
+
+Office LTSC 2021 for Mac
+
+Skype for Business LTSC 2021
+
+Windows 11 Home and Pro Version 24H2
+
+Tenable solutions
+
+A list of all the plugins released for Microsoft’s October 2026 Patch Tuesday update can be found here. As always, we recommend patching systems as soon as possible and regularly scanning your environment to identify those systems yet to be patched.
+
+For more specific guidance on best practices for vulnerability assessments, refer to our blog post on How to Perform Efficient Vulnerability Assessments with Tenable.
+
+Product Appendix
+
+.NET
+
+.NET Framework
+
+.NET and Visual Studio
+
+ASP.NET Core
+
+Active Directory Certificate Services (AD CS)
+
+Active Directory Domain Services
+
+Active Directory Federation Services (AD FS)
+
+Azure Active Directory
+
+Azure Arc
+
+Azure CycleCloud
+
+Azure DevOps
+
+Azure HDInsight
+
+Azure Key Vault
+
+Azure Storage Library
+
+Connected Devices Platform Service (Cdpsvc)
+
+Desktop Window Manager
+
+Dynamics Business Central
+
+Function Discovery Service (fdwsd.dll)
+
+Graphic Fonts
+
+HID Parser Library
+
+HID class driver
+
+Internet Explorer
+
+Linux Kernel
+
+Microsoft Account
+
+Microsoft Azure Attestation service and Device Health Attestation Service
+
+Microsoft Bluetooth Driver
+
+Microsoft COM for Windows
+
+Microsoft Configuration Manager
+
+Microsoft Defender
+
+Microsoft Defender for Endpoint
+
+Microsoft Digest Authentication
+
+Microsoft Exchange Server
+
+Microsoft Failover Cluster Virtual Driver
+
+Microsoft Graphics Component
+
+Microsoft Input Method Editor (IME)
+
+Microsoft Internet Messaging API
+
+Microsoft Local Security Authority Server (lsasrv)
+
+Microsoft MPEG-2 Video Extension
+
+Microsoft Office
+
+Microsoft Office Access
+
+Microsoft Office Click-To-Run
+
+Microsoft Office Excel
+
+Microsoft Office OneNote
+
+Microsoft Office Outlook
+
+Microsoft Office PowerPoint
+
+Microsoft Office SharePoint
+
+Microsoft Office Visio
+
+Microsoft Office Word
+
+Microsoft PostScript Printer Driver
+
+Microsoft Power Apps
+
+Microsoft PowerShell
+
+Microsoft PowerToys
+
+Microsoft QUIC
+
+Microsoft Scripting Engine
+
+Microsoft Streaming Service
+
+Microsoft Trace Data Helper
+
+Microsoft Windows Codecs Library
+
+Microsoft Windows Media Foundation
+
+Microsoft Windows PDF
+
+Microsoft Windows Search Component
+
+Microsoft XML
+
+Network Device Enrollment Service (NDES)
+
+Network Policy Server (NPS)
+
+OpenSSH for Windows
+
+Python
+
+Quality Windows Audio/Video Experience (QWAVE) service
+
+RPC Endpoint Mapper Service
+
+RPC Runtime
+
+Reliable Multicast Transport Driver (RMCAST)
+
+Remote Access Point-to-Point Protocol (PPP) EAP-TLS
+
+Remote Desktop Client
+
+Remote Desktop Display Driver
+
+Remote Desktop Gateway Service
+
+Role: DNS Server
+
+SQL Server
+
+SQLite
+
+Servicing Stack Updates
+
+Skype for Business and Microsoft Lync
+
+Software Protection Platform (SPP)
+
+SysInternals
+
+Virtual Hard Disk (VHD) Miniport Driver
+
+Visual Studio Code
+
+Visual Studio Tools for Applications and SQL Server Management Studio
+
+WebDAV
+
+Windows AI
+
+Windows ALPC
+
+Windows Advanced Rasterization Platform
+
+Windows Aggregated Data Platform Service
+
+Windows Ancillary Function Driver for WinSock
+
+Windows AppX Deployment Extensions
+
+Windows AppX Deployment Service
+
+Windows Application Compatibility Cache
+
+Windows Assigned Access
+
+Windows Audio Service
+
+Windows Autopilot
+
+Windows Background Intelligent Transfer Service (BITS)
+
+Windows Backup Engine
+
+Windows Bind Filter Driver
+
+Windows Biometric Service
+
+Windows BitLocker
+
+Windows Bluetooth A2DP driver
+
+Windows Bluetooth Port Driver
+
+Windows Bluetooth Service
+
+Windows Broadcast DVR User Service
+
+Windows CCFFilter Driver
+
+Windows CD-ROM Driver
+
+Windows COM+ Event System Service
+
+Windows Camera Frame Server Monitor
+
+Windows Cash Drawer Protocol Provider
+
+Windows Certificates
+
+Windows Client License Service
+
+Windows Client Side Caching driver (csc.sys)
+
+Windows Client for NFS
+
+Windows Client-Side Caching (CSC) Service
+
+Windows Clipboard Server
+
+Windows Clipboard User Service
+
+Windows Cloud Files Mini Filter Driver
+
+Windows Common Log File System Driver
+
+Windows Composite Image File System
+
+Windows Connected Devices Platform Service
+
+Windows Connected User Experiences and Telemetry
+
+Windows Console Driver
+
+Windows Container Isolation FS Filter Driver
+
+Windows Container Isolation FS Filter Driver (unionfs.sys)
+
+Windows Core Messaging
+
+Windows Credential Guard
+
+Windows Credential Manager
+
+Windows Credential Providers
+
+Windows Cryptographic Services
+
+Windows DCOM Server
+
+Windows DHCP Client
+
+Windows DHCP Server
+
+Windows DNS
+
+Windows DWM Core Library
+
+Windows Defender Firewall Service
+
+Windows Deployment Services
+
+Windows Device Association Service
+
+Windows Device Install Service
+
+Windows Diagnostic Policy Service
+
+Windows Direct Composition
+
+Windows Distributed File System (DFS)
+
+Windows EAPHost Service
+
+Windows Embedded Mode Service
+
+Windows Encrypting File System (EFS)
+
+Windows Enterprise App Management
+
+Windows Error Reporting
+
+Windows Event Logging Service
+
+Windows Event Tracing
+
+Windows Event Viewer
+
+Windows Failover Cluster
+
+Windows Fast FAT Driver
+
+Windows Fax and Scan Service
+
+Windows GDI
+
+Windows GDI+
+
+Windows Geotag Broker
+
+Windows Graphics Kernel
+
+Windows Group Policy
+
+Windows HTTP.sys
+
+Windows Health and Optimized Experiences Service
+
+Windows Hello
+
+Windows Host Guardian Service
+
+Windows Hyper-V
+
+Windows IKE Extension
+
+Windows IP Over USB Service
+
+Windows Image Acquisition
+
+Windows Imaging Component
+
+Windows Input System
+
+Windows Installer
+
+Windows Internal System User Profile
+
+Windows Internet (wininet.dll)
+
+Windows Internet Connection Sharing (ICS)
+
+Windows Internet Information Services
+
+Windows Internet Key Exchange (IKE) Protocol
+
+Windows Kerberos
+
+Windows Kernel
+
+Windows Kernel Mode Driver
+
+Windows Kernel-Mode Drivers
+
+Windows Key Distribution Center
+
+Windows Key Storage Provider
+
+Windows Libarchive
+
+Windows Local Security Authority (LSA)
+
+Windows Local Security Authority Subsystem Service (LSASS)
+
+Windows MIDI Service Module
+
+Windows Management Instrumentation
+
+Windows Management Services
+
+Windows Media
+
+Windows Media Player
+
+Windows Media Video Decoder
+
+Windows Message Queuing
+
+Windows Message Queuing Queue Manager
+
+Windows Mobile Broadband
+
+Windows Mobile Device Management
+
+Windows Modern Device Management (MDM)
+
+Windows NDIS
+
+Windows NTFS
+
+Windows NTLM
+
+Windows NetBIOS
+
+Windows Netlogon
+
+Windows Network File System
+
+Windows Network List Service
+
+Windows Network Load Balancing
+
+Windows Notification
+
+Windows Now Playing Session Manager
+
+Windows OLE
+
+Windows OLE DB
+
+Windows Overlay Filter
+
+Windows PCI Bus Driver
+
+Windows Paint
+
+Windows Partition Management Driver
+
+Windows Perception Simulation Service
+
+Windows Performance Monitor
+
+Windows Phone Service
+
+Windows Portable Device Enumerator Service
+
+Windows Portable Device File System Driver
+
+Windows Portable Device MTP Driver
+
+Windows PowerShell
+
+Windows Print Spooler Components
+
+Windows Program Compatibility Assistant Service
+
+Windows Projected File System
+
+Windows Push Notifications
+
+Windows Quality of Service (QoS) Packet Scheduler
+
+Windows RNDIS
+
+Windows Raw Image Extension
+
+Windows Registry
+
+Windows Remote Access Connection Manager
+
+Windows Remote Access Service Infrastructure
+
+Windows Remote Desktop
+
+Windows Remote Desktop Protocol
+
+Windows Remote Desktop Services
+
+Windows Remote POS Driver
+
+Windows Resilient File System (ReFS)
+
+Windows Resilient File System (ReFS) Deduplication Service
+
+Windows Resource Management (MRM)
+
+Windows Resume
+
+Windows Rich Text Edit Control
+
+Windows Routing and Remote Access Service (RRAS)
+
+Windows SMB Client
+
+Windows SMB Server
+
+Windows Schannel
+
+Windows Secure Boot
+
+Windows Secure Kernel Mode
+
+Windows Secure Socket Tunneling Protocol (SSTP)
+
+Windows Security Account Manager
+
+Windows Security App
+
+Windows Security Center
+
+Windows Security Support Provider Interface
+
+Windows Sensor Data Service
+
+Windows Server Update Service
+
+Windows Server for NFS
+
+Windows Setup Files Cleanup
+
+Windows Setup and Deployment
+
+Windows Shell
+
+Windows Smart Card
+
+Windows SmartScreen
+
+Windows Spaceport.sys
+
+Windows StateRepository API
+
+Windows Storage
+
+Windows Storage Port Driver
+
+Windows Storage Spaces Controller
+
+Windows Storage VSP Driver
+
+Windows Storport Miniport Driver
+
+Windows Subsystem for Linux
+
+Windows Sysmain Service
+
+Windows System Information Console
+
+Windows TCP/IP
+
+Windows Telephony Server
+
+Windows Text Services Framework
+
+Windows Text Shaping
+
+Windows UEFI
+
+Windows UI Immersive Server
+
+Windows USB Driver
+
+Windows USB Print Driver
+
+Windows USB Video Driver
+
+Windows Universal Disk Format File System Driver (UDFS)
+
+Windows Universal Plug and Play (UPnP) Device Host
+
+Windows Update
+
+Windows Update Delivery Optimization
+
+Windows Update Orchestrator Service
+
+Windows Update Service
+
+Windows Update Stack
+
+Windows User Profile Service
+
+Windows VHD miniport driver
+
+Windows VMSwitch
+
+Windows Virtual Input
+
+Windows Virtualization-Based Security (VBS) Enclave
+
+Windows Volume Manager Extension Driver
+
+Windows WLAN Service
+
+Windows WalletService
+
+Windows Web Account Manager
+
+Windows Wi-Fi Driver
+
+Windows Win32 Kernel Subsystem
+
+Windows Win32K
+
+Windows Win32K - GRFX
+
+Windows Win32K - ICOMP
+
+Windows Wired AutoConfig Service
+
+Windows Work Folders
+
+Windows Workstation Service
+
+Windows exFAT File System
+
+Windows iSCSI
+
+Windows kernel32.dll
+
+Winlogon
+
+Get more information
+
+Microsoft’s October 2026 Security Updates
+
+Tenable plugins for Microsoft October 2026 Patch Tuesday Security Updates"

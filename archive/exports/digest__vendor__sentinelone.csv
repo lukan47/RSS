@@ -342,6 +342,336 @@ Attacks on retail and food-industry refrigeration predate the 2026 incidents, wi
 In the French cases, ANSSI’s assessment at the time pointed to exposed management interfaces and weak passwords, conditions that guidance from CERT-FR and the joint advisory addresses directly.
 
 The public record does not yet establish who was responsible for the European incidents or whether they form a single campaign. Further incidents are likely wherever the same access conditions remain."
+8201b8bf9263,8201b8bf9263,2026-10-30 17:29 UTC,General Security News,SentinelOne,SentinelOne Blog,Vulnerability Management; Threat Intelligence; Endpoint Security; Network Security,Article,"The Good, the Bad and the Ugly in Cybersecurity - Week 44 (2026)",https://www.sentinelone.com/blog/the-good-the-bad-and-the-ugly-in-cybersecurity-week-44-8/,"Public proof-of-concept exploits allow local attackers to execute arbitrary code with root permissions on major Linux distributions running kernels released before May 13, 2026","The Good | Global Response Continues for PHP2SHELL Exploit Attempts & Defenders Dismantle Global Cybercrime Rings
+
+This past week, cyber defenders responded to a cluster of vulnerability disclosures and security incidents collectively dubbed “Black October,” spanning flaws in PHP2SHELL, Node.js, GitLab, and Brotli, a software supply chain attack in LiteLLM, and compromised certificate authority keys at eMudhra.
+
+Despite PHP2SHELL affecting roughly 70% of websites worldwide, mass, internet-wide exploitation of the kind seen with Log4SHELL hasn’t materialized. PHP2SHELL lacks a universal offset, since heap layouts, memory alignments, and worker states differ by PHP version, build, and SAPI configuration, and attackers must craft specific request streams to line up memory blocks before triggering the underlying out-of-memory error.
+
+That complexity hasn’t stopped targeted compromises against systems, but it has kept broad, automated attacks from succeeding at scale. CISA added both PHP2SHELL CVEs to its Known Exploited Vulnerabilities catalog, with a remediation deadline of October 29 for federal agencies.
+
+International law enforcement this week also delivered major blows against cybercrime syndicates. Authorities extradited Chinese national Zheng Zhao from the Netherlands to California over an alleged multimillion-dollar cryptocurrency investment scheme that defrauded 174 American victims through fake trading platforms.
+
+A U.S. federal court sentenced Ukrainian national Artem Stryzhak to 70 months in prison for conspiring to deploy Nefilim and Hive ransomware against hospitals, law firms, and other targets.
+
+Finally, an international law enforcement coalition seized the domain of Virtualine, a “bulletproof” hosting provider that marketed itself to criminals for “all illegal/black hat activities”. Court records tie the seizure to Virtualine hosting child sexual abuse material (CSAM) and non-consensual intimate imagery despite repeated takedown notices, plus money laundering that concealed the proceeds. Virtualine had also offered to quietly migrate a customer’s infrastructure to a shell company after law enforcement made contact.
+
+The Bad | Threat Actors Chain Fragnesia Linux Flaw with PHP2SHELL to Root PAN-OS Firewalls
+
+As part of Black October, researchers are warning that a high-severity Linux kernel privilege escalation flaw is being actively chained with the PHP2SHELL vulnerabilities. Tracked as CVE-2026-46300 and dubbed “Fragnesia,” the flaw stems from a logic defect in the Linux XFRM ESP-in-TCP subsystem that leaves stale page-cache writes exploitable for root access. Public proof-of-concept exploits allow local attackers to execute arbitrary code with root permissions on major Linux distributions running kernels released before May 13, 2026.
+
+In response to active in-the-wild exploitation, CISA added Fragnesia to the KEV Catalog and mandated federal agencies patch affected systems under Binding Operational Directive 26-04, noting that threat actors are pairing it with the PHP2SHELL RCE flaws: exploiting PHP2SHELL first to implant a web shell, then using Fragnesia to escalate from that shell to full root control.
+
+Security researchers uncovered a complete attack operation featuring custom weaponized exploit chains, target lists, detailed activity logs, and roughly 40 custom post-exploitation scripts. The campaign successfully rooted 25 PAN-OS firewall and management servers, whose web interface runs on PHP, across the United States, Japan, Taiwan, and South Korea, including three systems in a U.S. government-affiliated environment.
+
+Chaining an unauthenticated web flaw with a local kernel privilege escalation means patching either one alone isn’t enough. Closing the web shell’s entry point still leaves the root escalation path open on any system running a vulnerable kernel.
+
+The Ugly | Silent Fix for Brotli Decoder Exposes Node2Shell Vulnerability
+
+Security researchers uncovered a critical memory corruption vulnerability in the open-source Brotli compression decoder used across much of the web. Tracked as CVE-2026-111497 with a CVSS score of 9.2, the flaw, variously named Node2Shell, HTTP2Shell, and Broccoli2Shell by the researchers who worked on it, stems from an out-of-bounds write when handling invalid stream block switches during decompression. It affects Brotli versions 1.0.3 through 1.2.0, reaching major language runtimes and web frameworks including Node.js, Python, and .NET.
+
+The flaw’s timeline stretches back further than its public disclosure. Upstream developers quietly fixed the underlying code on February 27 without a security advisory or CVE, and the vulnerability wasn’t publicly identified until a researcher team reported it in October.
+
+Coordinated disclosure landed October 21, and fixes followed in waves: Python’s package registry shipped updates October 22 and 23, a Ruby gem update followed October 24, and .NET received an out-of-band patch on October 25, the same day researchers demonstrated working code execution on x86-64 against Node.js. Separate research into FFmpeg the same day produced a reproducible crash rather than confirmed code execution. Edge and hosting providers rolled out interim firewall mitigations within hours of the initial disclosure.
+
+CISA added CVE-2026-111497 to its KEV catalog on October 27, requiring federal remediation by November 10. Because proxy-level filtering doesn’t protect outbound client requests or file-based attack paths, closing this gap means upgrading the underlying Brotli library and rebuilding affected applications, not just patching at the network edge."
+dada58ea9430,15b5fe82f315,2026-10-30 15:06 UTC,Vulnerabilities & Patching,SentinelOne,SentinelOne Blog,Vulnerability Management,Article,Stopping Node2Shell: How SentinelOne Protects Customers From Brotli-Based Remote Code Execution,https://www.sentinelone.com/blog/stopping-node2shell-sentinelone-protects-customers-from-brotli-based-RCE/,"Exploitation in the Wild Exploitation attempts have been recorded, but a successful attack on a production system has not been publicly reported as of October 29, 2026","Executive Summary
+
+On October 21, 2026, the Node.js project released security updates that fix CVE-2026-111497, an out-of-bounds write in the Brotli decoder bundled with the runtime. Vendors have labeled the vulnerability Node2Shell, Brotli2Shell, Broccoli2Shell, and HTTP2Shell, because the flaw sits in Google's Brotli library and reaches software well beyond Node.js. Any application that decompresses attacker-controlled data with a vulnerable Brotli library could be at risk. Google, as the CVE Numbering Authority, scored it 9.2 under CVSS v4.0, and Node.js rates it high.
+
+CISA added CVE-2026-111497 to its Known Exploited Vulnerabilities (KEV) catalog on October 27, 2026, with a November 10, 2026 deadline for federal civilian agencies. The public telemetry we reviewed shows exploitation attempts against honeypot sensors, and researchers have demonstrated code execution in lab environments. As of October 29, 2026, we are not aware of a public report of a confirmed compromise of a production system.
+
+This report details Node2Shell's mechanism, affected versions, and observed activity, and outlines how SentinelOne customers and partners can strengthen their defenses.
+
+Key Highlights
+
+One flaw, many patches. Node.js, Google Brotli, Bun, .NET, Python, Envoy, Istio, and PHP for Windows each shipped their own fix. Updating one does not update the others.
+
+Attempts are confirmed. Production compromise is not. ELLIO and Previdian have each recorded an exploitation attempt against their honeypot sensors. Previdian notes that such observations do not show the target was vulnerable or that the attempt succeeded.
+
+A default Node.js server is not exposed by itself. Something must hand attacker-controlled Brotli data to the decoder. Node.js names direct node:zlib use. Express 5 request bodies and built-in fetch() responses reach the same decoder, and Imperva reproduced both in the lab.
+
+A failed exploit still costs you. The Node.js advisory lists a crash as an outcome, and Sysdig reports that crashes have been easy to reproduce. Repeated crashes are a denial of service against any service that decodes attacker-influenced Brotli.
+
+The fix was visible for nearly eight months before release. Google committed it on February 27, 2026, with no release and no advisory. End-of-life Node.js 20, 23, and 25 are not expected to receive a fix.
+
+Organizations should take the following steps immediately:
+
+Upgrade Node.js to 22.23.4, 24.22.1, or 26.12.1, then restart processes and rebuild container images.
+
+Inventory every other runtime and library that embeds the Brotli decoder, and patch internet-facing services first.
+
+Where patching must wait, reject inbound requests that carry Content-Encoding: br at the proxy or load balancer.
+
+What is Node2Shell
+
+Node2Shell is a memory corruption flaw in the Brotli decoder, the code that expands Brotli-compressed data. A Brotli stream signals switches between block types. When a stream declares only one block type, a switch is invalid and the decoder should reject it. The vulnerable decoder instead reported the invalid switch as a request for more input. The caller supplied more bytes, and the decoder kept appending them to an eight-byte internal buffer and wrote past its end, according to the Node.js advisory.
+
+Node.js lists the outcomes as a crash, disclosure of process memory, or remote code execution, and the CVE record describes the attacker as unauthenticated. Imperva demonstrated code execution on the official Node.js 24.22.0 arm64 image. Microsoft describes the .NET impact as information disclosure, denial of service, or elevation of privilege.
+
+Node2Shell at a Glance
+
+Attribute
+
+Detail
+
+CVE
+
+CVE-2026-111497, also called Brotli2Shell, Broccoli2Shell, and HTTP2Shell
+
+Weakness
+
+Unchecked return value (CWE-252) leading to an out-of-bounds write (CWE-787). No authentication required.
+
+Severity
+
+CVSS v4.0 9.2 (Google, CNA). Node.js: high.
+
+Affected Component
+
+Google Brotli 1.0.3 through 1.0.9, 1.1.0, and 1.2.0, bundled or linked by many products
+
+How Attacker-Controlled Brotli Reaches the Decoder
+
+Path
+
+Condition
+
+Inbound request bodies
+
+Routes that use express.json(), express.urlencoded(), express.text(), or express.raw() in Express 5 or body-parser 2 decompress bodies sent with Content-Encoding: br by default. Any client can send one.
+
+Outbound responses
+
+Built-in fetch() decodes Brotli automatically, so a malicious or compromised server can target the client.
+
+Direct calls
+
+Applications that pass untrusted input to zlib.brotliDecompress() or zlib.createBrotliDecompress().
+
+Disclosure Timeline
+
+Date (2026)
+
+Event
+
+February 27
+
+Google commits the upstream fix with no release and no advisory.
+
+October 21
+
+Node.js discloses CVE-2026-111497. Google releases Brotli 1.0.10, 1.1.1, and 1.2.1.
+
+October 22
+
+Imperva demonstrates code execution on arm64. CVE record is published.
+
+October 25
+
+Microsoft releases out-of-band .NET security updates.
+
+October 27
+
+CISA adds the CVE to the KEV catalog.
+
+Exploitation in the Wild
+
+Exploitation attempts have been recorded, but a successful attack on a production system has not been publicly reported as of October 29, 2026. CISA added CVE-2026-111497 to its KEV catalog on October 27, 2026, with a November 10, 2026 deadline for federal civilian agencies under BOD 26-04.
+
+The public telemetry comes from honeypots. Two threat intelligence providers each recorded an attempt: ELLIO saw a request built for Node.js 24.22.0 on x86-64 on October 26, and Previdian saw one from a U.S.-based address on October 27. Previdian notes that such observations do not show the target was vulnerable or that the attempt succeeded.
+
+Researchers have reproduced code execution only in lab testing. Imperva ran code on the official Node.js 24.22.0 arm64 image through fetch() and Express 5 request bodies, needed multiple attempts, and did not test every Node.js build. Public proof-of-concept code appeared within hours of the October 21 release, according to Sysdig, so organizations should expect further attempts, particularly against internet-facing Express 5 services.
+
+Observed Indicators
+
+Type
+
+Indicator
+
+IP Address
+
+94[.]154[.]43[.]7
+
+SHA-256
+
+7fcbdaaecd4419e2930927844f3b772668204737a4e7602a2290c991c93c5c4b
+
+Behavior
+
+A Node.js process that starts or becomes a shell
+
+Patch Status
+
+Node.js has fixed every supported release line: 22.x, 24.x, and 26.x. It will not patch end-of-life lines, which the project says are always affected when a security release occurs. Organizations running Node.js 20, 23, or 25 have no patch to apply and must upgrade to a supported line.
+
+Product
+
+Affected Version
+
+Fixed Version
+
+Node.js
+
+22.x before 22.23.4, 24.x before 24.22.1, 26.x before 26.12.1
+
+22.23.4, 24.22.1, 26.12.1
+
+Node.js 20, 23, 25
+
+All versions
+
+No fix. Move to a supported line
+
+Google Brotli
+
+1.0.3 through 1.0.9, 1.1.0, 1.2.0
+
+1.0.10, 1.1.1, 1.2.1
+
+Bun
+
+1.0.21 through 1.4.3
+
+1.4.4
+
+Microsoft .NET
+
+8 before 8.0.33, 9 before 9.0.22, 10 before 10.0.14, 11 before RC3. Exposed only where Brotli decompression is in use. .NET Framework is not affected.
+
+8.0.33, 9.0.22, 10.0.14, 11 RC3
+
+PHP for Windows
+
+Builds that bundle Brotli 1.0.3 through 1.2.0
+
+8.2.35-1, 8.3.36-1, 8.4.27-1, 8.5.12-1
+
+Python Brotli, brotlicffi
+
+Bundled Brotli 1.0.3 through 1.2.0 (brotlicffi up to 1.2.0.2)
+
+Brotli 1.2.1, brotlicffi 1.2.1.0
+
+Envoy Proxy
+
+1.36.11, 1.37.7, 1.38.5, and 1.39.2
+
+1.36.12, 1.37.8, 1.38.6, 1.39.3, 1.40.0
+
+Istio
+
+1.29.x before 1.29.9, 1.30.x before 1.30.6, 1.31.x before 1.31.2
+
+1.29.9, 1.30.6, 1.31.2
+
+Recommended Mitigations
+
+Patch, Restart, and Rebuild
+
+Upgrade to a fixed Node.js release, update every Dockerfile that pins an older tag, and restart or redeploy every workload.
+
+Confirm patch status from the Node.js release version running in each workload, not a bundled library version string, which may not reflect a backported fix.
+
+Find Every Copy of the Decoder
+
+Inventory Bun, .NET, Python Brotli, Envoy, Istio, PHP for Windows, and statically built executables, including staging, CI, build images, and developer machines.
+
+Where Node.js links the system Brotli library, as it does on Debian, check your distribution’s advisory for the Node.js package as well as brotli. Debian’s tracker lists both.
+
+PHP for Windows fixed the flaw with rebuilt packages that keep the same PHP version number, so php -v looks the same before and after. Check the -1 build suffix or the SHA-256 on the download page.
+
+Move off Node.js 20, 23, and 25 on a defined date.
+
+Reduce Exposure Until Patching Finishes
+
+Reject requests with Content-Encoding: br at the WAF or proxy, or set the body-parser inflate option to false so compressed bodies return HTTP 415. The second option also rejects gzip and deflate bodies, so test client traffic first.
+
+Restrict server-side fetches to trusted destinations. Link previews, webhooks, and crawlers send attacker-influenced URLs into fetch(), and removing br from Accept-Encoding does not stop a hostile server from replying with Brotli.
+
+Enable a vendor WAF rule as a stopgap where one exists. It does not replace the upgrade.
+
+Limit the Blast Radius
+
+Run Node.js services as a non-root user and limit outbound connections from Node.js hosts. Docker runs containers as root by default, and the official node image provides a node user (uid 1000) that you must select with USER or -u.
+
+Watch for Failed Attempts
+
+Alert on repeated worker crashes after requests with Content-Encoding: br. Where core dumps are enabled, restrict who can read them and shorten retention, because a core file can hold memory contents from other users’ sessions.
+
+How SentinelOne Protects You
+
+Node2Shell exploits the Brotli decoder inside the Node.js process. Patching Node.js and every other copy of the Brotli decoder remains the primary control. SentinelOne provides detection and visibility into post-exploitation behavior while that work is underway.
+
+The Singularity agent builds a storyline of process activity on a host, including the Node.js services targeted by Node2Shell. These processes have a predictable life: they answer requests, call APIs, and read files. They do not normally start /bin/sh, run reconnaissance commands, download executables into /tmp, or open connections to arbitrary hosts. Behavioral detection looks for that deviation from normal behavior.
+
+Detection in Singularity AI SIEM
+
+Platform detection content looks at what happens on the host after exploitation, not at the request body.
+
+Attacker Step
+
+Telemetry
+
+Visible Indicators
+
+Code execution in the service
+
+Process creation
+
+Shell processes whose lineage or prior image is node, nodejs, or bun, including an in-place exec, followed by enumeration utilities (id, whoami, uname, hostname) or sensitive file reads
+
+Tooling download
+
+Process creation, File creation
+
+Downloaders (curl, wget, interpreters) fetching to world-writable paths, and executables written and then run from /tmp
+
+Files written by the service
+
+File creation
+
+A Node.js service account writing new executables or scripts outside its normal application paths
+
+Shell and C2
+
+Process creation, IP Connect
+
+Shell processes with a socket as standard input or output, socket-redirection patterns (/dev/tcp, nc, socat), and unexpected outbound connections from Node.js service accounts
+
+Novel child process
+
+First-seen analytics
+
+A Node.js process that starts or becomes a shell or image it has never run in that environment
+
+Correlation rules tie these together. A request to the service, or an outbound fetch to an untrusted host, followed by a process spawn or file drop from the same Node.js process is the shape of a successful chain.
+
+Visibility at the Edge
+
+Sysdig reports that the crash is easy to reproduce, which makes repeated worker crashes and restarts a useful early signal. Web server, WAF, and CDN logs may show requests with Content-Encoding: br followed by bursts of HTTP 5xx responses and unexplained worker restarts. Singularity AI SIEM can ingest those sources alongside endpoint data if you forward them.
+
+Hunt with Purple AI While You Patch
+
+Patching is the only complete fix. While that work runs, analysts can ask Purple AI questions such as:
+
+Show me shell processes whose parent or prior image was node, nodejs, or bun since October 21.
+
+Show me new executable files written by the Node.js service account since October 21.
+
+Show me outbound connections from the Node.js service account to destinations we have never seen.
+
+Show me hosts with a spike in 500 responses followed by a Node.js process restart.
+
+The last question depends on web server logs being ingested.
+
+Confirm Agent Saturation on Node.js Hosts
+
+Confirm the agent is deployed, healthy, and in protect mode on every server and container host that runs Node.js, Bun, or another service that decompresses Brotli. Start with internet-facing Express 5 services and services that fetch external URLs.
+
+Disclaimer
+
+Information contained herein is current as of October 29, 2026, and is subject to change as patch releases and threat activity evolve. Recipients should not rely solely on this report for security decisions and should consult with their security teams and SentinelOne account representatives for current guidance."
 5a724f5fb9e1,5a724f5fb9e1,2026-10-28 13:00 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelLabs,AI Security,Article,LABScon26 Replay | Keynote: A Sober Analysis of AI Impact,https://www.sentinelone.com/labs/labscon26-replay-keynote-a-sober-analysis-of-ai-impact/,"He concludes that at present the only good AI research is safety research, which he defines broadly to include economic and emotional security alongside computer security","In his LABScon 26 keynote, delivered in his inimitable comedic style, Harvard University professor James Mickens questions whether the scale of current AI investment is justified. Starting from US tech capex of roughly 1.4% of GDP in the second quarter of 2025, he argues that computers are already good enough, and notes that the world has so many CPUs and GPUs that they are put to work solving cryptocurrency puzzles to make imaginary money. More seriously, the AI models that investment is building, he says, grow increasingly opaque as their parameter counts rise.
 
 Mickens then cites research and incident reports on model behaviour, including models acting to prevent another model being shut down and recent sandbox escapes at OpenAI and other labs. On economics, he rejects the assumptions that AI will create more jobs than it destroys and that universal basic income will follow widespread automation.
@@ -357,7 +687,48 @@ James Mickens is a Gordon McKay Professor of Computer Science at Harvard Univers
 About LABScon
 
 This presentation was featured live at LABScon 2026, an immersive 3-day conference bringing together the world’s top cybersecurity minds, hosted by SentinelOne’s research arm, SentinelLABS."
-396eb9e0fdc7,72375819775f,2026-10-21 19:21 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelOne Blog,Server & Workload Protection; Vulnerability Management; Identity Security Posture Management; AI Security,Article,Stopping PHP2SHELL: How SentinelOne Protects Customers From This Attack Technique,https://www.sentinelone.com/blog/stopping-php2shell-how-sentinelone-protects-customers-from-this-attack-technique/,"The detection by the agent is agnostic to the vulnerability and exploit chain and focuses on attackers activity following the exploit, including but not limited to, installation...","Executive Summary
+c8148a7aaa01,c8148a7aaa01,2026-10-23 17:18 UTC,General Security News,SentinelOne,SentinelOne Blog,AI Security; Identity Security Posture Management; Threat Intelligence; Email and Collaboration Security,Article,"The Good, the Bad and the Ugly in Cybersecurity - Week 43 (2026)",https://www.sentinelone.com/blog/the-good-the-bad-and-the-ugly-in-cybersecurity-week-43-8/,The early probe activity indicates that threat actors acquired vulnerability details while the security flaws remained under embargo,"The Good | Courts Sentence Tax Fraudster, Interpol Disrupts African Cybercrime, and Ex-AI Engineer Faces Wiretapping Charges
+
+A U.S. district court has sentenced Nigerian national Chukwuemeka Victor Amachukwu to eight years in prison for conducting spearphishing attacks against tax preparation firms. Following his extradition, Amachukwu has pleaded guilty to computer intrusion and wire fraud charges.
+
+Between 2019 and 2021, he and his co-conspirators breached accounting networks across multiple U.S. states, compromising the tax and personally identifiable information (PII) of at least 800 clients. They also filed fraudulent tax returns and disaster loan applications, stealing over $3.3 million. The court sentenced Amachukwu to one year of supervised release and ordered him to pay $3.6 million in restitution and forfeit nearly $11 million.
+
+Also this week, Interpol coordinated Operation Serengeti III alongside 21 countries and private-sector partners to disrupt cybercrime networks across Africa, with crimes ranging from business email compromise (BEC) to various scams.
+
+Executed between June and August 2026, the joint crackdown resulted in 1,462 arrests, the dismantling of 10,909 malicious infrastructures, and the recovery of more than $105 million in illicit proceeds. In total, the investigation identified 65,929 victims with losses estimated to be over $385 million.
+
+Finally, a U.S. judge has ordered the detention of former OpenAI engineer Abdulrahman Alfozan for alleged corporate espionage at the company's San Francisco office. Prosecutors revealed that the Saudi national installed customized, encrypted audio recording devices in executive conference rooms in hopes of capturing sensitive corporate conversations.
+
+Investigation filings exposed frequent encrypted communications between Alfozan and a Saudi Royal Family member, seeking to recruit him for a state AI initiative. Federal agents arrested Alfozan just days prior to his scheduled one-way flight to Saudi Arabia and now he faces a maximum of five years in prison if convicted.
+
+The Bad | China-Linked Actor Deploys Agentic AI in Cloud Supply Chain Attacks
+
+A suspected Chinese-state aligned threat actor has leveraged an agentic AI framework to execute a supply chain compromise against ConnectWise Cloud Backup, automating attacks across hundreds of global organizations.
+
+Active since at least 2021 and historically reliant on botnet infrastructure for evasive password spraying, the group was seen using ARTEX, a Go-based, multi-agent LLM penetration testing system, to conduct offensive operations at machine speed. By deploying AI agents configured to work around the clock, the threat actors drastically reduced the time from initial targeting to achieving privileged cloud access to under three hours in multiple targeted environments.
+
+The actor leveraged ARTEX to automate scanning, reconnaissance, password spraying, and OAuth application abuse across a broad range of sectors, including aerospace, defense, energy, financial services, government, and technology.
+
+Between October 10 and October 14, 2026, the attackers launched an automated cross-tenant password-spray campaign from dedicated infrastructure, generating over 151,000 failed logon events that peaked on October 11 at 2,900 failures per minute. Then on October 15, the AI agents acquired control of identities associated with multiple ConnectWise cloud applications, using pre-granted permissions to authenticate to downstream Microsoft 365 customer environments without requiring interactive user logins.
+
+Once authenticated, the agents ran Microsoft Graph operations to perform directory reconnaissance, alter privileged roles, and modify application credentials. By adding unauthorized credentials to existing OAuth applications, the AI agents established persistent backdoors that remain active even after remediating the primary backup software.
+
+The campaign saw ARTEX attempt sign-ins across more than 2,250 tenants, narrowing the response window. In response to the intrusion, ConnectWise has temporarily suspended services to isolate infrastructure and implement containment measures.
+
+The Ugly | PHP Drops Urgent Fixes for 'PHP2Shell' RCE Flaws Targeted Before Disclosure
+
+Emergency security updates came from the PHP security team this week to patch two critical remote code execution (RCE) vulnerabilities, collectively tracked as “PHP2Shell”, that affect core PHP runtimes across enterprise web servers. Rated CVSS 9.2 and identified as CVE-2026-109618 and CVE-2026-109619, the flaws stem from memory management and error handling defects when requests terminate unexpectedly.
+
+The vulnerabilities impact all PHP installations serving web traffic, including Apache with mod_php, PHP-FPM, and php-cgi, as well as FrankenPHP and LiteSpeed. Risk is particularly severe on mod_php servers, where unauthenticated requests trigger memory corruption before any application code executes, rendering content management system security controls ineffective against initial exploitation.
+
+The emergency releases (PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35) followed advance warnings triggered when technical details leaked online prior to coordinated disclosure. Amazon Threat Intelligence detected exploitation probes targeting honeypots beginning October 17, four days before official patches were published. The early probe activity indicates that threat actors acquired vulnerability details while the security flaws remained under embargo.
+
+The underlying weakness had gone unresolved for two years: a 2024 audit flagged the same out-of-memory condition but couldn’t prove it was exploitable. AI-assisted auditing under OpenAI’s “Patch the Planet” program changed that, turning the long-standing weakness into confirmed working remote code execution.
+
+PHP states that applying runtime updates is the only complete fix. Interim configurations, such as disabling session upload progress or restricting memory limits, only partially close specific attack paths.
+
+While patching remains the primary control, SentinelOne Singularity agents detect post-exploitation behavior at the operating system level, identifying when web worker processes spawn system shells, write web shells into document roots, or initiate unauthorized outbound network connections."
+396eb9e0fdc7,2b62329cc6f4,2026-10-21 19:21 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelOne Blog,Server & Workload Protection; Vulnerability Management; Identity Security Posture Management; AI Security,Article,Stopping PHP2SHELL: How SentinelOne Protects Customers From This Attack Technique,https://www.sentinelone.com/blog/stopping-php2shell-how-sentinelone-protects-customers-from-this-attack-technique/,"The detection by the agent is agnostic to the vulnerability and exploit chain and focuses on attackers activity following the exploit, including but not limited to, installation...","Executive Summary
 
 On October 21, 2026, the PHP project released versions 8.5.12, 8.4.27, 8.3.36, and 8.2.35 to fix two critical vulnerabilities, CVE-2026-109618 and CVE-2026-109619, both rated CVSS v4.0 9.2. The two flaws are known together as PHP2Shell. They were disclosed by the security firms Calif and Wiz and by OpenAI, working with the PHP security team, after AI-assisted auditing turned an out-of-memory weakness that a 2024 audit had flagged but could not prove exploitable into working remote code execution.
 
@@ -740,6 +1111,173 @@ SentinelOne Black October Webinar
 Disclaimer
 
 Information contained herein is current as of October 21, 2026, and is subject to change as patch releases and threat activity evolve. Recipients should not rely solely on this report for security decisions and should consult with their security teams and SentinelOne account representatives for current guidance."
+4528ae3fa873,4528ae3fa873,2026-10-19 13:00 UTC,Vulnerabilities & Patching,SentinelOne,SentinelOne Blog,Endpoint Security,Article,Bring Your Own Vulnerable Driver: What Detection Teams Should Actually Hunt,https://www.sentinelone.com/blog/bring-your-own-vulnerable-driver-what-detection-teams-should-actually-hunt/,"""EDR killer,"" a tool built to shut down endpoint detection and response (EDR), is one phrase doing the work of four different attacks","Bring your own vulnerable driver (BYOVD) is having a moment in endpoint security. Some of the buzz is earned. Some of it is overblown. This series unpacks both and shows the evidence for each. This piece turns the noise into specific behavior a detection team can hunt.
+
+""EDR killer,"" a tool built to shut down endpoint detection and response (EDR), is one phrase doing the work of four different attacks. Detection teams treat it as a single thing and write one rule that catches one technique and misses the other three. The fix is to split the category and hunt each one on its own telemetry.
+
+The four techniques share a goal and little else. Bring-your-own-vulnerable-driver loads a signed but flawed driver and drives kernel termination through it. Bring-your-own-installer abuses a trusted installer or upgrade path to swap the agent out. Admin-to-kernel walks an already-elevated session into Ring 0 through a documented gap. Driverless suspension never touches the kernel and freezes or filters the agent from user space. One detection cannot see all four.
+
+The cost of conflating them is a coverage gap you cannot see. A single driver-load rule looks like coverage for ""EDR killers,"" but the bring-your-own-installer and driverless paths leave no driver-load event at all, so that rule is silent while the agent dies.
+
+Four Techniques, Four Hunts
+
+Each leaves a distinct footprint. Below is the taxonomy and the observable to hunt for each.
+
+Technique
+
+What the attacker does
+
+Primary observable
+
+Telemetry source
+
+Bring-your-own-vulnerable-driver
+
+Loads a signed, flawed driver and issues kernel termination through it
+
+Driver load with untrusted or first-seen signature, then a service create
+
+Sysmon Event ID 6, System Event 7045
+
+Bring-your-own-installer
+
+Abuses a trusted installer or upgrade path to replace the agent
+
+Unexpected agent upgrade or reinstall outside change windows
+
+Install or upgrade events against a change-window baseline
+
+Admin-to-kernel
+
+Walks an elevated session into the kernel through a known gap
+
+Kernel-callback removal, loss of expected kernel telemetry
+
+EDR kernel-callback integrity reporting
+
+Driverless suspension
+
+Freezes or filters the agent from user space, no driver
+
+Process suspension or telemetry-egress blocking with no driver load
+
+Process-state events, WFP filter changes, agent heartbeat
+
+Each hunt gets the same treatment: the observable, the telemetry source and event ID, the rule logic in plain terms, and the false-positive consideration. A detection engineer can ship the first one this week, and the rest follow as the baselines clean up.
+
+Hunt One: Bring-your-own-vulnerable-driver
+
+Bring-your-own-vulnerable-driver is the loudest of the four and the first one to instrument. The live LOLDrivers project tracks thousands of vulnerable signed drivers, most reachable without admin rights, a deep supply of signed-but-flawed kernel access with mature, copyable detection logic already in the public domain.
+
+The primary observable is a driver load that does not match a trusted, previously-seen signature. Sysmon Event ID 6 is the core signal, logging each driver load with ImageLoaded, Hashes, Signed, Signature, and SignatureStatus. Any SignatureStatus other than Valid warrants investigation.
+
+Two signature-based detections are worth building directly. The first keys on the driver-load signature status itself: alert on any driver load whose signature status is not Valid, which catches the signature-enforcement bypass and the BYOVD loader chain. The second is a first-seen detection: alert on a driver whose hash, signer, or version has never been seen on the host before, so anomalous drivers surface on first load instead of after the kill.
+
+The false-positive consideration is real. Patch cycles introduce new signers and hashes constantly, and a first-seen rule will flare on legitimate new software. Published detection content that joins Event ID 6 driver loads against a known-bad driver table ships with an explicit false-positive warning. Plan for a tuning period and an allowlist before this rule goes to a 24/7 queue.
+
+The SentinelOne® Annual Threat Report reaches the same conclusion for hunting at scale, urging teams to chase suspicious behavior rather than specific hashes or file names. It names kernel-mode drivers derived from POORTRY used to kill EDR and delete security files, the posture every hunt below adopts.
+
+POORTRY is the canonical signed-driver kill primitive defenders hunt. SentinelLABS traced the STONESTOP loader and the POORTRY kernel driver, which received a process-kill IOCTL to terminate security tools. The driver carried valid WHQL signatures, later revoked under advisory ADV220005. A signed kernel driver issuing process-termination IOCTLs is the behavior this hunt exists to catch.
+
+Know your coverage baseline before you trust prevention to backstop this hunt. The attack surface reduction (ASR) rule blocks a vulnerable signed driver from being written to disk. It does not block a driver already present from loading, so a driver the blocklist policy would block keeps running until reboot and an in-progress kill chain survives policy activation. The CodeIntegrity Operational log Event ID 3099 confirms when the blocklist policy is applied on a host. It does not catch an attack. It tells you whether your driver-blocking policy is live.
+
+Hunt Two: The Kill Chain As a Correlation Target
+
+The strongest version of the loud hunt is the ordered sequence, because a single event tells you far less than the chain it belongs to. Public research documents the full bring-your-own-vulnerable-driver chain and its detection points. It runs as sc.exe service create (Sysmon Event ID 1) plus a service install (System Event 7045), then a driver load at Event ID 6, then a DeviceIoControl device-control call (IOCTL), then callback removal and security-process termination.
+
+Correlating that ordered sequence is far stronger than alerting on any single step. A service create alone is common, and a driver load alone is common. The same two within seconds, followed by an IOCTL to the freshly-loaded driver, is a fingerprint ordinary administration does not produce. Build a windowed sequence rule keyed on the service name to the image path to the device handle.
+
+This chain shows up in real intrusions. Public threat research documents the pattern across named campaigns including Kasseika, BlackByte, and RansomHub. Attackers register a vulnerable driver as a kernel service via sc.exe, name that service to mimic a Windows update, then abuse IOCTLs for kernel primitives. The service-name masquerade is itself a tell. A ""KB"" service name attached to an unsigned or first-seen driver image is a high-confidence pair, so watch the join between the 7045 service-install name and the Event ID 6 image it loads.
+
+The false-positive profile for the correlation beats the single events by design, because the conjunction is rare even when each part is common. The cost moves from alert volume to engineering effort: you need reliable event ordering and a join key, which means Sysmon tuned to capture both the service and the driver-load fields. Ship this second, after the single Event ID 6 rule is stable.
+
+Hunt Three: Kernel-callback Removal and The Kernel-Originated Kill Loop
+
+Admin-to-kernel needs a different lens, because the kill itself can happen entirely below the EDR's user-mode vantage point. Independent security research argues that admin-to-kernel falls short of a real security boundary and that the driver blocklist is an incomplete defense against it. Once code reaches Ring 0, it can remove the hooks the EDR relies on before it issues a kill.
+
+Callback removal is its own observable, distinct from a process kill, and it deserves its own hunt. SOC Prime documented Qilin loading rwdrv.sys for raw memory read and write alongside a malicious hlpdrv.sys for kernel-callback manipulation, removing EDR kernel callbacks across more than 300 products. The same rwdrv.sys plus hlpdrv.sys pairing appears in Akira and other crews. The observable to instrument is the silent disappearance of kernel callbacks, a loss of expected callback telemetry from the EDR's own integrity reporting.
+
+The termination that follows can run as a kernel-mode loop. The user-mode component enumerates running processes on a repeating, fixed-interval loop and sends the target PIDs to a masquerading kernel-service driver via IOCTL. The driver then calls ZwTerminateProcess in kernel mode, bypassing protected-process light entirely.
+
+The fixed-interval rekill cadence is itself a signature. A user-mode agent that respawns and dies again on a repeating, fixed interval is being killed from below, not crashing on its own. That behavioral fingerprint is what you hunt when the callbacks are already gone.
+
+The false-positive consideration is that this hunt depends on telemetry the attacker is actively trying to remove. Treat callback-integrity loss and the rekill cadence as corroborating signals rather than standalone alerts, paired with the cross-domain witnesses below.
+
+Hunt Four: Bring-your-own-installer and Driverless Suspension
+
+Bring-your-own-installer is the quietest of the four, and it leaves no driver-load event at all. SentinelOne documented this tamper bypass, where an attacker abuses a trusted installer or upgrade path to swap the agent out. SentinelOne shipped Local Upgrade Authorization, default-on for new customers, plus a detection rule and a hunting query against the bypass.
+
+The hunt is an unexpected agent upgrade or reinstall outside a sanctioned change window. Your driver-load rule will never fire, because no vulnerable driver was ever loaded. The rule logic compares each event against a baseline of approved change, so you need a clean inventory of sanctioned upgrade windows and the package signers you deploy. Any agent install, uninstall, or version change outside that window is the finding. This is the hardest false-positive profile of the four, because without that inventory, normal patching drowns the queue. Build the baseline first.
+
+Driverless suspension is the fourth class, and it abuses user-mode tricks that never touch the kernel. EDR-Freeze suspends the EDR process by racing the WerFaultSecure crash handler, entirely in user mode. EDRSilencer uses Windows Filtering Platform (WFP) filters to block EDR telemetry across roughly 16 products. These two leave different observables, so hunt them separately.
+
+For the suspend path, watch for process-suspension state changes against the agent process that no maintenance action requested. For the filter path, watch for new WFP filters that match the agent's known egress destinations and silently drop its outbound telemetry, the EDRSilencer pattern. Legitimate updates and some VPN software touch process state and WFP filters, so scope the rules to the agent's own process and endpoints.
+
+Why These Hunts Must Keep Pace
+
+This work is urgent because the tooling has industrialized. SentinelLABS traced AvNeutralizer, also called AuKill, to the cybercrime gang FIN7, sold on Russian-language forums for $4,000 to $15,000 and adopted by Black Basta, AvosLocker, MedusaLocker, BlackCat, Trigona, and LockBit. That commoditization is the theme of SentinelOne's latest Annual Threat Report, which describes the industrialization of the modern cyber breach with mature automation accelerating intrusions. Public reporting tracked EDRKillShifter, a driver-based killer the RansomHub crew added to its arsenal and offered through an affiliate program, turning a hard kernel technique into a checkbox. Defenders face a market, not a single actor, so the hunts have to generalize across tools.
+
+The Kill Is a Detection Gift
+
+Here is the reframe most teams miss. They read the kill attempt as a defense failure and stop there. Read it instead as a high-confidence signal that ransomware is about to fire.
+
+The Cyber Security Agency of Singapore documents the EDR-killer-then-ransomware sequence across multiple gangs, with the killer firing shortly before the ransomware. The minutes between the kill and the encryption are minutes you can act in. A correlated chain alert or a fixed-interval rekill detection that fires in that window is a live intervention point, not a post-incident artifact. The same advisory frames the whole category this way. EDR-killer activity is detectable via driver-load monitoring, suspicious process-termination patterns, and attempts to disable telemetry, three observables that map cleanly to the four hunts above.
+
+There is a rarer, cleaner signal worth a dedicated rule. Independent researcher Peter M. flagged Windows Event ID 7031, a service that terminated unexpectedly. Scoped to security services, it is an ideal detection candidate, and quiet enough to alert on directly. A forced kernel termination often leaves a crash trail the service control manager records anyway. The kill leaves a fingerprint even when it succeeds.
+
+When the Kill Succeeds nyway
+
+Assume the kill works. You still are not blind. A successful kill produces an absence-of-signal you can alert on directly: agent-health drop, heartbeat loss, and the absence of expected telemetry, all findings alongside your suspicious-event rules. The SentinelOne Annual Threat Report describes one SaaS compromise that ran for 71 days until an automated detection correlated activity a manual review of sign-in logs had missed. Absence-of-signal correlation is exactly the kind of work a human queue rarely sustains alone.
+
+Cross-domain telemetry survives the kill. Once the endpoint sensor is silenced, logging that operates independently of the agent remains as a witness, including network-based detection and cloud-based security monitoring. The attacker can kill the agent on one host. They cannot kill the firewall logs, the identity provider, and the cloud control plane at the same instant, and those sensors still record the lateral movement, credential use, and command-and-control that precede ransomware. Route them into the same hunt so the endpoint blind spot does not become total.
+
+The false-positive consideration for the absence case is the most demanding of all. Absence-of-signal detection requires a reliable baseline of expected heartbeat, or a maintenance reboot looks like an attack. Tie the heartbeat-loss rule to the change-window inventory you built for bring-your-own-installer. A silent agent on a host with no scheduled maintenance, correlated with network or identity activity, is the alert.
+
+Honest Tuning Notes
+
+The order you ship it in decides whether analysts trust it, so sequence the rollout by signal quality. Start with the loud bring-your-own-vulnerable-driver hunt, because Sysmon Event ID 6 is low-volume and the rules already exist. Add the chain correlation next, since correlated sequences cut the false positives single events generate. Save the absence-of-signal and unexpected-upgrade hunts for last, after the baselines clean up. Shipping them out of order floods analysts and teaches them to ignore the alerts.
+
+Retire the Wrong Scoreboard
+
+Stop scoring on ""did the kill succeed."" Score on ""did we catch the kill."" Catching it early gives the response team the minutes that decide whether files get encrypted.
+
+Deploy this on Monday. Turn on Sysmon Event ID 6 logging and the untrusted-driver and first-seen rules for the loud class. Build the service-create-to-driver-load-to-termination correlation for the chain. Add a dedicated Event ID 7031 rule and an agent-health heartbeat monitor for the absence case. Wire network, identity, and cloud telemetry into the same view so a silenced sensor is not a silenced investigation.
+
+The shift is from waiting for a verdict to running a hunt. That posture depends on an agent that keeps running and keeps telemetry flowing under attack, so demand the survivability test data before trusting any vendor's claim, ours included.
+
+Why This Is the Work SentinelOne Exists to Do
+
+Running these hunts in the minutes before encryption is where the contest is won, and that window is exactly what SentinelOne built Purple AI® to operate inside. Its Agentic Investigation capability runs the kind of zero-click investigation these hunts describe. It correlates the driver load, the service install, the callback removal, and the silence that follows, then renders a verdict and a response at machine speed. The kill attempt becomes the trigger, and the investigation is already running while the attacker still believes the sensor is blind.
+
+Most security teams cannot run four hunts around the clock, and the attacker knows which hours are thin. Wayfinder, SentinelOne's managed detection and response practice, runs them for you, putting human hunters and autonomous investigation on the same telemetry every hour of every day. The kill is the middle of the story, and the platform is built to catch it there.
+
+Step back across the whole series. It traced the EDR killer through four moves. A market with a price list. An industry with suppliers and resale. The trust gap it operates inside. And the hunts that catch it. One idea held the whole way through. A defender who watches behavior beats one who chases the binary of the week. Attackers turned the kill into a product. The answer is the one move a supplier cannot re-skin. It is the reach into the kernel to terminate what defends the host. Defenders are the protagonists of that story, and the platform exists to keep them there. A safer future for humanity is built by the people who refuse to look away when the kernel turns hostile.
+
+External References
+
+""LOLDrivers: Living Off The Land Drivers."" loldrivers.io, retrieved 2026-06-26.
+
+""Sysmon Community Guide: Driver Loading."" TrustedSec, n.d.
+
+""Qilin EDR Killer: Driver Abuse to Terminate 300+ Tools."" SOC Prime, 2026-04-07.
+
+""GRITREP: Observed Malicious Driver Use Associated with Akira SonicWall Campaign."" GuidePoint Security (GRIT), 2025-08-05.
+
+""EDR-killer driven by a decade-old vulnerable forensic driver."" Help Net Security, 2026-02-05.
+
+""New EDR-Freeze tool uses Windows WER to suspend security software."" BleepingComputer, 2025-09-22.
+
+""EDRSilencer."" netero1010, GitHub repository, retrieved 2026-06-26.
+
+""EDRSilencer red team tool used in attacks to bypass security."" BleepingComputer, 2024-10-15.
+
+""EDR-killing malware is the latest trend in ransomware."" The Register, 2025-08-14.
+
+""RansomHub gang developed a tool to kill EDR software."" Security Affairs, 2024-08-15.
+
+""Advisory on New Endpoint Detection and Response (EDR) Killer Tool Used by Multiple Ransomware Groups."" Cyber Security Agency of Singapore, 2025-08-16.
+
+""Investigating & Detecting EDR Killer."" Peter M., Medium, 2025-11-19."
 b7f8dc44c134,b7f8dc44c134,2026-10-16 18:01 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelOne Blog,Threat Intelligence; Network Security; Endpoint Security,Article,How SentinelOne Blocked APT29's CaptiveCrunch Campaign,https://www.sentinelone.com/blog/how-sentinelone-blocked-apt29-s-captivecrunch-campaign/,Run these steps as a scheduled threat hunt rather than as a detection rule,"Once the corporate network stopped being defensible, the control had to move to the device, as SentinelOne® has long argued.
 
 That move carried one assumption with it. Wherever the laptop sits, name resolution tells it the truth and the agent can reach its own cloud. Almost nothing in the stack checks either half.
@@ -917,7 +1455,46 @@ APT29 showed here that it can cut an agent off from its cloud. Test what renders
 Third Party Disclaimer:
 
 All third-party product names, logos, and brands mentioned in this publication are the property of their respective owners and are for identification purposes only. Use of these names, logos, and brands does not imply affiliation, endorsement, sponsorship, or association with the third-party."
-9fd59e0cf28f,9fd59e0cf28f,2026-10-13 16:40 UTC,Vulnerabilities & Patching,SentinelOne,SentinelOne Blog,Threat Intelligence,Article,Bring Your Own Vulnerable Driver: The Trust Gap Attackers Operate Inside,https://www.sentinelone.com/blog/bring-your-own-vulnerable-driver-the-trust-gap-attackers-operate-inside/,"Public threat research found a single GitHub PFX file holding more than a dozen expired certificates, drawn from the 2015 Hacking Team leak and Chinese forums","Bring your own vulnerable driver (BYOVD) is having a moment in endpoint security. Some of the buzz is earned. Some of it is overblown. This series unpacks both and shows the evidence for each. This piece weighs the trust gap the technique exploits against what the data actually shows.
+5bc46454b195,5bc46454b195,2026-10-16 17:31 UTC,General Security News,SentinelOne,SentinelOne Blog,Endpoint Security,Article,"The Good, the Bad and the Ugly in Cybersecurity - Week 42 (2026)",https://www.sentinelone.com/blog/the-good-the-bad-and-the-ugly-in-cybersecurity-week-42-8,"With no extortion demands or hacktivist claims made, the attack fits a broader pattern of disruptive activity targeting critical retail supply chains","The Good | Authorities Arrest Cyber Exec for Extortion & Dismantle DPRK Laptop Farms
+
+The FBI arrested Edward Dubrovsky, a Canadian former cybersecurity executive at incident response and ransomware negotiation firm CYPFER, on charges of conspiracy and extortion. Various reports have linked the arrest to the FBI’s continued crackdown on the ShinyHunters extortion group and their alleged compromise of the FBI’s job portal back in September.
+
+While Dubrovsky has not been officially named a ShinyHunters co-conspirator, FBI Director Kash Patel confirmed on X that agents had arrested ""another suspected co-conspirator of the ShinyHunters group"". Dubrovsky has since appeared in court and remains in custody.
+
+The FBI says that ShinyHunters and their associates have breached over 140 organizations worldwide and extracted at least $70 million in ransom payments over the past year.
+
+Also this week, the DoJ has charged 14 individuals and seized about 187 devices, including laptops and KVMs used in North Korean remote IT worker schemes. ​​The individuals, a mix of U.S. and Chinese nationals, are being charged with wire fraud, money laundering, and identity theft.
+
+Executed across Texas under “Operation Lonestar Roundup”, federal agents searched 40 residences hosting laptop farms designed to hide the physical locations of North Korean operatives. Twelve of the fourteen remain at large, but authorities were able to arrest two U.S. facilitators, Michael James Bostelle and Juan Cecilio Pena Carrillo, for hosting employer-issued laptops and laundering salary payments.
+
+The FBI warns that workers in these schemes leverage stolen identities, remote-access technology, and proxy infrastructure to secure positions at U.S. companies within several critical industries, generating hundreds of millions collectively every year to fund DPRK weapons programs.
+
+The Bad | Hidden Cellular Implant in Ledger Wallets Leaks Seed Phrases to Attackers
+
+Cryptocurrency wallet manufacturer Ledger has confirmed that one impacted device distributed by CryptoBilis, its Southeast Asian reseller, was compromised with an unauthorized hardware implant potentially designed to drain user funds. After receiving multiple user reports of cryptocurrency theft, Ledger has launched a forensic investigation that identified more cases of hardware modifications in devices sold across regional third-party channels.
+
+Ledger wallets are physical devices that securely store the private keys needed to authorize transactions and manage cryptocurrency assets. An independent breakdown by Mark Karpelès examined the new implanted hardware, which captures the device’s display output and button presses to identify seed phrases before transmitting them to the attacker over an LTE connection. Tibane Labs, confirmed Karpelès’ findings and further found two implant variants for Ledger Nano X devices: one fitted beneath the battery compartment and the other under the OLED display.
+
+Since the hardware implant operates as an isolated component without altering the Ledger Secure Element chip or the onboard operating system, the tampered devices were able to pass Ledger’s built-in verification checks. Compromised devices have also been reported through unauthorized sellers in Europe and airport retail kiosks in Singapore.
+
+So far, Ledger has advised affected customers to transfer assets to uncompromised signers, requested CryptoBilis to pause all sales, and suspended wallet sales across all distributors in Southeast Asia and Hong Kong pending security reviews.
+
+In response to growing supply chain risks across the industry, other hardware wallet vendors have joined the conversation, announcing plans to reduce reseller networks and enforce stricter distribution standards.
+
+The Ugly | Remote Attacks on Refrigeration Systems Across France Cause Millions of Euros in Losses
+
+Threat actors remotely breached internet-connected refrigeration controllers overnight across multiple major French supermarket chains, raising internal temperature settings to as high as 50°C by triggering automatic defrost cycles. The coordinated cyberattack affected around 700 stores, including Intermarché, Coopérative U, Carrefour Market, Monoprix, and Super U. The attack forced store operators to dispose of fresh and frozen food stock with Intermarché’s CEO estimating tens of millions of euros in financial damages.
+
+Investigators with the Paris prosecutor's office have opened a formal inquiry into the cyber incident following reports of widespread foodstuff losses and electrical equipment fires across affected retail facilities.
+
+The intrusion targeted Danfoss AK-SM/AK-SC and Copeland/Dixwell XWEB refrigeration control units, many of which were legacy devices that no longer receive vendor security updates. French cybersecurity emergency response team CERT-FR issued an urgent advisory instructing operators to immediately disconnect exposed controllers or restrict network access.
+
+Tom Hegel, Distinguished Threat Researcher and Research Lead at SentinelLABS, noted how the incident bears the hallmarks of a nation-state cyber operation aimed at low-cost, deniable sabotage across European infrastructure. With no extortion demands or hacktivist claims made, the attack fits a broader pattern of disruptive activity targeting critical retail supply chains.
+
+Hegel highlighted that retail environments are particularly vulnerable because large estates of building management and refrigeration controllers are often deployed by facilities contractors without enterprise security team involvement.
+
+He pointed to a similar disruption that occurred at U.S. military commissaries in August where freezers on multiple bases failed within a day of each other. Hegel’s advice to retailers is to take these controllers off the public internet, enforce strong authentication, and replace hardware that no longer receives security updates."
+9fd59e0cf28f,aa058da828e9,2026-10-13 16:40 UTC,Vulnerabilities & Patching,SentinelOne,SentinelOne Blog,Threat Intelligence,Article,Bring Your Own Vulnerable Driver: The Trust Gap Attackers Operate Inside,https://www.sentinelone.com/blog/bring-your-own-vulnerable-driver-the-trust-gap-attackers-operate-inside/,"Public threat research found a single GitHub PFX file holding more than a dozen expired certificates, drawn from the 2015 Hacking Team leak and Chinese forums","Bring your own vulnerable driver (BYOVD) is having a moment in endpoint security. Some of the buzz is earned. Some of it is overblown. This series unpacks both and shows the evidence for each. This piece weighs the trust gap the technique exploits against what the data actually shows.
 
 A long-revoked certificate still loads a driver into the Windows kernel today. Help Net Security traced a 2026 intrusion to a decade-old forensic driver whose signing certificate had expired and been revoked years earlier. The kernel loaded it anyway.
 
@@ -1036,6 +1613,125 @@ Windows Vulnerable Driver Loaded, Splunk Security Content. 2026.
 Windows Drivers Loaded by Signature, Splunk Security Content. 2026.
 
 Qilin EDR Killer infection chain, SOC Prime. April 7, 2026.
+
+IP Disclaimer:
+
+This blog may include discussion of unreleased services or features. Any unreleased services or features referenced here are still in development and subject to change. Customers should make their purchase decisions based upon features that are currently available."
+aa058da828e9,aa058da828e9,2026-10-13 16:18 UTC,Vulnerabilities & Patching,SentinelOne,SentinelOne Blog,Endpoint Security; Threat Intelligence,Article,Bring Your Own Vulnerable Driver: How EDR Killing Became an Industry,https://www.sentinelone.com/blog/bring-your-own-vulnerable-driver-how-edr-killing-became-an-industry/,"In August 2024, public reporting disclosed EDRKillShifter, abusing the RentDrv2 and ThreatFireMonitor drivers and first seen in a RansomHub attack","Bring your own vulnerable driver (BYOVD) is having a moment in endpoint security. Some of the buzz is earned. Some of it is overblown. This series unpacks both and shows the evidence for each. This piece traces how the technique scaled into an industry.
+
+Ransomware actors successfully disabled security tools in about 48% of intrusions in 2024. That figure comes from security researchers, drawn from incident-response engagements across the year. Attackers attempted to blind the defender in most of those cases. They almost always succeeded. Turning off the sensor was once a flourish. It is now a default move.
+
+That 48% is the broad rate for disabling security tools by any method. BYOVD is the kernel-level technique this series tracks, one fast-growing method inside that number, and public threat research treats it as the part of the tamper problem accelerating fastest. Treat the 48% as the ceiling and the BYOVD slice as the piece that scaled into a market.
+
+The Claim: This Became a Supply Chain
+
+EDR killing industrialized over the last several years. SentinelOne®'s latest Annual Threat Report, ""Defending Against the Industrialization of the Modern Cyber Breach,"" names that shift directly, with mature automation accelerating intrusions and tradecraft moving from one-off effort to maintained capability. A killer was once a binary an intruder wrote and discarded. Today it is a serviced capability, built, versioned, and bundled into ransomware-as-a-service for affiliates who never touch a debugger. The defender once faced a hobbyist. Now the defender faces a development pipeline.
+
+A pipeline behaves differently from a one-off binary. It ships versions, fixes bugs, and reuses code across releases. The defender reads that cadence like a vendor roadmap, and every release leaves the same observable footprint when it runs. The reuse is visible in the architecture. Public threat reporting describes one current framework spinning eight-plus variants off a single shared design. That also means a detection tuned to one variant often catches its siblings. Code reuse cuts both ways, and the defender holds one of the edges.
+
+The Proof: A Four-Year Timeline
+
+Start at the floor. Public threat research documented an early Process Explorer-driver killer in 2023, used to disable EDR ahead of Medusa Locker and LockBit. The same year, SentinelLABS tracked an actor called ""Spyboy"" selling the Terminator killer. The price ran from $300 for a single AV bypass to $3,000 for the all-in-one EDR killer, and the tool abused Zemana drivers. These were early-window artifacts. They were standalone, sold, and disposable.
+
+That timeline has a SentinelLABS anchor that reframes the whole story. SentinelLABS attributed the AvNeutralizer killer, also known as AuKill, to the FIN7 cybercrime group. FIN7 sold it on Russian-language forums at prices running from $4,000 to $15,000. The tool abused a Time Travel Debugging driver and the Process Explorer driver to disable defenses. This is the moment a killer stopped being a one-off and became a product with a price list.
+
+The adoption pattern proves the product framing. SentinelLABS tracked AvNeutralizer spreading into Black Basta, AvosLocker, MedusaLocker, BlackCat, Trigona, and LockBit operations. One group built it, and six competing crews ran it. A single tool crossing that many rivals is the signature of a supplier, and the new feature was distribution.
+
+Then the model changed inside ransomware-as-a-service. In August 2024, public reporting disclosed EDRKillShifter, abusing the RentDrv2 and ThreatFireMonitor drivers and first seen in a RansomHub attack. Researchers assessed with moderate confidence that the tool served multiple attackers, not RansomHub alone. The SentinelOne RansomHub anthology records the affiliate logic behind that spread, a customized EDR-killer tool made available to higher-level affiliates. One crew's tool became many crews' tool, and the new feature was tiered access.
+
+The driver roster widened fast across 2025. In early 2025, public threat research documented a malicious driver that carried stolen, revoked certificates and imitated a legitimate EDR driver to silence defenses inside Medusa intrusions. By August 2025, GuidePoint tracked Akira affiliates in SonicWall VPN intrusions chaining a ThrottleStop driver, rwdrv.sys, with a malicious helper, hlpdrv.sys, to disable the built-in Windows antivirus. Different crews, different drivers, the same kernel-level objective. SentinelOne's latest Annual Threat Report records the same pattern from the other side of the kill, naming crews that script the built-in Windows antivirus into silence and kernel-mode drivers derived from POORTRY used to terminate EDR processes and delete security files.
+
+The CVE-anchored cases arrived next. In December 2025, security researchers documented DeadLock ransomware abusing the Baidu antivirus driver BdApiUtil, tracked as CVE-2024-51324, to terminate EDR and the built-in Windows antivirus. In February 2026, public reporting documented Reynolds ransomware embedding the vulnerable NSecsoft driver NSecKrnl, tracked as CVE-2025-68947, which terminated more than 30 security processes. Those CVE records do not name the ransomware, and the actor mapping comes from threat intel. The same NSecKrnl driver shows up across unrelated crews, tied to Reynolds and to Warlock. A driver is shared infrastructure, so pivoting on the driver hash groups campaigns by supplier, not by gang.
+
+By 2025 the sharing went structural. Threat-intel reporting found one EDR killer used across several competing ransomware families, distributed as distinct per-attack packed builds, and Singapore's national cyber agency corroborated the same multi-group pattern in an August 2025 advisory, independent of any single vendor. Public threat research also catalogued a forming marketplace of named killers priced from hundreds to thousands of dollars. Rivals were now buying from a common counter.
+
+The 2026 picture is operator-run kits with large affiliate cuts. Public threat reporting documented the Gentlemen RaaS shipping its in-house EDR killer framework, running eight-plus BYOVD variants and targeting over 400 processes across 48 security products through DeviceIoControl calls. The operator reportedly hands affiliates around a 90% revenue share, a 10% operator cut against a 20% industry standard, and bundles third-party killers like HexKiller and ThrottleBlood. By April 2026, researchers saw Qilin and Warlock at the same game, Qilin chaining the rwdrv.sys and hlpdrv.sys pair while Warlock ran NSecKrnl. Public threat research now reads EDR killers as a standard, repeatable phase of the attack playbook. SentinelOne's latest Annual Threat Report measured how far the response window has collapsed, with one chained sequence reaching SYSTEM in roughly 30 milliseconds and a separate intrusion moving from initial download to a persistent service in 49 seconds.
+
+The Turn: Acceleration Over Origination
+
+Here is the correction the timeline forces. Commercial sale of EDR killers predates the 2024 window. SentinelLABS had Terminator on the market in 2023 and dated FIN7's AvNeutralizer sales earlier still. ExtraHop tracked a dark-web market for these tools across 2024 and 2025. Older still, the open-source EDRSandblast project weaponized a vulnerable driver against more than 1,000 security drivers back in 2022. The raw capability was for sale before the surge.
+
+So the real story is acceleration and consolidation. The non-obvious shift is that rival ransomware crews stopped competing on this layer and started sharing it instead. Several groups feeding from one killer is a market choosing a common supplier. The cost of building beats the cost of buying.
+
+The economics pulled the skill floor down. Reynolds ransomware bundled a vulnerable driver as a recruiting selling point aimed at less-skilled operators, and a capability that once required a kernel developer now requires a subscription. The driver is the part most likely to fail in unskilled hands, so researchers documented a practice they call driver decoupling. Affiliates install the vulnerable driver and confirm it loads before running the killer. That is the kind of guardrail a supplier adds to keep low-skill customers successful, packaging doing the work the operator used to do by hand.
+
+What Makes Consolidation Possible
+
+Markets need shared infrastructure, and this one has it. The shared killer that reporting tracked was one tool reissued as distinct packed builds for each attack, with the packer as the common chokepoint several rivals fed through. Singapore's advisory described the same customized-build distribution model, a single supplier serving many buyers.
+
+The driver supply explains why it scales. Public reference lists now track thousands of vulnerable signed drivers, most reachable without admin rights. The live LOLDrivers catalogue alone records hundreds of unique drivers, a large share still missing from the default driver blocklist. That inventory reads as a parts catalog for the kit builder, a dual-use commodity supply where weak driver access controls hand unprivileged users a way in.
+
+The price ladder runs from the low hundreds for Terminator to five figures for FIN7's AvNeutralizer, both tracked by SentinelLABS, while EDRKillShifter spread through tiered affiliate access rather than a flat price. The skill floor drops in step. EDRSandblast showed the open-source baseline back in 2022, already capable against more than 1,000 security drivers, and a buyer in 2026 does not need that depth. The operator maintains the tool and the affiliate just runs it, so each layer of packaging removes a reason an attacker would have failed. A working tool spreads fast once the price of entry drops to a download.
+
+The Payoff: A Top-Tier Threat Getting Cheaper
+
+Put the pieces together and the threat ranking is clear. Disabling defense is attempted in most ransomware intrusions and succeeds in roughly half. The tooling that does it is now maintained, shared across rivals, and sold with affiliate economics that reward volume. Each force lowers cost and widens reach at once. This is a structural threat, and it is getting cheaper to run.
+
+Defenders set the response, and the response is not despair. Public threat research shows BYOVD remains the dominant kill method, and that dominance means the kill chain stays observable. The killer still has to act in a fixed sequence. It installs a driver, registers a kernel service, and issues the calls that terminate the sensor. Those steps leave telemetry behind them.
+
+The defender should still hold the technique apart from its cousins. BYOVD is one entry in a tamper taxonomy. A driverless class is smaller but growing, and it skips the driver-install step entirely. EDR-Freeze suspends the sensor through a Windows error-reporting race, staying fully in user mode. EDRSilencer uses Windows filtering rules to block the sensor's telemetry from leaving the host. Those two break the driver-load observable, so a detection built only around driver loads will miss them.
+
+Prevention narrows the window without closing it, which is exactly why behavioral observables carry weight. The sequence is concrete enough to map to event IDs. Picus Security described the early steps of the BYOVD chain as logged events. A service created with sc.exe surfaces as a Sysmon process-create record (Event ID 1) and a System service-install event (Event ID 7045). The driver load surfaces as a Sysmon driver-load record (Event ID 6). The killer then issues its DeviceIoControl call, followed by callback removal and security-process termination. Each arrow in that chain is a place to correlate and alert.
+
+The behavior inside that chain is even more specific. Public threat research documented a kill loop where a masquerading kernel service enumerates running processes on a repeating, fixed-interval cycle. It passes the process IDs through an IOCTL so the driver calls the kernel termination routine directly, bypassing the protected-process protections that guard the sensor. The repeating rekill cadence is itself a signal, because a normal service does not poll the process list and terminate from kernel mode on a loop.
+
+Callback removal deserves its own hunt, separate from the kill. SOC Prime documented Qilin loading rwdrv.sys for raw memory read and write, then loading hlpdrv.sys to remove the EDR's registered kernel callbacks across more than 300 products. Stripping callbacks blinds the sensor without terminating its process. The process still runs and still reports healthy. The defender who only watches for a killed process misses this entirely.
+
+The masquerade is its own tell. Frameworks ship variants that each impersonate a legitimate product to blend into a normal driver inventory, and one documented driver carried stolen, revoked certificates to imitate a real EDR driver. The defender's answer is to treat the signer and the first-seen status as data. Splunk detection content keys on any driver load whose signature status is not Valid. Alert on a driver whose hash, signer, or version has never appeared on the host before.
+
+The witnesses also outlast the endpoint. Once the sensor is silenced, network, identity, and cloud telemetry are what remain, and independent analysis found EDR-killer execution preceding ransomware across multiple gangs, a window enough to intervene before encryption. Singapore's national cyber agency framed EDR-killer activity as huntable through driver-load monitoring, termination patterns, and telemetry cessation. An agent's health drop, a lost heartbeat, or a gap in a constant feed all read as tamper, so alert on the absence of expected signal. A high-fidelity variant is System Event ID 7031, the service-crash log Windows writes when a kill abruptly terminates a security service. It is rare in a healthy environment, which makes it a strong candidate for a tight, low-false-positive alert.
+
+The mental shift for the practitioner is this. Stop modeling the EDR killer as an exotic, once-a-year event and start modeling it as supply. A supplied capability has a pipeline, a release cadence, and paying customers, and every one of those is a place to detect, disrupt, and raise cost. SentinelOne builds for that fight. SentinelLABS co-discovered the POORTRY and STONESTOP signed-driver toolkit and drove the security advisory ADV220005 that followed. SentinelOne then shipped Local Upgrade Authorization on by default for new customers to blunt the tamper bypass. The purpose behind that work is to give the advantage to those who secure our future. The industry built a market for killing your sensor. The defender's job is to make that market expensive.
+
+Why This Is The Work SentinelOne Exists To Do
+
+Read the timeline and the conclusion is plain. You do not out-hustle a development pipeline with manual triage. You answer it with a pipeline of your own. SentinelOne built the Singularity™ Platform on Autonomous Security Intelligence (ASI) for this exact asymmetry, so the response runs at the speed the supply chain ships. Purple AI® is the reasoning interface for that platform, and its Agentic Investigation capability launches the moment a threat crosses the line, detecting, investigating, verifying, and responding without waiting for an analyst to wake up. The capability does not displace the human. Wayfinder, SentinelOne's 24/7 managed detection and response practice, puts seasoned threat hunters on top of that autonomous layer, with managed response and an incident-readiness retainer when the worst happens. The killer industrialized. The defense industrialized with it.
+
+Next in this series: the trust gap underneath every one of these drivers, and why a certificate revoked sixteen years ago still loads code into the Windows kernel today.
+
+External References
+
+""EDR killers are now a thing, and ransomware crews love them,"" The Register, 14 August 2025.
+
+""RansomHub gang deploys new tool to kill EDR software,"" Security Affairs, August 2024.
+
+""GRIT Report: Akira and SonicWall,"" GuidePoint Security, 5 August 2025.
+
+""Event ID 7031: Service crash,"" ManageEngine EventLog knowledge base.
+
+""CVE-2024-51324,"" National Vulnerability Database.
+
+""Reynolds ransomware uses BYOVD to disable security before encryption,"" Security Affairs.
+
+""CVE-2025-68947,"" National Vulnerability Database.
+
+""Advisory AD-2025-018,"" Cyber Security Agency of Singapore, 16 August 2025.
+
+""The Gentlemen RaaS uses GentleKiller,"" The Hacker News, June 2026.
+
+""Inside GentleKiller: the EDR killer powering the Gentlemen,"" Security Affairs.
+
+""Gentlemen Ransomware Gang Standardizes EDR Killing,"" BankInfoSecurity.
+
+""The Dark Web Market for EDR Killers,"" ExtraHop, 2024.
+
+""EDRSandblast,"" Wavestone CDT, GitHub.
+
+""EDRSilencer,"" netero1010, GitHub.
+
+""EDRSilencer red team tool used in attacks to bypass security,"" BleepingComputer, 15 October 2024.
+
+""New EDR-Freeze tool uses Windows WER to suspend security software,"" BleepingComputer, 22 September 2025.
+
+""What Are Bring Your Own Vulnerable Driver (BYOVD) Attacks,"" Picus Security, 2026.
+
+""Qilin EDR killer infection chain,"" SOC Prime, 7 April 2026.
+
+""Windows Drivers Loaded by Signature,"" Splunk research.
+
+""Windows Vulnerable Driver Loaded,"" Splunk research.
+
+""loldrivers.io,"" live vulnerable-driver reference list, accessed 26 June 2026.
 
 IP Disclaimer:
 

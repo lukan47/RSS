@@ -1,0 +1,860 @@
+ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+d49a54d7e850,d49a54d7e850,2026-11-11 00:00 UTC,General Security News,Sophos,Sophos Blogs,AI Security; Data Security Posture Management; Phishing Simulations,Article,Your training data is boring: Anomaly detection with LLMs,https://www.sophos.com/en-us/blog/your-training-data-is-boring-anomaly-detection-with-llms,"The team developed an automated pipeline that combines anomaly detection and LLMs to augment training data for a suite of cybersecurity models, using complementary anomaly...","Following on from research presented at Black Hat USA 2025, Sophos data scientists Ben Gelman, Tamas Nyiri, and Tibor Kristóf Lányi recently showcased new work on anomaly detection at BSides Las Vegas 2026. As promised, we’re sharing more details of that research (the recording of the talk is also available here).
+
+Supervised classifiers in cybersecurity are often trained on data that doesn't capture the most unusual examples. Benign training sets are dominated by simple, common patterns, while malicious sets reflect known attacks from past investigations. The long tail of unusual files on both sides goes unlabeled.
+
+When these files appear in production, classifiers are more likely to misclassify them, generating false positives that overwhelm SOCs, and false negatives that let threats through.
+
+Traditional approaches to labeling difficult examples rarely scale. Doing it manually is expensive, rule-based collection is too narrow, and anomaly detection alone has historically produced unacceptable false positive rates. But anomaly detection combined with LLMs is excellent at something else: finding and labeling the unusual data that is missing from cybersecurity training sets.
+
+The team developed an automated pipeline that combines anomaly detection and LLMs to augment training data for a suite of cybersecurity models, using complementary anomaly detection methods, viable across feature representations, to surface distinctly unusual data. Then, an LLM classified each anomaly with format-specific prompts calibrated per data type.
+
+Critically, Ben and his colleagues used separate prompts that err toward malicious and benign respectively, achieving high precision on both label types. More specifically, one prompt instructed the LLM to only evaluate the input as benign when it was confident that it was benign; the other prompt instructed the same but with the malicious label. This way, they only accepted the labels when the two LLMs with the two different instructions agreed, otherwise they threw that example away and didn’t use it for training. In practice, this method produced labels with better precision (tested on labeled data). The labeled anomalies augment the training data for cybersecurity classifiers.
+
+The Sophos AI team evaluated their method across three structurally different data types with monthly ingestion scales spanning four orders of magnitude: command lines, HTML, and RTF.
+
+The problem
+
+Every detection team is familiar with the core issue: supervised classifiers are only as good as their training data, and that data is systematically biased. Benign training data comes from sources chosen for labeling confidence.
+
+Known-clean networks, corporate environments without incidents and regex-capturable patterns are obvious choices, but they inherently exclude the long tail of unusual but legitimate data.
+
+Malicious training data is similarly constrained to known attack types from incident investigations. The events that classifiers get wrong in production are precisely the unusual events missing from both sides of the training set.
+
+Using command lines as an example: prior work on anomaly detection for command-line classification has attempted to address labeling oversights by surfacing anomalies as direct alerts. SCADE uses isolation forests and engineered features to flag potentially malicious command lines at scale, but reports false positive rates around 2%. Filar and French discover anomalous parent-child process relationships using tree-based models, reporting similar ~3% false positive rates. Nisslmueller combines explicit command-line featurization with parent-child context for unsupervised LOLBin detection, also landing under 2% FP.
+
+Although these rates sound low, at tens of millions of daily events they still produce overwhelming alert volumes. All three share the fundamental limitation of treating anomaly detection as an end-to-end alerting mechanism.
+
+Ben and team’s approach sidesteps this limitation entirely: anomaly detection surfaces candidates, an LLM labels them, and the labels improve a downstream supervised classifier.
+
+A key takeaway from the team’s work is the prompt strategy for achieving high precision on both malicious and benign labels. A single prompt struggles to simultaneously maintain high precision on both labels. Instead, the team used two separate prompts per file type: one that errs on the side of calling files malicious (producing high-precision benign labels), and another that errs on the side of calling files benign (producing high-precision malicious labels). This allows both label types from anomaly detection to be usable as training data, which was not achievable in prior work that relied on a single labeling pass.
+
+Stand back, we’re doing science
+
+The pipeline for Ben and team’s research was as follows:
+
+Raw production telemetry
+
+Feature extraction
+
+Multi-method anomaly detection
+
+LLM classification
+
+Newly labeled training data from the long tail
+
+Supervised classifier improvement
+
+A key architectural decision was to treat anomaly detection not as the detection system itself, but as a prefilter that surfaces candidates for LLM labeling, which in turn produces training data for a supervised classifier whose precision can be controlled empirically.
+
+Because each anomaly detection method has blind spots – it catches certain types of unusual data and misses others – Sophos AI used three methods (isolation forest, k-means anomaly, and PCA reconstruction error) on different feature representations, producing broader coverage with low overlap between methods.
+
+The team employed several different feature sets, which contributed to data diversity:
+
+Hand-crafted features: Catching structural anomalies, such as files with extreme length, abnormal Shannon entropy, rare character distributions. Hand-crafted features included character-level statistics, operator/case proportions, and file-type-specific markers.
+
+TF-IDF vectors: To catch content-level outliers, e.g., files whose token distribution didn't match any typical cluster.
+
+Binary vocabulary vectors: For the unusual feature correlations, e.g., files with atypical token co-occurrence patterns.
+
+Prompt needed
+
+A single LLM prompt can’t always achieve high precision on both malicious and benign labels simultaneously, especially in cases where the problem itself is inherently ambiguous, such as dual use scripts . For example, if the prompt says, ‘when uncertain, lean toward malicious,’ benign precision is high, but malicious precision suffers and vice versa.
+
+Sophos AI’s solution was to run two separate prompts per file type. One erred towards malicious (producing high-precision benign labels), the other toward benign (producing high-precision malicious labels). Each prompt was calibrated to the file type's specific attack surface.
+
+For example, with HTML, the malicious-leaning prompt defined what normal HTML looks like (JavaScript, forms, analytics) so it didn’t over-flag standard web features. The benign-leaning prompt defined specific malicious indicators (obfuscated payloads, credential phishing, exploit kit structures), so it didn’t under-flag real threats.
+
+Putting it to the test
+
+Ben and colleagues evaluated this method across three structurally different data types:
+
+Command lines: ~10,000,000 monthly ingest. Attack surface: LOLBin abuse, obfuscated PowerShell, encoded payloads.
+
+HTML files: ~1,000,000 monthly ingest. Attack surface: exploit kits, credential phishing, obfuscated JavaScript.
+
+RTF documents: ~10,000 monthly ingest (testing under data scarcity). Attack surface: Equation Editor exploits, DDE attacks, malicious OLE.
+
+The results on LOLBins can be found in the previous research. But expanding the work to HTML and RTF files elucidated more generalizable trends, and suggests that the method can work with a variety of data types.
+
+Model
+
+Anomalies added
+
+Pooled ROC AUC
+
+vs. baseline (% increase)
+
+Baseline (labeled data only)
+
+—
+
+0.970475
+
+—
+
++ Isolation forest
+
+489
+
+0.976788
+
++0.65%
+
++ KMeans
+
+716
+
+0.977091
+
++0.68%
+
++ PCA
+
+775
+
+0.967399
+
+−0.32%
+
++ All anomalies combined
+
+1,980
+
+0.975420
+
++0.51%
+
+Table 1: HTML results
+
+Model
+
+Anomalies added
+
+ROC AUC
+
+vs. baseline (% increase)
+
+Baseline (labeled data only)
+
+N/A
+
+0.9602
+
+N/A
+
++ Isolation forest
+
+66
+
+0.9833
+
++2.41%
+
++ PCA
+
+63
+
+0.9813
+
++2.20%
+
++ KMeans
+
+90
+
+0.9812
+
++2.19%
+
++ All anomalies combined
+
+219
+
+0.9819
+
++2.26%
+
+Table 2: RTF result
+
+Like LOLBins, RTF performed best with isolation forest, showing a 2.41% increase over the existing model, which is an encouraging jump at such a high ROC AUC.
+
+With HTML, we see a different result. The baseline performance of the model is higher, so the increase is more modest, but the team found that K-means was the most effective with a 0.68% increase over baseline. They also noted that PCA decreased the score, which highlights exactly why they used three different anomaly detection methods: they didn’t know in advance which method would capture the most valuable anomalies in a particular dataset. And since running these algorithms is relatively cheap, the small extra cost only comes from running the evaluations on the extra anomalies with the LLM.
+
+Try it yourself
+
+Here’s something our data science-minded readers can try out for themselves:
+
+Pick a file type where your classifier has a false positive or false negative problem
+
+Pull a sample of unlabeled production data, featurize it, and run Isolation Forest (it's 10 lines of sklearn)
+
+Send the top anomalies to an LLM with a format-specific prompt. Use two prompts: one that errs malicious, one that errs benign
+
+(Optional) Check the quality of the LLM output on a sample either by running it on a set of your labeled data or even better, have an analyst verify the unlabeled ones
+
+Add the high-precision labels to your next training run and measure the difference
+
+Wrap it in a YAML config and schedule it. All being well, you now have a self-improving data pipeline
+
+Top takeaways
+
+Classifiers’ failure cases are a training data diversity problem; anomaly detection finds the unusual files that rules and manual labeling miss
+
+Multi-method anomaly detection (IF + KMeans + PCA) on different feature representations catches more than any single method
+
+Dual-prompt LLM labeling achieves high precision on both malicious and benign labels, making both usable as training data
+
+The pipeline is filetype-agnostic (as long as an LLM can produce high precision labels for them – test this empirically first) and runs on a single machine. A new data type therefore requires a config file, rather than having to become an onerous engineering project
+
+Although research on traditional ML models has slowed in recent times, this research shows that LLMs can help revitalize the field by infusing them into the process for significant performance gains"
+8a588b5ea14d,8a588b5ea14d,2026-11-10 00:00 UTC,"Attacks, Breaches & Threat Intel",Sophos,Sophos Blogs,AI Security; Identity Security Posture Management; Threat Intelligence; Endpoint Security,Article,ARTEX: Attackers apply agentic AI,https://www.sophos.com/en-us/blog/artex-attackers-apply-agentic-ai,"Sophos X-Ops is tracking ARTEX, an open-source agentic AI penetration testing framework that multiple threat actors have used in intrusions since its public release in July 2026","Sophos X-Ops is tracking ARTEX, an open-source agentic AI penetration testing framework that multiple threat actors have used in intrusions since its public release in July 2026. One of the most prominent cases is the ConnectWise Cloud Backup compromise in mid-October, which Microsoft attributes to Storm-0940, a group it assesses as “China-state aligned.”
+
+How ARTEX works
+
+ARTEX is an open-source, multi-agent penetration testing framework written in Go. It supports multiple LLM providers and compatible endpoints; in reported campaigns, operators have connected it to models including DeepSeek, GLM, and Grok. Given an objective, ARTEX has the following capabilities:
+
+Use planning agents to map the target and decide the next step
+
+Worker agents can invoke offensive tooling and feed results back into the planning process. In malicious deployments, this could include activities such as scanning, exploitation, credential access and webshell deployment
+
+Planning agents can adjust the plan and launch subsequent rounds via worker agents
+
+It records the assets and vulnerabilities it discovers in a graph as the test progresses
+
+Can attempt multiple breach paths at the same time
+
+In campaigns described by Microsoft and Google/Mandiant, operators have supplied ARTEX with authentication material or compromised application credentials and used it against cloud APIs and services, such as Microsoft Graph.
+
+Sophos countermeasures
+
+Sophos has existing endpoint, network, and cloud protections covering multiple behaviours and indicators associated with reported ARTEX activity.
+
+The protections below target ARTEX and the campaigns reported so far. Our evaluation of coverage is ongoing, and we will update this table as it changes.
+
+Layer
+
+Protection
+
+Taegis XDR
+
+ConnectWise Compromise: Service Principal Credential Added or Role Assigned by an Application
+
+ConnectWise app sign-in with scripted user agent
+
+File detection
+
+Troj/Bckdr-SDA (trojanized ARTEX Docker image)
+
+Troj/Loader-TU
+
+Linux/Agent-KD
+
+ATK/Artex-A
+
+ATK/Artex-B
+
+ATK/Artex-C
+
+Web and IP reputation
+
+IPs associated with publicly reported ARTEX use blocked as malware
+
+Sophos Firewall
+
+The following signatures have been released to Sophos Firewall and Endpoint IPS to cover network-observable ARTEX behaviours and indicators:
+
+2313266 - SCAN ARTEX Agentic Framework OAuth illegal_redirect_uri_enhanced Error Response
+
+2313265 - SCAN ARTEX Agentic Framework WWW-Authenticate Basic realm ARTEX Response Header
+
+2313264 - SCAN ARTEX agentic-AI pentest framework baseline canary probe observed
+
+2313263 - SCAN ARTEX agentic-AI pentest framework spec-driven API collection write attempt
+
+2313261 - SCAN ARTEX agentic-AI pentest framework tenant isolation bypass attempt
+
+2313259 - SCAN ARTEX agentic-AI pentest framework OAuth unregistered redirect URI abuse attempt
+
+2313258 - SCAN ARTEX agentic-AI pentest framework unsigned JWT alg-none SSO bypass attempt
+
+2313257 - SCAN ARTEX agentic-AI pentest framework suspicious User-Agent observed
+
+Endpoint IPS
+
+2313266 - ARTEX Agentic Framework OAuth illegal_redirect_uri_enhanced Error Response
+
+2313265 - ARTEX Agentic Framework WWW-Authenticate Basic realm ARTEX Response Header
+
+2313264 - ARTEX agentic-AI pentest framework baseline canary probe observed
+
+2313263 - ARTEX agentic-AI pentest framework spec-driven API collection write attempt
+
+2313261 - ARTEX agentic-AI pentest framework tenant isolation bypass attempt
+
+2313259 - ARTEX agentic-AI pentest framework OAuth unregistered redirect URI abuse attempt
+
+2313258 - ARTEX agentic-AI pentest framework unsigned JWT alg-none SSO bypass attempt
+
+2313257 - ARTEX agentic-AI pentest framework suspicious User-Agent observed
+
+Troj/Bckdr-SDA detects a backdoored copy of the ARTEX Docker image. The original project has been taken offline by its developer, so researchers sourcing the framework from unofficial mirrors and clones should treat those copies as untrusted.
+
+Sophos has identified activity at a small number of customers that is consistent with ARTEX or other AI-assisted offensive tooling
+
+Common themes include webshell and SQL Server command execution, credential theft, and attempts to move between systems. We’ve also seen rapid command sequences, repeated attempts with small changes, and structured output markers, consistent with agent-driven activity.
+
+Across these instances, existing Sophos Endpoint protections surfaced multiple signals at multiple stages of the attacks. In many cases, Active Adversary Protection (AAP) was enabled and added further protection to disrupt subsequent attack behaviors.
+
+It’s worth noting that, in line with what we’ve discussed previously regarding AI-enabled attacks, the attack activities are broadly the same, but the scale, noise, and persistence all increase significantly. In our telemetry, we noted hundreds of protection events relating to these attacks.
+
+The rules we observed included:
+
+Initial access and server execution
+
+Access_1b
+
+Access_3b
+
+Exec_34a and Exec_34b
+
+Credential theft and collection
+
+Creds_4c
+
+Creds_4l
+
+Creds_2a and Creds_2d
+
+Creds_3b
+
+Collection_2c
+
+Lateral movement and tool transfer
+
+Lateral_5a
+
+Exec_37a
+
+Lateral_1b
+
+Web shells and execution activity
+
+Persist_26c
+
+Exec_6a and Exec_17a
+
+Evade_13a
+
+AAP protections
+
+Disrupt_2a
+
+Disrupt_7e
+
+Disrupt_7f
+
+Disrupt_7g
+
+Disrupt_7h
+
+Threat hunting indicators
+
+These indicators come from ARTEX activity described in reported campaigns. In its report, Microsoft claims that Storm-0940 was using ARTEX “as early as September 2026,” so we recommend hunting back to at least this date. Additional reporting indicates that an ARTEX-related incident occurred in September 2026, targeting South Korean financial organizations.
+
+In cloud environments, look for:
+
+Service principal credentials added, or roles assigned, by an application
+
+Application sign-ins with a scripted user agent
+
+On hosts, look for:
+
+Temporary tooling and output files named i<intentID>[variant]_<purpose>.<ext>, for example i12345_b2.ps1.
+
+Files or paths beginning with artx, particularly under C:\Windows\Temp.
+
+Commands containing structured execution-verification markers – such as MARKER123/ARTX123, particularly when combined with rapid command sequences and repeated command variants
+
+Bursts of commands, repeated variants of the same command, and output written to temporary files.
+
+Recommended actions
+
+Several reported ARTEX campaigns have leveraged existing or compromised access, including stolen application credentials, consented third-party apps, and valid accounts. Sophos recommends the following steps as best practice:
+
+Audit service principals and enterprise applications in Microsoft Entra ID. Remove third-party app consents you no longer use, and review every credential addition and role assignment made since September 2026.
+
+Apply Conditional Access policies to workload identities where licensing allows, restricting application sign-ins to expected locations.
+
+Alert on application sign-ins with scripted user agents, and on authentication failure rates that exceed normal baselines.
+
+Automate first response. When an attack reaches privileged access in a short amount of time, containment steps such as disabling a service principal or revoking its credentials should run from a playbook, with an analyst confirming afterwards.
+
+If your own red team uses agentic frameworks, register their infrastructure and tooling names with your SOC so that authorized activity stands out."
+0ccad2da8137,0ccad2da8137,2026-11-10 00:00 UTC,Vulnerabilities & Patching,Sophos,Sophos Blogs,Vulnerability Management,Article,N-able issues advisory on critical vulnerabilities,https://www.sophos.com/en-us/blog/n-able-issues-advisory-on-critical-vulnerabilities,Sophos countermeasures SophosLabs continues to monitor the threat landscape for activity related to this threat and will deliver detections and protections as available,"On November 9, 2026, a security researcher released a series of proof-of-concept (PoC) scripts targeting various vulnerabilities in N-able's N-central platform. The collection of PoCs claims to exploit several critical weaknesses in the N-central platform. As a result, N-able has taken the precautionary step of taking their N-central Hosted Environments offline.
+
+At this time there is third-party reporting suggesting that exploitation is occurring in the wild. N-Able’s advisory does not indicate that they have observed exploitation as of this writing; however they do note that they have observed scanning activity associated with the published PoC code. At this time, Sophos X-Ops has not observed exploitation. We recommend that operators of on-premises N-central servers follow N-able’s advice.
+
+Recommended actions
+
+Sophos X-Ops recommends that organizations review N-able’s advisory and monitor it for further instructions from N-able.
+
+Sophos countermeasures
+
+SophosLabs continues to monitor the threat landscape for activity related to this threat and will deliver detections and protections as available."
+a98f6b38adfc,a98f6b38adfc,2026-11-10 00:00 UTC,General Security News,Sophos,Sophos Blogs,Endpoint Security; AI Security; Container Security,Article,Enforcing intent-based access control at the endpoint,https://www.sophos.com/en-us/blog/enforcing-intent-based-access-control-at-the-endpoint,"GitGuardian found the requested inventory file on only about a quarter of targeted systems, and some clients explicitly refused credential-harvesting requests despite the...","In the Odyssey, the Sirens promised every passing sailor the story of ""everything that is going to happen over the whole world."" Circe warned Odysseus that their listeners never made it home, but he wanted to hear the song anyway. He also knew he couldn't trust himself once he did. So he stopped his crew's ears with wax, had them bind him upright to the mast, and gave them one standing order: ""If I beg and pray you to set me free, then bind me more tightly still."" When the song came, he signaled with his brows for his men to let him go, and Eurylochus and Perimedes tied him tighter. The song is what people remember, but the engineering worked. Odysseus set his limits before the temptation arrived, and he left its enforcement to ropes he couldn't loosen and men who couldn't hear him.
+
+The previous piece covered turning an agent's prompt into an access policy that a person validates. This piece covers whether that policy holds once the agent starts working. Three questions define the design. Can the agent tamper with the controls enforcing the policy? Does the control check the action regardless of how the agent attempts it? And does it receive enough task context to understand intent while staying simple enough to test? These questions connect controls a security vendor can build on endpoints today with broker, resource-side, and hardware enforcement elsewhere.
+
+OpenAI demonstrated the problem while hardening its training environment. In Securing our frontier model training environment, published October 23, it reports that teams of agents ""found several ways to chain vulnerabilities into microVM escapes."" In a separate experiment, agents passed synthetic secrets between microVMs through the processor's cache, without network connections or shared writable files. OpenAI gave the attacking agents infrastructure source code and configuration details. In most communication tests, researchers also pointed them toward a specific channel or supplied a method for encoding and decoding messages. OpenAI says it remediated the discovered weaknesses and its frontier training now runs without live internet access.
+
+Other containment failures took different forms. In Marchand et al.'s SandboxEscapeBench, which seeds containers with deliberate vulnerabilities, frontier models prompted to escape often got out through common misconfigurations like exposed Docker sockets and privileged containers, though none solved the hardest scenarios. Many attempts cost on the order of $1 each, cheap enough for an attacker or an uncontrolled agent to keep trying. Anthropic reviewed more than 140,000 evaluation runs and found three incidents involving real organizations through mistakenly open internet access. In those runs the agents needed no exploit, because a configuration mistake had already left the boundary open.
+
+Every one of those failures happened in an environment built for containment. The PocketOS agent from the previous piece ran on a developer laptop, where it found an account-wide access token in a file unrelated to its task and used it to delete a production database. The credential read and destructive API request originated on the endpoint. A security product on that laptop could have seen the token read and the outbound request. With the agent's task supplied through its hook, it could also have recognized a credential unrelated to the task being used for a production deletion the task never required, and blocked the request before it left the machine.
+
+Without that check, the PocketOS agent behaved like Odysseus's crew later in Book 12. They had been warned never to touch the cattle on the island of Thrinacia, but they landed there anyway, and every man swore an oath to leave the herd alone. Winds then kept them on the island for a month. The oath lasted as long as the food, and once the food ran out, the same men who had tied Odysseus tighter to the mast talked themselves into killing the cattle. At the Sirens, the crew had wax in their ears and nothing to decide. On Thrinacia, the cattle stayed within reach, and keeping the oath depended on hungry men choosing to obey it. The PocketOS agent's safety rule was that kind of oath, a sentence in its prompt that competed with the task, and the task won.
+
+Security engineers have long required access controls that programs cannot alter or bypass, with enforcement simple enough to analyze and test. Anderson laid out those requirements in a 1972 computer security planning study for the U.S. Air Force, which introduced the reference monitor, a component that checks every access against policy. Saltzer and Schroeder’s 1975 principle of complete mediation made the coverage requirement explicit: “Every access to every object must be checked for authority.” Agent systems add the work of connecting those checks to a task written in natural language. Moving enforcement outside the agent protects the checks, but requires an explicit way to carry the task context across that boundary.
+
+Keep credentials and evidence outside the agent
+
+The first component is Odysseus's standing order, the short list of actions the previous piece said require explicit human permission. It sits underneath every task, and no task scope can widen it. Enforced outside the agent, that list would have stopped the PocketOS deletion with no model judgment involved.
+
+For credentials, Anthropic's write-up on decoupling the brain from the hands keeps tokens outside the sandbox, using a vault and proxy for custom tools, so they're ""never reachable from the sandbox where Claude's generated code runs."" Anthropic rejected narrow token scoping as the fix because it ""encodes an assumption about what Claude can't do with a limited token."" OpenAI's sandbox agents guide also separates the harness from compute, but it lets code in the sandbox use credentials scoped to the mounts and providers it needs. NVIDIA's open-source OpenShell runtime ships a version of this, giving the agent credential placeholders and adding real credentials only to requests that a supervisor outside the sandbox approves against policy. On a developer laptop, the same design means the agent never holds the token. OS controls keep the agent's processes away from credential files and stores, and a local broker makes authenticated requests on its behalf, accepting only narrow, typed operations and adding the credential at the moment of use. The PocketOS agent would have had no token to find.
+
+The audit log belongs out of reach too. It should sit on the sensor side and capture who asked for what, under which task, and what was allowed or denied. Records should be sent to a logging service outside the agent’s control, using credentials that cannot alter or delete existing entries. The UK AI Security Institute's incident report on a July cyber evaluation illustrates the value of independent monitoring. Agents given internet access took unsanctioned actions against real people and organizations, and AISI's general security monitoring caught them by flagging data leaving over Tor. Within an hour of the alert, AISI had stopped every run and isolated the machines, and it found no resulting real-world harm. Independent monitoring only helps when its alerts reach someone with the authority to stop the agent, and AISI's did.
+
+Enforcement across every execution path
+
+Where the checks run is where endpoint vendors have the clearest advantage. Coding agents now expose hooks that let a security product inspect each prompt and tool call, and endpoint vendors can use those hooks to block an agent's action before it runs when it falls outside the task, whether a prompt injection caused it or the agent got there on its own. A hook sees only what the harness routes through it, such as the shell command the agent requested. What that command actually does, including the install scripts, child processes, file access, and network connections that follow, shows up in endpoint telemetry. A security product that sees both can check whether the behavior still fits the task the hook described.
+
+The harness's own permission checks can be switched off from outside, too. In the Nx ""s1ngularity"" npm compromise in August 2025, a malicious install script ran the AI coding tools it found with flags like --dangerously-skip-permissions and --yolo and asked them to inventory the machine's secrets. GitGuardian found the requested inventory file on only about a quarter of targeted systems, and some clients explicitly refused credential-harvesting requests despite the disabled permission checks.
+
+Endpoint products already collect process, file, and network telemetry. For agent security, those events need to be linked to the agent session and authorized task that caused them. Without that lineage, a destructive request from the agent's child process looks like any other request from the developer. Lineage is also what lets behavioral detection judge whatever gets past policy, by comparing what the agent's processes actually do with what its task needs.
+
+Egress control follows from that lineage. AISI's hardened cyber ranges now disable outbound networking inside their sandboxes and, as an independent layer, block it again at the virtual machine host, on the assumption that ""an agent might find its way past any single layer."" On an endpoint the same idea becomes per-agent egress policy that covers DNS and package registries. OpenAI's September 20 incident went through a misconfigured resolver, as did the anonymized DNS exfiltration case Bloomberg's Andrey Rybka described in his AI Engineer talk, and OpenAI's July incident went through the package manager.
+
+Information-flow labels track how untrusted content influences the agent's actions. A hostile web page or document can carry instructions, and Shumailov et al.'s CaMeL treats that as a data-flow problem, labeling where each value came from and checking those labels before any consequential tool call, which applies the same principle as parameterized queries: keeping untrusted data separate from instructions. Costa et al. build information-flow control into the agent's planner and check its policies at each tool call. A hostile document can still be summarized, but it doesn't get to choose who receives the summary.
+
+Budgets limit how much an agent can spend or consume. The previous piece covered the AAuth budgets draft and the Resy agent that needed one. For a budget to hold, the resource has to enforce it, so the count stays out of the agent's reach. Human approval threads through all of these controls, because every limit that hands off to a person adds a prompt, and approvals that grow with agent volume eventually get rubber-stamped.
+
+Canaries for the paths enforcement misses
+
+Canary credentials help expose unexpected access paths, whether the agent wandered off-task, followed injected instructions, or was driven by a compromised install script, as in s1ngularity. A decoy token in a repository, home directory, or MCP configuration can reveal credential discovery or attempted use, though indexing and secret scanning may legitimately read the same file.
+
+Tracebit, which sells canaries, ran a benchmark in an AWS environment of about 300 resources. Ten frontier models acted as red teamers, starting from a low-privilege access key with instructions to maximize impact stealthily, and in half the test conditions 11 decoy resources sat among the real ones. Of 951 runs, 352 were dropped from scoring, most because the model refused before touching AWS. Agents that reached admin took 14 minutes on average. When canaries were present, 96% of those runs had already tripped one before the agent's first critical action, a median of eight minutes earlier.
+
+More capable models tripped more decoys, because they enumerate everything that looks high-value. Planting canaries without telling the agents did not significantly reduce full compromise (admin access plus persistence). But telling them to expect deception did, cutting it from 20% to 3% in a figure pooled across runs with and without canaries, so the warning itself did the work, like a ""Beware of dog"" sign on a yard that may have no dog. Sometimes the bark is enough.
+
+Enough context to understand intent
+
+Model judges can compare proposed actions with the authorized task, and this part of the design can improve with the models. Simple deterministic authorization checks can be cheap. Meta reports small-classifier latencies of 19-92 milliseconds on an A100 processing 512 tokens, while its illustrative LLM-check traces take roughly a second. DeAction averaged 7.2 seconds of guardrail reasoning per online action step. Those costs favor a cascade. Deterministic checks enforce explicit limits, a small classifier screens common cases, and an LLM judge reviews selected consequential or suspicious actions inline while scoring other activity asynchronously.
+
+Anthropic evaluated a probe-assisted classifier cascade in shadow mode on production traffic. A lightweight probe screened every exchange and escalated about 5.5% to an external classifier, using about one-fortieth the compute of its single exchange-classifier baseline. Applying that design to agent actions requires measuring accuracy and interruptions at the workloads and base rates of the intended deployment. The judge should be swappable, with its measurement built in, and explicit authorization limits should remain enforced independently of its verdict.
+
+Every enforcement point has to solve the same design problem. A hook inside the agent's harness sees the prompt and tool request, but only on the paths the harness exposes. OS instrumentation can observe local processes, file access, and connections, but needs trusted task context from the runtime or record to judge whether they fit the work. At every layer, that connection needs as much design attention as where the enforcer sits.
+
+The task also has to arrive intact, because a formal check inherits whatever the translation got wrong. When Taheri et al. re-tested RoboGuard, which uses a model to translate safety rules into temporal logic, every harmful plan that passed in their evaluations traced back to an incorrect translation. The downstream check enforced the specification it received.
+
+NVIDIA's Open Agent Safety Platform, announced September 28, extends OpenShell into hardware through Sentry, a framework designed to run on BlueField-4 data processing units in a host-independent trust domain. NVIDIA says it can quarantine an agent ""within milliseconds."" Its reference architecture puts BlueField-4 on the node's only network path to the model and outside world. DOCA Tower terminates TLS for connections configured for inspection, while memory introspection tracks containers, processes, and loaded libraries using their associated hashes. Those signals describe execution and integrity. Understanding intent still requires the user-approved task and its limits, supplied through a trusted connection to the runtime.
+
+For hardware enforcement to deliver, the deployment has to route the relevant traffic through it and prevent the host from changing its controls. BlueField's documentation describes a Zero Trust mode that restricts host-side administration, but does not establish Sentry's default configuration. The hardware boundary also needs testing against its own threat model. OpenAI's cache-channel experiment illustrates the broader risk of shared hardware, without demonstrating a bypass of Sentry. In data centers built on this architecture, enforcement sits outside the host's trust domain. On laptops, OS controls and trusted brokers carry that job. Hardware adds another independent enforcement layer where it is available.
+
+Whichever layer enforces the policy, the previous piece showed how much legitimate work enforced policies stall in research prototypes. Published work so far reports pieces of the picture, such as classifier latency and shadow-mode results, but not the full set that would show intent enforcement works: attacks stopped when the attacker knew the defense existed, legitimate tasks that still finished, authority granted per task, approval requests per hundred tasks, latency added to each gated action, and false positives at a stated base rate. Those numbers are what will turn an enforcement architecture into something a customer can rely on.
+
+Ropes the agent can't loosen
+
+Odysseus heard every word of the song, and the ship still rowed past. His rig met all three of Anderson's requirements. He couldn't loosen the ropes, they held for the whole passage, and the standing order was one sentence long. The men at the oars had exactly the context they needed, because they knew the order and could see him straining against it, and the wax kept them from hearing the case he was making. OpenAI's package proxy, Artifactory, sat outside the sandbox, but exploitable functionality let agents use it to cross the boundary. Separation only protects a control when the requests it accepts cannot redirect or disable its enforcement.
+
+An agent's task is written down, and a person can confirm the access policy it becomes. Enforcement is the half that decides whether that policy holds up against a capable agent. Controls the agent can't tamper with have to enforce the organization's restrictions and the task's limits regardless of which tool, child process, API, or discovered credential it uses. Those controls need the authorized task without accepting the agent's arguments for expanding it. Most of that can be built today, on machines security vendors already protect.
+
+Research and blogging assistance provided by Hermes, an AI Assistant. If it ever tunnels out through DNS, it promises a better question than the capital of France."
+f5699e7cf829,f5699e7cf829,2026-11-10 00:00 UTC,"Attacks, Breaches & Threat Intel",Sophos,Sophos Blogs,Endpoint Security; Identity Security Posture Management; Email and Collaboration Security; Data Security Posture Management,Article,The State of Ransomware in Retail 2026,https://www.sophos.com/en-us/blog/the-state-of-ransomware-in-retail-2026,"Exploited vulnerabilities hit retail harder than any other sector Exploited vulnerabilities declined as a technical root cause across all sectors in 2026, but they still started...","Exploited vulnerabilities hit retail harder than any other sector
+
+Exploited vulnerabilities declined as a technical root cause across all sectors in 2026, but they still started 26% of attacks on retail organizations. That's the highest rate of any sector and well above the 18% cross-sector rate.
+
+Phishing was the top technical root cause for retail at 29%, followed by exploited vulnerabilities (26%) and malicious email (22%).
+
+Identity-based vectors, including malicious email, phishing, compromised credentials, and brute force attacks, initiated 69% of attacks against retail. This was the lowest rate of any sector yet still well above half of respondents. 66% of retail victims said their ransomware attack was also their most significant identity attack, close to the 67% cross-sector rate featured in our State of Identity Security 2026 report earlier in the year.
+
+Known security gaps were retail’s one above-average weakness
+
+38% of retail victims attributed their breach to a known security gap, a weakness they were aware of but had not addressed. That was retail’s most common operational root cause and the only one it cited more often than the 36% cross-sector rate.
+
+Every other operational root cause came in below the cross-sector rate. The report compares each one in detail.
+
+Encryption climbed after two years of decline
+
+62% of attacks on retail succeeded in encrypting data, up from 48% in 2025 and above the 56% cross-sector rate. Attacks that encrypted data and also stole it rose to 19%, up from 14% last year. That second point of leverage weighs heavily on retailers holding customer payment and personal data.
+
+Backups did most of the recovery work: 71% of retail organizations restored data from backups, up from 62% last year and above the 66% cross-sector rate. Far fewer retailers paid the ransom to get their data back than in 2025. The full report shows where retail’s payment rate ranks against other sectors.
+
+Low typical ransoms, with a heavy top end
+
+The median ransom demand for retail was $225,000, the second lowest of any sector and far below the $698,000 cross-sector median. The average (mean) demand was $4.32 million, the highest of any sector. That average does not include outlier ransoms of $40 million or more. These ultra-high ransoms were excluded from the report results to prevent skewing of averages.
+
+The median ransom payment for retail was also low at $57,500, the lowest of any sector and well below the $769,000 cross-sector median.
+
+The report explains what pushed retail’s average demand to the top of the sector rankings and how far retailers negotiated attackers down.
+
+Recovery got faster, but costs went up
+
+The average (mean) cost to recover from an attack, excluding any ransom paid, rose to $1.76 million from $1.65 million last year. That was slightly above the $1.70 million cross-sector average, which also rose this year.
+
+But on the positive side, retail’s average time to fully recover fell to 2.54 weeks from 3.16 weeks last year. 56% recovered within a week, the highest share in five years of retail data. The rate of 2.54 weeks is also below the 2.80-week cross-sector average, making 2026 a strong year for quick recoveries.
+
+Defenses saw the attack, but did not stop it
+
+Almost all retail victims of credential-based attacks had MFA enabled (97%), yet more than half still had data encrypted by attackers. Firewalls flagged 59% of attacks before the ransomware deployed, but even with early indicators, victims were encrypted 60% of the time, compared with 50% across all sectors.
+
+Controls in retail are collecting the right signals, but they’re not connecting deeply enough with other tools and responding together. The report contains several key recommendations based on this year’s data, and one of those recommendations is to adopt a defense system posture where identity, email, endpoint, and network controls respond as one.
+
+Read the report
+
+Retail is paying attackers less than any other sector and recovering faster than in any year of our data. But more attacks are reaching encryption, and the cost to recover went up. Closing known security gaps and connecting existing defenses are the highest-leverage places for retailers to invest in.
+
+Download the free report for the full findings, sector comparisons, and recommendations."
+06a7d5f265ef,06a7d5f265ef,2026-11-06 00:00 UTC,General Security News,Sophos,Sophos Blogs,AI Security; Endpoint Security; Threat Intelligence,Article,Killing ill-willed skills: Sophos AI at BSides Sydney,https://www.sophos.com/en-us/blog/killing-ill-willed-skills-sophos-ai-at-bsides-sydney,<p>The Sophos AI team presents new research at BSides Sydney</p>,"On November 7, 2026, Principal Data Scientist Younghoo Lee will present a talk at BSides Sydney entitled ""Decode facts, then reason: Detecting obfuscated malicious agent skills with small LLMs."" The talk presents a practical hybrid architecture for addressing a distinct software supply chain trust boundary: AI agent ‘skills’ that may be malicious, in contrast to their declared intent. For instance, a skill that claims to summarize CSV files may also read credentials, contact external hosts, or execute shell commands. The fact that such skills may be obfuscated complicates the problem, and existing solutions have significant drawbacks.
+
+Younghoo’s research proposes a new approach: decoding facts about skills deterministically, and then letting a small LLM reason over them to decide whether observed behavior aligns with a skill’s declared intent.
+
+Ill-willed skills
+
+AI agents increasingly come with ‘skills’: small add-ons, often shared through repositories and marketplaces, that teach an agent how to do a specific task. A skill is typically a folder with a SKILL.md file that describes in plain English what the skill is for – plus helper code (usually Python) that does the work.
+
+Once a skill is downloaded and installed, agents typically trust the description and run the code with their own privileges and accesses: source files, environment variables, the network, and a shell.
+
+The issue, however, is that whereas a person reads the description, the machine runs the code, and the two do not have to agree. A skill that promises to ‘report missing environment variable names,’ for example, could just as easily read every environment value and send it to an endpoint controlled by a threat actor.
+
+Obfuscation makes the problem worse
+
+Compounding this issue is the fact that a skill can hide what it does, and the techniques will likely be familiar to any reader who’s analyzed malware: splitting strings, building words from character codes, wrapping content in Base64, resolving functions by name at runtime, and, in the description text, using zero-width characters or lookalike Unicode letters.
+
+It’s not unreasonable to expect this obfuscation to become increasingly complex, particularly if threat actors start to deploy malicious skills at scale. Attackers have a long history of layering encodings, hiding commands inside ordinary-looking scripts, and abusing legitimate system tools. Skills can leverage the same built-in tools, so essentially we’re facing the same playbook but with a new delivery channel and a trusting host. Techniques we may see in future include stacked encodings, multi-step reconstruction, and novel variants designed to evade signature-base detection.
+
+It’s worth noting, however, that obfuscation is of course not malicious in itself, and this makes the problem harder to solve. Benign tools use it for minified code, test fixtures, and anti-tampering checks, and so simply scanning skills for obfuscation techniques will likely result in false positives.
+
+In Younghoo’s talk, two demo skills – one benign, the other malicious - use similar obfuscation tricks. The first, involving a log redaction skill, builds the words ‘password’ and ’api_key’ from character codes, so that Continuous Integration (CI) secret scanners do not flag its own source, and then masks those values in the logs it cleans. In the second demo, an ’environment auditor’ splits a string to hide access to the environment and uploads sensitive information, such as keys and credentials. The obfuscation looks alike and the eventual verdicts are opposites. What separates them is the declared purpose, the data flow, and the destination.
+
+A hard problem
+
+There are three existing approaches to solving this problem, and while they may provide some level of reassurance, they also fall short in various ways.
+
+Static rule-based scanners are fast, cheap, and auditable, but as the name suggests, they match on what code looks like; if strings are assembled at runtime, for example, the corresponding rule has nothing to match when it examines the skill statically. In Younghoo’s tests, two open-source skill scanners (Cisco Skill Scanner and NVIDIA SkillSpector, both in static mode) performed well on plaintext skills. On obfuscated skills, false positives were rare, but both scanners missed some malicious skills. Both tools also ship optional LLM features, which our main comparison did not use.
+
+Frontier LLMs can reason about intent and judge a skill’s behavior compared to its description, rather than checking whether certain strings or code appear., That would seem to make them an obvious solution, but it’s unfortunately not always practical. Sending multiple skills to a large hosted model adds latency and cost at scale, as well as potentially adding privacy, policy, and regulatory concerns.
+
+Small local models avoid the drawbacks described above, but may struggle with the complexity of the task. The smallest model in Younghoo’s study, for instance, was ineffective when given raw obfuscated code, because it had to untangle the obfuscation and judge intent at the same time.
+
+A novel approach: decode facts, then reason
+
+Younghoo’s idea was to split the problem in two. First, code recovers what a skill may be attempting to hide, and then a small LLM judges whether that behavior fits what the skill claims to do.
+
+The workflow involves three steps:
+
+Decode. A deterministic Python front-end reverses obfuscation patterns. It never executes the skill, and does not assign a verdict or make a judgement. Each deobfuscation is recorded, with its technique, location, and before/after text, providing an audit trail. It repeats its deobfuscations until the source stops changing – so stacked encodings, such as Base64 inside a split string, are stripped back, layer by layer. Content that still looks encoded after decoding (such as long Base64-like runs or unusual runs of non-ASCII characters), is flagged as a possible unknown obfuscation.
+
+Summarize. The decoder's events become a short, facts-only summary for each file: techniques used, revealed content, hardcoded secrets, sensitive operations, and any ‘possible unknown obfuscation’ flags. Again, this step avoids coming to a conclusion about intent, and reminds the model (see next step) that obfuscation can be benign, so the presence of obfuscation does not necessarily imply malice.
+
+Judge. Finally, a small LLM reads each summary alongside the skill's original source and description. It returns a verdict and a reason: does the behavior, now visible, fit the declared intent, and does any content that survived decoding make that fit less believable?
+
+It’s worth noting that the decoder, at step 1, will not know every obfuscation technique, so it’s built as one input to the eventual judgement. The ‘possible unknown obfuscation’ flag is a cue to weigh, rather than a verdict in itself. Encoded content that cannot be explained by a skill’s declared purpose counts against it, and by the same token, the same content in a skill that plausibly needs it may not. Covering a new technique means adding another decoder pass.
+
+One of the main benefits of this hybrid approach is that for everything the decoder can resolve, the model no longer has to work out what a string of character codes means. The model's job is reduced to judgment, which is easier than decoding and judging at once.
+
+The experiment
+
+Younghoo distilled a larger teacher model into small Qwen3 ‘students’ with Low-Rank Adaptation (LoRA) fine-tuning, so inference did not need an external API and could be done locally, and evaluated the approach on a synthetic benchmark of benign and malicious skills, each expanded into many obfuscated variants and split by base skill - so that no variant of a test skill appeared in training.
+
+We’ll publish more detailed results soon – and further information will be available in the BSides talk itself – but here’s a brief summary of the results.
+
+Static scanners stay precise but go quiet. Under obfuscation, their precision held up, but their recall dropped sharply compared with plaintext. The fine-tuned small models recovered most of the missed detection.
+
+Decoded evidence turns small models from unusable into useful. Given the same obfuscated skills, the smallest model scored close to nothing on raw code. Once it was given decoded evidence, with no training at all, it matched the stronger static scanner overall, though it also produced many false positives.
+
+Distillation helps at every size. Fine-tuning improved all three student sizes: Qwen3-0.6B, 1.7B, and 4B. The 0.6B model gained mostly by learning to stop over-flagging benign skills. The 4B model outperformed both static scanners on obfuscated skills and scored close to perfect on our benchmark.
+
+There are caveats to these results, of course: the benchmark was synthetic, and its variants came from known obfuscation techniques. However, we believe this research is a promising countermeasure to an emerging threat. Malicious skills may become more prevalent, and scanners, frontier LLMs, and local models have known weaknesses when it comes to detecting obfuscated variants.
+
+However, decoding the content deterministically, then using a small model – which can be hosted locally – to judge whether it fits the skill’s declared job, may be a viable solution. It’s also a useful reminder that while AI can introduce new variants of threats in the hands of attackers, it can help defenders to counter those same threats. Keep an eye out for more on Younghoo’s research in the near future."
+1b90a8ee8765,1b90a8ee8765,2026-11-05 00:00 UTC,"Attacks, Breaches & Threat Intel",Sophos,Sophos Blogs,Endpoint Security; Email and Collaboration Security; Identity Security Posture Management,Article,The State of Ransomware in Financial Services 2026,https://www.sophos.com/en-us/blog/the-state-of-ransomware-in-financial-services-2026,"Attack vectors concentrated on identity Identity-based vectors, including malicious email, phishing, compromised credentials, and brute force, initiated 85% of attacks against...","Attack vectors concentrated on identity
+
+Identity-based vectors, including malicious email, phishing, compromised credentials, and brute force, initiated 85% of attacks against financial services. This was one of the highest rates for any sector and well above the 79% cross-sector rate for identity-based initial vectors.
+
+Malicious email and compromised credentials tied as the leading technical root cause at 26%, with phishing close behind at 23%. Exploited vulnerabilities dropped to 12%, down from 40% last year.
+
+While brute-force attacks were a low occurrence root cause across all sectors, financial services was the most likely sector to be breached by a brute force attack (10%, versus 6% across all sectors).
+
+The sector was breached through gaps it already knew about
+
+44% of financial services victims attributed their breach to a known security gap, a weakness they were aware of but had not addressed. That was the highest rate of any sector and eight points above the 36% cross-sector rate for known security gaps.
+
+Unknown gaps were close behind at 41%, and combining the two, roughly 69% cited a security gap of some kind. Lack of protection followed at 40%. The report compares each operational root cause with the cross-sector average.
+
+Double extortion keeps climbing
+
+59% of attacks on financial services providers succeeded in encrypting data, close to the 56% cross-sector rate and unchanged from last year. What shifted was the mix: attacks that encrypted data and also stole it rose to 21%, up from 18% in 2025 and 16% in 2024. That second point of leverage is costly in a heavily regulated sector.
+
+Luckily, financial services were better prepared for recovery with 75% restoring data from backups, which was better than the 66% cross-sector rate and a sharp rebound from only 44% using backups last year.
+
+A higher floor on ransoms, but deeper discounts
+
+Financial services faced steeper demands: a median of $1 million versus the $698,000 cross-sector median, and 53% of demands were for $1 million or more. Payments were also high, with a median of $1.07 million against the $769,000 cross-sector median.
+
+Both of those medians, however, were lower than last year’s medians. The median demand fell from $3 million in 2025, and the median payment continued a two-year decline from $2.2 million in 2024.
+
+The report covers how well the financial services was able to negotiate ransomware payments.
+
+Costs eased, but recovery did not
+
+The average (mean) recovery cost, excluding any ransom paid, was $1.50 million, down from $1.74 million last year and below the $1.70 million cross-sector average.
+
+The median tells a different story at $750,000, double the $375,000 overall median. The sector has a higher floor and a lower ceiling: fewer cheap recoveries, but no ruinous ones either. You can find out how long post-ransomware attack recovery timelines were for the financial services sector in the full report.
+
+Defenses saw the attack, but did not stop it
+
+Almost all financial services victims of credential-based attacks had MFA enabled (96%), yet 70% were still encrypted. Firewalls flagged 48% of attacks before the ransomware deployed, but even with early indicators, victims were encrypted 53% of the time.
+
+Controls are collecting the right signals but they’re not connecting deeply enough with other tools and responding together. The report contains several key recommendations based on this year’s data, and one of those recommendations is to adopt a defense system posture where identity, email, endpoint, and network controls respond as one.
+
+Read the report
+
+The financial services sector is paying attackers less and recovering from backups more, but it is recovering slower and carrying a heavier human cost than almost any other sector. Closing known gaps and connecting existing defenses is the highest-leverage place to invest.
+
+Download the free report for the full findings, sector comparisons, and recommendations."
+6ba674da3516,6ba674da3516,2026-11-05 00:00 UTC,General Security News,Sophos,Sophos Blogs,Endpoint Security,Article,SIEM or XDR? Yes,https://www.sophos.com/en-us/blog/siem-or-xdr-yes,"Most importantly, XDR ingests only the data used within the threat lifecycle, and it does so through out-of-the-box integrations","In my last blog, I asked where XDR fits into the SIEM-less conversation. To answer that, start with the endpoint. If every threat could be stopped there, there would be less need for detection and response products such as endpoint detection and response (EDR). But attackers got better at evading even the most robust endpoint security, for example by abusing dual-use tools in living-off-the-land (LOTL) attacks. That forced the industry to pivot toward a “collect data and analyze” approach, which is the entire premise behind EDR and where the SIEM-versus-XDR story begins.
+
+From EDR to XDR
+
+EDR effectively became a cloud-based store of endpoint data. To make that data actionable, a lot has to happen:
+
+Data must be correlated to surface threats and generate alerts.
+
+Alerts must be prioritized, triaged to confirm they are true positives, and managed.
+
+Actions must be taken to disrupt threats, with automation and playbooks for repeatable patterns.
+
+Data must be searchable as investigations progress, and reports must be generated.
+
+The system must integrate with IT service management (ITSM) tools to fit into operational processes.
+
+Attackers also target multiple entry points and move laterally once inside. So, the industry rightly concluded that threat detection and response become far more insightful and effective when endpoint data is combined with data from other threat vectors and sources such as network, identity, cloud, and email. The result was a purpose-built, integrated system focused singularly on security outcomes rather than on the endpoint alone. EDR evolved into extended detection and response (XDR).
+
+Same logs, two places, overlapping outcomes
+
+If you have EDR, you most likely have a security team handling triage, investigation, and response, and very likely a SIEM as well.
+
+At a minimum, a SIEM handles data ingestion, analytics, alert management, investigation, and response. If that sounds familiar, it is because that is exactly what XDR does. The SIEM is the original detection and response platform, the forerunner of every “DR” product, but it is neither cost-efficient nor easy to maintain. So why do organizations run both and pay twice? In most cases, the reasons are astonishingly simple:
+
+“If it ain’t broke, don’t fix it.”
+
+Other projects take priority, and taking this on would leave no one for anything else.
+
+Almost every auditor asks for a ‘SIEM’, and some may even use the word ‘SIEM’ as a generic term.
+
+The SIEM is an established budget line item (most likely due to the previous bullet).
+
+To be fair, there is one legitimate reason XDR and the SIEM co-exist, and it is the endpoint. For a SIEM to fully overlap with XDR, there must, by definition, be an endpoint, and the SIEM depends on an agent to supply it. The industry differs on what that agent looks like. It could be a complete endpoint agent with superior built-in protection capabilities, or a detection-focused sidecar agent that runs alongside an incumbent protection solution and forwards alerts and telemetry to an XDR or a SIEM.
+
+Sidebar: Why the agent matters
+
+One could argue that a complete endpoint agent with superior built-in protection makes for the better XDR solution, because the more you block, the less there is to triage and investigate. Such an agent also lets a security team query an endpoint in near real time and take deep actions to disrupt threats.
+
+Is XDR really a SIEM by another name?
+
+Yes, it is. EDR was essentially an endpoint-focused mini-SIEM, and XDR extended it into a security-focused SIEM. The industry rebuilt a tool that already existed but aimed it at security outcomes instead of overloading it with every use case imaginable. Unshackled from the ossified architecture of a traditional SIEM, XDR came out ahead.
+
+What makes it better?
+
+Most importantly, XDR ingests only the data used within the threat lifecycle, and it does so through out-of-the-box integrations. That data is pre-curated by the vendor’s security experts to produce specific security and operational outcomes, such as relevant detections or contextual information. XDR then gives your security team or SOC every capability it needs to triage, investigate, and respond. In a SIEM, by contrast, anything goes. As I covered in my “SIEM-less” blog, customers save data “just in case.” Here are a few real examples of what ends up in a SIEM:
+
+From the field: What customers actually send to a SIEM
+
+This one has legitimate intent: it is a log format header, a list of field names with no event data in it. It belongs in a code repository, not a SIEM:
+
+version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status
+
+This example is a fragment of a Python program that some product output via syslog:
+
+from __future__ import unicode_literals
+
+Here is one that looks like a log file fragment but is actually a line of C# code, and it has no value to us:
+
+[DllImport(""wtsapi32.dll"", SetLastError = true, CharSet = CharSet.Unicode)]
+
+And here is one that is just a facepalm:
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+Except it was over a megabyte long!!
+
+Every one of those entries was ingested into a SIEM, and in SIEMs that charge by ingestion, every one of them may well have been paid for. None of it helps a security team detect, investigate, or respond to a threat. That is why curation matters. This is why it matters who does the curation. Who carries that operational burden?
+
+Should you buy a SIEM or XDR?
+
+Start with a few questions.
+
+Questions to ask before you buy
+
+Where are you on the capability maturity curve? Where do you want to be, and why?
+
+What features do you absolutely need?
+
+If you already have a SIEM and an XDR solution, do they have a massive overlap in functionality?
+
+Do you have a security team that can deliver the outcomes that matter to you?
+
+Do you need to adhere to compliance frameworks?
+
+Can you keep up with the ongoing operational needs and associated costs of your tools?
+
+How much could you free up by rationalizing your needs within a single system?
+
+So, SIEM or XDR? Yes. XDR is a SIEM rebuilt for security outcomes, which means the real decision is about capabilities and economics. With your answers in hand, weigh the opportunity cost of each path: replace your SIEM, buy a SIEM-less SIEM, adopt XDR, or keep both and narrow the SIEM to non-cybersecurity use cases. Then balance that against your organization’s needs.
+
+So, where does the agentic SOC fit into all of this? More on that in my next blog."
+1b4c2314e582,1b4c2314e582,2026-11-04 00:00 UTC,General Security News,Sophos,Sophos Blogs,Network Security; AI Security; Vulnerability Management,Article,Securing the AI-era network: Why performance and defense now belong together,https://www.sophos.com/en-us/blog/securing-the-ai-era-network-why-performance-and-defense-now-belong-together,"The vulnerability you haven’t patched, the unsupported device you’ve forgotten about, or the management interface exposed to the internet can be discovered and exploited sooner","AI doesn’t operate in isolation. Its prompts, workflows, data exchanges, and API calls all depend on the network. As organizations put AI to work, it adds a new layer of traffic that is increasingly encrypted, application-driven, and machine-to-machine.
+
+Attackers are using AI too, helping them find weaknesses and act on them faster. The vulnerability you haven’t patched, the unsupported device you’ve forgotten about, or the management interface exposed to the internet can be discovered and exploited sooner. AI is narrowing the gap between exposure and attack.
+
+The network connects the users, devices, applications, cloud services, workloads, and AI systems that keep your organization running. That makes it one of the first places risk becomes visible and one of the fastest places to act. But only if the network has the performance to inspect demanding traffic, the visibility to recognize suspicious activity, and the ability to coordinate a response.
+
+Four pressures reshaping today’s networks
+
+The challenges will be familiar to most IT and security teams. AI is increasing their scale, speed, and operational impact:
+
+More demanding traffic. Encrypted, application-rich, and AI-enabled activity requires more inspection capacity. If the firewall becomes a bottleneck, organizations can be forced to choose between stronger protection and acceptable performance.
+
+Faster-moving threats. AI can accelerate reconnaissance, vulnerability discovery, exploitation, and other stages of an attack, reducing the time defenders have to respond.
+
+More blind spots. Distributed users, contractors, unmanaged and IoT devices, cloud services, and unsanctioned AI tools make it harder to see what is connected and govern how it is used.
+
+Less time to respond. Disconnected tools, incomplete context, and manual handoffs make it harder to contain threats before they spread.
+
+Performance and protection can no longer be planned separately
+
+This is not a reason to slow AI adoption. It is a reason to reconsider an old network trade-off. Organizations should not have to choose between supporting innovation and maintaining strong protection. Securing the AI-era network requires:
+
+Protected performance: enough capacity to inspect encrypted and application-rich traffic with the necessary protections enabled, without slowing the business down.
+
+Connected defense: network visibility and signals that strengthen investigation and response, helping security teams recognize and contain threats before they spread.
+
+Three questions to ask about your network
+
+Securing the AI-era network is not simply a matter of buying a faster firewall. It means planning performance, visibility, and response together.
+
+1. Can your network maintain performance with protection enabled?
+
+Headline throughput tells only part of the story. Capacity planning should reflect the TLS inspection, threat prevention, application control, and other protections you expect to keep switched on.
+
+2. Can you see beyond traditional network boundaries?
+
+Users, contractors, SaaS applications, unmanaged devices, and AI services all contribute to your exposure. Your visibility needs to extend across the environments where work now happens.
+
+3. Can network activity trigger a coordinated response?
+
+A network anomaly becomes more valuable when your team can investigate it alongside endpoint, identity, application, and threat context, then take action before the threat spreads.
+
+The goal is a network that can see what is connected, understand what is happening, maintain protection without compromising performance, and help stop threats before they spread.
+
+How Sophos is helping secure the AI-era network
+
+Sophos Fusion provides the foundation for our connected approach to cybersecurity, bringing Sophos products, services, and security intelligence together to help organizations see more, understand more, and respond faster. For the network, that means connecting protection, visibility, and context across the places where users, devices, applications, and data come together.
+
+The latest Sophos network security innovations build on that foundation:
+
+Sophos Firewall provides protection and control at key network boundaries.
+
+Sophos NDR extends visibility and response deeper into the network.
+
+Sophos Workspace Protection helps secure access wherever work happens.
+
+Sophos Wireless and Sophos Switch add visibility into connected devices and network segments.
+
+Together, they extend the Sophos Fusion story into the network, helping organizations maintain performance, reduce blind spots, and respond faster.
+
+Sophos Firewall v23: More control with less operational effort
+
+Sophos Firewall v23 helps organizations improve visibility, simplify administration, and strengthen resilience. It includes more than 30 enhancements, many based directly on customer and partner feedback.
+
+See and control AI use. Integration with Sophos AI Defense adds network-level visibility, reporting, and policy enforcement for AI services.
+
+Simplify firewall administration. The AI Assistant turns plain-language requests into proposed firewall rules that remain disabled until an administrator reviews and enables them. Redesigned rule management and an updated REST API make day-to-day administration and automation easier.
+
+Improve resilience. Faster high-availability failover, visible hotfix status, firmware update scheduling, and DNS over HTTPS help organizations maintain protection and availability.
+
+Protect more users and applications. Support for Microsoft Entra ID and Google identity providers, together with increased Web Application Firewall scale, helps protect larger and more diverse environments.
+
+Learn more about Sophos Firewall v23
+
+New XGS 1U firewall appliances: More performance. More choice.
+
+We’re also adding four new models to the XGS 1U range: the XGS 2380, XGS 3380, XGS 4580, and XGS 5580. They give mid-sized and distributed organizations more options on price and performance:
+
+Keep inspection switched on as traffic grows. Major gains in threat protection and TLS inspection performance, up to four times higher than comparable existing models, give you room to decrypt and protect growing volumes of encrypted traffic.
+
+Get more from every watt. Two purpose-built Xstream FastPath designs improve performance per watt, helping lower operating costs over the life of the appliance.
+
+Support higher-speed connectivity. 2.5G interfaces come on every new model, with up to 25G fiber on the XGS 3380 and above.
+
+Reduce downtime. Field-replaceable SSDs mean only a faulty drive needs to be returned, while the appliance stays in the rack. Improved internal redundant power options add further resilience.
+
+The new models expand the XGS range rather than replacing the existing appliances. The right choice depends on the protected performance, connectivity, resilience, and growth headroom your organization needs. Your Sophos partner can help you choose and size the right model for your environment.
+
+Xstream Plus: Expand protection with one firewall license
+
+Xstream Plus is a new Sophos Firewall term license for organizations that need more than network-edge protection alone. It includes everything in our most popular subscription bundle, Xstream Protection, together with:
+
+a model-specific allocation of Sophos Workspace Protection licenses
+
+Enhanced Plus Support
+
+up to one year of Sophos Fusion Firewall Reporting data retention, depending on traffic volume
+
+This gives organizations a simpler way to extend secure access and browser-based controls to remote and hybrid users, strengthen support for business-critical deployments, and retain reporting data longer for investigations, trend analysis, and compliance needs.
+
+Sophos NDR: Find and stop threats beyond the firewall
+
+Not every threat crosses a firewall, and not every device can run an endpoint agent. Now available as a standalone solution, Sophos NDR analyzes network activity to identify suspicious behavior across managed, unmanaged, IoT, and other agentless devices. It combines AI- and machine learning-powered behavioral detection with deep packet inspection and IDS/IPS capabilities.
+
+Reveal activity other controls may miss. Detect suspicious behavior and lateral movement across managed, unmanaged, and agentless devices.
+
+Disrupt malicious activity in real time. In Active Inline mode, Sophos NDR can drop identified malicious packets before they reach their target.
+
+Deploy it to suit your network. Choose virtual deployment, compatible third-party hardware, or a purpose-built Sophos NDR appliance, with Active Inline, Passive Inline, and SPAN/TAP options.
+
+Investigate with broader context. Bring NDR detections and network context into Sophos Fusion alongside information from other Sophos defenses.
+
+Sophos NDR works alongside Sophos Firewall to provide a more complete view of the network. Sophos Firewall controls traffic at key network boundaries, while Sophos NDR analyzes activity inside the network to identify threats that boundary controls may not see. Both contribute network context through Sophos Fusion.
+
+Sophos Workspace Protection: Secure access wherever work happens
+
+Sophos Workspace Protection helps secure how users access web, SaaS, private applications, and AI tools from anywhere, including from unmanaged contractor and BYOD devices. A model-specific allocation of Sophos Workspace Protection licenses is included with Xstream Plus, giving organizations a straightforward way to extend secure access and browser-based controls beyond the office.
+
+As we connect more Sophos solutions, customers will be able to apply protection more consistently across the network, endpoint, and workspace. New synchronized web policies are an important step in that direction. Administrators can configure web filtering in Sophos Fusion and apply it across Sophos Firewall and Sophos Endpoint.
+
+A Generative AI web category adds control over which AI services users can access, helping organizations allow approved tools, block unsanctioned services, and reduce the risk of sensitive information being shared inappropriately. Additional policy support for Sophos Protected Browser and Sophos DNS Protection is planned for future releases.
+
+We’re also extending this connected approach to AI security. Integration between Sophos Workspace Protection and Sophos AI Defense is planned to bring additional visibility and control to how organizations use AI services.
+
+A more connected view of network risk
+
+Each solution contributes a different part of the picture. Sophos Firewall provides visibility and control at key boundaries. Sophos Wireless and Sophos Switch show what is connected and where. Sophos NDR identifies suspicious activity inside the network, including on devices that cannot run an agent. Sophos Workspace Protection extends secure access and browser-based controls to users wherever they work.
+
+Sophos Fusion brings more of this context together, helping security teams investigate activity across the network and coordinate a faster, better-informed response. Instead of treating each network signal in isolation, teams can use it as part of a broader view of risk.
+
+Prepare the network for what comes next
+
+AI is making the network more important, not less. It is increasing organizations’ dependence on encrypted, application-driven, and machine-to-machine communication, while giving attackers new ways to find and exploit weaknesses faster.
+
+The answer is not to slow innovation. It is to build a network that can maintain protection as traffic evolves, reveal activity across managed and unmanaged environments, and turn network signals into faster action. By planning performance, visibility, and response together, organizations can adopt AI with greater confidence without allowing security or user experience to become the constraint.
+
+Explore what the AI era means for your network
+
+Join Sophos CEO Joe Levy, Sophos SVP of Product Management Dan Cole, and Eric Hanselman, Chief Analyst at 451 Research, part of S&P Global Market Intelligence, on November 17 for the Securing the AI-Era Network virtual roundtable.
+
+Hear their perspectives on how AI is changing the role of the network, why performance and security must now be planned together, and how organizations can prepare for threats that move at machine speed.
+
+Register for the virtual roundtable.
+
+To explore the latest Sophos Firewall, XGS appliance, Sophos NDR, and Sophos Workspace Protection innovations, contact your Sophos partner or visit the relevant product web pages."

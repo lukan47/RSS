@@ -257,6 +257,239 @@ Look at the clocks from this month. PHP2Shell was exploited four days before the
 And we just wrapped Cybersecurity Awareness Month. If you want to take a breather and step away from vulnerabilities for just a moment, here’s a list of simple things you should be doing daily to avoid a breach.
 
 To stay informed between our monthly wrap-ups, you can get the latest from the Sysdig TRT on our blog, or follow my bi-weekly security newsletter musings on LinkedIn."
+891478799533,15b5fe82f315,2026-10-28 00:00 UTC,Vulnerabilities & Patching,Falco / Sysdig,Falco / Sysdig Blog,Vulnerability Management,Article,Node2Shell (CVE-2026-111497): Detecting the Node.js Brotli RCE,https://webflow.sysdig.com/blog/node2shell-cve-2026-111497-detecting-the-node-js-brotli-rce,"js Brotli RCE Published by: Sysdig Threat Research Team @ linkedin Subscribe to Threat Research Published: October 28, 2026 Table of contents TRT in your inbox Get security...","This blog was originally published on October 24, 2026.
+
+As of October 28, 2026, Node2Shell is also tracked as HTTP2Shell and there are four important updates:
+
+The Sysdig TRT added an additional runtime rule called Node.js Process Redirected Network Socket to Standard Stream to Runtime Notable Events. The rule detects the post-exploitation step of Node2Shell.
+
+We previously reported there was no confirmed exploitation. On October 26, ELLIO confirmed exploitation.
+
+Initially, we cited only one RCE reproduction. OtterSec has since reported dozens.
+
+Debian was previously unpatched. Debian 12 and 13 now ship a fixed brotli, and Debian's Node.js uses the system library.
+
+A malformed compressed stream, an ignored error, and a write past the end of a buffer. On October 21, 2026, Node.js shipped fixes for an out-of-bounds write in the Brotli decoder it bundles, versions 22.23.4, 24.22.1, and 26.12.1. One day later, on October 22, Imperva reported running code on the official Node.js 24.22.0 Docker image for Linux arm64. The vulnerability, now tracked as CVE-2026-111497, received a CVSS v4.0 base score of 9.2 (Critical) and has been widely referred to as Node2Shell.
+
+As of October 23, no confirmed in-the-wild exploitation has been reported, and Node2Shell has not been added to CISA’s Known Exploited Vulnerabilities (KEV) catalog. However, public proof-of-concept (PoC) code has been tested, and the gap between patch and PoC was about a day. Security teams should work to uncover all instances where their Node.js services decode Brotli data they don’t control, and begin by patching those first.
+
+The Sysdig Threat Research Team (TRT) analyzed public Node2Shell research to help defenders understand who is reachable, what has been demonstrated versus claimed, what runtime visibility can detect, and what they can do until their organization can begin to patch.
+
+Timeline
+
+Date
+
+Event
+
+Oct. 14, 2026
+
+Node.js pre-announces the release, naming the affected lines and a top severity of high
+
+Oct. 21, 2026, 10:38 UTC
+
+Node.js publishes v22.23.4, v24.22.1, and v26.12.1
+
+Oct. 21, 2026, 15:47 UTC
+
+The first public GitHub repository for the CVE appears, about five hours after the fixes ship
+
+Oct. 21, 2026, ~19:27 UTC
+
+The Brotli project publishes 1.0.10, 1.1.1, and 1.2.1, each listing CVE-2026-111497
+
+Oct. 22, 2026
+
+Google’s CVE record is published with a 9.2 score on CVSS v4.0
+
+Oct. 22, 2026
+
+Imperva publishes research showing code execution on Node.js 24.22.0
+
+Affected Node.js versions
+
+The bug itself is in Brotli, not within Node.js code. Node.js bundles its own copy, so fixing it means updating the runtime itself.
+
+The Node.js advisory rates the vulnerability as high severity. Google scores it as a critical severity vulnerability, at 9.2 on CVSS v4.0. However, severity may depend on exposure, which is determined by whether your code reaches the decoder.
+
+Node.js version
+
+End of life
+
+Fixed version
+
+26.x
+
+Apr. 30, 2029
+
+26.12.1
+
+24.x
+
+Apr. 30, 2028
+
+24.22.1
+
+22.x
+
+Apr. 30, 2027
+
+22.23.4
+
+25.x
+
+Jun. 1, 2026 (ended)
+
+No fix
+
+20.x
+
+Apr. 30, 2026 (ended)
+
+No fix
+
+Node.js states that end-of-life versions are always affected by security releases. Organizations running Node.js 25, 20, or older should treat those hosts as vulnerable, with no further patches coming.
+
+Distribution packages need their own check. Debian’s tracker, read on October 23, lists nodejs 18.20.4 in bookworm, 20.19.2 in trixie, 24.21.0 in forky, and 24.22.0 in sid as vulnerable, and notes that Debian’s nodejs uses the system Brotli library. In that case, the fix lands in the library, not just the runtime.
+
+Debian’s Brotli package is also vulnerable in every release the tracker lists, and the tracker shows no fixed version for any release. The tracker also shows both brotli and nodejs as unfixed in Debian’s development branch unstable. As of October 23, there is no patched Debian package for either component. Debian rates the nodejs entry as unimportant urgency, which differs from the high rating assigned by Node.js, though the tracker doesn’t state why.
+
+The CVE record places the root bug in Google’s Brotli library 1.0.3 through 1.2.0, fixed in 1.0.10, 1.1.1, and 1.2.1. Any other software that bundles a Brotli build in that range is worth further analysis or vendor inquiry.
+
+But the impact isn’t limited to Debian. Packages for Ubuntu, Fedora, RHEL, and Alpine may also use the system Brotli library instead of the bundled copy. Therefore, the fix arrives through the distribution’s Brotli package, and a Node.js version number won’t indicate whether a given instance is patched.
+
+According to Aikido, Bun is also affected. All versions 1.4.3 and earlier are vulnerable, and Bun 1.4.4 includes the fix.
+
+How the Node2Shell bug (CVE-2026-111497) works
+
+Brotli is a compression format. Node.js supports it through the native decoder in its zlib module. The CVE record describes a buffer overflow in c/dec/decode.c and lists two weakness types: out-of-bounds write (CWE-787) and unchecked return value (CWE-252).
+
+The second weakness explains the mechanism. The crafted stream declares one type of data block, then asks the decoder to switch block types. A correct decoder stops with an error. The unpatched decoder ignores the error and keeps going, writing past the end of its buffer. Semgrep describes the underlying defect as the decoder confusing incomplete input with invalid input and continuing to process a malformed stream.
+
+The fix is small. Node.js cherry-picked an upstream Brotli commit (0ed4268a) that makes the decoder fail immediately on a block switch when the stream declares only one block type. Node.js also added a new error constant, BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH.
+
+What is reachable
+
+Node.js does not decode Brotli on its own. An app is exposed when its code, or a library it uses, decompresses Brotli data an attacker controls. Semgrep confirmed several entry points:
+
+Path
+
+Reaches the decoder?
+
+Details
+
+Express 5 with express.json()
+
+Yes, by default
+
+Express 5.3.0 depends on body-parser ^2.3.0. body-parser 2.x decodes br bodies, and its inflate option defaults to true. A bare Node.js HTTP server doesn’t decode incoming Brotli bodies on its own.
+
+Express 4 with express.json()
+
+Not through body-parser
+
+body-parser 1.20.x handles only deflate and gzip and answers 415 to other encodings.
+
+Server-side fetch()
+
+Yes, for attacker-influenced responses
+
+Node.js fetch decompresses a response with the Brotli decoder whenever the Content-Encoding header contains br. Sending Accept-Encoding: identity does not prevent it. Features that call user-supplied URLs are typically targets, like webhooks.
+
+Direct node:zlib use
+
+Yes
+
+createBrotliDecompress() is exposed when it receives attacker-controlled data.
+
+Koa (via co-body)
+
+Yes
+
+Brotli request bodies pass through co-body to inflation. Semgrep also lists @koa/bodyparser, koa-body, Egg and Strapi.
+
+Fastify with @fastify/compress
+
+Yes
+
+Registering the plugin adds request decompression before Fastify’s content-type parsers run.
+
+The inbound path should be prioritized. When mounted globally, body-parser can reach many public body-bearing routes, subject to the content-encoding and parser conditions. However, the outbound path also matters. If an organization’s service fetches from a server an attacker controls, the response can attack the service.
+
+This doesn’t leave Express 4 with a clean bill of health. That reading covers body-parser only. Other middleware, frameworks, reverse proxies, and an organization’s own code may still decode Brotli.
+
+Node2Shell exploitation: What’s been demonstrated vs. claimed
+
+Imperva has demonstrated code execution against the official Node.js 24.22.0 image on Linux arm64, and noted that execution required several attempts. On freshly started containers without a debugger or modified binaries, the test ended with a marker file, and the patched 24.22.1 rejected the same inputs with a format error. Imperva has not released its exploit code.
+
+As far as what the public PoCs do, on October 22 at 20:28 UTC, a GitHub search returned 11 repositories. One lab reported crashes on Node.js 20.19.5, 22.23.3, 24.22.0, and 26.12.0, and says the fixed 22.23.4, 24.22.1, and 26.12.1 reject the same input. Another team reported local command execution in three of three runs, but it needed a build that loads an unfixed system Brotli library plus a predictable memory layout. That team says blind remote execution with address randomization on did not work.
+
+However, some of the evidence is thin. Research has argued that no Brotli stream can reach the bad write and the real impact is denial of service. An independent test of the fix commit’s input on Node.js 24.22.0 produced an error on both the pre-fix and patched builds, so that test alone can’t show the write happens. Konfirmity notes that the fix commit itself describes the bug as low severity and not easy to exploit.
+
+Reliable remote code execution (RCE) has been reproduced in only one setup to date. Crashes, by contrast, have been easy for researchers to reproduce. Organizations should treat a crash as the likely outcome everywhere, and the shell as a credible risk wherever their service decodes instances of Brotli that may be attacker-controlled.
+
+Node2Shell impact
+
+Nothing publicly disclosed at the time of publication shows a worm, a mass-exploitation campaign, or a reliable cross-platform exploit. But researchers have proven the following:
+
+Denial of service: Public PoC authors report the process crashes on unpatched Node.js, per the repositories described above. An attacker can take down any service that decodes Brotli from users.
+
+Code execution under the Node.js process: Imperva showed this on one image and architecture, with repeated attempts. An attacker’s code would run with the permissions of the Node.js process and could steal data.
+
+Memory disclosure: Vercel says researchers showed memory disclosure and command execution in the Node.js process on unpatched 22.x, 24.x, and 26.x. Even when code execution fails, leaked memory can expose data such as credentials.
+
+How to detect Node2Shell
+
+Sysdig Secure customers who use managed policies now have detections to identify and respond to Node2Shell. A Threat Intelligence entry shows where the exposure is, and runtime rules catch exploitation and the attacker activity that follows.
+
+Threat intelligence
+
+The Sysdig Threat Intelligence feed has published a Node2Shell entry. It lists the hosts and workloads that run a Node.js version below the fixed releases 26.12.1, 24.22.1, and 22.23.4, or an end-of-life line. Select the host or workload count to open a filtered search of the affected assets.
+
+Runtime detectionExploitation is rarely clean. Failed attempts crash the Node.js process, and Imperva’s own demonstration needed several tries. The new managed rule Node.js Process Crash Followed by In-Place Program Execution, in the Sysdig Runtime Behavioral Analytics policy, correlates a Node.js crash with suspicious program execution that follows it in the same workload. This is the pattern of a Node2Shell exploitation chain.
+
+If the exploit succeeds, the attacker can run commands as the Node.js service user. Common next steps include an interactive shell, a malware download, cryptomining, or theft of secrets and cloud tokens from the container. The managed policies that Sysdig Secure enables by default already alert on this kind of activity. Customers have coverage even if the exploit itself goes unseen.
+
+How to mitigate Node2Shell
+
+Patch
+
+Update Node.js to 22.23.4, 24.22.1, or 26.12.1. Imperva says only a Node.js update fixes the decoder.
+
+Upgrade Bun to 1.4.4 or newer wherever it runs.
+
+Rebuild container images from a patched base, then verify with node --version in the running container. A floating tag like node:24 stays on the old version if you rebuild from a cached image, so run docker pull first. Move your Dockerfile pin to 24.22.1 or later.
+
+Check package managers before assuming. Homebrew still shipped node 26.12.0, node@24 24.22.0, and node@22 22.23.3 about 10 hours after release.
+
+Replace Node.js 20 and older with 22.x or 24.x. No fix will ship for them.
+
+Reduce reachability while you patch
+
+Disable request decompression where you can. In body-parser, express.json({ inflate: false }) rejects compressed bodies with a 415. Test your clients first. This also rejects gzip.
+
+Reject Content-Encoding: br on request bodies at the proxy or load balancer where your clients don’t send it. Brandefense proposes this as its own suggestion, not vendor guidance. Test it before relying on it. It does not cover responses your services fetch.
+
+Audit fetch calls to servers you don’t control, and any direct use of createBrotliDecompress().
+
+Layer a WAF if you have one. Imperva says it added WAF rules and advises limiting untrusted Brotli traffic on affected paths. Treat this just as a layer and not as a fix.
+
+Contain the blast radius
+
+Run Node.js services as an unprivileged user and keep secrets out of the process environment wherever possible. Code execution lands with the permissions of the Node.js process.
+
+Monitor web-facing Node.js processes for shell spawns and unexpected outbound connections.
+
+Across the estate
+
+Inventory every Node.js runtime: containers, CI runners, serverless functions, build servers, and tools that ship their own Node.js.
+
+Conclusion
+
+Node2Shell is not a bug in every Node.js service, but a bug in services that decode attacker-influenced Brotli. Express 5 with default JSON parsing puts a large number of instances of them in that group. The demonstrated impact thus far is crashes at scale and code execution in a narrow configuration, so patch order should follow reachability.
+
+The timeline, however, is the real warning. In the case of Node2Shell, a public repository tracking the CVE appeared five hours after the fix shipped, and a working PoC was public within a day. Since this flaw sits in a native library that Node.js and other software bundle, each must ship its own fix. Therefore, security teams should also expect more of them to be discovered — in the native libraries under the runtimes — on an increasingly short clock.
+
+For security teams, this week’s work is inventory, then patching in order of reachability, then least privilege for whatever remains unpatched. A runtime sensor will not see the overflow, but it will catch what a successful exploit does next. That’s what makes post-exploitation behavior the backstop worth paying attention to."
 a198f8642649,a198f8642649,2026-10-28 00:00 UTC,Vulnerabilities & Patching,Falco / Sysdig,Falco / Sysdig Blog,Vulnerability Management; Server & Workload Protection; Endpoint Security,Article,Detecting and mitigating ZDI-CAN-33367 and five other Linux flaws,https://webflow.sysdig.com/blog/detecting-and-mitigating-zdi-can-33367-and-five-other-linux-flaws,"The vulnerability is a local privilege escalation (LPE), so an attacker needs code execution on the host first","This blog was originally published on October 24, 2026.
 
 As of October 28, there are four important updates to note:
@@ -514,6 +747,155 @@ ZDI's decision to copy public lists put reproduction details for six bugs in fro
 For defenders, the practical takeaway is that this week's work is about exposure, not scanners. It’s also important to note that the bugs differ in what defenders should actually watch. The ZDI-CAN-33367 exploit runs as an ordinary user process through a distinctive sequence of systems calls, so teams can catch it in motion. The ksmbd bugs run inside the kernel worker threads with no attacker process on the host, so controlling exposure is key.
 
 Affected organizations should immediately restrict unprivileged user namespaces and enforce RuntimeDefault seccomp where they can, find out whether ksmbd is running anywhere in their estate, and patch ZDI-CAN-33367 the day their distribution ships the fix."
+f840ece28f3d,2b62329cc6f4,2026-10-28 00:00 UTC,Vulnerabilities & Patching,Falco / Sysdig,Falco / Sysdig Blog,Vulnerability Management; Threat Intelligence; Server & Workload Protection,Article,PHP2Shell (CVE-2026-109618 and CVE-2026-109619): Detecting unauthenticated remote code execution in PHP core,https://webflow.sysdig.com/blog/php2shell-cve-2026-109618-and-cve-2026-109619-detecting-unauthenticated-remote-code-execution-in-php-core,"To provide additional recommendations for security teams and create runtime detection coverage for Sysdig Secure and open source Falco users, the Sysdig Threat Research Team...","This blog was originally published on October 22, 2026.
+
+As of October 28, there are four important updates to note:
+
+CISA added both CVE-2026-109618 and CVE-2026-109691 to its KEV Catalog on October 26.
+
+We previously stated there were exploitation attempts. Exploitation has since been confirmed.
+
+Multiple researchers have estimated the number of potentially vulnerable internet exposed hosts between 1.3 and 1.9 million.
+
+Some downstream vendors impacted by these vulnerabilities include Cisco and Palo Alto Networks.
+
+On October 21, 2026, CVE-2026-109618 and CVE-2026-109619, dubbed PHP2Shell, were fixed in two emergency releases from the PHP project. The two CVEs group four related memory-safety bugs, and both vulnerabilities have a CVSS v4.0 score of 9.2. An unauthenticated attacker can exploit them to run code on a PHP server with HTTP requests alone. Multiple working proof-of-concept (PoC) exploits are circulating, and the researchers who reported the vulnerabilities said AI models helped in both discovery and exploit development.
+
+Researchers reported the bugs to PHP in August 2026, PHP started a coordinated fix in September, and coordinated disclosure was set for October 22. Then, on October 20, the CVE identifiers and exploit details leaked to Hacker News and social media. PHP published an advance notice the same day and moved the release forward by one day, to October 21 at 14:00 UTC.
+
+Exploitation did not wait for the patch. Amazon Threat Intelligence saw a PHP2Shell attempt against its MadPot honeypots on October 17, four days before disclosure. Cloudflare reported early attacks on October 21 at 07:43 UTC, more than six hours before the fix shipped. watchTowr reproduced the bugs and reported active exploitation attempts against each.
+
+The vulnerable code dates back to PHP 5.4, released in 2012. The bugs live in the PHP engine, not within any application. For that reason, any WordPress, Drupal, or Joomla site with clean application code is still exposed.
+
+To provide additional recommendations for security teams and create runtime detection coverage for Sysdig Secure and open source Falco users, the Sysdig Threat Research Team (TRT) analyzed PHP2Shell exploitation. The findings are outlined below.
+
+Affected PHP versions
+
+PHP version
+
+Status
+
+What to do
+
+5.4-7.3
+
+End of life, with no fix from the PHP project.
+
+Move to a patched branch.
+
+7.4, 8.0, 8.1
+
+No official update released. The PHP security team published minimal source backports only for these versions.
+
+Use a vendor-patched distribution package or move to a supported branch.
+
+8.2, 8.3, 8.4, 8.5
+
+Fixed in branches 8.2.35, 8.3.36, 8.4.27, 8.5.12
+
+Update to the fixed release or later.
+
+In addition to the version number, there are three additional factors to consider for potential exposure to PHP2Shell:
+
+Distribution packages: Linux distributions and LTS vendors received the patches before release. Vendors often backport fixes without changing the upstream version number, so check the vendor advisory and not only php -v. Any package reporting an old version should be patched.
+
+Affected SAPIs: Every PHP installation that serves web requests. This includes Apache mod_php, PHP-FPM, php-cgi, FrankenPHP, and LiteSpeed. PHP rates mod_php as the highest risk. A SAPI is how PHP connects to a web server, so if PHP answers HTTP requests in any form, it is in scope.
+
+Default configuration: Vulnerable. There are no specific settings needed to be exposed.
+
+Root cause
+
+A PHP worker reuses its memory from one request to another. When a request goes over memory_limit, PHP hits a fatal out-of-memory error and destroys the request heap. The worker survives, and continues to the next request.
+
+The flaw is that PHP does not clear global pointers into the request heap after a fatal out-of-memory error, so a later request on the same worker uses stale pointers into freed memory. All four bugs share this root cause.
+
+CVE-2026-109618: Session upload progress
+
+Use-after-free in the unserializer. Session upload progress decodes session data while PHP parses a multipart/form-data upload. It keeps bookkeeping in the unserializer's global state. An out-of-memory error destroys the request heap, but this global state stays published.
+
+Remote memory disclosure. Upload progress also stores the session ID in a global pointer. An out-of-memory error can leave that pointer dangling. A later multipart request on the same worker reaches the upload-progress cleanup before session initialization resets the pointer. PHP then URL-encodes the reclaimed heap contents into the PHPSESSID response cookie and sends them to the client.
+
+Session upload progress is enabled by default. It runs during request parsing, before any application code, and even if the application never calls session_start(). Authentication and application filters do not stop it.
+
+CVE-2026-109619: Fatal-error backtrace and OPcache
+
+Use-after-free in fatal-error backtraces. PHP keeps the backtrace of the last fatal error in a global. An out-of-memory error destroys the request heap but does not clear that global. The next request on the worker finds a pointer into the previous request's memory.
+
+OPcache type confusion. While OPcache persists a compiled script to shared memory, an allocation failure at the wrong moment leaves internal slots inconsistent across workers. One worker then interprets data with the wrong type.
+
+Impact
+
+PHP2Shell is a pair of unauthenticated remote code execution flaws in the PHP engine itself. Because they sit below the application and trigger before any application code runs, the exposure is every internet-facing PHP server on an affected version, and the impact ranges from silent theft of other users’ secrets to full code execution on the workload, with a path onward to the host.
+
+Unauthenticated remote code execution, no credentials. Any client that can send HTTP requests to a vulnerable PHP server can run code as the web-server user. No login, application bug, or user action is needed.
+
+Exposure of every PHP application, not just popular or common ones. The bugs are in the engine, so even a minimal application on an affected PHP version can be vulnerable.
+
+Leaked secrets from other users’ requests. The memory disclosure works on its own, without RCE. It returns freed process memory to an unauthenticated client. That memory can hold data from other requests the same worker handled: credentials, session tokens, API keys, and even TLS private keys.
+
+Container compromise and a path to the host. A PHP container is a common internet-facing workload. Code execution there gives the attacker the container's service account, mounted secrets, and network position. From there, a kernel LPE such as Copy Fail or Dirty Frag can lead to the host.
+
+Detecting PHP2Shell with Sysdig Secure
+
+Sysdig Secure customers using managed policies have detections to help them identify and respond to this active threat. The Sysdig TRT has already published a Threat Intelligence entry for PHP2Shell in Sysdig Secure, and Sysdig vulnerability management detects vulnerable PHP versions across images and hosts. Existing runtime detection rules also cover post-exploitation activity.
+
+Threat intelligence
+
+Sysdig Secure customers already have a PHP2Shell entry in the Threat Intelligence feed. The entry summarizes the flaw, the fixed versions, and the interim mitigations. It also shows how many hosts and workloads in your environment are impacted. Select the count to open a filtered search of the affected asset.
+
+Vulnerability management
+
+Sysdig vulnerability management detects CVE-2026-109618 and CVE-2026-109619 across your environment:
+
+Images: Pipeline and registry scanning flag images that ship a vulnerable PHP runtime installed through the OS package manager, before they reach production.
+
+Runtime workloads and hosts: Running workloads and hosts are matched against the new CVEs automatically. No rescan is needed.
+
+Distribution backports: Matching uses vendor advisories, so a patched distribution package is not reported as vulnerable only because of its upstream version number.
+
+Prioritization: Filter on workloads where the PHP package is in use, and start with internet-facing ones.
+
+Runtime detection
+
+The Sysdig TRT built two layered runtime rules for PHP2Shell and validated them against a working exploit. They ship as managed rules in the Sysdig Runtime Behavioral Analytics and Sysdig Runtime Notable Events policies. The two rules are PHP Web Worker Killed by Fatal Signal and PHP Web Worker Crash Followed by Shell Execution.
+
+A successful PHP2Shell attack gives the attacker a command line, and from there attackers do what they do after any web RCE. They open a reverse shell, download and run a tool, start a miner, steal cloud credentials, or try a kernel LPE to get root. Sysdig Secure already detects this post-exploitation activity with managed rules in the policies that are enabled by default. Most of these rules match the behavior, not the parent process, so they work the same way whatever PHP runtime serves the application.
+
+Detecting PHP2Shell with open source Falco
+
+Falco sees syscalls, not HTTP requests. It cannot see the malicious request itself, but it can see what the request causes on the host. There are many possible detection strategies, such as detecting shell processes from php workers, but noise often poses a major challenge. As we showed before with Sysdig Secure, many existing post-exploitation detection strategies apply.
+
+Recommendations
+
+Update PHP on every server: Move to 8.5.12, 8.4.27, 8.3.36, or 8.2.35, or to a vendor-patched package. This is the only complete fix. Application code cannot fix this.
+
+Restart every PHP worker after you patch: Old workers keep running the vulnerable code.
+
+Mitigate with the interim settings if you cannot patch today: PHP states that these settings reduce the risk but do not remove it:
+
+Set memory_limit=-1 through php_admin_value, so applications cannot override it. Enforce request size limits at the web server or proxy instead. Do not use RLIMIT_AS or RLIMIT_DATA.
+
+Set session.upload_progress.enabled=0 in php.ini or the FPM pool config. Do not rely on ini_set() or .user.ini.
+
+On PHP 8.5, also set fatal_error_backtraces=0.
+
+Restart every worker, and verify the values through a web request, not the CLI.‍
+
+Block multipart/form-data at the edge if uploads are not needed: This blocks the session upload-progress path and the memory disclosure. It does not cover every bug, and it breaks file uploads and some checkout forms.
+
+‍Audit your environment: Find every affected host and workload, and start with internet-facing ones. Sysdig Secure customers can use the Threat Intelligence entry and Vulnerability Management findings. ‍
+
+Investigate dating back to October 17: Exploitation began before disclosure. Check for web shells, new cron jobs, new accounts, and shells spawned by web server processes.‍
+
+Rotate secrets: Because of the memory disclosure, even if you see no sign of code execution, secrets should be rotated for exposed servers.‍
+
+Enable default runtime policies: Use detections for post-exploitation behavior such as known threats, threat intelligence matches, and behavioral anomalies. For internet-facing web applications, alert on shells and suspicious commands spawned by the web server. The Sysdig Runtime Threat Detection, Sysdig Runtime Threat Intelligence, and Sysdig Runtime Behavioral Analytics policies catch the post-exploitation stage. For internet-facing PHP, customers should also enable the Sysdig Runtime Notable Events policy, or at least its rules for shells and suspicious commands spawned by web servers.
+
+Conclusion
+
+PHP2Shell is composed of four memory-safety bugs under two critical CVEs in PHP core, the most widely deployed web runtime. Exploitation began before the fix existed, and PHP has carried the vulnerable code since 2012.
+
+It is the third high-impact flaw this year in old, widely trusted core code, following Copy Fail and Dirty Frag. Like those vulnerabilities, PHP2Shell was found with AI assistance. Defenders should approach these vulnerabilities with an “assume breach” mindset, as exploitation can begin before a patch exists. Patch first. Then, until every worker is patched and restarted, use the interim settings, edge filtering, and runtime detection to close the gap."
 4a6f047403dd,4a6f047403dd,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Falco / Sysdig,Falco / Sysdig Blog,Vulnerability Management; AI Security,Article,Mythos access is expanding: what this means for vulnerability management,https://webflow.sysdig.com/blog/mythos-access-is-expanding-what-this-means-for-vulnerability-management,"Product Marketing Manager @ linkedin Subscribe to Threat Research REGISTER FOR THE WEBINAR Published: October 27, 2026 Table of contents TRT in your inbox Get security briefings...","Anthropic’s Claude Mythos put vulnerability management in the boardroom when it was released earlier this year, and the conversation around it has evolved. Press coverage continues to find new angles, and there’s plenty of discourse around how AI is changing everything about cybersecurity.
 
 In the months since the initial release of Mythos Preview, there have been a few developments around what Mythos can do and who is able to access it. But what does this actually mean for your vulnerability management program?

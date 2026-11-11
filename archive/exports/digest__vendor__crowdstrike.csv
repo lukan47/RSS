@@ -1,4 +1,607 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+5f92abe11948,5f92abe11948,2026-11-10 00:00 UTC,Vulnerabilities & Patching,CrowdStrike,CrowdStrike Blog,Vulnerability Management; Identity Security Posture Management; Endpoint Security; File Security,Article,"November 2026 Patch Tuesday: 1,252 CVEs Include One Zero-Day and 68 Critical Vulnerabilities",https://www.crowdstrike.com/en-us/blog/patch-tuesday-analysis-november-2026/,"November 2026 Attack Surface Analysis Preview-pane-triggered exploitation remains a dominant attack surface pattern for the third consecutive month, with eight Critical RCE...","November 2026 Attack Surface Analysis
+
+Preview-pane-triggered exploitation remains a dominant attack surface pattern for the third consecutive month, with eight Critical RCE vulnerabilities across Microsoft Office applications including Outlook and Word. CVE-2026-110043 and CVE-2026-110068 in Outlook exemplify the risk: Merely selecting a malicious message in the Reading Pane or previewing an attachment in File Explorer triggers code execution without any click or macro prompt. This attack pattern continues to be attractive to phishing operators and initial access brokers because it converts document or message delivery into reliable code execution, bypassing the user-action barrier that many enterprises treat as a training backstop.
+
+Identity platform components face elevated risk this month with Critical flaws in both Lightweight Directory Access Protocol (LDAP) and Active Directory Domain Services (AD DS). CVE-2026-119958 enables RCE against LDAP, while CVE-2026-118146 and CVE-2026-118148 target AD DS with RCE and elevation-of-privilege attack paths, respectively. These protocols underpin domain authentication and authorization for every joined workstation and server; successful exploitation of either can cascade to domain-wide compromise. Similar identity fabric vulnerabilities have historically been targeted by advanced adversaries seeking persistent access to enterprise environments.
+
+Windows Hyper-V sees an unusually high concentration of privilege escalation vulnerabilities this month, with eight CVEs spanning multiple flaw classes. CVE-2026-113753, CVE-2026-113856, and CVE-2026-113860 all enable elevation of privilege within the hypervisor boundary. Hyper-V underpins Azure compute infrastructure and endpoint features such as Windows Sandbox, Credential Guard, and other Virtualization-Based Security capabilities, so the exposure extends beyond dedicated virtualization hosts to ordinary Windows endpoints with these features enabled.
+
+Legacy network services including Server Message Block (SMB) and Print Spooler continue to draw Critical-severity RCE findings, reinforcing the persistent risk these widely deployed components carry. The unauthenticated network-reachable RCE cluster spans 14 CVEs this month, with Windows Message Queuing (MSMQ) vulnerabilities such as CVE-2026-109459 and CVE-2026-116710 representing exposure on any system with MSMQ enabled. These services listen on the network by design and often lack authentication requirements for initial protocol negotiation, making any exposed instance an immediate target for opportunistic scanning. This class of legacy network service has historically been targeted in wormable exploitation scenarios.
+
+Exploited Zero-Day Spoofing Vulnerability in Microsoft Outlook
+
+CVE-2026-124194 is a Moderate spoofing vulnerability in Microsoft Outlook with a CVSS score of 6.5, and Microsoft confirms it is being exploited in the wild. The flaw stems from the product UI failing to warn users of unsafe actions: A specially crafted message file can cause Outlook to connect to an attacker-controlled network location without displaying the usual external-content warning, disclosing the victim's NTLMv2 hash.
+
+Outlook is the default mail client across most enterprise Windows deployments, making any flaw that bypasses user safety prompts a direct initial access vector at scale. Exploitation requires the victim to open a malicious file delivered via email or another channel. The Preview Pane is not an attack vector for this particular CVE. Once the victim opens the file, Outlook silently initiates an outbound connection, and the captured NTLMv2 hash can be relayed or cracked offline to impersonate the user against other services that accept NTLM authentication.
+
+The Moderate severity rating reflects the user interaction requirement, but the real-world exposure is broader than the score suggests. Credential disclosure flaws that require only a file open, bypass visible warnings, and yield reusable authentication material are a well-established technique in targeted intrusion campaigns. Similar spoofing primitives in Outlook have historically drawn attention from both commodity phishing operators and advanced adversaries seeking footholds in enterprise environments.
+
+Table 1. Exploited zero-day spoofing vulnerability in Microsoft Outlook
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Moderate
+
+6.5
+
+CVE-2026-124194
+
+Microsoft Outlook Spoofing Vulnerability
+
+Yes
+
+Critical RCE Vulnerabilities in Windows Services
+
+CVE-2026-112967 and CVE-2026-116928 are Critical RCE vulnerabilities in Windows services, each carrying a CVSS score of 9.8. Both allow unauthenticated attackers to execute code over the network, though they affect distinct components with different deployment realities.
+
+CVE-2026-112967 is a heap-based buffer overflow in the Windows Xbox Live Networking Service. An in-network attacker can call arbitrary endpoints on the service to trigger the flaw. Enterprise exposure depends on whether the service is present and running. Consumer-oriented Windows SKUs and gaming-enabled configurations are the primary population, making this lower priority for most corporate fleets.
+
+CVE-2026-116928 is an out-of-bounds write in the Windows Search component. The attack path is notable: An unauthenticated attacker can send an email with a specially crafted attachment to an Exchange Server, and the search indexer processes the attachment automatically for indexing. The recipient does not need to open the email or attachment. Successful exploitation grants code execution with the permissions of the indexing service. Windows Search is broadly deployed and tightly integrated with Exchange for mailbox indexing, which places this flaw on an email delivery attack surface that reaches internet-facing mail infrastructure. The Windows Search path is the more significant exposure for enterprise environments. Email-delivered payloads that trigger without user interaction have historically been attractive to targeted intrusion operators because they bypass the phishing-click dependency that slows most initial access campaigns.
+
+Table 2. Critical RCE vulnerabilities in Windows Services
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+9.8
+
+CVE-2026-112967
+
+Windows Xbox Live Networking Service Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+9.8
+
+CVE-2026-116928
+
+Windows Search Remote Code Execution Vulnerability
+
+Yes
+
+Critical RCE Vulnerability in Windows Lightweight Directory Access Protocol (LDAP)
+
+CVE-2026-119958 is a Critical RCE vulnerability in Windows LDAP with a CVSS score of 9.8. The flaw is an out-of-bounds write that allows an unauthenticated attacker to execute arbitrary code by sending specially crafted LDAP calls to a listening server. No authentication or user interaction is required.
+
+LDAP is the directory access protocol that underpins Active Directory. Every domain controller exposes LDAP on TCP/389 (and TCP/636 for LDAPS) by design, and the service cannot be disabled without breaking domain operations. Member servers, workstations, and applications query LDAP continuously for authentication, group policy retrieval, and object lookups, making it one of the most heavily trafficked protocols inside any AD environment.
+
+The scope-of-impact concern is substantial. Code execution within the LDAP service on a domain controller places the attacker inside the trust boundary that every other domain resource relies on. From that position, credential extraction, replication abuse, and lateral movement to additional DCs become straightforward follow-on actions. Because LDAP is network-reachable from any domain-joined host by default, any internal foothold that can route to a DC can attempt exploitation.
+
+Unauthenticated RCE flaws in core AD infrastructure have historically drawn rapid attention from ransomware operators and targeted intrusion actors because they collapse the gap between initial access and domain-wide compromise.
+
+Table 3. Critical RCE vulnerability in Windows LDAP
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+9.8
+
+CVE-2026-119958
+
+Windows LDAP - Lightweight Directory Access Protocol RCE Vulnerability
+
+Yes
+
+Preview Pane-Triggered RCE Vulnerabilities Across Microsoft Office
+
+Eight Critical RCE vulnerabilities this month share a common attack vector: the Preview Pane in Outlook and Word. All carry CVSS scores of 7.5 to 8.8, with seven of the eight scoring 8.8. The underlying flaw classes are use-after-free (four CVEs), heap-based buffer overflow (two CVEs), release of invalid pointer (one CVE), and use of uninitialized resource (one CVE). Despite the variation in memory-corruption primitives, the exploitation pattern is uniform: An attacker delivers a malicious document or email, and merely selecting it for preview triggers code execution with the user's privileges.
+
+The Outlook vulnerabilities (CVE-2026-110043, CVE-2026-110068, CVE-2026-111309) are the highest-exposure items in this group. Email is the delivery mechanism, and the Preview Pane is enabled by default in most enterprise Outlook deployments. An external attacker who can send mail to a target organization can reach the vulnerable code path without any authentication or prior foothold. The Word vulnerabilities (CVE-2026-110067, CVE-2026-111285, CVE-2026-124185) require document delivery, which typically means a phishing attachment or a link to a malicious file, but still fire on preview rather than open.
+
+The remaining two CVEs (CVE-2026-111289, CVE-2026-120003) affect the broader Office suite and follow the same preview-triggered pattern. CVE-2026-124185 has a lower score (7.5) due to high attack complexity, but the others require no special conditions beyond user receipt of the malicious content.
+
+Preview Pane vulnerabilities have historically been attractive to phishing operators and initial-access brokers because delivery converts directly to execution, with no need to persuade a user to open an attachment.
+
+Table 4. Preview Pane-triggered RCE vulnerabilities across Microsoft Office
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+8.8
+
+CVE-2026-110043
+
+Microsoft Office Outlook Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+8.8
+
+CVE-2026-110067
+
+Microsoft Office Word Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+8.8
+
+CVE-2026-110068
+
+Microsoft Office Outlook Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+8.8
+
+CVE-2026-111285
+
+Microsoft Office Word Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+8.8
+
+CVE-2026-111289
+
+Microsoft Office Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+8.8
+
+CVE-2026-111309
+
+Microsoft Office Outlook Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+8.8
+
+CVE-2026-120003
+
+Microsoft Office Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+7.5
+
+CVE-2026-124185
+
+Microsoft Office Word Remote Code Execution Vulnerability
+
+Yes
+
+Critical Vulnerabilities in Active Directory Domain Services (AD DS)
+
+CVE-2026-118146 and CVE-2026-118148 are Critical vulnerabilities in Active Directory Domain Services that both stem from incorrect authorization flaws. The two CVEs share a flaw class but differ in outcome and attack complexity.
+
+CVE-2026-118146 carries a CVSS score of 8.8 and enables RCE. An authenticated attacker with low-level access to an affected server can send a specially crafted request and execute code without any user interaction. The authorization flaw means the server fails to properly validate that the authenticated principal should be permitted to perform the requested operation, turning a low-privilege foothold into code execution on a domain controller.
+
+CVE-2026-118148 has a CVSS score of 7.5 and results in elevation of privilege to SYSTEM. This vulnerability has high attack complexity because successful exploitation requires the attacker to win a race condition. An authenticated attacker who can trigger the race gains SYSTEM privileges on the domain controller.
+
+Active Directory Domain Services provides directory and authentication services for Windows enterprise domains. Domain controllers running AD DS issue Kerberos tickets, store the directory database, and process authentication and authorization decisions for every domain-joined resource. Compromise of a domain controller typically means compromise of the entire domain, since the attacker gains access to credential material and can issue arbitrary authentication assertions.
+
+The attack surface for both vulnerabilities is any domain controller reachable from an authenticated low-privileged foothold. In most enterprise deployments, that includes every writable DC in the forest. Incorrect authorization flaws in identity platform components have historically been attractive to targeted intrusion operators because they convert commodity initial access into domain-wide compromise without requiring credential theft or additional tooling.
+
+Table 5. Critical vulnerabilities in Active Directory Domain Services
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+8.8
+
+CVE-2026-118146
+
+Windows Active Directory Domain Services Remote Code Execution Vulnerability
+
+Yes
+
+Critical
+
+7.5
+
+CVE-2026-118148
+
+Active Directory Domain Services Elevation of Privilege Vulnerability
+
+Yes
+
+Critical RCE Vulnerability in Microsoft Exchange Server
+
+CVE-2026-118207 is a Critical RCE vulnerability in Microsoft Exchange Server with a CVSS score of 8.8. The flaw stems from use of an incorrectly resolved name or reference, allowing an authenticated attacker with low-level access to send a specially crafted request and execute code on the server. No user interaction is required.
+
+Microsoft Exchange Server provides enterprise email, calendar, and collaboration services, and is commonly deployed with internet-facing client access services for mobile and web users. The authentication requirement lowers the bar only modestly in most environments: Any compromised mailbox credential, service account, or partner federation relationship satisfies it. Once that requirement is met, the attacker reaches code execution on a server that typically holds sensitive mail content, internal address lists, and often enjoys elevated trust relationships with Active Directory.
+
+Organizations running on-premises Exchange frequently expose Outlook Web Access, Exchange ActiveSync, and Autodiscover endpoints to the internet. Servers in this posture are reachable from any network position once the attacker obtains valid credentials, and successful exploitation yields a foothold inside the perimeter on infrastructure that processes sensitive communications.
+
+Exchange Server vulnerabilities have historically drawn sustained attention from nation-state threat actors and ransomware operators because the combination of internet exposure, high-value data, and domain trust relationships makes compromised Exchange servers effective pivot points for broader intrusions.
+
+Table 6. Critical RCE vulnerability in Microsoft Exchange Server
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+8.8
+
+CVE-2026-118207
+
+Microsoft Exchange Server Remote Code Execution Vulnerability
+
+Yes
+
+Critical Elevation of Privilege Vulnerabilities in Windows Hyper-V
+
+Microsoft addresses eight Critical elevation of privilege vulnerabilities in Windows Hyper-V this month, spanning five distinct flaw classes: use-after-free (four CVEs), heap-based buffer overflow (one CVE), TOCTOU race condition (one CVE), untrusted pointer dereference (one CVE), and use of uninitialized resource (one CVE). CVSS scores range from 6.4 to 8.2, with CVE-2026-113753 at the top of the range.
+
+The exploitation outcomes fall into two categories. CVE-2026-113753 allows an attacker to gain Virtual Trust Level 1 (VTL1) privileges, which means escaping from the normal kernel (VTL0) into the secure kernel layer that underpins Virtualization-Based Security features such as Credential Guard. Five of the remaining seven CVEs enable guest-to-host escape: An attacker operating inside a guest virtual machine can execute code on the host in the security context of the virtual machine worker process.
+
+Hyper-V is the hypervisor layer that runs Azure compute infrastructure and powers client-side Windows features including Windows Sandbox, Windows Subsystem for Linux 2, and Virtualization-Based Security. The exposure therefore reaches both datacenter server populations and ordinary endpoints where these features are enabled.
+
+Most of the cluster carries a high attack complexity because exploitation requires winning a race condition, which raises the practical difficulty but does not eliminate the risk. Hypervisor escapes of this class have historically attracted attention from advanced adversaries because a successful exploit compromises the isolation boundary that separates tenants in shared infrastructure and protects credential material on endpoints.
+
+Table 7. Critical elevation of privilege vulnerabilities in Windows Hyper-V
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+8.2
+
+CVE-2026-113753
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+7.8
+
+CVE-2026-113856
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+7.8
+
+CVE-2026-113865
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+7.5
+
+CVE-2026-113861
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+7.5
+
+CVE-2026-119947
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+7.5
+
+CVE-2026-119960
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+7.0
+
+CVE-2026-113860
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical
+
+6.4
+
+CVE-2026-113864
+
+Windows Hyper-V Elevation of Privilege Vulnerability
+
+Yes
+
+Critical Elevation of Privilege Vulnerability in Windows Remote Desktop Services
+
+CVE-2026-119957 is a Critical elevation of privilege vulnerability in Windows Remote Desktop Services with a CVSS score of 7.8. The flaw is a double-free that requires the attacker to win a race condition. Although exploitation is local, successful exploitation allows an attacker operating inside a guest virtual machine to escape to the host and gain the privileges of the affected virtualization service.
+
+Remote Desktop Services underpins RDP-based remote administration across Windows Server deployments and is a core component in Virtual Desktop Infrastructure (VDI) environments. The guest-to-host escape path described in Microsoft's FAQ elevates this from a local privilege escalation to a potential hypervisor boundary violation, which matters in any multi-tenant or shared-host scenario.
+
+The attack complexity is high due to the race condition. Post-compromise scenarios where an attacker already controls a guest VM provide the dwell time needed to attempt exploitation repeatedly. RDS-based session hosts and VDI pools present the most exposure to this guest-to-host escalation path.
+
+Table 8. Critical elevation of privilege vulnerability in Windows Remote Desktop Services
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+7.8
+
+CVE-2026-119957
+
+Windows Remote Desktop Services Elevation of Privilege Vulnerability
+
+Yes
+
+Critical RCE Vulnerability in Windows SMB Server
+
+CVE-2026-113825 is a Critical RCE vulnerability in the Windows SMB Server Network Transport Driver (srvnet.sys) with a CVSS score of 7.5. The flaw is a race condition that an authenticated attacker can trigger over the network to execute code. Microsoft notes that successful exploitation requires the attacker to win the race, which accounts for the high attack-complexity rating.
+
+SMB is the native file-sharing protocol for Windows and is enabled by default on both client and server editions. The srvnet.sys driver handles the network transport layer for SMB traffic, sitting beneath the higher-level SMB2 and SMB3 protocol handlers. SMB listens on TCP/445 and is fundamental to domain operations such as SYSVOL replication, Group Policy delivery, and administrative shares.
+
+The authentication requirement limits drive-by exploitation from the internet, but any attacker who has already obtained low-privileged domain credentials, or who operates from a compromised workstation, can attempt the race. Timing-based flaws in kernel-mode network drivers can be unreliable on a single attempt, yet become practical when an attacker can retry at scale across many hosts. Ransomware operators and targeted intrusion operators have historically exploited race-condition RCE flaws in legacy network services for lateral movement and wormable propagation.
+
+Table 9. Critical RCE vulnerability in Windows SMB Server
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+7.5
+
+CVE-2026-113825
+
+Windows SMB Server Network Transport Driver (srvnet.sys) Remote Code Execution Vulnerability
+
+Yes
+
+Critical RCE Vulnerability in Windows Print Spooler
+
+CVE-2026-113752 is a Critical RCE vulnerability in Windows Print Spooler with a CVSS score of 7.5. The flaw is a use-after-free that an unauthenticated attacker can trigger over an adjacent network. Successful exploitation requires winning a race condition, which raises the practical difficulty but does not eliminate the risk in contested LAN environments.
+
+Windows Print Spooler manages print job queuing and driver loading on Windows endpoints and servers. It runs with SYSTEM privileges by default and is enabled on virtually every Windows installation, including workstations that have no physical printer attached. The adjacent-network attack vector limits exposure to attackers who already have a foothold on the same network segment, but that constraint is often satisfied during post-compromise lateral movement.
+
+Print Spooler vulnerabilities have historically drawn sustained attacker attention because the service combines broad default deployment, high privilege, and a complex legacy codebase that has repeatedly yielded exploitable flaws.
+
+Table 10. Critical RCE vulnerability in Windows Print Spooler
+
+Severity
+
+CVSS Score
+
+CVE
+
+Description
+
+Action Required?
+
+Critical
+
+7.5
+
+CVE-2026-113752
+
+Windows Print Spooler Components Remote Code Execution Vulnerability
+
+Yes
+
+Additional Patches in November 2026
+
+The following notable vulnerabilities were considered but did not warrant a dedicated deep-dive this month:
+
+CVE-2026-110047, Microsoft Office Word RCE vulnerability (CVSS 8.8)
+
+CVE-2026-114169, Windows Raw Image Extension RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118292, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118296, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118297, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118701, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118702, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118711, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118713, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-118730, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-119969, Graphic Fonts RCE vulnerability (CVSS 8.8)
+
+CVE-2026-120005, Microsoft PowerPoint RCE vulnerability (CVSS 8.8)
+
+CVE-2026-120786, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-120788, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-120789, Microsoft Office Excel RCE vulnerability (CVSS 8.8)
+
+CVE-2026-121203, Chromium use-after-free vulnerability (CVSS 8.8)
+
+CVE-2026-122194, Microsoft Defender RCE vulnerability (CVSS 8.8)
+
+CVE-2026-125136, Windows Network Connected Devices Auto-Setup Service RCE vulnerability (CVSS 8.8)
+
+CVE-2026-109459, Windows Message Queuing Queue Manager RCE vulnerability (CVSS 8.1)
+
+CVE-2026-113862, Windows Network Address Translation (NAT) RCE vulnerability (CVSS 8.1)
+
+CVE-2026-116710, Windows Message Queuing RCE vulnerability (CVSS 8.1)
+
+CVE-2026-118737, Remote Procedure Call Runtime RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119951, Windows Deployment Services RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119952, Windows Schannel RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119961, Windows Internet Information Services RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119962, Windows CredSSP RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119963, Windows Message Queuing RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119964, Windows Message Queuing RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119967, Windows Message Queuing Queue Manager RCE vulnerability (CVSS 8.1)
+
+CVE-2026-119382, Windows TPM elevation of privilege vulnerability (CVSS 7.8)
+
+CVE-2026-125137, Windows Graphics Kernel elevation of privilege vulnerability (CVSS 7.8)
+
+CVE-2026-113749, Microsoft Windows Codecs Library RCE vulnerability (CVSS 7.5)
+
+CVE-2026-113859, Windows TCP/IP RCE vulnerability (CVSS 7.5)
+
+CVE-2026-118145, Windows Function Discovery SSDP Provider RCE vulnerability (CVSS 7.5)
+
+CVE-2026-119966, Windows Graphics Kernel elevation of privilege vulnerability (CVSS 7.5)
+
+CVE-2026-124170, Microsoft Office Excel RCE vulnerability (CVSS 7.5)
+
+CVE-2026-125134, Windows Function Discovery Resource Publication RCE vulnerability (CVSS 7.5)
+
+CVE-2026-76024, Chromium memory corruption vulnerability (CVSS 6.5)
+
+CVE-2026-114160, Azure Managed Grafana elevation of privilege vulnerability (CVSS N/A)
+
+Microsoft addressed 2 additional Critical or high-CVSS-rated vulnerabilities in its cloud services this month. These have been mitigated server-side by Microsoft and require no customer action. They are listed here for awareness only:
+
+CVE-2026-109469, Entra Device Registration elevation of privilege vulnerability (CVSS 10.0)
+
+CVE-2026-119990, Azure OpenAI elevation of privilege vulnerability (CVSS 9.8)
+
+Patch Tuesday Dashboard in the Falcon Platform
+
+For a visual overview of the systems impacted by this month’s vulnerabilities, you can use our Patch Tuesday dashboard. This can be found in the CrowdStrike Falcon® platform within the Exposure Management > Vulnerability Management > Dashboards page. The preset dashboards show the most recent three months of Patch Tuesday vulnerabilities.
+
+The CrowdStrike Falcon platform regularly collects and analyzes trillions of endpoint events every day from millions of sensors deployed across 176 countries. Watch this demo to see the Falcon platform in action.
+
+AI-Powered Capabilities in Falcon Exposure Management
+
+With CrowdStrike Falcon® Exposure Management, you can automatically classify and prioritize assets, show attack paths targeting client-side exploitation of devices, and integrate with CrowdStrike Falcon® Next-Gen SIEM. Learn more in this blog post:
+
+Falcon Exposure Management’s AI-Powered Risk Prioritization Shows Organizations What to Fix First
+
+Learn more about how CrowdStrike Falcon® Exposure Management can help you quickly and easily discover and prioritize vulnerabilities and other types of exposures here.
+
+Not All Relevant Vulnerabilities Have Patches: Consider Mitigation Strategies
+
+As we have learned with other notable vulnerabilities, such as Log4j, not every highly exploitable vulnerability can be easily patched. As is the case for the ProxyNotShell vulnerabilities, it’s critically important to develop a response plan for how to defend your environments when no patching protocol exists.
+
+Regular review of your patching strategy should still be a part of your program, but you should also look more holistically at your organization's methods for cybersecurity and improve your overall security posture.
+
+About CVSS Scores
+
+The Common Vulnerability Scoring System (CVSS) is a free and open industry standard that CrowdStrike and many other cybersecurity organizations use to assess and communicate software vulnerabilities’ severity and characteristics. The CVSS Base Score ranges from 0.0 to 10.0, and the National Vulnerability Database (NVD) adds a severity rating for CVSS scores. Learn more about vulnerability scoring in this article.
+
+Additional Resources
+
+For more information on which products are in Microsoft’s Extended Security Updates program, refer to the vendor guidance here.
+
+Learn how Falcon Exposure Management can help you discover and manage vulnerabilities and other exposures in your environments.
+
+Make prioritization painless and efficient. Watch how Falcon Exposure Management enables IT staff to improve visibility with custom filters and team dashboards.
+
+Test CrowdStrike next-gen antivirus for yourself with a free trial of CrowdStrike® Falcon Prevent™."
 1344cfe4672d,1344cfe4672d,2026-11-05 00:00 UTC,Vulnerabilities & Patching,CrowdStrike,CrowdStrike Blog,Vulnerability Management; Identity Security Posture Management,Article,How Adversaries Are Turning the Vulnerability Ecosystem Against Defenders,https://www.crowdstrike.com/en-us/blog/adversaries-turn-vulnerability-ecosystem-against-defenders/,Among them was a modified version (SHA256 hash: fd6b46d148af22da6163f18ce43b35ebb827cc6e140f03f0f514bc2a6f548743) of a public POC exploit for a FortiOS and FortiProxy...,"Fortinet FortiOS and FortiProxy Authentication Bypass Vulnerability (CVE-2024-55591)
 
 In February 2026, CrowdStrike Counter Adversary Operations identified an open directory controlled by the Iran-nexus adversary STATIC KITTEN on IP address 157.20.182[.]49 containing 1.9 GB of data and more than 20,000 files. Among them was a modified version (SHA256 hash: fd6b46d148af22da6163f18ce43b35ebb827cc6e140f03f0f514bc2a6f548743) of a public POC exploit for a FortiOS and FortiProxy authentication bypass vulnerability (CVE-2024-55591) first released by a well-known industry source on January 27, 2025.4
@@ -118,6 +721,11 @@ Tune in to the Adversary Universe podcast, where CrowdStrike reveals the threat 
 7 https://xint.io/blog/copy-fail-linux-distributions
 
 8 https://www.wordfence.com/blog/2026/07/wp2shell-aftermath-the-first-critical-unauthenticated-wordpress-core-rce-in-nearly-a-decade/ || https://www.slcyber.io/research/exploit-brokers-pay-500000-for-a-wordpress-rce-i-found-one-with-gpt5-6#the-story-of-wp2shell"
+72c6b5bbdd77,72c6b5bbdd77,2026-11-04 12:28 UTC,Product & Roadmap,CrowdStrike,CrowdStrike IR News,AI Security,Article,"CrowdStrike Launches Sovereign Cloud in Saudi Arabia, Bringing AI-Native Cybersecurity to the Kingdom",https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-launches-sovereign-cloud-saudi-arabia-bringing-ai,"Falcon now available in Saudi Arabia, delivering in-country data residency while securing AI and using AI to stop breaches AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 4, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD) today announced the launch of its sovereign cloud","Falcon now available in Saudi Arabia, delivering in-country data residency while securing AI and using AI to stop breaches AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 4, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD) today announced the launch of its sovereign cloud"
+7330adb1641d,7330adb1641d,2026-11-04 08:00 UTC,Business & Industry News,CrowdStrike,CrowdStrike IR News,Other/General,Article,CrowdStrike Announces Date of Fiscal Third Quarter 2027 Financial Results Conference Call,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-announces-date-fiscal-third-quarter-2027-financial,"AUSTIN, Texas --(BUSINESS WIRE)--Nov. 4, 2026-- CrowdStrike Holdings, Inc. (Nasdaq: CRWD), today announced that it will release financial results for its fiscal third quarter 2027 ended October 31, 2026 after the U.S. market close on Tuesday, December 1, 2026.","AUSTIN, Texas --(BUSINESS WIRE)--Nov. 4, 2026-- CrowdStrike Holdings, Inc. (Nasdaq: CRWD), today announced that it will release financial results for its fiscal third quarter 2027 ended October 31, 2026 after the U.S. market close on Tuesday, December 1, 2026."
+df29a58335db,df29a58335db,2026-11-04 04:39 UTC,Business & Industry News,CrowdStrike,CrowdStrike IR News,AI Security,Article,CrowdStrike Celebrates 2026 European Customer Impact Award Winners Shaping AI Security,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-celebrates-2026-european-customer-impact-award,"Santander, Maersk, Capgemini, Booking.com, and Schwarz Digits recognized for driving cybersecurity innovation, transformation, and community impact at Fal.Con Europe AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 4, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD) today announced","Santander, Maersk, Capgemini, Booking.com, and Schwarz Digits recognized for driving cybersecurity innovation, transformation, and community impact at Fal.Con Europe AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 4, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD) today announced"
+f02025ddbfa7,f02025ddbfa7,2026-11-04 04:25 UTC,Vulnerabilities & Patching,CrowdStrike,CrowdStrike IR News,Attack Path Prediction; AI Security,Article,CrowdStrike Unveils Agentic Adversary Emulation on the Falcon Platform to Identify and Close Exploitable Attack Paths,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-unveils-agentic-adversary-emulation-falcon-platform,"Powered by CrowdStrike SafeMind, offensive AI emulates how real adversaries chain vulnerabilities and weaknesses to reach critical assets, drives prioritized remediation, and validates attack paths are closed AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov.","Powered by CrowdStrike SafeMind, offensive AI emulates how real adversaries chain vulnerabilities and weaknesses to reach critical assets, drives prioritized remediation, and validates attack paths are closed AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov."
+5a49c0fbf56c,7624a753f5ea,2026-11-04 04:00 UTC,Product & Roadmap,CrowdStrike,CrowdStrike IR News,AI Security,Article,CrowdStrike Extends the Agentic SOC to Detect and Stop the Agent Insider Threat,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-extends-agentic-soc-detect-and-stop-agent-insider,"New Agent Insider Threat Detection recognizes abnormal agent behavior even when no rule is broken; coordinated multi-agent investigations now generally available AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 4, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD) today introduced","New Agent Insider Threat Detection recognizes abnormal agent behavior even when no rule is broken; coordinated multi-agent investigations now generally available AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 4, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD) today introduced"
 37f7de06b7cc,37f7de06b7cc,2026-11-04 00:00 UTC,Product & Roadmap,CrowdStrike,CrowdStrike Blog,AI Security; Vulnerability Management,Article,CrowdStrike Introduces Agentic Adversary Emulation to Counter AI-Enabled Adversaries,https://www.crowdstrike.com/en-us/blog/crowdstrike-agentic-adversary-emulation-counters-ai-enabled-adversaries/,"Attack Path Discovery to Validated Defense Reveal Potential Attack Paths Instead of simply identifying vulnerabilities, Agentic Adversary Emulation shows how attackers could...","Frontier AI is enabling threat actors to rapidly learn an environment, identify weaknesses, and chain them into viable paths to critical systems. These capabilities allow adversaries to move faster while exploiting vulnerabilities, misconfigurations, and other gaps to achieve their goals.
 
 Traditional exposure management helps organizations identify and prioritize weaknesses largely as individual risks, and periodic red team engagements only provide deeper validation at a point in time. Neither approach alone can continuously validate defenses at the speed and scale of AI-enabled adversaries. Organizations must understand not only where they are exposed, but what adversaries could achieve and whether corrective actions can strengthen their defenses.
@@ -318,6 +926,11 @@ Start an unlimited 15-day free trial of Falcon Cloud Security.
 Missed Fal.Con 2026? Register for Fal.Con Digital to watch the cloud security videos on demand.
 
 1 CrowdStrike 2026 Threat Hunting Report"
+405b98cf5c71,405b98cf5c71,2026-11-03 05:01 UTC,Business & Industry News,CrowdStrike,CrowdStrike IR News,Data Security Posture Management,Article,CrowdStrike and Lovable Secure the Next Generation of AI-Built Applications,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-and-lovable-secure-next-generation-ai-built,"Falcon Shield extends enterprise security visibility and posture management to Lovable, helping organizations identify exposed AI-built applications, sensitive data risks, and who has access AUSTIN, Texas & STOCKHOLM & BARCELONA, Spain --(BUSINESS WIRE)--Nov.","Falcon Shield extends enterprise security visibility and posture management to Lovable, helping organizations identify exposed AI-built applications, sensitive data risks, and who has access AUSTIN, Texas & STOCKHOLM & BARCELONA, Spain --(BUSINESS WIRE)--Nov."
+15d6dcd332da,15d6dcd332da,2026-11-03 05:00 UTC,Business & Industry News,CrowdStrike,CrowdStrike IR News,Other/General,Article,"EY Builds Its Frontier AI and Cyber Resilience Business on CrowdStrike, Commits to Training Cyber Workforce on the Falcon Platform",https://ir.crowdstrike.com/news-releases/news-release-details/ey-builds-its-frontier-ai-and-cyber-resilience-business,"EY makes a significant Falcon Flex commitment, brings SafeMind to critical infrastructure, and expands workforce training to deliver frontier AI-powered cybersecurity at scale AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD) today","EY makes a significant Falcon Flex commitment, brings SafeMind to critical infrastructure, and expands workforce training to deliver frontier AI-powered cybersecurity at scale AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD) today"
+1d9bb32e6ba4,1d9bb32e6ba4,2026-11-03 04:55 UTC,Product & Roadmap,CrowdStrike,CrowdStrike IR News,AI Security,Article,CrowdStrike Announces New Native AI Security Innovations on AWS,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-announces-new-native-ai-security-innovations-aws,"New integrations with Amazon Bedrock AgentCore and Amazon ECS extend CrowdStrike protection across AI workloads, applications, agents, and cloud infrastructure AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD), in collaboration","New integrations with Amazon Bedrock AgentCore and Amazon ECS extend CrowdStrike protection across AI workloads, applications, agents, and cloud infrastructure AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD), in collaboration"
+d88030c7421e,d88030c7421e,2026-11-03 04:15 UTC,Product & Roadmap,CrowdStrike,CrowdStrike IR News,AI Security,Article,CrowdStrike Extends Anthropic’s Claude Cowork Enterprise AI Adoption with Falcon Guardian Protection,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-extends-anthropics-claude-cowork-enterprise-ai,"Partner integration brings native Falcon Guardian protection directly into Claude Cowork, securing agents throughout their lifecycle under the Falcon platform's enterprise security control plane AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026 – CrowdStrike","Partner integration brings native Falcon Guardian protection directly into Claude Cowork, securing agents throughout their lifecycle under the Falcon platform's enterprise security control plane AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026 – CrowdStrike"
+7ff4f403f437,7ff4f403f437,2026-11-03 04:00 UTC,Business & Industry News,CrowdStrike,CrowdStrike IR News,AI Security,Article,CrowdStrike to Acquire Dreadnode to Advance AI Trust and Deliver Automated AI Security Testing for the Agentic Enterprise,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-acquire-dreadnode-advance-ai-trust-and-deliver,"Dreadnode will extend the Falcon platform with automated testing of AI models, applications, and agents to build AI trust – finding and fixing weaknesses before they reach production AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD)","Dreadnode will extend the Falcon platform with automated testing of AI models, applications, and agents to build AI trust – finding and fixing weaknesses before they reach production AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD)"
 e5842bc0d6c4,e5842bc0d6c4,2026-11-03 00:00 UTC,General Security News,CrowdStrike,CrowdStrike Blog,AI Security; Endpoint Security,Article,CrowdStrike Advances AI Security and Safety from Endpoint to Cloud,https://www.crowdstrike.com/en-us/blog/crowdstrike-advances-ai-security-and-safety-falcon-guardian/,"OS-level runtime security is the foundation (Available now): The Falcon sensor provides deep visibility into agents’ activity, including the processes they launch, commands they...","AI agents are transforming enterprise computing. What began with employees using AI assistants is evolving into autonomous agents that access enterprise resources, invoke tools, execute code, and take action at machine speed.
 
 This introduces a new security and safety challenge. Organizations must protect agents from attacks while ensuring those agents operate safely and as intended. Security teams need to discover where agents operate, understand what they were instructed to do, trace their actions, and intervene when their behavior becomes dangerous.
@@ -425,3 +1038,40 @@ The integration is focused on visibility and detection inside the VM. Available 
 Forward-Looking Statements
 
 This release includes discussion of unreleased services or features. Any unreleased services or features referenced here are still in development and subject to change. Customers should make their purchase decisions based upon features that are currently available."
+267da63be1c9,267da63be1c9,2026-11-03 00:00 UTC,Business & Industry News,CrowdStrike,CrowdStrike Blog,AI Security,Article,CrowdStrike to Acquire Dreadnode to Bring Automated AI Security Testing to the Falcon Platform,https://www.crowdstrike.com/en-us/blog/crowdstrike-to-acquire-dreadnode/,"Modern businesses deploy AI models and agents before confirming they’re secure, an approach that can have severe consequences","Today, at Fal.Con EU 2026, I’m excited to share CrowdStrike’s intent to acquire Dreadnode. This acquisition will bring automated AI security testing to the CrowdStrike Falcon® platform so our customers can validate the security of AI systems before they go into production.
+
+Modern businesses deploy AI models and agents before confirming they’re secure, an approach that can have severe consequences. When an agent ships with a weakness that allows jailbreaking or manipulation, it provides the adversary with an opportunity to reach the sensitive systems and data the agent can access. These weaknesses must be discovered before the agent goes into production. Security testing built for conventional software does not find them.
+
+Dreadnode does. Its technology tests AI models, applications, and agents with known attack techniques to learn where they break so fixes can be applied before deployment. CrowdStrike, together with Dreadnode, will extend the Falcon platform into the layer where businesses build AI so every customer can evaluate their AI agents for security gaps and deploy them with confidence.
+
+Dreadnode will be generally available in Q4 FY27. Let’s take a closer look at what it will bring.
+
+Automated AI Security Testing on the Falcon Platform
+
+The probabilistic and dynamic nature of AI agents and LLMs has broken the traditional security testing model, which has long been used to assess code that consistently behaves in the same way. This testing approach can’t identify weaknesses inside the reasoning loop built into AI models and agents.
+
+AI has also introduced new security risks: Prompt injection, jailbreaking, and agent tool manipulation can lead to customer data loss, financial loss, and brand reputation damage. Dreadnode was built to understand the risks to AI systems by probing for vulnerabilities to uncover these issues before adversaries can.
+
+How Dreadnode Works
+
+Users first describe what they want to test in plain language. Dreadnode runs more than 50 attack techniques — including jailbreaks, prompt injection, and multi-turn and agent-specific attacks — against the AI systems, models, model repositories, applications, agents, and MCP servers the business relies on before they reach production.
+
+With the testing complete, Dreadnode ranks findings by severity and maps them to the OWASP Top 10 for LLMs, OWASP Agentic Security (ASI01-ASI10), MITRE ATLAS™, and NIST AI RMF. All assessments are aggregated into a single risk picture that includes total findings, attack success rates, severity breakdown, finding outcomes, and deep risk metrics. Dreadnode also delivers an exportable report so stakeholders can make go/no-go decisions.
+
+Key to this process is human-in-the-loop review. Model builders can expand any findings to see the exact attacker prompt and target response, and walk through attacks step-by-step. Operators can reclassify their findings, adjust attack severity levels, and document reasoning. All dashboard metrics will recompute automatically when findings are reclassified.
+
+These findings will fortify CrowdStrike Falcon® Guardian, our flagship AI detection and response (AIDR) solution, which protects enterprise-developed AI at runtime. Dreadnode results will feed into Falcon Guardian as policy recommendations, so a weakness found in testing informs runtime protection. Dreadnode testing data will also strengthen CrowdStrike’s SafeMind models, advancing our research into securing AI systems.
+
+See it in action:
+
+Stronger Security for Enterprise-Developed AI
+
+Businesses are integrating AI models, agents, and applications into daily operations faster than security teams can validate them. Traditional software security testing isn’t built to capture the risks these technologies can present. With Dreadnode, CrowdStrike will extend the Falcon platform to give enterprises a fast, repeatable way to test their AI systems before they’re deployed.
+
+CrowdStrike’s mission has always been to stop breaches. As new technologies emerge and the threat landscape evolves, we must adapt to provide our customers with the robust defense they need. Today, that means delivering solutions that secure AI end-to-end, from development to deployment to runtime. Last year, we acquired Pangea to secure enterprise AI use and development. Last month, we announced Falcon Guardian to deliver runtime protection for AI agents, introduce a new AI gateway, and extend our elite security services to AI systems.
+
+The acquisition of Dreadnode and its automated AI security testing will be a critical step on our journey to protect businesses in the AI era. We are eager to welcome the Dreadnode team.
+
+Forward-Looking Statements
+
+This blog contains forward-looking statements, including statements regarding the closing and benefits of the proposed acquisition. These statements involve risks and uncertainties, and actual results may differ materially. There are a number of risks that could cause actual results to differ materially, including the satisfaction of the acquisition’s closing conditions, our ability to integrate Dreadnode, and other risks described in the filings we make with the U.S. Securities and Exchange Commission from time to time."

@@ -290,7 +290,7 @@ Can we show what the security team saw, investigated, and did in response?
 Vectra AI does not replace the governance, certification, IAM, patching, backup or regulatory-reporting controls required by CCoP. Its role is to help CII organisations see attacker behaviour earlier, investigate faster and produce stronger operational evidence that their detection and response controls are working.
 
 Learn more about how Vectra AI can support CCoP requirements in this infographic."
-f169037b4301,f169037b4301,2026-10-22 00:00 UTC,Vulnerabilities & Patching,Vectra AI,Vectra AI Blog,Vulnerability Management; Server & Workload Protection,Article,A patched PHP server can still be a compromised one by Lucie Cardiet,https://www.vectra.ai/blog/a-patched-php-server-can-still-be-a-compromised-one,"Amazon's honeypots (decoy servers built to attract attackers) recorded the first attempt on October 17, four days before disclosure, and by October 21 Amazon was seeing broad...","On October 20, details of two critical flaws in PHP leaked online before the fixes were ready. PHP, the scripting language behind a large share of the web, moved its patch release up a day and shipped it on October 21. The flaws, CVE-2026-109618 and CVE-2026-109619 (nicknamed php2shell), let an attacker run commands on a web server through PHP itself, with no login needed.
+f169037b4301,bb38d6c3fcca,2026-10-22 00:00 UTC,Vulnerabilities & Patching,Vectra AI,Vectra AI Blog,Vulnerability Management; Server & Workload Protection,Article,A patched PHP server can still be a compromised one by Lucie Cardiet,https://www.vectra.ai/blog/a-patched-php-server-can-still-be-a-compromised-one,"Amazon's honeypots (decoy servers built to attract attackers) recorded the first attempt on October 17, four days before disclosure, and by October 21 Amazon was seeing broad...","On October 20, details of two critical flaws in PHP leaked online before the fixes were ready. PHP, the scripting language behind a large share of the web, moved its patch release up a day and shipped it on October 21. The flaws, CVE-2026-109618 and CVE-2026-109619 (nicknamed php2shell), let an attacker run commands on a web server through PHP itself, with no login needed.
 
 Patch now. CISA added both flaws to its list of exploited vulnerabilities on October 26. That advice is right, and it leaves a gap. This post is about the gap.
 
@@ -406,3 +406,56 @@ How would I see if an AI agent compromised an identity and moved into a new part
 How would I track that movement?
 
 If I could or couldn't track it, what would that cost me?"
+454c474ba2b0,bb38d6c3fcca,2026-10-19 00:00 UTC,"Attacks, Breaches & Threat Intel",Vectra AI,Vectra AI Blog,Network Security; Identity Security Posture Management; Vulnerability Management; Endpoint Security,Article,One Compromised Appliance Gave Attackers the Keys to 500 Firewalls by Lucie Cardiet,https://www.vectra.ai/blog/one-compromised-appliance-gave-attackers-the-keys-to-500-firewalls,"The attackers exploited a vulnerability (CVE-2024-47575, known as FortiJump) that let them register a fake device on that console with a single unauthenticated request","On October 14, Unit 42 published a detailed investigation into PEERSTITCH, a new type of implant deployed against a telecommunications managed service provider (an MSP, a company that runs network infrastructure on behalf of its clients). The intrusion started with a single management appliance. From there, attackers extracted passwords, encryption keys, and full configuration files from more than 500 firewalls belonging to both the provider and its clients.
+
+Every step used a legitimate process, a valid credential, or a trusted management protocol. Nothing they did ever looked wrong.
+
+A single appliance, 500 firewalls
+
+The target ran Fortinet's FortiManager, the central console that pushes settings to every firewall underneath it. The attackers exploited a vulnerability (CVE-2024-47575, known as FortiJump) that let them register a fake device on that console with a single unauthenticated request. From that position, they generated and downloaded an archive containing the complete configuration of every managed firewall: passwords stored in a recoverable format, private encryption keys, network maps, and an inventory linking every device to its public address.
+
+Unit 42 confirmed they could crack the passwords from those configuration files. With real credentials in hand, the attackers logged in through the firewalls' own VPN. The audit log recorded successful sign-ins.
+
+A ""medium-severity"" bug that delivered root access
+
+A firewall administrator, even the most privileged one, operates inside a restricted command line. The real operating system sits underneath, running with full control. The attackers bridged that gap with a second vulnerability (CVE-2025-61624), a path-traversal flaw in the firewall’s auto-script system that let them place and run a file anywhere on the system.
+
+This flaw is not rated critical. It requires an authenticated session to exploit. In isolation, it looks like a medium-priority patch. In this intrusion, it was the step that turned stolen credentials into full control of firewalls protecting hundreds of networks. That matters for anyone who prioritizes patches by severity score alone.
+
+An implant that hides inside the firewall itself
+
+What the attackers installed next is what sets this intrusion apart.
+
+PEERSTITCH runs once, injects itself into two programs the firewall already runs (its logging service and its VPN service), and then deletes itself from disk. Unit 42's description: ""PEERSTITCH leaves no persistent binary on disk, opens no listening ports and initiates no outbound network connections. Instead, it communicates through traffic generated by legitimate processes on the infected host, which makes the malware resistant to conventional endpoint and network detection.""
+
+In plain terms: there is no suspicious file to find, no unexpected program running, no new network connection to spot. The implant lives inside processes the firewall is supposed to be running. It communicates by writing directly into those processes' memory, not over the network. When the VPN service handles a session and finds a signal the implant left in memory, it quietly bypasses the firewall's normal security checks.
+
+The attackers also repurposed the firewall's built-in certificate renewal system as a command channel. Every time the firewall tried to renew a certificate, it reached out to an attacker-controlled server and executed their instructions. A routine maintenance cycle, turned into a persistent backdoor.
+
+They cleaned up after themselves
+
+Before running their tools, the attackers shut down the logging service to stop it from recording their activity. Afterward, they cleared crash logs, deleted the accounts they had created, overwrote their configuration changes with harmless placeholder text, and removed the implant binary from disk. Unit 42 also observed intermittent drops in the management connection during periods of malicious activity, likely a deliberate effort to suppress real-time alerts.
+
+Gap 1: nothing looks wrong
+
+This intrusion fits squarely into what I call Gap 1 in the Mind Your Gaps in the Age of AI-Powered Attacks whitepaper: the scenario where legitimate tools and valid sessions carry the attack, and there is no malware signature to catch.
+
+Every component was either a trusted process or a valid credential. The initial access used a management protocol the console exposes by design. The VPN sessions used real passwords and real certificates, recovered from the console's own files. The implant ran inside the firewall's own services. The command channel ran through a built-in certificate module, triggered by a standard renewal cycle.
+
+A firewall with PEERSTITCH installed looks, from every conventional check, like a firewall doing its job. No unexpected processes. No unexpected ports. No unexpected connections. The only difference is in the behavior of the traffic passing through it.
+
+The MSP dimension
+
+There is a second gap here, which I usually call Gap 3: movement that crosses organizational boundaries and is not visible from any single vantage point. The target was an MSP. Its management console held the keys to its clients' firewalls. Compromising one organization's console gave the attackers a credentialed path into networks that belonged to other organizations entirely.
+
+Unit 42 noted they did not examine the client networks, so the exposure described is of stolen credentials and keys rather than confirmed downstream intrusion. But those keys do not expire when the management console is patched. As the report puts it: ""The cryptographic trust material governing the platform's relationship with every managed device leaves with the attacker and remains valid until it is rotated.""
+
+Patching the console closes the door that was opened. It does not revoke the keys that walked out.
+
+Detection has to follow the behavior, not the signature
+
+Detection is not broken. It is incomplete. File-based tools will not find PEERSTITCH, because there is no file. Network monitors looking for unexpected connections will not find its communication channel, because it communicates inside the host's own memory. Session monitors will not flag the VPN logins, because the credentials were real.
+
+What would catch this is behavioral detection: noticing that a firewall's traffic patterns changed in ways its configuration does not explain, or that sessions passing through it are being handled differently than they should be. That requires watching what the network does, not just what the endpoints report. Unit 42's report includes indicators of compromise and a detection rule for teams ready to hunt. The FBI and the Secret Service also published a joint advisory on October 6 covering ongoing exploitation of FortiGate appliances.
+
+Vectra AI's approach to network detection and response is built around exactly this kind of gap: identifying attacker behaviors in network traffic when the endpoints, the credentials, and the management tools all say everything is fine. The Mind Your Gaps in the Age of AI-Powered Attacks whitepaper, Chapter 2, walks through Gap 1 in detail."

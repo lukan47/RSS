@@ -1,4 +1,91 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+926b67f55b68,8e1b23edf9fa,2026-10-19 14:34 UTC,Vulnerabilities & Patching,BeyondTrust,Rapid7 Blog,Identity Security Posture Management; Vulnerability Management; File Security; Threat Intelligence,Article,CVE-2026-102764: Critical BeyondTrust Remote Support Authentication Bypass Exploited in the Wild,https://www.rapid7.com/blog/post/etr-cve-2026-102764-critical-beyondtrust-remote-support-authentication-bypass-exploited-in-the-wild,"3, the vulnerability allows unauthenticated remote attackers to perform file operations on an affected appliance without user interaction","Overview
+
+On October 15, 2026, BeyondTrust disclosed a critical authentication bypass in Remote Support (RS), its platform for remotely troubleshooting and administering endpoints. Tracked as CVE-2026-102764 and assigned a CVSSv4 score of 9.3, the vulnerability allows unauthenticated remote attackers to perform file operations on an affected appliance without user interaction. Versions 26.2.3 and earlier are affected unless the BT26-05-RS patch has been applied.
+
+BeyondTrust has confirmed that exploitation in the wild has already occurred prior to disclosure. Its October 16 report dates the two known Remote Support compromises to August 29, 2026: one BeyondTrust-hosted instance and one self-hosted appliance. BeyondTrust discovered and contained the hosted compromise on September 28; Mandiant shared corroborating findings from the self-hosted investigation on September 30.
+
+On October 16, 2026, CVE-2026-102764 was added to the U.S. Cybersecurity and Infrastructure Security Agency's (CISA) list of known exploited vulnerabilities (KEV), based on evidence of active exploitation. CISA's official KEV feed lists an October 19, 2026 due date and marks forensic triage as required. Rapid7 recommends remediating affected appliances on an emergency basis and investigating RS appliances for prior compromise.
+
+BeyondTrust's remote access products have previously been targeted earlier this year. Rapid7 covered CVE-2026-1731, which was added to KEV in February 2026.
+
+Technical overview
+
+According to the vendor's CVE record, internal Remote Support components inadequately validate the origin of incoming messages, permitting file operations on the appliance. The flaw is classified as authentication bypass by spoofing (CWE-290). BeyondTrust is withholding exploitation details while customers apply patches.
+
+Mandiant's investigation describes arbitrary file uploads, deployment of the SAWFLY PHP web shell and BARECLAW tunneler, root escalation, attempted credential-vault extraction, persistence, and log deletion. Mandiant attributes the activity to ARMORY CASTLE, a suspected PRC-nexus espionage actor formerly tracked as UNC5221.
+
+Mitigation guidance
+
+A vendor-provided patch is available. Rapid7 strongly recommends that organizations running affected self-hosted Remote Support appliances apply it on an emergency basis, outside of normal patching cycles.
+
+Per BeyondTrust's advisory:
+
+Affected versions: Remote Support 26.2.3 and earlier, unless the patch has been applied.
+
+Remediation: Apply the BT26-05-RS patch, available for versions 24.3.1 through to26.2.3.
+
+Older deployments: Instances older than 24.3.1 require an upgrade to a patch-supported version followed by application of the patch.
+
+Self-hosted deployments: Confirm installation through the /appliance interface. Apply the patch manually if automatic updates are not enabled.
+
+SaaS deployments: BeyondTrust states that all Remote Support SaaS customers were patched as of October 9, 2026.
+
+Note: BeyondTrust also recommends immediate patching of self-hosted Privileged Remote Access (PRA) because it shares the affected code. The vendor has not identified a way to exploit this vulnerability in PRA. PRA customers should confirm the appropriate patch with BeyondTrust Support.
+
+Rapid7 strongly recommends investigating for compromise even after patching. Mandiant recommends preserving evidence before changes or reboots, isolating suspected appliances, and rebuilding from a clean, fully patched image if compromise is confirmed or cannot be ruled out. Organizations should rotate stored or brokered credentials after patching or rebuilding, and review administrative changes and downstream sessions. Credential and configuration reviews also apply to SaaS customers. Patching does not remove persistence.
+
+For the latest mitigation guidance, please refer to the vendor's security advisory.
+
+Artifacts, evidence sources, and IOCs
+
+BeyondTrust recommends hunting for the following behaviors:
+
+Unrecognized administrative sessions from residential broadband or commercial VPN addresses.
+
+Unexpected scripts in web directories or shells spawned by web service accounts.
+
+Unauthorized account, permission, or session-policy changes, particularly to Jump Items or Teams.
+
+Gaps in log forwarding bounded by a single session.
+
+The vendor cautions that infrastructure and tooling vary between victims; an absence of known indicators does not establish that an appliance is uncompromised. BeyondTrust customers can request an additional hunting package through its trust portal.
+
+Organizations should forward appliance events to an external SIEM using BeyondTrust's syslog guidance and preserve existing external logs. Enabling forwarding now cannot recover previously deleted evidence.
+
+Mandiant identified evidence in access, syslog, messages, thin-scc, brain, and SSL logs. Customers should coordinate host-level log and artifact inspection with BeyondTrust Support; they cannot audit the appliance host filesystem.
+
+Mandiant's report includes the file indicators below and separate YARA rules:
+
+Filename
+
+Description
+
+SHA-256
+
+mangoapi.php
+
+SAWFLY web shell
+
+dc14e215269a93fdbc4c1a80b984c23faf7af0911c6dbb85309796a6f2ae95fb
+
+ingredi_ws
+
+BARECLAW tunneler
+
+1f19b9a27d79c11bda00a1e8faf74a7fdd683d38ccef1b60df2fd0307e3aa462
+
+Additional artifacts include /usr/bin/dbus-authd, /home/bomgar/sbin/post_boot.d/zz-root-persist, and an unauthorized /uidchanarge route in /ns/config/haproxy.conf.
+
+Rapid7 customers
+
+Exposure Command, Vulnerability Management, and Nexpose
+
+Exposure Command, Vulnerability Management, and Nexpose customers can assess exposure to CVE-2026-102764 with an authenticated vulnerability check expected to be available in the October 20 content release.
+
+Updates
+
+October 19, 2026: Initial publication."
 b535d345a7f2,b535d345a7f2,2026-10-16 10:10 UTC,Vulnerabilities & Patching,BeyondTrust,Infosecurity Magazine,Threat Intelligence; Vulnerability Management; Identity Security Posture Management; File Security,Article,"China Espionage Actor Actively Targeting Critical BeyondTrust Flaw, Google Warns",https://www.infosecurity-magazine.com/news/china-actor-beyondtrust-flaw-google/,Attackers Hide Malware Behind Signed ChatGPT and Claude Binaries Attackers Exploit Teams External Chat to Breach Organizations in Under 15 Minutes Online Scam Volumes Double to...,"A suspected China state-sponsored actor has exploited a newly disclosed critical vulnerability in a BeyondTrust Remote Support instance, Google has warned.
 
 The threat actor, tracked as Armory Castle, was observed to escalate privileges and established persistent access to compromised BeyondTrust Remote Support appliances following exploitation of the flaw, CVE-2026-102764, in August 2026.

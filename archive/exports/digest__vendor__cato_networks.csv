@@ -253,6 +253,159 @@ Israel_Tax_Authority.zip
 62a25285436c5e34a42661345ccbcd3fe7d96d74991a7fc37846cc9342ba39ff
 
 The post Cato CTRL Research on Suspected Iranian MuddyWater Activity Using Israel Tax Authority Lures and SimpleHelp appeared first on Cato Networks."
+f18772c3db10,2b62329cc6f4,2026-10-30 12:12 UTC,Vulnerabilities & Patching,Cato Networks,Cato Networks Blog,Cloud IPS; Vulnerability Management; Threat Intelligence,Article,"Cato CTRL Threat Research: PHP2Shell Exploitation Attempts in the Wild, and How Cato IPS Blocked Them",https://www.catonetworks.com/blog/cato-ctrl-threat-research-php2shell-exploitation-attempts-in-the-wild/,"The first scanning or invalid-PoC attempt appeared on 21 October, the day the fixes were released, and about two thirds of all attack sources in our sample first appeared that day","Executive summary
+
+On 21 October 2026, PHP released fixes for CVE-2026-109618 and CVE-2026-109619, a pair of critical runtime vulnerabilities known as PHP2Shell. One day later, we described how our self-evolving CVE mitigation agent turned the patch into reviewed IPS protection in minutes. This report follows what happened next, including how quickly attackers moved, what their attempts looked like, and how Cato’s cloud-delivered IPS protection blocked them on inspected customer traffic.
+
+Key findings
+
+Attempts started on patch day. We observed no external PHP2Shell-pattern requests from 17 to 20 October. The first scanning or invalid-PoC attempt appeared on 21 October, the day the fixes were released, and about two thirds of all attack sources in our sample first appeared that day.
+
+Cato IPS blocked both exploitation attempts and scanning or invalid-PoC attempts. In the sample analyzed, about 41% of blocked attempts were exploitation attempts aimed at remote code execution (RCE), and 59% were scanning or invalid-PoC attempts. About 96% of all hits related to CVE-2026-109618.
+
+Exploitation attempts fell into two main types. Command-execution attempts were the most common, followed by deserialization attempts.
+
+A handful of sources drove most attempts. In our sample, a small number of source IPs generated most of the blocked attempts, repeating proof-of-concept (PoC) style requests.
+
+Attempts appear opportunistic, not sector-focused. Healthcare made up about one third of the organizations that received blocked attempts, but the same sources reached unrelated sectors and countries.
+
+Introduction
+
+PHP2Shell is a pair of flaws in the PHP core runtime rather than in a single application or plugin. CVE-2026-109618 concerns out-of-memory handling that can interrupt request initialization and leave invalid data for cleanup to process. CVE-2026-109619 concerns request-owned state that is retained after its memory is freed and later accessed by the same worker. Both can lead to unauthenticated code execution, and the highest demonstrated risk is in Apache mod_php, where exploitation can occur before any application code runs.
+
+In our first threat brief, Cato AI native SASE delivers PHP2Shell protection at machine speed, we described how our self-evolving CVE mitigation agent built a PoC and generated IPS signatures in minutes, with researcher review before release. At that point, our initial telemetry showed scanning activity only.
+
+This follow-up answers the questions security teams ask next. Once the patch was public, how fast did attackers move, what did they try, and did protection keep up? We look at timing, attempt types, sources, the industries that received attempts, and the tooling involved.
+
+Methodology
+
+We queried a sample of anonymized, aggregated Cato cloud security telemetry from 17 to 26 October 2026 for inbound requests matching the PHP2Shell pattern and our PHP2Shell IPS protections. We group blocked attempts into two categories, exploitation attempts and scanning or invalid-PoC attempts. The second category covers simple scanning as well as exploit attempts that used false or invalid proofs of concept. Results are shown as approximate percentages, and industries are grouped so that no individual organization can be identified.
+
+Limitations
+
+Sample-based. The figures reflect a sample of Cato-inspected traffic, not global internet activity, and show the shape of activity rather than exact volumes.
+
+Attempts, not outcomes. This research describes attempted attacks, not compromises.
+
+Geolocation is not attribution. Source country reflects where an IP is hosted, often a cloud or VPS provider, not who operates it.
+
+Technical insights
+
+1. Timeline from silence to patch-day onset
+
+Figure 1 shows the clearest finding. From 17 to 20 October, we observed no external requests matching the PHP2Shell pattern. On 21 October, the day PHP published its fixes, the first external scanning or invalid-PoC attempt appeared in the morning, and that day accounts for about 72% of the PHP2Shell-pattern requests in our sample. This is consistent with Amazon Threat Intelligence, which reported proof-of-concept exploits circulating on 21 October. Amazon also reported a single exploitation attempt against its own honeypots on 17 October, four days before public disclosure. We saw no such pre-disclosure activity in Cato customer traffic.
+
+Figure 1. Daily share of external PHP2Shell-pattern requests across the observation window.
+
+Daily volume is spiky because one noisy scanner can dominate a day. A better measure of how activity spread is when each attack source first appeared. In Figure 2, 100% represents all attack sources observed during the study window. About two thirds of them first appeared on 21 October, and new sources appeared on most days after.
+
+Figure 2. Attack sources by first-seen date, as a share of all sources observed in the window.
+
+Hour by hour, 21 October unfolded in two phases (Figure 3). A few early scanning or invalid-PoC attempts in the morning were followed in the afternoon by a single source sending a burst that made up about 80% of the day’s requests. Later in the day, activity fanned out, with about 40% of the day’s sources active within a single hour, which is typical of a PoC circulating and many operators running it at once.
+
+Figure 3. Share of requests and of active sources per hour on 21 October.
+
+2. From scanning and invalid PoCs to code execution attempts
+
+In the sample analyzed, about 96% of blocked attempts related to CVE-2026-109618, the out-of-memory flaw, and about 4% to CVE-2026-109619. About 59% were scanning or invalid-PoC attempts, and 41% were exploitation attempts aimed at remote code execution (Figure 4). Some attempts relied on PoCs that were not valid against the vulnerable code path, so we grouped them with scanning activity. Exploitation attempts fell into two main types, command execution and deserialization, with command execution the more common.
+
+Figure 4. Blocked PHP2Shell attempts by CVE and by intent, based on a sample of Cato telemetry.
+
+3. Source geography
+
+Based on a sample of the sources we observed, the United States leads by share of source IPs (about 36%), followed by the Netherlands and Germany (about 14% each). By share of blocked attempts, US-hosted sources account for about 54%, the Netherlands about 18% and Moldova about 16% (Figure 5). Activity was concentrated, with a small number of sources generating most of the blocked attempts in the sample.
+
+Figure 5. Source IP geolocation by share of sources and share of blocked attempts, based on a sample of sources.
+
+4. Who received the attempts
+
+Blocked attempts reached organizations across a broad range of industries (Figure 6). Healthcare and social care is the largest group at about one third, followed by technology and security services. The remainder is spread across professional services, automotive, education and non-profit, and other sectors, in several countries.
+
+Figure 6. Industry mix of the organizations that received blocked attempts.
+
+Does the healthcare share mean healthcare was singled out? The evidence suggests not. The same sources sent attempts to healthcare organizations and to unrelated sectors in different countries. For example, a single source reached healthcare, technology and software organizations on the same day. The sample is small, and the share may also reflect the composition of our customer base. One plausible explanation is shared technology. PHP-based portals, forms and line-of-business applications are common across many industries, including healthcare.
+
+Additional recommendation
+
+Cato customers do not need to deploy anything for PHP2Shell protection. The IPS signatures are delivered and enforced from our cloud. We also recommend updating every PHP instance to the fixed version released by the PHP project.
+
+Conclusion
+
+PHP2Shell showed how short the window between patch and attack has become. We saw no PHP2Shell-pattern traffic for four days, then scanning or invalid-PoC attempts on the day the fixes were released, followed by exploitation attempts. The attempts were automated, repetitive and opportunistic, reaching organizations across many industries and countries. With a runtime-level bug, the deciding factor is whether an organization exposes PHP, not which industry it is in.
+
+Dedicated PHP2Shell signatures, built by our self-evolving CVE mitigation agent and reviewed by our researchers, blocked exploitation attempts on inspected traffic. Because enforcement happens in the Cato cloud, customers did not need to install anything, and this virtual patching reduces exposure while application owners upgrade.
+
+This research covers a sample of attempts on inspected traffic, not outcomes, during the first days after disclosure.
+
+We will continue to monitor PHP2Shell activity and update protections as attacker techniques evolve.
+
+Indicators of attack
+
+Source IPs from a sample of blocked PHP2Shell attempts. Cloud and hosting IPs may be reassigned.
+
+Source IP
+
+Geo
+
+172.234.200.18
+
+US
+
+85.11.167.243
+
+NL
+
+143.246.223.124
+
+MD
+
+38.60.206.217
+
+US
+
+176.124.32.170
+
+EE
+
+185.225.191.232
+
+PL
+
+2.27.248.209
+
+DE
+
+147.182.234.126
+
+US
+
+31.56.53.223
+
+NL
+
+104.248.145.184
+
+SG
+
+49.43.128.164
+
+IN
+
+3.144.181.153
+
+US
+
+77.90.185.20
+
+DE
+
+18.225.170.231
+
+US
+
+Public reporting corroborates one of these sources. On AbuseIPDB, independent reporters tagged 85.11.167.243 as PHP2Shell activity. None of the sources in our sample appear in Amazon Threat Intelligence’s published PHP2Shell indicator list.
+
+The post Cato CTRL Threat Research: PHP2Shell Exploitation Attempts in the Wild, and How Cato IPS Blocked Them appeared first on Cato Networks."
 9475654bf41d,9475654bf41d,2026-10-29 07:45 UTC,General Security News,Cato Networks,Cato Networks Blog,AI Security; Network Security,Article,See the Real AI Experience with Cato DEM,https://www.catonetworks.com/blog/see-the-real-ai-experience-with-cato-dem/,From “AI Is Slow” to Knowing Where to Investigate Detecting poor performance is only the first step,"AI is becoming part of everyday work. Employees rely on services such as ChatGPT and Claude to research, create, and solve problems, while developers increasingly use AI-powered tools like Cursor and coding agents in their development workflows.
 
 As employees increasingly rely on AI to work more productively, the AI experience is becoming a critical part of the digital experience IT teams are expected to support. Slow responses, failed interactions, or inconsistent performance can disrupt workflows and undermine the productivity gains AI is meant to deliver.
@@ -328,6 +481,59 @@ As AI becomes increasingly important to employee productivity, waiting for users
 For detailed configuration guidance, refer to the Cato Knowledge.
 
 The post See the Real AI Experience with Cato DEM appeared first on Cato Networks."
+8376bfc5bebd,2b62329cc6f4,2026-10-29 06:28 UTC,"Attacks, Breaches & Threat Intel",Cato Networks,Cato Networks Blog,Zero Trust Secure Access; Identity Security Posture Management; Cloud Risk Management,Article,Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform,https://www.catonetworks.com/blog/cato-ctrl-threat-brief-emudhra-certificate-compromise-highlights-value-protection-delivered-by-ai-native-sase-platform/,The post Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform appeared first on Cato Networks,"Executive summary
+
+Eight eMudhra intermediate certificate authority (CA) private keys were compromised after being generated with insufficient randomness. Attackers could use these keys to forge certificates and impersonate legitimate websites or services to clients that still trust them. An attacker able to intercept a connection could potentially read or modify sensitive traffic.
+
+We have deployed a certificate-trust update through our centrally managed PoP architecture, removing affected eMudhra certificates from the trust store used for TLS inspection. Delivering the update through the Cato Cloud removed the need for customers to patch security appliances at individual locations.
+
+What happened?
+
+Intermediate CAs sign certificates used to authenticate websites and services. Compromising their private keys can enable attackers to issue fraudulent certificates for domains they do not control. Organizations can therefore face exposure even when their legitimate certificates come from another provider.
+
+Google and Mozilla received reports on October 17, 2026, and distributed emergency certificate blocks that day.
+
+Mozilla also released updates associated with CVE-2026-113470. These include the certificate block list directly in Firefox and Thunderbird, protecting installations even when automatic block-list updates are disabled or unavailable.
+
+Google found that no website certificates issued through the six affected TLS intermediates had appeared in Certificate Transparency (CT) logs before its emergency block took effect. CT logs are public records of certificates. Browsers that enforce CT, including Chrome, require valid proof that a certificate has been submitted to these logs before accepting it. Those browsers would therefore have rejected fraudulent certificates from the affected intermediates even before receiving the emergency blocks.
+
+However, this protection does not extend to all software. Some applications, older browsers, or configurations without CT enforcement may have accepted unlogged fraudulent certificates if they still trusted the affected intermediates. The absence of certificates from those intermediates in CT logs before Google’s block therefore does not prove that no attacks occurred.
+
+eMudhra says its root private keys and other intermediate CAs are unaffected. Its investigation remains ongoing.
+
+Business risks
+
+The exposure extends beyond employee browsers. Applications, API integrations, containers, and embedded devices may use independent trust stores or lack effective certificate-revocation checks.
+
+Potential business consequences include:
+
+Credential theft and data exposure: Intercepted connections could expose passwords, session tokens, and confidential information.
+
+Transaction manipulation: Attackers impersonating trusted services could alter business communications or API responses.
+
+Service disruption: Emergency trust removal can also reject legitimate certificates. Google announced a broader root-removal rollout expected on October 27, requiring affected website operators to replace their certificates.
+
+Operational costs: Identifying and updating separate trust stores across applications and infrastructure creates work and opportunities for missed remediation.
+
+These are potential impacts, not evidence of observed exploitation.
+
+Our response: centralized control, global enforcement
+
+The Cato AI-native SASE Platform converges networking and security in a cloud-native service delivered through globally distributed points of presence (PoPs). Our Single Pass Cloud Engine provides integrated security enforcement, while centralized management allows us to deliver updates across our cloud infrastructure. This reduces the coordination and maintenance work customers would otherwise undertake across distributed security appliances.
+
+Centralized operations also support controlled deployment. Our established PoP change-management practices include phased rollouts, validation, monitoring, and rollback capabilities to manage operational risk as the platform evolves.
+
+What this means for our customers
+
+We have centrally deployed a certificate-trust update across our globally distributed PoPs, removing affected eMudhra certificates from the trust store used for TLS inspection. Customers do not need to make configuration changes to receive this update.
+
+Analysis of our data lake showed that the certificate chains affected by this update appeared in only a very small proportion of the network flows examined. Based on this limited usage, we expect minimal connectivity impact for customers.
+
+For details about the update and potential connectivity impact, see the security update.
+
+For locations or connections that access the internet outside our platform, organizations should apply the relevant vendor updates or extend our platform’s coverage so those connections are subject to our certificate-validation controls.
+
+The post Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform appeared first on Cato Networks."
 59b65bdf3cd1,59b65bdf3cd1,2026-10-28 10:35 UTC,General Security News,Cato Networks,Cato Networks Blog,AI Security; Data Security Posture Management,Article,Why so many AI security programs start with the OWASP Top 10,https://www.catonetworks.com/blog/why-so-many-ai-security-programs-start-with-the-owasp-top-10/,What OWASP is The Open Worldwide Application Security Project (OWASP) is a nonprofit foundation with a global community of security practitioners,"When an auditor or an RFP asks how your organization handles AI risk, the OWASP Top 10 lists are often a core part of the checklist behind the question. Cato AI Security is built to address the risks on two lists.
 
 What OWASP is
@@ -458,6 +664,128 @@ Sam gets a tidy build without the unapproved tool, and Maya’s customer list st
 For more details, read the solution brief or check the Cato AI Endpoint page and book a demo.
 
 The post Cato AI Endpoint secures browser AI, desktop AI and coding agents on every endpoint appeared first on Cato Networks."
+74785879c3c5,2b62329cc6f4,2026-10-26 12:02 UTC,"Attacks, Breaches & Threat Intel",Cato Networks,Cato Networks Blog,Vulnerability Management; AI Security; Identity Security Posture Management; Zero Trust Secure Access,Article,Cato CTRL Threat Brief on Attacks Against Refrigeration Controllers,https://www.catonetworks.com/blog/cato-ctrl-threat-brief-attacks-against-refrigeration-controllers/,"Our agentic vulnerability researcher helped reconstruct exploits for Danfoss vulnerabilities by analyzing vendor patch files, without publicly available proof-of-concept exploits","Executive summary
+
+CERT-FR’s October 13 update reports compromises of refrigeration controllers, naming Danfoss AK-SM and AK-SC alongside Copeland/Dixell XWEB systems. The entry methods remain unconfirmed. CERT-FR warns that attacks are probably continuing and recommends removing public exposure, checking configurations, and securing remote access. Compromised operational technology (OT) can disrupt cooling, compromise stored products, and threaten cold-chain continuity.
+
+Our agentic vulnerability researcher helped reconstruct exploits for Danfoss vulnerabilities by analyzing vendor patch files, without publicly available proof-of-concept exploits. This work supported deployment of IPS signatures within 24 hours of the initial incident reports as part of our virtual patching coverage. We continue to monitor public proof-of-concept releases, exploitation reports, and investigation findings across refrigeration vendors to assess the need for additional signatures.
+
+Operational and business impact
+
+Operational disruption. Unauthorized changes to setpoints, defrost schedules, or alarms can disrupt cooling across multiple units, spoil products, and delay detection.
+
+Business and supply-chain impact. Inventory losses, interrupted sales, equipment damage, and emergency maintenance can cause financial and reputational harm. At scale, disruption could affect food availability and national resilience.
+
+Security exposures to assess
+
+Internet-exposed management interfaces. Publicly reachable controllers face greater risk of unauthorized access where authentication and access restrictions are inadequate.
+
+Remote access without least privilege. Shared accounts, weak authentication, and excessive permissions increase the risk of unauthorized changes. Access across sites and weak segmentation can widen the impact.
+
+Vulnerable or unsupported systems. Published research into Danfoss AK-SM 800A and Copeland XWEB Pro controllers documented multiple vulnerabilities. Their exploitation in the reported attacks has not been confirmed.
+
+Overlooked cellular connections. Supplied SIMs and vendor-managed 4G/5G routers may bypass network controls and escape inventories, monitoring, and risk assessments. Private APNs also need verified isolation between subscriber devices.
+
+How Agentic AI Can Accelerate OT Attacks
+
+Agentic AI could accelerate reconnaissance, analysis of disclosed vulnerabilities, and repeated exploitation attempts against reachable controllers. This may reduce the time and expertise needed to turn an exposed interface into operational disruption. At the time of writing, we have not identified public evidence of AI involvement in the refrigeration incidents.
+
+Protection and recommendations
+
+General recommendations
+
+The following are general recommendations for reducing risk across connected refrigeration environments.
+
+Reduce internet exposure. Remove unnecessary public access. Authenticate and authorize remote users before granting equipment access through a secure VPN or protected network, following CERT-FR guidance.
+
+Secure maintenance access. Change default passwords. Use unique credentials, named accounts, MFA where supported, and least privilege, separating monitoring from configuration access where possible.
+
+Maintain supported systems. Track firmware and support status, apply vendor updates, and replace unsupported equipment. Follow Danfoss security guidance and guidance for other deployed platforms.
+
+Segment operational equipment. Allow only required traffic between refrigeration equipment, corporate IT, maintenance networks, and sites.
+
+Monitor operating conditions. Alert on unexpected changes to temperatures, defrost schedules, alarms, and accounts. Consider independent temperature monitoring and verify safe operation after incidents.
+
+Assess cellular access. Inventory SIMs and vendor-managed cellular links. Include them in risk assessments, verify access controls and logging, and validate private APN isolation and routing.
+
+Cato protection
+
+Our SASE platform supports authenticated remote access, least-privilege access policies, and network segmentation. SASE allows these controls and traffic inspection to be managed centrally across sites and remote maintenance connections routed through the platform. In a previous blog post, we discussed OT security recommendations and showed how the platform supports secure remote access, segmentation, and monitoring of device communications.
+
+In another previous blog post, we discussed how Cato Autonomous Policies for FWaaS analyzes policy rules and their context to help identify misconfigurations and overly permissive access.
+
+Our Researcher Agent helped us create a proof of concept for Danfoss controller vulnerabilities, supporting our mitigation work. This agent-assisted workflow helps accelerate vulnerability analysis and protection development while retaining researcher review.
+
+IPS virtual patching provides network-based protection against applicable vulnerability exploitation. Coverage depends on the vulnerability, enabled controls, and traffic reaching the relevant inspection point.
+
+In another blog post, we discussed how our Agentic Threat Prevention correlates suspicious host activity and applies inline controls to help interrupt attack progression, including lateral movement. This is relevant where a compromised system could provide a route toward operational equipment or other connected assets.
+
+We have added IPS signatures for applicable, publicly disclosed Danfoss vulnerabilities as part of our virtual patching coverage. We continue to monitor public proof-of-concept releases, exploitation reports, and investigation findings involving Danfoss and other refrigeration vendors. As new information becomes available, we will assess the need for additional IPS signatures and updates to our virtual patching coverage.
+
+The post Cato CTRL Threat Brief on Attacks Against Refrigeration Controllers appeared first on Cato Networks."
+25efed5b9174,2b62329cc6f4,2026-10-22 12:55 UTC,General Security News,Cato Networks,Cato Networks Blog,AI Security; Cloud IPS; Zero Trust Secure Access; Vulnerability Management,Article,Cato CTRL Threat Brief: Cato AI native SASE delivers PHP2Shell protection at machine speed,https://www.catonetworks.com/blog/cato-ctrl-threat-brief-php2shell-protection-at-machine-speed/,"How our self evolving researcher agent built signatures in minutes Once the PHP fixes became available, we analyzed the changes and found behavior that appeared materially...","Executive summary
+
+On 21 October 2026, PHP released fixes for CVE-2026-109618 and CVE-2026-109619, two critical vulnerabilities known as PHP2Shell that can enable unauthenticated remote code execution. Cato’s self-evolving CVE mitigation agent helped turn the investigation into concrete research output by creating a proof of concept and generating an IPS signature in minutes. The agent connects vulnerability analysis, controlled lab testing and protection generation. Validation feedback and researcher corrections inform improvements to its skills and workflows, while security researchers review proposed protections before release. Cato has put PHP2Shell IPS protections in place, connecting fast agentic research with cloud enforcement to help customers reduce exposure on inspected traffic while they update affected applications.
+
+Why Cato AI native SASE enables protection at machine speed
+
+Speed matters because attackers can study the same patches defenders use. Our AI-native SASE approach connects our self-evolving agentic CVE mitigation researcher with centralized cloud inspection and enforcement. The researcher helps turn vulnerability analysis into candidate signatures, with validation and security researcher review before release. We can then deliver protections through our cloud without customers installing a separate signature package on each PHP server. This shortens the path from disclosure to protection while application owners complete remediation.
+
+What happened
+
+The flaws affect PHP core rather than a single application or plugin. PHP identifies installations serving web requests as at risk, including PHP-FPM, mod_php, php-cgi, FrankenPHP and LiteSpeed. The highest demonstrated risk is in Apache mod_php, where an unauthenticated request can trigger exploitation before application code runs. A login page therefore does not reliably shield the vulnerable processing.
+
+CVE-2026-109618 concerns out-of-memory handling that can interrupt initialization and leave invalid request data for cleanup to process. CVE-2026-109619 concerns request-owned state retained after its memory is freed and later accessed by the same worker. These failures can lead to code execution. Sensitive process memory may also be exposed. Exploitability depends on the runtime integration, configuration and reachable behavior.
+
+The UK NCSC urged immediate action to identify PHP installations and apply updates. NHS England’s alert highlights code execution and sensitive memory exposure, while Canada’s Cyber Centre also calls for assessment of products that bundle PHP. These official advisories reinforce the urgency of remediation.
+
+The business risk
+
+Public research also shows unauthenticated code execution on tested WordPress, Drupal and Joomla deployments, and separate disclosure of PHP worker memory. These examples illustrate runtime exposure. Exploitability varies by deployment.
+
+For a business, code execution could expose application data, allow content changes or disrupt customer-facing services within the PHP process’s permissions. Memory disclosure could reveal passwords, tokens and API keys even without code execution. Usable credentials could extend the risk to connected services. Prioritize systems by exposure, sensitive data and the business processes they support.
+
+How our self evolving researcher agent built signatures in minutes
+
+Once the PHP fixes became available, we analyzed the changes and found behavior that appeared materially different from the publicly circulated alleged exploit. This prompted additional research before finalizing the signatures. The discrepancy did not establish whether that material described another issue or an incomplete attack path.
+
+Our self-evolving CVE mitigation agent created a proof of concept (PoC) and generated an IPS signature in minutes. The new signatures address the alleged scenario and the patch-analysis findings, with coverage bounded by the attack paths tested.
+
+Our agentic researcher combines vulnerability intelligence, patch analysis and controlled testing to develop candidate IPS protections. Its self-evolving workflow uses validation feedback, execution traces and researcher corrections to refine the skills and workflows used in subsequent investigations. Our security researchers review proposed protections before release, bringing expert judgment to the path from generated signature to customer protection. Figure 1 shows this workflow from patch analysis and PoC creation to signature validation, researcher review and cloud enforcement.
+
+Figure 1. Self-evolving CVE mitigation from patch analysis to PoC, signature and enforcement.
+
+PHP2Shell from PoC to signature in minutes
+
+In Figure 2, the upper pane shows the local PHP2Shell test completion message, while the lower pane shows runtime monitoring and test events. This capture comes from the investigation in which our agent created a PoC and generated a signature in minutes. Detailed outcomes are redacted.
+
+Figure 2. PHP2Shell PoC test and runtime monitoring. Results redacted.
+
+Cato protection
+
+Our infrastructure assessment found that Cato’s production systems are not exposed to PHP2Shell. This finding concerns the infrastructure we operate.
+
+For customer environments, we have added PHP2Shell IPS signatures covering the alleged scenario and additional behavior identified through patch analysis. These protections help block matching exploit requests on traffic inspected by our cloud when the applicable signatures are enabled in blocking mode. Customers should also assess and update affected PHP applications and third-party products in their environments.
+
+The connection to Agentic Threat Prevention (ATP) is the speed of turning evidence into enforcement. Our CVE mitigation researcher uses vulnerability evidence to create signatures after disclosure. ATP evaluates related host activity as an attack develops and activates prevention policies to restrict its next steps.
+
+In our separate controlled demonstration against an agentic attacker, ATP used shared context and inline controls to prevent progression to full domain compromise. The PHP2Shell response described here delivered CVE-specific IPS signatures. Together, these examples show how AI-native SASE can accelerate both the creation of protections and adaptive enforcement during an intrusion.
+
+Our initial response telemetry showed scanning, with no exploitation attempts identified against customers.
+
+The attacker path and where we block it
+
+Figure 3 illustrates a hypothetical PHP2Shell attack and how our IPS protection would apply. It places an attacker on the left, our cloud IPS in the center and a vulnerable PHP service on the right. The crafted request represents an attempt to exploit the PHP runtime. The red stop mark shows where a matching request would be dropped when payload inspection and the applicable blocking protection are active. Some exploit paths involve multiple requests.
+
+Figure 3. Illustrative PHP2Shell attack path and IPS prevention.
+
+The diagram illustrates our protection model rather than documenting an observed customer attack. Traffic must pass through our cloud with its payload visible to inspection and the applicable signature enabled in blocking mode.
+
+Close coverage gaps
+
+Identify PHP services outside our inspection coverage. Extend our inspection coverage and blocking where supported. Protect remaining gaps with an appropriate application-layer control, such as an inbound WAF configured for PHP2Shell. Continue updating affected PHP runtimes.
+
+The post Cato CTRL Threat Brief: Cato AI native SASE delivers PHP2Shell protection at machine speed appeared first on Cato Networks."
 775edd139225,775edd139225,2026-10-21 11:56 UTC,General Security News,Cato Networks,Cato Networks Blog,Endpoint Security; Identity Security Posture Management,Article,Make Your SIEM Smarter with Cato,https://www.catonetworks.com/blog/make-your-siem-smarter-with-cato/,"Network outages and cyber threats demand real-time responses, making timely insights critical","Effective security operations require more than isolated alerts. Analysts need context from across the environment to understand what happened, assess its significance, and decide what to do next. That is why accessing insights and telemetry from across your networking and security stack is critical to teams using a SIEM tool. That wider context from endpoints, identity, cloud, applications, network infrastructure, and threat intelligence, brought into a common operational workflow, adds essential intelligence. With more complete information available where analysts already work, they can investigate faster and make better-informed decisions.
 
 Cato XOps brings network and security context from across the Cato SASE Platform into a shared operational view to accelerate incident detection, investigation, and response. Organizations can use that context in the operating model that works best for them, by enriching their existing SIEM workflows with the Custom HTTP Push Connector, or by bringing network and security operations closer together with Cato XOps.
@@ -690,70 +1018,3 @@ Cato AI Red Teaming puts that research to work. It continuously tests AI models 
 With testing and protection on one platform, security teams can find AI risk and close the gaps before attackers exploit them.
 
 The post Why AI Red Teaming Belongs at the Core of Your AI Security Program appeared first on Cato Networks."
-b3787e6cbe05,b3787e6cbe05,2026-10-12 08:31 UTC,General Security News,Cato Networks,Cato Networks Blog,AI Security; Data Security Posture Management,Article,Stopping destructive commands in AI agents,https://www.catonetworks.com/blog/stopping-destructive-commands-in-ai-agents/,"Together, they can take an application offline, erase critical configuration, lock out the employees needed to restore service, and turn a routine task into an expensive incident","An engineer gives a coding agent a routine task: clean up an old test deployment.
-
-The request sounds harmless, and the environment is cluttered with unused cloud resources, stale branches, and temporary credentials that should have been removed weeks ago. The agent gets to work.
-
-It lists resources, identifies old infrastructure, and finds a deployment command. Then it sees a naming pattern that appears to connect the test environment to production. Trying to be helpful, the agent removes what looks unused, resets a repository to a clean state, and revokes access it believes is no longer needed.
-
-None of those steps necessarily looks alarming on its own.
-
-Together, they can take an application offline, erase critical configuration, lock out the employees needed to restore service, and turn a routine task into an expensive incident.
-
-Agents do more than answer questions
-
-That is the challenge of agentic AI: agents are valuable because they can act. They can run commands, change files, and update security controls. But that same ability to act can create real business risk.
-
-Sometimes, the agent makes the wrong move while trying to complete a legitimate task. It follows an unclear instruction, misunderstands its environment, or chooses an efficient path that exceeds what its user intended.
-
-Other times, the intent is malicious. A threat actor who manipulates an agent through a prompt, a tool, or untrusted content can use the same permissions and capabilities to cause damage. What begins as a simple request can become a path to service disruption, data loss, weakened security controls, or costly cloud activity.
-
-Ungoverned agentic behaviors can lead to lost revenue, interrupted operations, exposed data, recovery work across multiple teams, and damaged customer trust.
-
-Access controls do not answer every question
-
-The natural response is to restrict the agent’s access. An agent should only have the permissions it needs. But access controls alone do not answer the full question: should the agent take this action now?
-
-Agents are designed to complete objectives. If one path is blocked, an agent may look for another permitted route to finish the task: using a different command or API, switching to another tool or service, accessing a different file or data source, or asking another agent or user to perform the step. A policy that says “do not use this resource” may still leave the agent able to create the same harmful outcome another way.
-
-Consider an agent that cannot delete a production environment directly. It may still be able to remove the credentials that keep it running, overwrite its configuration, reset its deployment state, or disable the protections around it.
-
-The risk comes from the behavior the agent is about to carry out with its access, and the impact that behavior could have.
-
-Not every destructive action should be blocked
-
-Recognizing a harmful action depends on context. A command such as rm -rf is not automatically destructive. Deleting a temporary build folder may be normal. Deleting a directory that contains customer data is very different.
-
-The same is true for resetting a repository, deleting infrastructure, removing access, or changing a security policy. The command alone does not reveal whether the action is appropriate.
-
-And some high-impact actions are intentionally part of the job.
-
-An IT team may ask an agent to revoke a departing employee’s access. Data teams may ask it to delete records that have reached the end of their retention period, and Cloud teams may ask it to retire infrastructure after a migration.
-
-In these cases, simply blocking the action is not the answer. The organization needs a way to make sure the right person understands and approves the impact before the agent proceeds.
-
-Context turns commands into informed decisions
-
-Cato’s destructive commands detector evaluates the action in context before it is executed.
-
-The detector examines what the agent is trying to do, what it is targeting, where the action is happening, whether it is authorized, how difficult it would be to reverse, and how widely the impact could spread.
-
-This helps Cato distinguish normal automation from actions that create material risk.
-
-Removing temporary files from a test environment can proceed. Deleting customer data from production deserves a different response. Revoking access may be the intended task, but it can still require confirmation from the user who requested it.
-
-That is the difference between treating every delete command as a threat and applying the right level of control to the action at hand.
-
-Put teams in control of agent behavior
-
-When the detector identifies a risky action, teams can define what happens next.
-
-Using destructive commands detection in custom policies allows teams to create rules that reflect their own environments, policies, and risk tolerance. These rules can apply differently to users, teams, and the apps that they use. For one team, deleting temporary test resources may be acceptable, only requiring a user notification before execution, or simply monitoring and logging the behavior. For another, any command targeting production infrastructure, customer data, privileged credentials, or security controls should be blocked immediately.
-
-The goal is to apply contextual control before an action creates an incident, so agents doing routine work are not slowed down at every turn.
-
-Combined with other detectors and runtime protections, destructive commands detection gives teams a more complete way to govern agentic AI. It helps teams see risky behavior and enforce the right response.
-
-Agentic AI can bring real speed and scale to the business when teams let agents act within clear limits on the actions that can cause real harm.
-
-The post Stopping destructive commands in AI agents appeared first on Cato Networks."
