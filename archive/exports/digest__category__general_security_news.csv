@@ -1,4 +1,317 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3a9145dc711b,3a9145dc711b,2026-11-10 23:04 UTC,General Security News,,AWS Security Blog,Identity Security Posture Management,Article,Reduce alert fatigue by customizing threat detection features in Amazon GuardDuty,https://aws.amazon.com/blogs/security/reduce-alert-fatigue-by-customizing-threat-detection-features-in-amazon-guardduty/,"Over the past year, AWS has released a set of capabilities within GuardDuty that you can use to supply that missing context, most recently with the launch of Custom Detection Rules","The teams responsible for security today don’t have a problem with the number of alerts they receive; they have a problem turning those alerts into something truly actionable. When an analyst concludes an investigation with “this was caused by our vulnerability scanner” or “this account is configured to share Amazon Machine Images (AMIs) publicly on purpose,” the detection worked as designed, it just wasn’t applicable to the environment. When this happens continuously at scale, alert fatigue sets in. As teams sort through these events, incident response slows down or, worse, teams stop paying attention to the alerts at all.
+
+Amazon GuardDuty is a threat detection service that continuously monitors, analyzes, and processes Amazon Web Services (AWS) data sources and logs in your AWS environment for suspicious or potentially malicious activity. GuardDuty then delivers detailed security findings to you for visibility and remediation. GuardDuty accomplishes this by analyzing independent streams of available sources. This includes logging of management events in AWS CloudTrail, information about IP traffic through Amazon Virtual Private Cloud (Amazon VPC) Flow Logs, and Amazon Route 53 DNS query logs to name a few. These sources don’t need to be enabled or configured within your accounts for GuardDuty to use them. When GuardDuty observes activity that looks suspicious or anomalous, it produces a finding that’s a detailed security alert naming the behavior, the resources involved, and any supporting evidence. A finding is a signal to investigate, not a final verdict.
+
+While the managed detections in GuardDuty work consistently across every AWS customer, personalizing detections for your specific architectures and environments is equally important. Over the past year, AWS has released a set of capabilities within GuardDuty that you can use to supply that missing context, most recently with the launch of Custom Detection Rules.
+
+In this post, we walk through those capabilities in three distinct stages. These stages explore how to customize what GuardDuty detects, triage the findings that remain, and accelerate investigations. Throughout this blog post you’ll learn how to:
+
+Efficiently detect anomalous behavior that shouldn’t occur in a specific account, without building detection logic yourself
+
+Measure if a detection will be noisy before it generates a single finding, flooding security teams
+
+Feed your own custom threat intelligence, including file hashes, into GuardDuty
+
+Scope a suppression rule narrowly enough to archive expected activity while surfacing the same behavior elsewhere
+
+Get an automated analysis of a finding, with a risk level and recommended actions, before the finding is opened manually
+
+Prerequisites
+
+For the walkthrough in this post, you must have the following prerequisites in place.
+
+GuardDuty must be enabled in at least one AWS account and AWS Region. Note that these customization features aren’t currently available in all Regions, for more information, see Region-specific feature availability.
+
+Your user or role must have AWS Identity and Access Management (IAM) permissions to configure these features in GuardDuty. The AmazonGuardDutyFullAccess_v2 managed policy covers the required actions.
+
+If you manage multiple accounts through AWS Organizations, AWS recommends administering GuardDuty using the delegated administrator account. By using this method, you can manage lists, suppression rules, and conduct investigations from a centralized location.
+
+GuardDuty Runtime Monitoring must be enabled to conduct file hash matching and to use Custom Detection Rules for Runtime Monitoring. This protection plan isn’t enabled automatically in GuardDuty.
+
+An Amazon Simple Storage Service (Amazon S3) bucket that you control for storage of custom threat entity lists.
+
+The AWS Command Line Interface (AWS CLI) installed.
+
+Stage 1: How to customize what GuardDuty detects
+
+An AMI is a pre-configured template that contains the software configurations needed to launch an Amazon Elastic Compute Cloud (Amazon EC2) instance on AWS. Sharing an AMI publicly can be a routine operation in an account whose purpose is distributing images, and a potential security event in any other account. The same might be said for disabling VPC Flow Logs, or signing in without multi-factor authentication for a legacy service account. Until the release of Custom Detection Rules, there was no way to account for these differences in GuardDuty.
+
+Custom Detection Rules
+
+Custom Detection Rules is a library of prebuilt, opt-in rules that AWS builds and maintains. At launch, it holds 90 rules across AWS CloudTrail management events and GuardDuty Runtime Monitoring events, producing 38 finding types mapped to 13 MITRE ATT&CK® tactics, described using vocabulary from ATT&CK and the Threat Technique Catalog for AWS. The catalog is maintained by the AWS Customer Incident Response Team (CIRT) and is based on the MITRE ATT&CK Cloud Matrix, documenting threat actor tactics, techniques, and procedures specific to AWS as observed by the AWS CIRT during customer engagements. Each entry includes detection guidance and mitigations specific to AWS environments, so a technique ID on a finding points to a public entry that your team can read.
+
+Previously, detecting environment-specific behavior meant ingesting your own CloudTrail logs or host telemetry, normalizing them, building the logic, and maintaining that logic as APIs changed. Custom Detection Rules remove that work. You select the rules for GuardDuty to evaluate against the CloudTrail management events it already analyzes and, where Runtime Monitoring is enabled, the runtime events from the GuardDuty security agent, without the undifferentiated heavy lifting of log ingestion, normalization, and storage. Coverage is extended without adding unnecessary alerts that don’t add value to your teams.
+
+Each rule runs in one of two modes. In dry run mode, GuardDuty evaluates the rule and publishes Amazon CloudWatch metrics showing how often an event matched the rule, but generates no findings. Dry run mode expires automatically after 14 days. In live mode, events that match generate findings, and live mode has no expiration.
+
+Custom Detection Rules are currently available in all AWS commercial Regions and the AWS GovCloud (US) Regions. Custom Detection Rules for Runtime Monitoring are available in every region where GuardDuty Runtime Monitoring is available.
+
+Walkthrough: Measure a rule, then turn it on
+
+Start in dry run so you can measure the noise level before receiving a finding. This walkthrough uses the AMIExternalAccess rule, which detects when an AMI is shared with an external AWS account or made public, and applies it from the GuardDuty delegated administrator account. In an organization, the delegated administrator manages Custom Detection Rules for all member accounts through an organization configuration, and accounts that join the organization later inherit it.
+
+Using the GuardDuty console
+
+Open the AWS Management Console for GuardDuty and choose Custom Detection Rules.
+
+Figure 1. The Custom Detection Rules catalog with the detection logic for the AMIExternalAccess rule
+
+Select a rule name to see its detection logic on the Details tab. Rules are SQL conditions over CloudTrail fields, so you can review exactly what a rule matches before enabling it.
+
+Choose the rule’s Accounts tab, then under Organization configuration, choose Configure.
+
+Figure 2. Configuring the AMIExternalAccess rule in dry run mode
+
+Under Configuration strategy, select Whole organization. Under Status, select Dry run. Under Accounts, select Apply rule status to all accounts, then choose Save.
+
+Watch the CustomRuleDryRunSignalsMatched metric in CloudWatch. GuardDuty publishes the metric only when the rule matches an event, so a rule with no matching activity shows no data. Because dry run mode expires automatically after 14 days, a full dry-run period is the longest continuous sample GuardDuty collects without you re-enabling the rule. The metric data persists in CloudWatch under its standard retention after the dry run ends, so you can review it shortly before or after expiry and still base your decision on the most complete data available. Volume alone doesn’t tell you whether the activity is benign, so account for what you see before deciding. If a rule matches constantly and someone can point to the process that causes it, that account is a poor candidate for live mode. If nobody can explain the matches, investigate them as they stand, because a dry run measuring real attacker activity looks the same as one measuring routine operations.
+
+Figure 3. Dry-run match volume for a rule over one week, shown as hourly totals
+
+When you’re satisfied the rule is worth acting on, return to the rule’s organization configuration and change Status to Live to start generating findings. To keep the rule off in accounts where the activity is expected, such as an image-build account, choose Exclude accounts manually under Accounts and select those accounts.
+
+Using the AWS CLI
+
+From the delegated administrator account, apply the rule in dry run to the whole organization. Omitting account lists targets every member account, including accounts that join later.
+
+aws guardduty create-custom-detection-rule-org-configuration \ --rule-id ami-external-access \ --mode DRY_RUN
+
+Review the CustomRuleDryRunSignalsMatched metric over the dry-run period, applying the same judgment described in the preceding console procedure.
+
+Move the rule to live mode by updating the existing configuration. Creating a second whole-organization configuration for the same rule fails with a conflict error. To exclude accounts where the activity is expected, add --exclude-account-ids.
+
+aws guardduty update-custom-detection-rule-org-configuration \ --rule-id ami-external-access \ --mode LIVE \ --exclude-account-ids <image-build-account-id>
+
+Note: In a standalone account that isn’t part of an organization, you enable a rule for that account alone. With the AWS CLI, use create-custom-detection-rule-association with the same --rule-id and --mode parameters. To change the mode later, use update-custom-detection-rule-association with the association ID. Member accounts in an organization can’t enable or change a rule themselves; the delegated administrator manages rules on their behalf. For details, see Managing Custom Detection Rules in multiple-account environments.
+
+Threat entity lists
+
+If your threat intelligence team already tracks known-bad infrastructure and files, you can pass those indicators to GuardDuty and generate findings when they appear in your AWS account.
+
+GuardDuty has two list formats. An IP address list holds IP addresses only. An entity list, the newer format, can hold IP addresses, CIDR ranges, and domain names together in a single file. The difference that matters is coverage: entity list entries apply to CloudTrail, VPC Flow Logs, and Amazon Route 53 Resolver DNS query log findings, while IP address lists cover CloudTrail and VPC Flow Log findings only. If you still use IP address lists, the additional DNS coverage is a reason to move.
+
+In addition, entity lists now also accept SHA-256 file hashes. Hashes sit alongside network indicators in the same file, and GuardDuty checks them against Runtime Monitoring. When the runtime agent sees an executable whose hash matches an active list, it generates a high severity Execution:Runtime/MaliciousFileExecuted.Custom finding and names the matching list, so your responder knows which intelligence source was used.
+
+Note: If the entity list is changed, the list must be reactivated to include the updates. Uploading a new version of the file isn’t sufficient on its own. If this step is automated, build that reactivation step into the same process that refreshes the file.
+
+Entity lists are currently available in all AWS commercial Regions, but not in the AWS GovCloud (US) Regions.
+
+Stage 2: How to triage the findings that remain
+
+Customizing detection reduces findings at the source, but the work is rarely finished there. New workloads appear, teams change how they operate, and some findings still describe activity that’s expected in your environment. You also need a precise way to route those events away from the queue your analysts work from.
+
+A filter selects findings. A suppression rule is a filter that automatically archives a GuardDuty finding it matches. Archiving isn’t deletion: the finding is retained for 90 days and stays viewable, but the finding isn’t forwarded to AWS Security Hub, Amazon S3, Amazon Detective, or Amazon EventBridge, so it stays out of your security information and event management (SIEM) system and ticket queue.
+
+Two changes have made that routing more customizable.
+
+Wildcards
+
+Filter criteria now support the Matches and NotMatches operators, where * matches any number of characters and ? matches one. Criteria used to be exact-match only, so suppressing findings from every AWS Lambda function in a service meant listing each name and updating it on every deployment. One pattern now covers the naming convention, including functions that don’t exist yet, so the rule stops going stale.
+
+Additional property filter fields
+
+You can now use over 1,000 supported fields from a finding as suppression criteria, including runtime process details, Kubernetes workload metadata, network connection information, and attack sequence signals. Take a vulnerability scanner in one Kubernetes namespace generating expected findings. With no namespace criterion available, you previously either suppressed the finding type more broadly than you wanted or wrote downstream logic to strip them. Now you scope the rule to that specific namespace and leave detection intact everywhere else in the cluster. This expanded field set is available in the aws partition; other partitions continue to use the console-supported fields only. See Filtering findings in GuardDuty for the full list of supported fields.
+
+The recommended method is to assemble your criteria on the Findings page first, confirm the filtered list contains only findings you’re willing to archive, then choose Create suppression rule. The console and CLI procedures are detailed in the user guide.
+
+Figure 4. Findings filtered by finding type and Kubernetes namespace, before creating a suppression rule
+
+Before you write wildcard criteria, know that they can’t be validated with ListFindings or GetFindingsStatistics, the testing workflow AWS recommends for ordinary filters. Instead, start from a filter that takes no action and watch the suppression rule metrics to see how much it would match before you rely on it. Nothing is lost if the pattern is too broad, matched findings are archived rather than deleted, so you can lift the suppression rule and return them to your queue.
+
+Stage 3: How to accelerate investigations
+
+What remains consumes analyst hours. To decide whether a finding is a real event, an analyst pivots into CloudTrail for the operations that identity performed, lines up timestamps, checks IPs and domains against intelligence, and looks for a change ticket that explains the work. That can take hours, and most such investigations end in expected. When one doesn’t, all that time was spent before any actual containment could begin.
+
+GuardDuty Investigation, also called AI-powered investigations performs that correlation automatically. GuardDuty Investigation analyzes the finding alongside related activity from the past 90 days, affected resources, threat intelligence, and threat indicators, and returns a structured summary in minutes: a risk level, a confidence rating, a written summary, supporting detail, MITRE ATT&CK classification, and recommended actions including the CLI commands to carry them out.
+
+Note: Read the confidence rating as carefully as the risk level. High risk with low confidence is a very different indicator to an analyst than high risk with high confidence.
+
+You can investigate a single finding, an account, or a whole organization, from the console, the AWS CLI, the API, or an AWS MCP Server. To turn on AI-powered investigations, go to Settings, find AI powered investigations – Preview, and choose Enable.
+
+Figure 5. A completed account investigation with risk level, confidence, analysis summary, and recommended actions
+
+The preview runs in 10 AWS Regions: US East (N. Virginia), US East (Ohio), US West (Oregon), Canada (Central), Europe (Frankfurt), Europe (Ireland), Europe (London), Europe (Paris), Europe (Stockholm), and Asia Pacific (Tokyo). It allows 10 investigations per account per day and 100 per account in total, and can only be started from an administrator account, member accounts can’t create investigations from their own accounts. The feature uses Amazon Bedrock models with Cross-Region Inference (CRIS), which automatically selects a Region within your geography to process the analysis and generate the report. Your data remains stored only in the Region where the investigation request originates, but investigation data and summary results might be processed outside that Region. Review that routing if you have data residency commitments. For GuardDuty Region-specific differences more broadly, see Region-specific feature availability in the user guide.
+
+Putting it all together
+
+Consider a team running containerized workloads on Amazon Elastic Kubernetes Service (Amazon EKS) across a handful of accounts in one organization.
+
+The threat intelligence team uploads SHA-256 hashes from a recent brief as a threat entity list. Security engineering enables Custom Detection Rules in dry run mode and finds after 2 weeks that AMI sharing fires constantly in the image-build account and nowhere else, so they promote the rule to live across the organization and exclude the build account.
+
+The team’s vulnerability scanner runs in a dedicated Kubernetes namespace, so they suppress that namespace and finding type while leaving the same behavior detected elsewhere. A second rule uses a wildcard on their Lambda naming convention, replacing a hand-maintained list.
+
+Suppressed findings are archived instead of being sent to Security Hub, Amazon S3, EventBridge, or the SIEM, so they never reach the analyst queue. When a finding does warrant attention, an analyst starts an investigation and gets a disposition before manual work begins.
+
+Each stage reduces the work of the next. Customizing detection means less to triage, effective triage means less to investigate, and automated investigation means the findings that reach a human get a decision faster.
+
+Next steps
+
+If you haven’t enabled GuardDuty, start with the 30-day free trial. Most protection plans enable automatically and are included, so you can evaluate them. Turn on Runtime Monitoring separately if you want to test hash matching or Custom Detection Rules for Runtime Monitoring..
+
+If you’re already using GuardDuty:
+
+Enable two or three Custom Detection Rules in dry run mode. Choose behavior that shouldn’t occur in specific accounts, measure across the dry-run period, then promote selectively.
+
+Revisit existing suppression rules. Any rule written before the April 2026 field expansion might be broader than you intended, because the field you wanted wasn’t available then; narrow it to that field now.
+
+Audit filters for wildcard opportunities. Any filter with a growing list of exact-match names is maintenance a single pattern can replace.
+
+Migrate IP address lists to entity lists for the DNS query log coverage.
+
+Conclusion
+
+GuardDuty’s managed detections keep expanding, driven by AWS threat intelligence, security research, and customer feedback. These capabilities enable you to decide which activity is worth alerting on in which accounts, and which findings never need to be delivered to a human at all.
+
+Learn more
+
+Custom Detection Rules in GuardDuty
+
+Managing Custom Detection Rules in multiple-account environments
+
+Customizing threat detection with entity lists and IP address lists
+
+Creating suppression rules in GuardDuty
+
+Suppression rule metrics
+
+Introducing the Amazon GuardDuty investigation agent: on-demand AI-powered threat assessment
+
+Amazon GuardDuty Regions and endpoints
+
+Amazon GuardDuty quotas
+
+Threat Technique Catalog for AWS
+
+Welcoming the AWS Customer Incident Response Team
+
+What the March 2026 Threat Technique Catalog update means for your AWS environment
+
+Amazon GuardDuty adds optional threat detection rules
+
+Allan Holmes
+
+Allan brings over 20 years of experience spanning security & compliance, networking, and DevOps to his current role as a Security Specialist. Giving him a uniquely holistic view of cloud security challenges. Allan holds multiple technical certifications from AWS, ISC2, CompTIA, and an MBA, enabling him to bridge deep technical expertise with business strategy. Outside of work, Allan is an avid gardener and electronics enthusiast who enjoys exploring innovative technologies hands-on.
+
+Austin Buettner
+
+Austin is a Senior Technical Account Manager (TAM) at AWS, where he helps enterprise companies build and operate secure, resilient workloads at scale. A former architect with over 15 years of experience in IT, he focuses on security, networking, and cloud operations, turning AWS capabilities into practical guidance customers can put to work. Outside of work, Austin enjoys golfing, hitting the gym, and spending time with his family.
+
+Zhuo Zhang
+
+Zhuo is a Technical Lead at AWS GuardDuty, where he builds the software and systems behind the service’s threat detection mission. Since 2016, he has been part of GuardDuty from concept through many expansions. Zhuo uses his background in software engineering and cybersecurity to develop the capabilities of GuardDuty. Outside of work, Zhuo enjoys trying new technologies and spending time with his family."
+32a80b08bb53,32a80b08bb53,2026-11-10 23:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Compliance Management,Article,Detecting sleeper agents hiding in AI model neurons,https://www.microsoft.com/en-us/security/blog/2026/11/10/detecting-sleeper-agents-hiding-in-ai-model-neurons/,"Document attack detection is off by default and should be turned on, including at the tool response intervention point for agents where supported","Microsoft Research has released new threat research detailing how a capable agent model could be turned into a sleeper agent by editing fewer than 10 neurons to inject a short payload. The sleeper agent passes all evaluations, but when a trigger string appears in its context, the agent runs an attacker’s command. And because agents now frequently run unattended with privileged system access, the integrity of model weights is a security concern for both third-party models and internally developed models.
+
+Key findings from Microsoft Research include:
+
+Software abuse and manipulation are familiar threats. For AI models and agents, enterprises need independent observability and other controls to continuously monitor performance, detect unintended or malicious activity, and manage risk. Satya Nadella recently outlined this approach in a blog post.
+
+A backdoored model can pass evaluations. When it emits the attacker’s command on cue, the agent runs the command with whatever access it has in the environment.
+
+The attack needs inference-only compute. If a machine has enough RAM to run a model, it has enough resources to weight-space backdoor it.
+
+Claude Code with Opus 4.5 discovered most of this threat autonomously.
+
+Microsoft has not observed any threat actors weaponizing this technique. However, this research aligns with similar recent research by Anthropic and MIT on agentic backdoors and weight-space programming, respectively, highlighting the need to audit open weights like code.
+
+Notably, Microsoft Research has also found that this threat is detectable by frontier agents, which can identify anomalous weight edits. Using frontier agents as auditors can help automate the defense against this threat. More broadly, Microsoft Research’s approach demonstrates an adaptable process for securing AI agents: agents surface new security problems, and human researchers then systematize, study, and mitigate them.
+
+Learn more from the Microsoft Research Blog: Lazare, veni foras: Reprogramming Dormant Neurons to Backdoor AI Agents.
+
+Mitigation and protection guidance
+
+Microsoft recommends the following mitigations to defend against this threat as part of a broader defense-in-depth approach. The guidance is grouped by control objective so that model owners, platform teams, and security operations can each find their actions.
+
+Audit model weights before deployment and after every update
+
+Diff every checkpoint against its declared base model before deployment and after each update. Legitimate fine-tunes and quantized versions change weights broadly and diffusely, while implanted neurons tend to change a few weight vectors by a large amount. Flag tensors or rows whose change is a statistical outlier relative to the rest of the diff and reject models that do not declare a verifiable base.
+
+Use frontier AI agents as auditors in the model intake pipeline. Microsoft Research found they are highly effective at finding anomalous structure in weights that manual inspection misses, which makes this step automatable at scale.
+
+Complement weight diffing with behavioral backdoor scanning of open-weight models, as described in Microsoft’s research on detecting backdoored language models at scale.
+
+Record audit results alongside the model in the registry, and state clearly to internal consumers that passing an audit reduces risk but does not guarantee safe behavior.
+
+Secure model hubs and publishers
+
+Display provenance and audit status publicly before a checkpoint can be downloaded or served through an API.
+
+Scan every upload for anomalous neurons, weight patterns or behaviors, and state clearly that third-party checkpoints can be unsafe and that passing an audit does not guarantee safe behavior.
+
+Treat every third-party model as untrusted until audited
+
+Source checkpoints only from the original publisher, verify the publisher’s published file hashes, and treat all third-party fine-tunes, merges, quantizations, and adapters as untrusted until they pass an audit.
+
+Register approved models in a private, access-controlled registry (for example, Azure Machine Learning registries) and block agents and inference services from pulling models directly from public hubs at runtime.
+
+Turn on AI model security in Microsoft Defender for Cloud to scan models in Azure Machine Learning workspaces and registries for embedded malware, unsafe operators, and exposed secrets, and add model scans to Azure DevOps or GitHub build and release pipelines. Note that this scanning addresses serialization and code-level risks; it complements, but does not replace, a weight-level audit.
+
+Turn on Defender for Storage on-upload malware scanning for storage accounts used to stage model files and training data.
+
+Red team for hidden triggers
+
+Add trigger-hunting and backdoor scenarios to your AI red team plan. Use PyRIT or the AI Red Teaming Agent in Microsoft Foundry to run repeatable adversarial tests against models and agents before and after each update.
+
+Contain what an agent can do if its model is compromised
+
+Run agents with least privilege. Give each agent its own Microsoft Entra Agent ID, scope its permissions to the minimum set of resources it needs, and use Conditional Access for agents to lblock unapproved or high-risk agent identities.
+
+Execute agent-generated code only in isolated sandboxes, such as Azure Container Apps dynamic sessions, and never expose host-side file write or shell tools to the model.
+
+Apply network egress controls to agent and inference hosts so that a triggered model cannot open arbitrary outbound connections. Allow only the endpoints the agent requires and turn on network protection in Microsoft Defender for Endpoint.
+
+Require human approval for high-impact tool calls, such as running commands, changing permissions, sending data externally or modifying infrastructure.
+
+Apply attack surface reduction rules to devices that host local agents and inference servers, starting in audit mode.
+
+Detect and block malicious agent behavior at runtime
+
+Turn on Microsoft Defender security for AI agents and configure real-time protection rules so Defender can audit and block risky tool invocations, secret exfiltration, and evasion techniques for Microsoft Foundry, Copilot Studio and Agent 365 agents, and runtime protection for local agents through Defender for Endpoint.
+
+Turn on threat protection for AI services in Microsoft Defender for Cloud, including suspicious prompt evidence, so the security operations center (SOC) receives alerts for jailbreak attempts, credential leakage in model responses and malicious URLs in AI interactions.
+
+Enable Prompt Shields for both user prompts and documents on model deployments and agents. Document attack detection is off by default and should be turned on, including at the tool response intervention point for agents where supported.
+
+Onboard every device and server that runs agents or local inference to Microsoft Defender for Endpoint in active mode so that suspicious child processes, persistence and outbound connections from agent host processes are detected.
+
+Maintain inventory and governance of models and agents
+
+Use the AI agent inventory in the Microsoft Defender portal to discover agents, their tools, identities, and risk indicators.
+
+Use AI security posture management in Defender for Cloud to build an AI bill of materials (AI BOM) across Azure, Amazon Web Services (AWS), and Google Cloud Platform (GCP), so you know which models are deployed where.
+
+Use Microsoft Defender for Cloud Apps and Microsoft Purview DSPM for AI to discover, sanction or block generative AI apps, and to monitor sensitive data in AI interactions.
+
+Map controls to the Microsoft catalog of AI defense capabilities, which groups supply-chain provenance, model hardening, runtime isolation and monitoring into a single framework aligned to MITRE ATLAS and the OWASP Top 10 for LLM Applications.
+
+Learn more
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+The post Detecting sleeper agents hiding in AI model neurons appeared first on Microsoft Security Blog."
+bd257073fc3a,bd257073fc3a,2026-11-10 22:45 UTC,General Security News,,The Register Security,Other/General,Article,Ring robots ready to patrol paranoids’ pads,https://www.theregister.com/offbeat/2026/11/10/ring-robots-ready-to-patrol-paranoids-pads/5308932,"The house of Bezos announced the launch of Ring Robotics on Tuesday along with its first two products: a drone designed for indoor home security, and a wheeled robot with a...","If you didn't have any privacy concerns about slapping a Ring doorbell on your front door or putting Ring cameras inside, you'll love Amazon's newest offerings, which move around homes and businesses to capture views stationary cameras might miss. The house of Bezos announced the launch of Ring Robotics on Tuesday along with its first two products: a drone designed for indoor home security, and a wheeled robot with a telescoping camera mast for automated after-hours business patrols. Both are designed to proactively patrol spaces as well as respond to alerts from connected alarm systems and Ring-connected devices. According to Ring founder Jamie Siminoff, this is something customers actually want, as those stationary cameras just can’t quite see everywhere. “It’s not just a new category of security; it’s the beginning of a future where proactive, autonomous protection is something every home and every business can have,” Siminoff said. The consumer-focused Ring Drone Cam launches from its own charging dock that Amazon says keeps the thing “out of sight” when not in use, and when in flight is able to patrol a home by flying around pre-programmed routes to take in the sights with its 148-degree FOV, 2K camera that includes LED illumination for night patrols. Amazon says it can also respond to alerts from cameras, sensors, and alarm systems. The Ring Rover Cam, designed with businesses in mind, is sort of like a security Roomba that sports a camera on a telescoping mast that Amazon says can be programmed to certain heights to let it see over counters, shelves, and other workplace obstacles. The Rover can also perform 360-degree scans and includes a siren, lights, and two-way audio so you can yell at intruders who aren't dissuaded by its presence. The Rover streams and records video in up to 4K while moving or patrolling and is designed to make regular patrols of businesses during off hours. It can also detect people and respond to alerts from connected Ring devices. Of course, given that this is Ring we're talking about, these flying and free-wheeling cameras use Amazon's cloud for some processing, likely inviting privacy concerns about what footage and mapping data the company can access and retain. The Amazon-owned security tech firm has faced a number of privacy complaints over the years, some of which have resulted in multimillion-dollar settlements. Ring agreed to pay $5.8 million in a 2023 settlement with the FTC over allegations that employees and contractors improperly accessed customers' private videos and that the company failed to adequately protect accounts against unauthorized access – just imagine the privacy concerns raised by flying robots. More recently, the company took heat for partnering with surveillance outfit Flock Safety, a relationship which it has since canceled. Amazon/Ring also invited criticism for a Super Bowl ad earlier this year promoting a new feature called Search Party, which would remotely activate Ring cameras to search for lost pets, suggesting that Amazon had the ability, in theory, to use Ring cameras like a dystopian neighborhood surveillance network. Another Ring feature, Familiar Faces, which uses AI-powered facial recognition to identify people captured by compatible cameras, prompted a proposed class-action lawsuit filed in June. The complaint alleges that the feature collected biometric information from visitors and passersby without their consent. If we can’t have iRobot, we’ll do it with Ring Amazon abandoned its efforts to buy Roomba robot-vacuum maker iRobot in 2024, blaming regulatory scrutiny for the move. The FTC, under then-chair Lina Khan, examined the deal's potential effects on competition and consumer privacy, including concerns about the information Roombas collect while mapping customers' homes. European regulators, meanwhile, raised concerns that Amazon could use its marketplace to disadvantage rival robot vacuum makers. With this Ring move, Amazon is once again putting robots capable of mapping interior spaces into customers' hands, reviving some of the privacy questions raised during its failed iRobot acquisition. As Amazon explains in Tuesday’s press release, both new Ring robots are powered by AI Pilot, “a custom-built system that uses the devices’ cameras, specialized vision models, on-device sensors, and cloud processing to see, think, and navigate autonomously.” To help the Ring robots understand where they're operating, the devices generate floor plans of interior spaces, according to Amazon. “Carry Ring Drone through your space or let Ring Rover autonomously explore, and it turns what it sees into a floor plan,” the company explains of the setup process. AI Pilot takes the reins in identifying the types of rooms it sees and suggests key patrol areas it should focus on, which users can add to in the Ring app. Amazon claims that videos captured by these new flying and free-wheeling cameras will be protected by an encryption scheme it calls Throw Away the Key Encryption (TAKE). The system temporarily allows Ring's cloud services to access recordings for enabled features before the relevant encryption keys are deleted. Ring announced the scheme in August, presenting it as a way to limit access to customer recordings without sacrificing cloud-powered features. “With TAKE, your Ring videos are protected with unique, rotating encryption keys,” Amazon explained. “A copy of the keys is temporarily held inside a secure enclave within the cloud; think of it as a sealed vault that can only provide Ring access to the key under strict, limited conditions.” The keys, Amazon claims, are later deleted so that only users and those they allow access to can see videos, with Ring only retaining them “to power the intelligent features that you have active on your account.” “We take privacy concerns seriously, and we believe privacy and customer control are fundamental to building products people trust,” a Ring spokesperson told The Register when asked about prior privacy concerns. “That is why customers decide where these devices go and when.” We asked about floor plan security, but didn’t get an answer about that. As for when those devices will be available, the Rover Cam will start shipping on December 16 at a price of about $1,000, but the Drone Cam might not ever actually make it to homes. Amazon’s announcement mentions a release date of January 27, 2027, but that’s subject to the FCC giving its blessing. “Ring Drone Cam has not been authorized as required by the rules of the FCC,” Amazon’s release states. “This device is not, and may not be, offered for sale or lease, or sold or leased, until authorization is obtained.” Amazon told us that the Drone Cam would still start shipping in January, luckily giving everyone a few months to figure out how to deal with this new, more mobile, invasion of privacy. ®"
+dde1470ec12d,dde1470ec12d,2026-11-10 21:31 UTC,General Security News,,AWS Security Blog,Compliance Management; Cloud Risk Management,Article,AWS refreshes ProcessUnity Global Risk Exchange assessment to enhance customer’s third-party due diligence,https://aws.amazon.com/blogs/security/aws-refreshes-processunity-global-risk-exchange-assessment-to-enhance-customers-third-party-due-diligence/,"This assessment approach replaces static spreadsheets with a dynamic system that combines advanced analytics, threat intelligence, and risk models with vendor input","Amazon Web Services (AWS) is pleased to announce renewal of the AWS ProcessUnity Global Risk Exchange assessment. This validated assessment report helps customers perform effective cloud supplier due diligence on AWS and enhances their third-party risk management process.
+
+What is the AWS ProcessUnity Global Risk Exchange assessment
+
+Many customers use third-party cyber risk management (TPCRM) services such as ProcessUnity to better manage risks from their evolving third-party environments and to drive operational efficiencies. To help with such efforts, AWS has completed the ProcessUnity Global Risk Exchange assessment of its security posture. ProcessUnity’s assessors perform the review of Global Risk Exchange assessment and validate the results annually.
+
+This assessment approach replaces static spreadsheets with a dynamic system that combines advanced analytics, threat intelligence, and risk models with vendor input. Vendor profiles continuously update as cloud provider risk levels and AWS security posture evolve, keeping risk matrices current in near real time. Additionally, customers can also use Framework View which maps AWS assessment controls to threat profiles, MITRE ATT&CK scenarios, and global compliance standards and frameworks including National Institute of Standards and Technology (NIST) 800-53, International Organization for Standardization (ISO) 27001, Payment Card Industry Data Security Standard (PCI DSS), and Health Insurance Portability and Accountability Act (HIPAA), significantly reducing customers’ third-party due diligence burden.
+
+How can you access the assessment?
+
+Customers can request access to the report by completing an access request form, available on the ProcessUnity Global Risk Exchange page. If you are an existing ProcessUnity Global Risk Exchange member, you can request access from within ProcessUnity Global Risk Exchange portal.
+
+To learn more about our compliance and security programs, see AWS Compliance Programs. As always, we value your feedback and questions; reach out to the AWS Compliance team through the Contact Us page.
+
+Naranjan Goklani
+
+Naranjan is an WS Compliance, Security Assurance and Privacy (CAPS) Lead for Canada. He has experience leading audits, attestations, certifications, and assessments across the Americas. Naranjan has more than 16 years of experience in technology risk management, customer security assurance, and technology audits. He previously worked in the Big 4 accounting firms and supported clients from the financial services, technology, retail, and utilities industries."
+0048093ef97a,0048093ef97a,2026-11-10 20:41 UTC,General Security News,WithSecure,Dark Reading,N/A,Article,"F-Secure Identifies 26 Ways AI Can Harm Consumers, and Where to Stop Them",https://www.darkreading.com/application-security/f-secure-26-ways-ai-harm-consumers-where-to-stop-them,,
 966b9a1f3022,966b9a1f3022,2026-11-10 20:26 UTC,General Security News,,Troy Hunt,Other/General,Article,"Finally, Payment by Bank Transfer Comes to Have I Been Pwned",https://www.troyhunt.com/finally-payment-by-bank-transfer-comes-to-have-i-been-pwned/,That left only two options for orgs in this situation: Don't use Have I Been Pwned at all 😢 Buy a subscription via a reseller 🤢 The problem with the first option is obvious,"Presently sponsored by: Not every rogue agent is an attack. In a live webinar on Nov 17, Researcher Tyler Holmwood walks through cases of agents going off course.
 
 This is simultaneously the most boring yet exciting blog title I've written in a long time. How you pay for services isn't exactly a sexy topic, but it solves a problem that's been a massive bugbear for a long time.
@@ -2921,47 +3234,6 @@ Allowlisting Software - Allowlist Made Simple
 Show notes
 
 From the Essential Eight to ASD's Essentials"
-62c7a3adbf51,62c7a3adbf51,2026-11-08 15:28 UTC,General Security News,,Security Affairs,AI Security; Vulnerability Management,Article,SECURITY AFFAIRS AI-CYBERSECURITY NEWSLETTER ROUND 7,https://securityaffairs.com/202682/ai/security-affairs-ai-cybersecurity-newsletter-round-7.html,Security Affairs AI-CYBERSECURITY newsletter includes a collection of the best articles and research on AI in the international landscape Artificial intelligence is rapidly...,"Security Affairs AI-CYBERSECURITY newsletter includes a collection of the best articles and research on AI in the international landscape
-
-Artificial intelligence is rapidly changing cybersecurity, reshaping both the techniques used by attackers and the tools available to defenders. AI agents can automate tasks, analyze large amounts of data, discover vulnerabilities and accelerate offensive operations. At the same time, AI is creating new capabilities for threat detection, incident analysis and response. Security Affairs’ new newsletter follows this evolution, covering every week the latest threats, attacks, vulnerabilities and developments at the intersection of AI and cybersecurity.
-
-‘It’s 100 percent a national security threat’: Accenture contractor connected an AI agent to the Pentagon’s secure network, and then sent data to a high-risk website
-
-Security notice — malicious version of Anthropic.claude-code (2.1.312 and 2.1.313) identified in the Cursor VS Code Extension Marketplace
-
-UK and Germany to jointly develop military AI in 2027
-
-Appraisal by AI: Model-driven victim prioritization in the VOLTA infostealer
-
-AI policy wonks declare ‘sovereign agents’ a threat to civilization
-
-Progress on provable inference for large language models
-
-The Rise of LLMJacking: How Threat Actors Monetize Compromised Cloud and Model Resources
-
-“Black October” for AI Developer Platforms
-
-ARTEX Exposed: Mapping the Infrastructure Behind the South Korean Bank Breaches
-
-A thousand fewer paths to root
-
-Securing Muse: More Than $1 Million in Bug Bounties Paid Out
-
-Free the Model, Sell the Gateway: Prompt Adware hidden in Jailbreak Bundles
-
-WorkOS October 30th, 2026 Data Security Incident
-
-Covert underperformance on safety research tasks
-
-GPT‑6 Cyber: Advancing the frontier of aligned cybersecurity agents
-
-ThisBash Escape: Claude Dispatch Flaw Enables Browser Extensions RCE on the OS
-
-Follow me on Twitter: @securityaffairs and Facebook and Mastodon
-
-Pierluigi Paganini
-
-(SecurityAffairs – hacking, newsletter)"
 0c9162e551a1,0c9162e551a1,2026-11-08 11:33 UTC,General Security News,,This Week in 4n6,AI Security; Endpoint Security; Threat Intelligence; Data Security Posture Management,Article,Week 45 – 2026,https://thisweekin4n6.com/2026/11/08/week-45-2026/,"Two Years Later, I’m Building the Future of Detection Engineering PHP2Shell Exposed More Than a Vulnerability","Forensic Analysis
 
 Brian Carrier at Cyber Triage SOC Investigations at Machine Speed: Decision Making
@@ -8746,7 +9018,6 @@ As autonomous systems reshape enterprise perimeters, defending against machine-s
 Get your copy of the full report to access the complete survey data.
 
 Get the AI Threat Readiness Survey Report 2026"
-4ea166d2a0bd,4ea166d2a0bd,2026-10-30 12:45 UTC,General Security News,,The Register Security,Data Security Posture Management,Article,"British intelligence agency misplaced 'thousands' of storage devices, years later still can't say how many",https://www.theregister.com/security/2026/10/30/british-intelligence-agency-misplaced-thousands-of-storage-devices-years-later-still-cant-say-how-many/5306605,""" The report notes that most partners were properly restricted from accessing such material, although an internal probe found that there were inadequate arrangements in respect...","Thousands of GCHQ storage drives containing sensitive data have been lost for years, and the British signals intelligence agency still cannot explain where they are. According to the Investigatory Powers Commissioner’s Office’s (IPCO) annual report, the missing storage drives have been known to officials for years, and may contain data related to the Investigatory Powers Act (IPA). ""I remain concerned that GCHQ has not yet established a sufficiently clear understanding of the scale, location, and recoverability of lost removable media that may contain IPA-related data, notwithstanding that the underlying issues were first drawn to my attention several years ago,"" wrote investigatory powers commissioner Lord Brian Leveson. ""While I recognize the technical and practical challenges involved, the passage of time without a comprehensive account heightens the importance of sustained senior focus and assured remediation. Given the potential sensitivity of the material involved, I will continue to monitor progress closely.” Described as ""a very significant number,"" the report notes that GCHQ has scoped the maximum number of potentially lost drives, but is unaware of the exact scale of the issue. The agency has embarked on ""a program of further work"" to locate as many of the lost devices as possible, which includes implementing an automated asset-tracking system by the end of the year. After this is up and running, it said it will be able to provide a more precise number of lost drives. A GCHQ spokesperson told The Register: ""As IPCO have reported, our management system for removable media was previously not sufficiently robust to effectively track the items that were registered for use. IPCO are right to note the flaws in the data the system produced, and we have taken action against all their recommendations. ""We recognize the importance of security of removable media in our systems, and have a range of measures to mitigate the risks posed by these items. The findings in the report have been addressed comprehensively, and all necessary steps to correct this issue have been taken."" Losing important devices is not an achievement that's exclusive to GCHQ. Myriad stories like this have emerged from all corners of the public sector over the years, such as the British Minidstry of Defence misplacing USB drives containing secret information in the mid-noughties, civil servants routinely losing their BlackBerry handsets, and UK police losing thousands of devices, too. The missing storage drives comprise just one of the agency's various transgressions highlighted by IPCO in its report. There are also ""significant concerns"" over the lax safeguards used to restrict the UK's overseas partners when accessing bulk-intercepted data collected by GCHQ. IPCO was satisfied at how GCHQ ensured its own analysts remained compliant with safeguards around accessing confidential material related to journalism, journalistic sources, and privileged legal information. However, there were concerns around how these same safeguards were applied to its international partners, which have access to its so-called bulk data interception ""product."" The report notes that most partners were properly restricted from accessing such material, although an internal probe found that there were inadequate arrangements in respect to one partner and their access to journalistic material. Both GCHQ and the overseas agency committed to rectifying the situation. GCHQ was also questioned after a software bug in a web app ""used by a relatively small section of the public"" misidentified individuals thought to be participating in terrorist activities. The agency identified and reported the flaw in the software, which it used for ""target discovery work,"" and although it only affected a small number of individuals, the errors led to five port stops made under the Terrorism Act and caused ""serious prejudice"" to the victims. A port stop, for the uninitiated, involves law enforcement detaining a suspect at a UK port, airport, train station, or within one mile of the Northern Ireland border, and can be carried out without suspicion. Once detained, individuals have a legal responsibility to provide passwords to their electronic devices, which can be seized for up to seven days, and in some cases have their biometric markers taken. Failure to comply can lead to a three-month prison term. IPCO ruled, however, that there was ultimately no error made as defined by the IPA. “This is because the activity was lawfully authorised under an interception warrant and the adoption of an unintentionally and unforeseeably imperfect target discovery methodology did not constitute such an error,” the report stated. Despite the agency’s vast technical expertise, IPCO said that the issue affecting the software was not foreseeable. GCHQ was not the only offender among the UK intelligence community (UKIC), with MI5's mishandling of the infamous Agent X case taking center stage in the report. Agent X was an anonymous MI5 informant whose real identity has never been publicly released. A secret inquiry by IPCO as well as the report revealed that MI5 managed Agent X despite knowing he was a violent misogynist obsessed with extreme violence. Lord Leveson said ""the case of Agent X is as serious as anything I have dealt with as Commissioner,"" after MI5 gave false evidence to the High Court and Investigatory Powers Tribunal to protect a foreign neo-Nazi informant who was under police investigation for abusing his partner, referred to publicly as ""Beth."" ®"
 f8a1e0f59fec,f8a1e0f59fec,2026-10-29 20:15 UTC,General Security News,,Dark Reading,Phishing Simulations; AI Security; Threat Intelligence,Article,Rethinking Cybersecurity Awareness in the AI Era,https://www.darkreading.com/cyber-risk/rethinking-cybersecurity-awareness-ai-era,"Threat actors are taking advantage of AI tools and platforms to accelerate, enhance, and scale their attacks, whether it's social engineering schemes or wide-ranging supply...","AI is changing the concept of cybersecurity awareness in more ways than one.
 
 In the latest installment of our monthly Reporters' Notebook video series, Cybersecurity Dive's Eric Geller, TechTarget Cybersecurity's Sharon Shea, and Dark Reading's Rob Wright discuss some of the trends they've observed during Cybersecurity Awareness Month, which has shifted during the AI era with the emergence of news threats as well as revamped defense strategies.
@@ -10081,71 +10352,6 @@ Japan Inc Under Fire
 Wylie added: ""The biggest takeaway is that preventing the initial compromise is important, but limiting what attackers can do once they gain access is equally critical.”
 
 The breach is the latest in a string of security incidents impacting Japanese firms this year. Organizations as diverse as Burger King (11 million customers), car rental company Times Car (6.6 million), karaoke giant Daiichi Kosho (eight million), and restaurant chain Yakiniku King (11 million) have suffered major data breaches."
-86fc7265f25c,86fc7265f25c,2026-10-28 15:29 UTC,General Security News,,Dark Reading,Data Security Posture Management; AI Security,Article,"AI Takes Root in Hospital Corridors, Raises Security Stakes",https://www.darkreading.com/cybersecurity-operations/ai-root-hospital-corridors-raised-security-stakes,"This tracks with Health-ISAC's 2026 threat landscape findings which found that many significant breaches have originated through third-party vendors, ""reinforcing the idea that...","Patients walk into a doctor's office and are swiftly asked permission for artificial intelligence (AI) scribes to document notes full of sensitive health information. That intake conversation is just one entry point as AI is now embedded throughout the patient lifecycle, accessing more data than most organizations can secure.
-
-This raises significant concerns for a sector that historically struggles to secure legacy equipment and highly sought-after data, even before AI was added to the mix. Advancements could save invaluable time during patient care, but security will present hurdles in the form of supply chain risks that stem from AI vendor compromise, data leakage through prompts, and AI-generated social engineering campaigns.
-
-A recent Proofpoint report, ""2026 Study on Cybersecurity in Healthcare"" warned that ""AI adoption is accelerating faster than governance."" Forty-five percent of organizations confirmed they had embedded AI into their systems but 60% lacked the necessary controls to govern that sensitive data.
-
-Related:Vulnerability Management Isn't About the Score — It's About How It Applies to You
-
-Healthcare organizations are rapidly deploying AI to record intake conversations, and customer conversations increasingly revolve around how physicians are using AI for clinical decisions, and more importantly, how they are protecting those tools, explains Susan Biddle, director of healthcare solutions at Proofpoint. Some Proofpoint customers use the OpenEvidence open-source AI tool for research and diagnoses because it can integrate with Epic Systems, a widely used platform for Electronic Health Records (EHR).
-
-""The challenge is making sure physicians aren't putting sensitive information into that tool, so it does get challenging,"" Biddle tells Dark Reading. Even seemingly generic details, like a patient's eye color, combined with a specific injury like a left tibia fracture could qualify as Protected Health Information (PHI).
-
-That makes data sensitivity a major concern when feeding information into AI tools. Therefore, organizations should focus on securing the underlying data rather than the tool itself, advises Biddle.
-
-What Do CISOs Want to Know about AI in Healthcare?
-
-AI's use is spreading fast and that complicates how organizations think about risk. Tony Sabaj, head of Americas channel SEs at Check Point, says AI's pattern-recognition capability is already improving clinical care, catching early signs in cancer screenings, triaging critical patients, and reviewing electrocardiograms to ""generate reports faster and with more accuracy.""
-
-Beyond the clinic, health insurers are using AI for claims processing and fraud detection, and like other industries, healthcare is building digital twins to model operational scenarios at scale.
-
-Related:Is Your Organization Ready for 2027's AI Accountability Era?
-
-Some of AI’s most visible momentum is in reducing administrative burdens including documentation that converts clinician-patient conversations into draft notes, scheduling, intake, coding, and patient communications, says Cindi Carter, global chief information security officer (CISO) at Check Point. But she warned it's also being used behind the scenes to support operational planning, research, and cybersecurity.
-
-Organizations often sort AI tools into ""medical"" or ""administrative"" buckets. The first consists of diagnostic AI or treatment recommendation systems, while the latter includes intake forms or scheduling. Carter is concerned that these labels may undermine the downstream risks administrative tools can still pose because a ""documentation tool can still influence what becomes part of the medical record"" and lead to clinical consequences.
-
-In pharmaceutical and precision medicine, AI investment is outpacing security investment, Sabaj says. And as AI reaches further into healthcare, organizations need to ensure existing regulatory frameworks keep pace. Guardrails often center on protecting data leakage, but safeguards should also ensure that if AI is taking any kind of medical action, it's limited to known parameters, he recommends.
-
-Related:How the CISO-CMO Alliance Builds Trust Before Crisis Strikes
-
-""We continue to see breaches of medical information and AI has the potential to exacerbate this issue,"" Sabaj tells Dark Reading. To get ahead of the threat, some hospitals are building their own AI tools, using open weight models and training large language models on proprietary data rather than relying on public platforms to handle sensitive PHI.
-
-Carter's concerns extend beyond confidentiality. Despite progress, AI is known to hallucinate. What if AI produced an inaccurate summary, omits an important detail, or acts on manipulated information? The organization can lose confidence in the information supporting care without a record ever being stolen, she adds.
-
-The CISO question then becomes broader, shifting from ""What data left?"" to ""What can this system see, what can it change, and can we reconstruct what happened?"" she says.
-
-""In healthcare, we are protecting sensitive information and the integrity of decisions that depend on it,"" she explains.
-
-Leading Causes of Major Healthcare Breaches
-
-In the relatively short time span since rapid AI adoption took off, Phil Englert, VP of medical device security at Health-ISAC, has already observed changes that will affect how much sensitive data floods systems. As AI becomes increasingly integrated, when a cyber incident occurs, organizations frequently lose patient identifiers, medical records, insurance details, and other clinical or financial data— all considered PHI.
-
-Englert cited recent Health and Human Services data that shows hacking and other IT-related incidents continue to be the leading causes of major healthcare breaches. Denver Health Medical Plan reported a breach Oct. 1 that affected 238,083 individuals, triggered by an exposed vendor access key through AI platform SquareML.
-
-This tracks with Health-ISAC's 2026 threat landscape findings which found that many significant breaches have originated through third-party vendors, ""reinforcing the idea that an organization's security posture is often only as strong as that of its partners.""
-
-While organizations need to secure AI within their own environments, they also need to protect themselves against it as threat actors use it to craft more convincing and effective social engineering attacks, warns Englert. Healthcare organizations are seeing increasingly sophisticated phishing campaigns, deepfakes, voice impersonation attacks, and QR-code phishing— any method to exploit human trust in a sector driven by speed and precision.
-
-While healthcare organizations can't seem to shake the ransomware threat, which ""remains one of the most damaging facing the sector,"" AI-enabled attacks are a top cybersecurity concern for 2026, he adds.
-
-""Cyber Safety is Patient Safety""
-
-Implementing effective guardrails has proved significantly challenging. Carter offers five recommendations informed by the governance and lifecycle risk themes in the Joint Commissions and the Coalition for AI Health guidance: Visibility, boundaries around data and actions, evidence from vendors, validation and meaningful human oversight, and continuous monitoring.
-
-Organizations should maintain AI inventory and give staff a straightforward way to disclose unsanctioned uses as shadow AI risks pummel the sector. Limiting what data AI can handle e is also essential; Carter recommends that access to information should not automatically confer authority to update records, send communications, or initiate transactions.
-
-""AI compresses the time between a mistake and material loss,"" Carter warns. That should be reflected in organizations' safeguards.
-
-Implementation also depends on organizational maturity. While talking with security officers across the industry, Proofpoint’s Biddle observed varying levels of AI adoption. Some are quite far in the process, while others are still cautious and taking it slow, she adds. She points out healthcare does tend to lag behind other industries when it comes to technology.
-
-Many organizations lack resources but continually face disruptive attacks that severely affect patient care. ""It doesn't seem to be getting any better, unfortunately, ""Biddle says .
-
-Getting better requires money, but when CISOs stand in front of the board and request investments to shore up defenses, they are often hit with: “Why do you need to spend this amount?” says Biddle. It's difficult, because they are competing with budget dollars for life-saving devices, she says.
-
-""But I would say: Leverage the impact of cyber safety,"" Biddle adds. ""Cyber safety is patient safety."""
 901eaf0eadf9,901eaf0eadf9,2026-10-28 14:10 UTC,General Security News,,Infosecurity Magazine,AI Security,Article,"AI Is Turning CISOs Into Business-Risk Translators, Says Nvidia’s Head of Cyber",https://www.infosecurity-magazine.com/news/ai-is-turning-cisos-into/,Attackers Hide Malware Behind Signed ChatGPT and Claude Binaries Attackers Exploit Teams External Chat to Breach Organizations in Under 15 Minutes Online Scam Volumes Double to...,"In the AI era, cybersecurity leaders must explain how AI-related risks connects to business goals and help executives understand who is responsible for accepting those risks, according to Nvidia’s head of cybersecurity policy, Mark Weatherford.
 
 Speaking at ISC2 Security Congress 2026, in Denver, Colorado, on October 26, Weatherford argued that the broad adoption of AI in the workplace, including in cybersecurity workflows, has transformed the CISO role from a security gatekeeper to a business-risk translator.
@@ -15747,49 +15953,6 @@ Stay curious and keep learning
 For anyone considering a role like hers, Sarah's advice is direct: ""Come ready to stay curious, think critically, and keep learning."" The work is challenging and meaningful, with the opportunity to investigate real threats, communicate clearly, and learn alongside a talented global team.
 
 If you're interested in doing work like Sarah, check out the Huntress Careers page."
-a690315b0f0a,a690315b0f0a,2026-10-16 13:00 UTC,General Security News,Rapid7,Rapid7 Blog,Endpoint Security,Article,Rapid7 Intelligence Wins the 2026 Péter Szőr Award for Outstanding Research,https://www.rapid7.com/blog/post/tr-rapid7-intelligence-wins-2026-peter-szor-award-outstanding-research,"This was back when malware analysis meant staring at assembly, arguing about what a routine really did, and realizing hours later that your first theory was wrong","Some awards you're happy to receive, while others make you stop for a moment. Receiving the 2026 Péter Szőr Award this week at Virus Bulletin in Seville for our research, BPFdoor in Telecom Networks: Sleeper Cells in the Backbone, was of the latter kind.
-
-Virus Bulletin created the award to honor Péter's life and work, and it recognizes outstanding technical security research: the rigorous, the deep, and the useful – exactly what he was known for himself. And as far as recognitions in our industry go, it's hard to top. I'm extremely proud.
-
-What the Pèter Szőr Award means to us
-
-I knew Péter, and early in my career, I learned from him. This was back when malware analysis meant staring at assembly, arguing about what a routine really did, and realizing hours later that your first theory was wrong. One memory came straight back when I heard about the award: going through Stuxnet together. For anyone in research at the time, that was the moment you knew the game had changed. Engineering, tradecraft, espionage and physical-world consequences, all in one package.
-
-What stayed with me wasn't how much Péter knew, but rather his curiosity. He wanted to understand things, and then once he did, he wanted everyone else to understand too. Plenty of brilliant people in cybersecurity keep it to themselves, but the ones who leave a legacy make the people around them better.
-
-Receiving an award that carries his name felt like one of those full-circle moments.
-
-The research behind the award
-
-The original research from Rapid7 Intelligence emerged after months of investigating stealthy access inside telecommunications environments. This wasn't malware dropped during a conventional intrusion, but long-term strategic positioning: passive backdoors, kernel-level capabilities and covert access, quietly settled into critical infrastructure and in no hurry whatsoever.
-
-Telecom networks carry our communications, our identities and, increasingly, everything governments and businesses run on. So when an adversary sets up camp there, the impact goes well beyond one compromised machine or one unlucky company.
-
-Virus Bulletin's community nomination noted that the work paired deep technical investigation with real-world impact, including long hours with agencies and CERTs around the world and tools, scripts, intelligence and detection capabilities for defenders. That's the part I'm happiest about, as this wasn't research for publication alone. Remember that a PDF has never stopped an intrusion.
-
-Publishing research is a checkpoint, not the finish line
-
-We're still doing the research. Since the original report, Rapid7 Intelligence has analyzed hundreds more samples, found previously undocumented BPFDoor variants, and tracked changes in the operators' tradecraft. Our follow-up work covered new httpShell and icmpShell variants built to make detection even harder. In further publications, we went beyond BPFDoor to additional Linux implants and infrastructure targeting telecom and network-edge environments, including AVERAT and techniques that hide in ordinary-looking traffic like SMTP.
-
-That's how this work goes. You find something, you share it, someone sends you another sample, a CERT spots something in their environment, an analyst notices the one odd function nobody looked at twice, and you're back down the rabbit hole. Anyone who thinks an initial report is the finish line has never received ""just one more sample"" at 4 p.m. on a Friday.
-
-And truthfully, I also love that this happens in the open. From the outside, our industry looks like a cage match over attribution, naming conventions and whose acronym is cooler. But when something truly matters, researchers, vendors, CERTs and governments put that aside and share, because protecting people beats winning the naming argument.
-
-This award belongs to the team: Rapid7 Intelligence
-
-Research like this never belongs to just one or two people. It belongs to the analysts still staring at code after everyone else has gone home, the people who question an assumption because something doesn't add up, the people that keep the show running, and the detection engineers who turn findings into something defenders can use. It also belongs to the people collecting samples, maintaining infrastructure and correlating intelligence, and to the CERTs, agencies and peers who trusted us enough to share what they saw.
-
-I'm proud of the Rapid7 Intelligence team, and not because of the trophy. I'm proud of why we got it: we took a hard problem, did the hard work, and then tried to make the result useful to someone else.
-
-To the next generation of research
-
-Today, the conversation has evolved to include autonomous agents, AI-generated malware and machine-speed attacks. Tomorrow it'll be something new. My motivation stays the same: I want to leave the digital world a little safer for the generations that come after us.
-
-Somewhere right now, a young researcher is opening a debugger for the first time and wondering how on earth the thing works. Someone will investigate the Stuxnet of their generation, and someone will eventually sit in the chair I'm in now. Our job isn't just to detect today's attacks. It's to share what we learn, build tools, mentor people and make sure they start a few steps ahead of where we did.
-
-Péter did that for our industry, and he did it for me.
-
-Thank you to Virus Bulletin and our peers in the security community for this recognition, to everyone who contributed to the research, publicly or behind the scenes, and to Péter, who taught a young malware researcher that taking things apart is only half the job. The other half is making sure somebody else can learn from what you found."
 9edc388058c6,9edc388058c6,2026-10-15 20:30 UTC,General Security News,,CyberWire Daily,AI Security; Identity Security Posture Management; Mobile Security; Network Security,Podcast,A little too OpenAI.,https://www.thecyberwire.com/podcasts/daily-podcast/2657/notes,Attackers exploit a PAN-OS firewall flaw and an Ivanti zero-day. CISA is urging organizations to patch Ivanti Connect Secure appliances following active exploitation of a critical zero-day vulnerability.,"An OpenAI engineer faces charges over an alleged covert recording device. Attackers exploit a PAN-OS firewall flaw and an Ivanti zero-day. Aoki infostealer hunts AI credentials. Researchers uncover critical weaknesses in an AI gateway. CikaBika Bot turns Discord into a command center. Online ads deliver mercenary spyware without a click. Microsoft disrupts a massive Chinese-language phishing operation. And INTERPOL leads an international crackdown on child sexual abuse material. Character.ai runs out of tokens.
 
 Today is Thursday October 15th 2026. I’m Dave Bittner. And this is your CyberWire Intel Briefing.
@@ -17977,243 +18140,6 @@ Your takeaway
 Every suggestion above traces back to a control that already exists and already works. MFA works. Least privilege works. Patching works. Runtime visibility works. The breaches keep happening because these fundamentals get treated as a checklist to revisit once a year instead of a discipline to run every single day.
 
 Cybersecurity Awareness Month is a fine reminder. Just don't let it be the only one."
-4092355ddabd,4092355ddabd,2026-10-12 20:13 UTC,General Security News,,AWS Security Blog,Compliance Management; Cloud Risk Management,Article,"Quantum-resistant signing on AWS, Part 2: Enforce your ML-DSA algorithm policy with SCPs and IAM",https://aws.amazon.com/blogs/security/quantum-resistant-signing-on-aws-part-2-enforce-your-ml-dsa-algorithm-policy-with-scps-and-iam/,Review these controls periodically and pair the deny-list with detection so a variant outside your policy surfaces quickly rather than waiting to be discovered,"You want to set a cryptographic algorithm policy and stop non-compliant choices from being made in your Amazon Web Services (AWS) environment. This post shows you how. As you adopt post-quantum cryptography, one of the first decisions you face is which algorithms and parameter sets fit your business needs, balancing security against signature size, key size, and performance. Your cloud environment’s job is to let you express that decision and enforce it consistently, so an approved choice stays fully usable while an excluded one cannot be introduced. This post works through one concrete example on AWS: taking an organization’s cryptographic algorithm policy and turning it into preventive and detective controls. The same patterns apply to whatever your approved set is today and whatever it becomes as standards evolve.
-
-This post is Part 2 of a two-part series on quantum-resistant signing on AWS. Part 1, Build a software supply chain with ML-DSA, is for builders and constructs an end-to-end ML-DSA signing pipeline for binaries, container images, and software bills of materials. This part is for the security, governance, and compliance teams who decide which algorithms that pipeline, and everything else in the organization, is permitted to use, and who need that decision enforced.
-
-AWS Key Management Service (AWS KMS) supports the ML-DSA digital signature scheme (FIPS 204) through three parameter sets, ML-DSA-44, ML-DSA-65, and ML-DSA-87, targeting NIST security categories 2, 3, and 5. All three are strong, standardized choices. Each one trades signature size, key size, and speed against security margin, the amount of cryptographic strength a parameter set holds in reserve above its target security category. ML-DSA-44 is the most compact and fastest. ML-DSA-65 and ML-DSA-87 carry a larger security margin, which is what you want for signatures that must stay trustworthy over a long lifetime.
-
-Throughout this post, the examples use the same example policy: an organization that has standardized on ML-DSA-65 and ML-DSA-87 and wants ML-DSA-44 kept out of its approved set. That is a standardization decision, not a judgment that ML-DSA-44 is insecure (see the following note). Wherever you see ML-DSA-44 in the controls that follow, read it as the variant your policy doesn’t include; the mechanics are identical for any allow/deny split you choose. The approved set here is also the one the Part 1 architecture deploys: ML-DSA-87 for the root certificate authority (CA) and ML-DSA-65 for the subordinate CA and the code-signing key. Part 1 makes the choice; this post makes it stick.
-
-Note: ML-DSA-44 is a valid choice. ML-DSA-44 is a fully NIST-standardized parameter set (FIPS 204) at NIST security category 2, which targets roughly 128-bit-class classical security (category 2 is benchmarked against the collision resistance of SHA-256). It produces the smallest signatures and public keys of the three variants (a 1312-byte public key and 2420-byte signature) and is the fastest to sign and verify, which makes it a strong fit for constrained devices, high-volume signing, and bandwidth- or storage-sensitive workloads. You would choose ML-DSA-65 or ML-DSA-87 instead to gain extra security margin for long-lived signatures or to align with an internal standard, not because ML-DSA-44 is weak.
-
-What success looks like
-
-The approved variants (ML-DSA-65 and ML-DSA-87 in the example) remain fully usable throughout. What you want to rule out is the introduction of a variant outside the policy (here, ML-DSA-44). Concretely, within the AWS service surfaces in scope, principals shouldn’t be able to:
-
-Create ML-DSA-44 key material
-
-Use existing ML-DSA-44 keys for signing or verification
-
-Stand up private certificate authorities (CAs) that would introduce ML-DSA-44.
-
-And any drift from those settings should be detected.
-
-Scope and limitations
-
-These controls operate on AWS service APIs, principally AWS KMS, AWS Private Certificate Authority (AWS Private CA), and AWS Certificate Manager (ACM). They don’t and can’t govern cryptography that runs on compute you control. For example, OpenSSL or an application might perform ML-DSA-44 signing on an Amazon Elastic Compute Cloud (Amazon EC2) instance, container, or AWS Lambda function. Protocol-level use, such as OpenSSH’s hybrid ssh-mldsa44-ed25519 public key authentication, is also outside the reach of Service control policies (SCPs) and AWS Identity and Access Management (IAM) and isn’t addressed in this post.
-
-Certificate material brought in through acm:ImportCertificate or iam:UploadServerCertificate is also not algorithm-aware (see the Private CA section). Other TLS-terminating or signing services (for example Amazon CloudFront and Amazon API Gateway) and AWS IAM Roles Anywhere aren’t covered in this post and should be assessed separately. (Part 1 of this series uses IAM Roles Anywhere with ML-DSA certificates; controls for that service are out of scope here.)
-
-These controls are intended to be applied as defense in depth. You can apply all of them or only a subset, depending on how prescriptive you want to be:
-
-A blanket SCP at the organization root prevents member accounts from creating or using ML-DSA-44 keys. (SCPs don’t apply to the management account, so workloads there aren’t restricted.)
-
-An SCP at a production organizational unit (OU) restricts keys only in production accounts.
-
-If you need flexibility inside an account, use IAM permission boundaries instead of account-wide settings enforced through an SCP.
-
-Choose the combination that matches your operating model. The policy examples here are written to apply across all AWS Regions. If you need to scope a control to specific Regions, add an aws:RequestedRegion condition.
-
-The policies in this post are illustrative starting points. Authoring, validating, and maintaining the specific SCPs, IAM policies, and permission boundaries for your environment is your responsibility. Test all policies in a non-production environment before deployment and adjust example values (such as policy names and key Amazon Resource Names (ARNs)) to match your organization’s approved standards.
-
-A note on cryptographic agility
-
-Your algorithm policy isn’t fixed forever, and these controls shouldn’t be either. The point of expressing the policy as AWS controls is that you can revise it as your needs and the relevant standards change, tightening, loosening, or swapping the approved set without re-architecting. Treat the examples here as a template you adjust to whatever your current policy is.
-
-A deny-based control that names specific algorithms is, in effect, an allow-list of everything it does not name. The risk is default-allow: any parameter set you have not explicitly denied is permitted, so a newly introduced variant, including one you have not yet evaluated, becomes usable until you notice it and add it to the deny list. Deprecation of an already-approved variant is easy to handle in this model, because you simply add the deprecated variant to the deny list. What the model does not catch on its own is the arrival of something new. Review these controls periodically and pair the deny-list with detection so a variant outside your policy surfaces quickly rather than waiting to be discovered.
-
-The alternative is to write the condition against the approved set rather than the excluded one. A Deny that uses StringNotEquals with a list of approved key specs fires when the request’s key spec matches none of them, so a new or not-yet-evaluated variant is blocked by default until you add it. That closes the default-allow gap, at the cost of a policy update before anyone can use a newly approved variant. The family-level SCP in Part 1 of this series takes this shape: it denies creation of any signing key whose key spec isn’t ML_DSA_*. The examples in this post take the other shape and name the excluded variant, so that approved variants stay usable without a policy change. Both are valid. Choose based on whether you would rather block something new first and approve it later, or notice it first and decide then.
-
-{ ""Sid"": ""OnlyApprovedMlDsaVariants"", ""Effect"": ""Deny"", ""Action"": ""kms:CreateKey"", ""Resource"": ""*"", ""Condition"": { ""StringLike"": { ""kms:KeySpec"": ""ML_DSA_*"" }, ""StringNotEquals"": { ""kms:KeySpec"": [""ML_DSA_65"", ""ML_DSA_87""] } } }
-
-The StringLike clause scopes the statement to ML-DSA key specs so it doesn’t affect other key types; the StringNotEquals clause denies any ML-DSA variant outside the approved list.
-
-Just as algorithms and key sizes will be introduced over time, or move from approved to unapproved, so will AWS service operations. The set of operations through which an ML-DSA-44 key can be used today (AWS KMS Sign, Verify, and GetPublicKey) reflects current service capabilities and might expand as AWS releases new features. If your policy is to block use in addition to creation, you should periodically review the list of operations you restrict, because services evolve over time.
-
-Background: Key spec compared to signing algorithm
-
-AWS KMS support for ML-DSA introduces three key specs—ML_DSA_44, ML_DSA_65, and ML_DSA_87—that all use a single post-quantum signing algorithm: ML_DSA_SHAKE_256. This distinction drives which controls are effective.
-
-kms:KeySpec: Reflects the KeySpec property of the key. It’s evaluated both on CreateKey (the requested key spec) and on AWS KMS key resource operations that act on a specific key, including Sign, Verify, and GetPublicKey. This makes kms:KeySpec a reliable lever for both preventing creation of ML-DSA-44 keys and restricting use of existing ones, because it can single out ML_DSA_44 from ML_DSA_65 and ML_DSA_87.
-
-kms:SigningAlgorithm: Reflects the signing algorithm supplied on Sign and Verify, which is ML_DSA_SHAKE_256 for all three variants. It therefore can’t distinguish ML-DSA-44 from the approved variants and shouldn’t be used for this purpose.
-
-The practical consequence: for keys held in AWS KMS, preventing ML-DSA-44 key material from being created is the most robust single control. If no ML-DSA-44 KMS keys exist, none can be used for signing through AWS KMS and none can become the subject key of a certificate. CA keys and TLS server keys are separate material: AWS Private CA generates and holds a CA’s key pair in its own HSMs, and ACM-issued, imported, or uploaded TLS certificates carry their own keys, so those surfaces are governed by the AWS Private CA and certificate controls later in this post. Where ML-DSA-44 KMS keys already exist, their use can additionally be restricted with kms:KeySpec.
-
-Organization and account-level blocking using SCPs
-
-SCPs can be applied at the organization root or to a specific OU to restrict ML-DSA-44. Placement determines the effective scope: it applies organization-wide when attached at the root; attached to an OU, it applies to the accounts within that OU. An SCP is the broadest-scope preventive control available.
-
-Note that SCPs apply to member accounts and OUs but not to the organization’s management account, so avoid running ML-DSA-44-capable workloads in the management account, where an SCP will not restrict them.
-
-The following example SCP denies both the creation of ML-DSA-44 keys (kms:CreateKey) and their use (kms:Sign, kms:Verify, kms:GetPublicKey), matching on the ML_DSA_44 key spec in each case. The creation deny stops new keys from being created; the usage deny covers keys that already exist, whether created before the SCP was attached or living in an account that later joins the OU, because kms:KeySpec is also evaluated at request time on those usage operations.SCPs are guardrails: a Deny in an SCP can’t be overridden by any IAM policy within member accounts.
-
-Attach the following SCP at the organization root (or relevant OU):
-
-{ ""Version"": ""2012-10-17"", ""Statement"": [ { ""Sid"": ""DenyMLDSA44KeyCreation"", ""Effect"": ""Deny"", ""Action"": ""kms:CreateKey"", ""Resource"": ""*"", ""Condition"": { ""StringEquals"": { ""kms:KeySpec"": ""ML_DSA_44"" } } }, { ""Sid"": ""DenyMLDSA44KeyUsage"", ""Effect"": ""Deny"", ""Action"": [ ""kms:Sign"", ""kms:Verify"", ""kms:GetPublicKey"" ], ""Resource"": ""*"", ""Condition"": { ""StringEquals"": { ""kms:KeySpec"": ""ML_DSA_44"" } } } ] }
-
-Scope the usage deny to the three key-spec-aware actions. Limit the use of Deny to kms:Sign, kms:Verify, and kms:GetPublicKey (testing confirmed kms:KeySpec is evaluated on all three). Avoid a blanket kms:*: a wildcard that would also catch management operations such as DescribeKey, DisableKey, and ScheduleKeyDeletion, which you need to inspect or clean up those same keys, effectively locking you out of managing the keys you’re trying to remove. If you use multi-Region keys, also add kms:ReplicateKey to the creation deny: replicating an ML-DSA-44 primary key creates a new ML-DSA-44 key in another Region, and kms:KeySpec is evaluated on ReplicateKey as well.
-
-Combining with a family-level guardrail. This SCP governs which ML-DSA parameter set is allowed; it says nothing about RSA or ECDSA. Part 1 of this series includes a complementary SCP that denies creation of any signing key whose key spec isn’t ML-DSA. Attached together, they require every new signing key to be ML-DSA and to be an approved variant.
-
-Operational considerations. A blanket Deny at the organization root is the strongest control but has trade-offs: it removes any ability to create ML-DSA-44 keys anywhere in scope, with no exception path, which can block legitimate testing and might cause infrastructure as code (IaC) or pipeline runs that attempt ML-DSA-44 creation to fail. To preserve flexibility, consider scoping the Deny to a production OU and using IAM permission boundaries (see the following section) in build and non-production accounts.
-
-What the caller sees. When an SCP denies a request, the caller receives an AccessDenied error indicating an explicit deny in a service control policy. For same-account and same-organization requests, the error includes the type of the denying policy and, as the enhanced error messages roll out across services, its ARN. The error doesn’t expose the SCP policy contents, and the user being blocked often can’t see the SCPs applied to their environment. Document the SCP ARN and its purpose internally so support teams can map an AccessDenied quickly.
-
-Prevent ML-DSA-44 key creation in AWS KMS (principal-level)
-
-The following IAM policy blocks ML-DSA-44 at the principal level. It is the identity-based counterpart to the SCP shown earlier, useful when you want per-account or per-role control rather than an organization-wide guardrail. Attach it to the IAM role or user you want to constrain.
-
-{ ""Version"": ""2012-10-17"", ""Statement"": [ { ""Sid"": ""DenyMLDSA44KeyCreation"", ""Effect"": ""Deny"", ""Action"": ""kms:CreateKey"", ""Resource"": ""*"", ""Condition"": { ""StringEquals"": { ""kms:KeySpec"": ""ML_DSA_44"" } } } ] }
-
-Key points:
-
-The condition value is ML_DSA_44 (underscores, not hyphens).
-
-This policy blocks CreateKey only. To also block use of existing ML-DSA-44 keys at the principal level, add the Sign, Verify, and GetPublicKey deny shown in the Restricting use of existing ML-DSA-44 keys section.
-
-For comprehensive, non-overridable coverage, deploy as an SCP rather than relying solely on principal-level policies.
-
-IAM permission boundaries
-
-IAM permission boundaries set the maximum permissions an identity-based policy can grant to an IAM role or user and can be used as an alternative or complement to using SCPs. The effective permissions are the intersection of the identity-based policy and the boundary, and a Deny in a boundary can’t be overridden by an attached policy. Boundaries are useful where you want per-account or per-role flexibility (for example, in build or non-production accounts) rather than a blanket, multi-account deny.
-
-Operational consideration. A permission boundary only takes effect on principals that have it attached. To rely on boundaries as a control, you need a mechanism to enforce the boundary on all IAM principals programmatically. One example enforcement mechanism would be an SCP that denies iam:CreateRole, iam:CreateUser, iam:PutRolePermissionsBoundary, and iam:PutUserPermissionsBoundary unless the approved boundary is set (using the iam:PermissionsBoundary condition key), and denies iam:DeleteRolePermissionsBoundary and iam:DeleteUserPermissionsBoundary outright so the boundary can’t be removed after the fact. You would also want to probe for non-conforming principals periodically and respond, perhaps by automatically attaching the PermissionsBoundary. IAM users shouldn’t be used, but the enforcement should account for the possibility that they exist.
-
-Because a boundary only sets a ceiling and does not itself grant anything, it opens with Allow on all actions, then denies ML-DSA-44 key creation specifically. The following permission boundary denies creation of ML-DSA-44 keys:
-
-{ ""Version"": ""2012-10-17"", ""Statement"": [ { ""Sid"": ""AllowAll"", ""Effect"": ""Allow"", ""Action"": ""*"", ""Resource"": ""*"" }, { ""Sid"": ""DenyMLDSA44KeyCreation"", ""Effect"": ""Deny"", ""Action"": ""kms:CreateKey"", ""Resource"": ""*"", ""Condition"": { ""StringEquals"": { ""kms:KeySpec"": ""ML_DSA_44"" } } } ] }
-
-To also block use of existing ML-DSA-44 keys for the principals carrying this boundary, add the Sign, Verify, and GetPublicKey deny statement shown in the following section (which also uses kms:KeySpec).
-
-Restricting use of existing ML-DSA-44 keys
-
-As described in the Background section, kms:KeySpec is also evaluated on Sign, Verify, and GetPublicKey, reflecting the KeySpec of the key being used. You can therefore deny those operations when kms:KeySpec equals ML_DSA_44 while continuing to permit ML_DSA_65 and ML_DSA_87. The IAM policy below, attached to an IAM principal, does exactly that.
-
-{ ""Version"": ""2012-10-17"", ""Statement"": [ { ""Sid"": ""DenyMLDSA44KeyUsage"", ""Effect"": ""Deny"", ""Action"": [ ""kms:Sign"", ""kms:Verify"", ""kms:GetPublicKey"" ], ""Resource"": ""*"", ""Condition"": { ""StringEquals"": { ""kms:KeySpec"": ""ML_DSA_44"" } } } ] }
-
-This deny can also live in an AWS KMS key policy. The same kms:KeySpec deny can be placed directly in the key policy of an AWS KMS key. A key policy is a resource policy, so the statement must include a Principal element. Identity policies and SCPs do not name principals to which they apply. A deny in the key policy is a resource-side backstop that protects a specific key, while an SCP gives non-overridable organization-wide coverage. To turn the previous example into an AWS KMS key policy, add a Principal element to the statement (for example ""Principal"": {""AWS"": ""*""}, or a more specific principal), and keep the rest of it the same.
-
-Additional approaches
-
-Depending on your goals you might also want to remove the key material itself rather than only deny its use. Remember that it is difficult to know what data has been signed by a specific key, unless you track that somehow. Deleting a key that was used will make signature verification impossible. Take great care to make sure keys are not used before deleting them.
-
-Disable or schedule deletion of the keys. Disabling stops key use immediately and is reversible. Key deletion is definitive but irreversible after the waiting period, so confirm before scheduling.
-
-Deny Sign, Verify, and GetPublicKey by specific key ARN. You can target named keys rather than the whole key spec. To do this, you would list the exact key ARNs in the Resource element of the IAM policy (no condition key required). This is effective for targeting a single key specifically, but it is difficult to maintain lists of key ARNs. Use this strategy sparingly. If you’re considering using an IAM policy naming a key ARN, remember that a Deny in the key policy of the target key accomplishes the same goal and is attached to the key itself.
-
-Finding existing keys (only needed if you disable or delete). A Deny in an IAM policy or SCP, based on kms:KeySpec, doesn’t require you to know which keys exist – it applies by key spec at request time. If you want to disable or delete existing ML-DSA-44 keys, you need to locate them. AWS KMS has no server-side filter for key spec, so you must enumerate keys with ListKeys and call DescribeKey and inspect each KeySpec. This client-side filtering pattern is common across AWS APIs and is well supported by pagination in the AWS SDKs. You can also use AWS Config to record and query KMS key resources.
-
-Reference: Choosing a KMS key spec – kms:KeySpec condition key
-
-Approved ML-DSA variants and control of AWS Private CA
-
-AWS Private CA sets a certificate authority’s (CA’s) signing algorithm at creation time, in the CertificateAuthorityConfiguration parameter of CreateCertificateAuthority (valid values include ML_DSA_44, ML_DSA_65, and ML_DSA_87). There is currently no condition key for the algorithm, so an SCP cannot enforce signing algorithm. The approach in this section controls who can create CAs and pins the algorithm in that trusted path, backed by AWS CloudTrail-based detection.
-
-Recommended approach
-
-Restrict who can create CAs. Deny acm-pca:CreateCertificateAuthority broadly via SCP, and allow it only for a small set of trusted roles or an approved provisioning pipeline. This removes the ability for arbitrary principals to stand up a CA with an unapproved algorithm.
-
-Pin the algorithm in the trusted path. Have that approved pipeline or infrastructure-as-code template hard-code SigningAlgorithm to ML_DSA_65 or ML_DSA_87 in CertificateAuthorityConfiguration. Because AWS Private CA exposes no algorithm condition key, this provisioning path is the enforcement point. Note that the CA’s algorithm pins the signature on the certificates it issues; the subject key in each certificate comes from the CSR, which AWS Private CA copies without validating its algorithm, so pin the CSR key algorithm in the same issuance pipeline.
-
-Control the trust chain. On the PKI side, only add approved CAs to your trust stores and issuance hierarchies, and do not trust or subordinate CAs that could issue ML-DSA-44. This prevents an unapproved CA from being introduced into a trusted path.
-
-Detect drift. Use CloudTrail to capture CreateCertificateAuthority calls and AWS Config to flag any CA whose configuration uses ML_DSA_44, so an unapproved CA is caught quickly.
-
-Part 1 of this series shows what this looks like in practice: it creates an ML-DSA-87 root CA and an ML-DSA-65 subordinate CA with CreateCertificateAuthority, activates them, and distributes the resulting chain to verifiers. In the model described here, those are the calls that only your approved provisioning pipeline is allowed to make.
-
-Setting the ML-DSA value in CertificateAuthorityConfiguration. The same variant goes in both the KeyAlgorithm and SigningAlgorithm fields (for example, KeyAlgorithm=ML_DSA_65 with SigningAlgorithm=ML_DSA_65). Note a difference in signing algorithms between AWS KMS and AWS Private CA. With AWS Private CA, the SigningAlgorithm takes the variant value directly (ML_DSA_44, ML_DSA_65, and ML_DSA_87), and doesn’t accept ML_DSA_SHAKE_256. In contrast, AWS KMS uses ML_DSA_SHAKE_256 as its signing algorithm. Be aware that some older AWS Command Line Interface (AWS CLI) builds omitted descriptions of the ML-DSA variants from the built-in CLI help, so don’t rely on the help in the AWS CLI to determine valid values. For more information, see CertificateAuthorityConfiguration API Reference.
-
-Known limitation. Some surfaces have no algorithm condition key, so you enforce them through provisioning and detection rather than policy. acm-pca:CreateCertificateAuthority has no condition key for the algorithm, and acm:ImportCertificate and iam:UploadServerCertificate are not algorithm-aware, so a disallowed signature setting on a created, imported, or uploaded certificate cannot be blocked by an IAM policy or SCP condition. Govern these through your provisioning process, restrict who can call them, and deny the import and upload actions entirely where they are not required. The controls above remain the available mitigation.
-
-In particular, iam:UploadServerCertificate doesn’t support any method to prevent use of particular algorithms, and AWS doesn’t recommend using this API to generate and upload certificates. This API predates ACM and exists mainly to cover AWS Regions or partitions where ACM is not yet available. While a new Region or partition is being built out, workloads can still need a TLS server certificate before ACM support has shipped there, and uploading a certificate to IAM gives you a place to store and reference it in the meantime. Once ACM is available in that Region, you should use ACM instead. Outside that narrow case, deny iam:UploadServerCertificate unless it is genuinely required.
-
-ACM-issued leaf certificates. A CA’s own key and signing algorithm are separate from the leaf certificates that ACM issues from it. If you use ACM to request leaf certificates, you can constrain the leaf’s key algorithm with the acm:KeyAlgorithm condition key on acm:RequestCertificate. This lets you allow-list approved algorithms for leaf certificates using SCPs or IAM policies, similar to the AWS KMS examples earlier in this post. Be aware that, at the time of writing, ACM doesn’t offer ML-DSA leaf certificates. So a policy like this is a forward-looking defense-in-depth control rather than an immediate ML-DSA-44 risk. The IAM example below is illustrative (using example approved algorithms). Since this is an evolving part of the service, be sure to validate this in your environment before relying on it.
-
-{ ""Version"": ""2012-10-17"", ""Statement"": [ { ""Sid"": ""RestrictACMLeafKeyAlgorithm"", ""Effect"": ""Deny"", ""Action"": ""acm:RequestCertificate"", ""Resource"": ""*"", ""Condition"": { ""StringNotEqualsIfExists"": { ""acm:KeyAlgorithm"": [ ""EC_secp384r1"", ""RSA_2048"" ] } } } ] }
-
-This example uses StringNotEqualsIfExists so it denies only requests that specify a disallowed algorithm. With plain StringNotEquals, a request that omits acm:KeyAlgorithm would also be denied, because the missing key makes the condition evaluate true. Choose the operator that matches whether you want to block requests that leave the algorithm unspecified.
-
-Prevent ML-DSA-44 usage in TLS for NLB and ALB
-
-Elastic Load Balancing, for both network load balancers (NLB) and application load balancers (ALB), terminates TLS on behalf of your applications. The certificates used by these listeners are requested through or imported into ACM, or uploaded to IAM. A listener’s configured security policy and its certificate determine what’s offered during negotiation. At the time of writing, ACM requests and imports accept RSA and ECDSA keys only, and NLB and ALB listeners accept RSA and ECDSA certificates only, so no ML-DSA certificate can be bound to a listener today. As with the ACM leaf-certificate policy earlier, the controls in this section are forward-looking defense in depth rather than a mitigation of an immediate ML-DSA-44 risk.
-
-Certificate controls (the effective mechanism for ML-DSA-44)
-
-Because the listener API calls reference a certificate only by ARN, you can’t write an SCP on CreateListener, ModifyListener, or AddListenerCertificates that inspects the certificate’s algorithm. IAM conditions can’t reference attributes of a separately-referenced resource. Keeping ML-DSA-44 out of TLS therefore relies on there being no ML-DSA-44 certificate material to associate:
-
-Configure your private CA to issue only ML_DSA_65 or ML_DSA_87 certificates, and control who can create CAs.
-
-Prevent ML-DSA-44 key creation in AWS KMS, so that no KMS-held ML-DSA-44 key can become the subject key of a certificate. TLS server keys for ACM-issued, imported, or uploaded certificates are not KMS keys; those are governed by items 1 and 3.
-
-Control imported and uploaded certificates through your provisioning process or deny the import and upload actions where not required, as described in the AWS Private CA section.
-
-Detective controls
-
-CloudTrail records the certificate and listener API calls in this section: certificate creation and import (acm-pca:CreateCertificateAuthority, acm:ImportCertificate, iam:UploadServerCertificate) and listener configuration (CreateListener, ModifyListener, AddListenerCertificates). Whether the algorithm shows up in the event depends on what the call itself carries. Creation calls that take the algorithm as an input record it: kms:CreateKey logs the KeySpec, and acm-pca:CreateCertificateAuthority logs the signing algorithm. That makes CloudTrail effective for catching the creation of ML-DSA-44 key material or a CA. A listener binding references its certificate only by ARN, so the certificate’s algorithm does not appear in that event. To evaluate the algorithm of a bound or imported certificate, use AWS Config resource evaluation as the detective backstop.
-
-Summary for TLS
-
-The primary preventive control is the certificate material itself: with no ML-DSA-44 CA, no ML-DSA-44 KMS key, and certificate import and upload controlled, no ML-DSA-44 certificate can be issued or bound. Where you also operate an allow-list of permitted TLS security policies, the elasticloadbalancing:SecurityPolicy condition key (on CreateListener and ModifyListener) can additionally constrain which TLS policies listeners can use.
-
-Summary of controls
-
-The following table maps the example policy (allow ML-DSA-65 or ML-DSA-87, exclude ML-DSA-44) to the available controls. Modify the controls to limit use to the approved set of algorithms your policies require.
-
-Area
-
-Control
-
-Status
-
-Block ML-DSA-44 key creation (Organization-wide or for all accounts in an organization OU)
-
-SCP on kms:CreateKey using kms:KeySpec
-
-Fully supported via condition key
-
-Block ML-DSA-44 key creation (per account or per role)
-
-IAM policy or permission boundary using kms:KeySpec
-
-Supported; requires programmatic enforcement of boundaries
-
-Block use of existing ML-DSA-44 keys
-
-Deny Sign, Verify, and GetPublicKey using kms:KeySpec (key policy, IAM, or SCP); optionally disable and delete keys
-
-Supported using kms:KeySpec (not kms:SigningAlgorithm)
-
-Only allow approved variants in Private CA
-
-Restrict who can create CAs; pin ML_DSA_65 or ML_DSA_87 in provisioning path
-
-No algorithm condition key; enforce using process and detection
-
-Limit variants in imported or uploaded TLS certificates
-
-Process controls, or deny import or upload APIs (prefer ACM over iam:UploadServerCertificate)
-
-APIs aren’t algorithm-aware
-
-Block use of ML-DSA-44 in TLS with network load balancers (NLB) and application load balancers (ALB)
-
-Restrict TLS policy using elasticloadbalancing:SecurityPolicy; control cert material
-
-TLS-policy restriction supported; no per-cert algorithm condition
-
-Detect use of unapproved variants
-
-CloudTrail (API-level) and AWS Config custom rules
-
-Supported using custom AWS Config rules; not managed rules
-
-Conclusion
-
-In this post, you learned how to use ML-DSA as an example of turning a cryptographic algorithm policy into enforceable AWS controls. The key lever is the kms:KeySpec condition key: it keeps your approved parameter sets (ML-DSA-65 and ML-DSA-87) fully usable while preventing the creation and use of a parameter set you’ve excluded (ML-DSA-44) on the CreateKey, in addition to the Sign, Verify, and GetPublicKey operations, where kms:SigningAlgorithm can’t tell the variants apart. Applied as defense in depth across SCPs, IAM policies, permission boundaries, and KMS key policies, and extended to the surfaces that have no algorithm condition key (AWS Private CA, certificate import, and Elastic Load Balancing TLS) through provisioning controls plus AWS CloudTrail and AWS Config drift detection, these controls give you a consistent way to keep an unapproved variant out of your accounts.
-
-The pattern isn’t specific to ML-DSA-44. Because your algorithm policy will change as standards and your own requirements evolve, treat these controls as a reusable template and re-point the same condition keys and guardrails at whatever your approved set b [truncated for CSV - full text is in the JSON export]"
 44e3bc3a6e91,44e3bc3a6e91,2026-10-12 14:27 UTC,General Security News,Proofpoint,Proofpoint Blog,AI Security; Data Security Posture Management; Vulnerability Management,Article,The Hidden AI Security Risks Threatening Businesses,https://www.proofpoint.com/us/newsroom/news/hidden-ai-security-risks-threatening-businesses,"Externally, AI accelerates vulnerability exploitation, making faster patching and continuous monitoring critical","getty
 
 As businesses race to adopt artificial intelligence, new security risks are emerging alongside the technology’s benefits. These threats are challenging traditional security practices and introducing vulnerabilities that organizations may not be equipped to recognize or manage. As AI takes on a greater role in daily workflows and decision-making, leaders must understand how their organizations’ exposure is changing.
