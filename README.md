@@ -11,7 +11,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 
 - Pulls from security news, government advisories, threat intel and vendor blogs (full list below)
 - Dashboard shows the last 30 days, newest first, with one row per **category** or one row per **vendor** (the *Rows by* switch) — rows are only shown when there is news
-- Article deduplication (URL match, string similarity, keyword overlap)
+- One stored entry per article URL. Articles that cover the same story are all kept and grouped into a story (see *Stories* below); nothing is dropped for being similar
 - **Categories and vendors are separate.** Every article has one category (what it is about: Vulnerabilities & Patching, Attacks / Breaches / Threat Intel, Business & Industry News, Policy / Legal / Compliance, Product & Roadmap) and one vendor (who it is about, if a tracked vendor is named). Both come from keyword rules on the title; see *Categories & Vendors* below
 - **Trending this week** — a carousel above the rows shows the stories covered by the most distinct sources in the last 7 days, three at a time (arrows, dots, or automatic rotation that pauses on hover). *View coverage* lists every article in the story, and can export the whole story as JSON or CSV (optionally with the saved full text)
 - **Same-topic grouping** — articles about the same event form a *story*. A *Group same topic* button on the dashboard shows one card per story in each row with a *+N related* badge (click it to see the whole story); turning it off shows every article. The all-articles page has a *Topics* view with search, sort (most covered / newest) and an "only topics with 2+ articles" option. Nothing is deleted — grouping only changes what is shown
@@ -83,7 +83,7 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 ---
 
 <!-- feeds:start -->
-## RSS Feeds (94)
+## RSS Feeds (101)
 
 ### General security news (18)
 
@@ -132,7 +132,7 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 | 31 | Zero Day Initiative Blog | https://www.zerodayinitiative.com/blog/?format=rss |
 | 32 | ZDI Published Advisories | https://www.zerodayinitiative.com/rss/published/ |
 
-### Vendor blogs (58)
+### Vendor blogs (65)
 
 | # | Source | Feed URL |
 |---|---|---|
@@ -148,61 +148,68 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 | 42 | Zscaler ThreatLabz | https://www.zscaler.com/blogs/feeds/security-research |
 | 43 | Kaspersky Blog | https://www.kaspersky.com/blog/feed/ |
 | 44 | Securelist (Kaspersky) | https://securelist.com/feed/ |
-| 45 | Sophos News - Threat Research | https://news.sophos.com/en-us/category/threat-research/feed/ |
-| 46 | Sophos News - SecOps | https://news.sophos.com/en-us/category/security-operations/feed/ |
-| 47 | ESET WeLiveSecurity | https://feeds.feedburner.com/eset/blog |
-| 48 | SentinelLabs | https://www.sentinelone.com/labs/feed/ |
-| 49 | Check Point Blog | https://blog.checkpoint.com/feed/ |
-| 50 | Bitdefender Business Insights | https://businessinsights.bitdefender.com/rss.xml |
-| 51 | Trend Micro SimplySecurity | https://feeds.feedburner.com/TrendMicroSimplySecurity |
-| 52 | CrowdStrike IR News | https://ir.crowdstrike.com/rss/news-releases.xml |
-| 53 | Fortinet IR News | https://investor.fortinet.com/rss/news-releases.xml |
-| 54 | Palo Alto IR News | https://investors.paloaltonetworks.com/rss/news-releases.xml |
-| 55 | Qualys IR News | https://investor.qualys.com/rss/news-releases.xml |
-| 56 | Cybereason Blog | https://www.cybereason.com/blog/rss.xml |
-| 57 | Falco / Sysdig Blog | https://sysdig.com/feed/ |
-| 58 | Wiz Blog | https://www.wiz.io/feed/rss.xml |
-| 59 | Orca Security Blog | https://orca.security/resources/blog/feed/ |
-| 60 | Darktrace Blog | https://www.darktrace.com/blog/rss.xml |
-| 61 | Vectra AI Blog | https://www.vectra.ai/blog/rss.xml |
-| 62 | Proofpoint Blog | https://www.proofpoint.com/us/rss.xml |
-| 63 | Broadcom/Symantec Blog | https://symantec-enterprise-blogs.security.com/blogs/rss/v1/blogs/rss.xml/221 |
-| 64 | The Register Security | https://www.theregister.com/security/headlines.atom |
-| 65 | Databreaches.net | https://www.databreaches.net/feed/ |
-| 66 | This Week in 4n6 | https://thisweekin4n6.com/feed/atom/ |
-| 67 | Okta Blog | https://sec.okta.com/rss.xml |
-| 68 | CyberArk Blog | https://www.cyberark.com/feed/ |
-| 69 | Elastic Security Labs | https://www.elastic.co/security-labs/rss/feed.xml |
-| 70 | Rubrik Blog | https://www.rubrik.com/blog/feed/ |
-| 71 | Arctic Wolf Blog | https://arcticwolf.com/resources/category/blog/feed/ |
-| 72 | Huntress Blog | https://www.huntress.com/blog/rss.xml |
-| 73 | Aqua Security Blog | https://www.aquasec.com/feed/ |
-| 74 | Snyk Blog | https://snyk.io/blog/feed/ |
-| 75 | BeyondTrust Blog | https://www.beyondtrust.com/blog/rss.xml |
-| 76 | Delinea Blog | https://delinea.com/blog/rss.xml |
-| 77 | Trend Micro Newsroom | https://newsroom.trendmicro.com/news-releases?pagetemplate=rss |
-| 78 | Malwarebytes Labs | https://www.malwarebytes.com/blog/feed/index.xml |
-| 79 | AWS Security Blog | https://aws.amazon.com/blogs/security/feed/ |
-| 80 | Cloudflare Security | https://blog.cloudflare.com/tag/security/rss/ |
-| 81 | Datadog Security Labs | https://securitylabs.datadoghq.com/rss/feed.xml |
-| 82 | GitHub Security Blog | https://github.blog/security/feed/ |
-| 83 | Socket | https://socket.dev/api/blog/feed.atom |
-| 84 | JFrog Blog | https://jfrog.com/blog/feed/ |
-| 85 | Sonatype Blog | https://www.sonatype.com/blog/rss.xml |
-| 86 | Varonis Blog | https://www.varonis.com/blog/rss.xml |
-| 87 | Silverfort Blog | https://www.silverfort.com/blog/feed/ |
-| 88 | KnowBe4 Blog | https://blog.knowbe4.com/rss.xml |
-| 89 | Cofense Blog | https://cofense.com/feed/ |
-| 90 | Cato Networks Blog | https://www.catonetworks.com/blog/feed/ |
+| 45 | ESET WeLiveSecurity | https://feeds.feedburner.com/eset/blog |
+| 46 | SentinelLabs | https://www.sentinelone.com/labs/feed/ |
+| 47 | Check Point Blog | https://blog.checkpoint.com/feed/ |
+| 48 | Bitdefender Business Insights | https://businessinsights.bitdefender.com/rss.xml |
+| 49 | Trend Micro SimplySecurity | https://feeds.feedburner.com/TrendMicroSimplySecurity |
+| 50 | CrowdStrike IR News | https://ir.crowdstrike.com/rss/news-releases.xml |
+| 51 | Fortinet IR News | https://investor.fortinet.com/rss/news-releases.xml |
+| 52 | Palo Alto IR News | https://investors.paloaltonetworks.com/rss/news-releases.xml |
+| 53 | Qualys IR News | https://investor.qualys.com/rss/news-releases.xml |
+| 54 | Cybereason Blog | https://www.cybereason.com/blog/rss.xml |
+| 55 | Falco / Sysdig Blog | https://sysdig.com/feed/ |
+| 56 | Wiz Blog | https://www.wiz.io/feed/rss.xml |
+| 57 | Orca Security Blog | https://orca.security/resources/blog/feed/ |
+| 58 | Darktrace Blog | https://www.darktrace.com/blog/rss.xml |
+| 59 | Vectra AI Blog | https://www.vectra.ai/blog/rss.xml |
+| 60 | Proofpoint Blog | https://www.proofpoint.com/us/rss.xml |
+| 61 | Broadcom/Symantec Blog | https://symantec-enterprise-blogs.security.com/blogs/rss/v1/blogs/rss.xml/221 |
+| 62 | The Register Security | https://www.theregister.com/security/headlines.atom |
+| 63 | Databreaches.net | https://www.databreaches.net/feed/ |
+| 64 | This Week in 4n6 | https://thisweekin4n6.com/feed/atom/ |
+| 65 | Okta Blog | https://sec.okta.com/rss.xml |
+| 66 | CyberArk Blog | https://www.cyberark.com/feed/ |
+| 67 | Elastic Security Labs | https://www.elastic.co/security-labs/rss/feed.xml |
+| 68 | Rubrik Blog | https://www.rubrik.com/blog/feed/ |
+| 69 | Arctic Wolf Blog | https://arcticwolf.com/resources/category/blog/feed/ |
+| 70 | Huntress Blog | https://www.huntress.com/blog/rss.xml |
+| 71 | Aqua Security Blog | https://www.aquasec.com/feed/ |
+| 72 | Snyk Blog | https://snyk.io/blog/feed/ |
+| 73 | BeyondTrust Blog | https://www.beyondtrust.com/blog/rss.xml |
+| 74 | Delinea Blog | https://delinea.com/blog/rss.xml |
+| 75 | Trend Micro Newsroom | https://newsroom.trendmicro.com/news-releases?pagetemplate=rss |
+| 76 | Malwarebytes Labs | https://www.malwarebytes.com/blog/feed/index.xml |
+| 77 | AWS Security Blog | https://aws.amazon.com/blogs/security/feed/ |
+| 78 | Cloudflare Security | https://blog.cloudflare.com/tag/security/rss/ |
+| 79 | Datadog Security Labs | https://securitylabs.datadoghq.com/rss/feed.xml |
+| 80 | GitHub Security Blog | https://github.blog/security/feed/ |
+| 81 | Socket | https://socket.dev/api/blog/feed.atom |
+| 82 | JFrog Blog | https://jfrog.com/blog/feed/ |
+| 83 | Sonatype Blog | https://www.sonatype.com/blog/rss.xml |
+| 84 | Varonis Blog | https://www.varonis.com/blog/rss.xml |
+| 85 | Silverfort Blog | https://www.silverfort.com/blog/feed/ |
+| 86 | KnowBe4 Blog | https://blog.knowbe4.com/rss.xml |
+| 87 | Cofense Blog | https://cofense.com/feed/ |
+| 88 | Cato Networks Blog | https://www.catonetworks.com/blog/feed/ |
+| 89 | Sophos Blogs | https://www.sophos.com/en-us/blog/feed?id=blt6f15f4f7deaf4242 |
+| 90 | Fortinet Blog | https://feeds.fortinet.com/fortinet/blogs |
+| 91 | Cisco Newsroom | https://newsroom.cisco.com/c/services/i/servlets/newsroom/rssfeed.json |
+| 92 | Cloudflare Blog | https://blog.cloudflare.com/rss/ |
+| 93 | Tenable Cyber Exposure Alerts | https://www.tenable.com/blog/cyber-exposure-alerts/feed |
+| 94 | Tenable in the News | https://www.tenable.com/media/in-the-news/feed |
+| 95 | Tenable Product Security Advisories | https://www.tenable.com/security/feed |
+| 96 | Trend Micro Media Coverage | https://newsroom.trendmicro.com/media-coverage?pagetemplate=rss |
+| 97 | Microsoft Official Blog | https://blogs.microsoft.com/feed/ |
 
 ### Podcasts (4)
 
 | # | Source | Feed URL |
 |---|---|---|
-| 91 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
-| 92 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
-| 93 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
-| 94 | Security Now | https://feeds.twit.tv/sn.xml |
+| 98 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
+| 99 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
+| 100 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
+| 101 | Security Now | https://feeds.twit.tv/sn.xml |
 <!-- feeds:end -->
 
 ---
@@ -329,6 +336,10 @@ python update_readme.py
 ### Workflow
 
 The workflow is defined in `.github/workflows/notify.yml` and is the only workflow in the repository. It runs three times a day, at 6:07 AM, 2:07 PM and 10:07 PM PHT (cron `7 22`, `7 6` and `7 14` in UTC; the minute avoids GitHub's busiest moment at the top of the hour), or manually via **Actions → Cybersecurity Digest → Run workflow**.
+
+### Backfilling from a FreshRSS export
+
+`python import_freshrss.py "<export folder>"` adds articles from a FreshRSS export (the per-feed `feed_*.json` files and the starred file) to `archive/data/articles.json`. It only imports feeds this script tracks, plus the aliases listed at the top of the file (the same publication under another feed URL), and skips anything whose URL or title is already stored. Add `--dry-run` to preview. It is safe to run again; the next scheduled run classifies and groups the new articles and fetches their text over the following runs.
 
 ### Running locally
 
