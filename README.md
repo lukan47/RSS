@@ -24,6 +24,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - **Source health** — `archive/data/sources.html` lists every feed with its latest fetch result, failures in a row, latest article and 7 / 30-day counts, and flags feeds that are Failing, Stale (no new article for 14 days) or Retired
 - **Module tagging** — each article is tagged with one or more security module types by keyword rules (no AI), shown on cards and usable as a filter
 - **Professional Services (PS)** — a module (not a category: an article can be *Business & Industry News* and also about professional services). It is tagged on terms such as *professional services*, *services retainer*, *incident response retainer*, *service units*, *services credits*, *partner delivery program*, *partner-led*, *guided onboarding* and *health check*. The weaker terms (*partner-led*, *guided onboarding*, *quick start*, *health check*) only count when the article names one of the PS watch-list companies (`PS_VENDORS` in the script: LevelBlue, Optiv, GuidePoint Security, WWT, Accenture, Deloitte, PwC, EY, KPMG, McKinsey, BCG Platinion, NCC Group, Kudelski Security, Booz Allen Hamilton, Echelon Cyber, Macnica and the product vendors with partner services programs). Broad corporate feeds (McKinsey Insights, IBM Newsroom) are filtered to security items by `FEED_FILTERS`
+- **Google News searches** — for the Professional Services companies that publish no usable feed (Optiv, WWT, Trellix, SonicWall, Accenture, Deloitte, PwC, EY, KPMG, BCG Platinion, Booz Allen, Kudelski Security, NCC Group) the script reads a Google News search for the company, newest 25 items per search. These are not official feeds: the headline's "- Publisher" suffix is removed, the link is Google's redirect (so no full text is fetched), and they are left out of the *Trending* carousel because they repeat articles other feeds already carry
 - **All-articles page** — every article ever collected, newest first, filterable by period, category, vendor, module, source and text; exports the filtered list as JSON or CSV
 - **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, its vendor, every module, and *Podcast* / *Transcript available* where they apply
 - **Podcasts** — episodes carry a microphone icon on cards and a *Podcast* tag, can be filtered on the all-articles page (*Type*), and have a `podcast` field in JSON exports and a `Type` column in CSV exports. Where a transcript is published (feed transcript tag, or the show's own transcript page: SANS Stormcast, CyberWire, Security Now, Smashing Security), it is saved as the episode's text and the card's summary snippet and module tags are taken from it
@@ -84,7 +85,7 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 ---
 
 <!-- feeds:start -->
-## RSS Feeds (108)
+## RSS Feeds (121)
 
 ### General security news (18)
 
@@ -215,14 +216,32 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 | 103 | Macnica Security Research Blog | https://security.macnica.co.jp/atom.xml |
 | 104 | Secureworks Taegis Release Notes | https://docs.taegis.secureworks.com/rss.xml |
 
+### Google News searches (companies without a usable feed of their own (13)
+
+| # | Source | Feed URL |
+|---|---|---|
+| 105 | Google News: Optiv | https://news.google.com/rss/search?q=%22Optiv%22+cybersecurity&hl=en-US&gl=US&ceid=US:en |
+| 106 | Google News: WWT | https://news.google.com/rss/search?q=%28%22World+Wide+Technology%22+OR+WWT%29+%28security+OR+cybersecurity%29&hl=en-US&gl=US&ceid=US:en |
+| 107 | Google News: Trellix | https://news.google.com/rss/search?q=Trellix&hl=en-US&gl=US&ceid=US:en |
+| 108 | Google News: SonicWall | https://news.google.com/rss/search?q=SonicWall&hl=en-US&gl=US&ceid=US:en |
+| 109 | Google News: Accenture | https://news.google.com/rss/search?q=Accenture+%28cybersecurity+OR+%22Accenture+Security%22%29&hl=en-US&gl=US&ceid=US:en |
+| 110 | Google News: Deloitte | https://news.google.com/rss/search?q=Deloitte+%28cybersecurity+OR+%22Deloitte+Cyber%22%29&hl=en-US&gl=US&ceid=US:en |
+| 111 | Google News: PwC | https://news.google.com/rss/search?q=PwC+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en |
+| 112 | Google News: EY | https://news.google.com/rss/search?q=%28EY+OR+%22Ernst+%26+Young%22%29+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en |
+| 113 | Google News: KPMG | https://news.google.com/rss/search?q=KPMG+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en |
+| 114 | Google News: BCG Platinion | https://news.google.com/rss/search?q=%22BCG+Platinion%22&hl=en-US&gl=US&ceid=US:en |
+| 115 | Google News: Booz Allen Hamilton | https://news.google.com/rss/search?q=%22Booz+Allen%22+%28cyber+OR+cybersecurity%29&hl=en-US&gl=US&ceid=US:en |
+| 116 | Google News: Kudelski Security | https://news.google.com/rss/search?q=%22Kudelski+Security%22&hl=en-US&gl=US&ceid=US:en |
+| 117 | Google News: NCC Group | https://news.google.com/rss/search?q=%22NCC+Group%22+%28cybersecurity+OR+research%29&hl=en-US&gl=US&ceid=US:en |
+
 ### Podcasts (4)
 
 | # | Source | Feed URL |
 |---|---|---|
-| 105 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
-| 106 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
-| 107 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
-| 108 | Security Now | https://feeds.twit.tv/sn.xml |
+| 118 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
+| 119 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
+| 120 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
+| 121 | Security Now | https://feeds.twit.tv/sn.xml |
 <!-- feeds:end -->
 
 ---

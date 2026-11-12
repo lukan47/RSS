@@ -138,6 +138,20 @@ FEEDS = [
     ("McKinsey Insights",               "https://www.mckinsey.com/insights/rss"),
     ("Macnica Security Research Blog",  "https://security.macnica.co.jp/atom.xml"),
     ("Secureworks Taegis Release Notes", "https://docs.taegis.secureworks.com/rss.xml"),
+    # ── Google News searches (companies without a usable feed of their own) ───
+    ("Google News: Optiv",                 "https://news.google.com/rss/search?q=%22Optiv%22+cybersecurity&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: WWT",                   "https://news.google.com/rss/search?q=%28%22World+Wide+Technology%22+OR+WWT%29+%28security+OR+cybersecurity%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: Trellix",               "https://news.google.com/rss/search?q=Trellix&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: SonicWall",             "https://news.google.com/rss/search?q=SonicWall&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: Accenture",             "https://news.google.com/rss/search?q=Accenture+%28cybersecurity+OR+%22Accenture+Security%22%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: Deloitte",              "https://news.google.com/rss/search?q=Deloitte+%28cybersecurity+OR+%22Deloitte+Cyber%22%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: PwC",                   "https://news.google.com/rss/search?q=PwC+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: EY",                    "https://news.google.com/rss/search?q=%28EY+OR+%22Ernst+%26+Young%22%29+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: KPMG",                  "https://news.google.com/rss/search?q=KPMG+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: BCG Platinion",         "https://news.google.com/rss/search?q=%22BCG+Platinion%22&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: Booz Allen Hamilton",   "https://news.google.com/rss/search?q=%22Booz+Allen%22+%28cyber+OR+cybersecurity%29&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: Kudelski Security",     "https://news.google.com/rss/search?q=%22Kudelski+Security%22&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News: NCC Group",             "https://news.google.com/rss/search?q=%22NCC+Group%22+%28cybersecurity+OR+research%29&hl=en-US&gl=US&ceid=US:en"),
     # ── Podcasts ─────────────────────────────────────────────────────────
     ("CyberWire Daily",         "https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast"),
     ("Darknet Diaries",         "https://feeds.megaphone.fm/darknetdiaries"),
@@ -150,6 +164,8 @@ FEED_FILTERS = {
     "McKinsey Insights": re.compile(r"cyber|secur|ransom|threat|privacy|data protection|zero trust|identity|fraud|resilien", re.I),
     "IBM Newsroom": re.compile(r"cyber|secur|ransom|threat|quantum[- ]safe|privacy|identity|x-force|resilien", re.I),
 }
+
+GOOGLE_NEWS_MAX_ITEMS = 25   # newest items kept from each Google News search feed
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
@@ -754,8 +770,16 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 transcripts.sort(key=lambda t: _TRANSCRIPT_PREFERENCE.index(t[0]) if t[0] in _TRANSCRIPT_PREFERENCE else 99)
                 article["transcript_type"], article["transcript_url"] = transcripts[0]
                 article["podcast"] = True
+            if "news.google.com" in url:
+                # Google News titles end with " - Publisher" and the description only repeats it; the link is a Google redirect
+                publisher = _text(item, "source")
+                if publisher and article["title"].endswith(" - " + publisher):
+                    article["title"] = article["title"][:-len(publisher) - 3]
+                article["feed_text"] = ""
             articles.append(article)
 
+    if "news.google.com" in url:
+        articles = articles[:GOOGLE_NEWS_MAX_ITEMS]
     keep = FEED_FILTERS.get(name)
     if keep:
         articles = [a for a in articles if keep.search(a["title"] + " " + a.get("feed_text", "")[:600])]
@@ -1118,7 +1142,7 @@ def attach_full_text(articles: list[dict]) -> int:
     LAST_TEXT_ERRORS.clear()
     pending = [
         a for a in articles
-        if a.get("link") and (
+        if a.get("link") and "news.google.com" not in a["link"] and (
             (cache.get(a["id"], {}).get("attempts", 0) < FULLTEXT_MAX_ATTEMPTS
              and cache.get(a["id"], {}).get("transient", 0) < FULLTEXT_MAX_TRANSIENT
              and (not cache.get(a["id"], {}).get("text") or _is_stale(cache[a["id"]])))
@@ -1654,6 +1678,8 @@ def trending_stories(entries: list[dict], now=None, days: int = TRENDING_DAYS, l
     cutoff = now - timedelta(days=days)
     by_story = collections.defaultdict(list)
     for e in entries:
+        if e["source"].startswith("Google News"):
+            continue  # a search result repeating another feed's article; counting it would inflate the source count
         by_story[e.get("story", e["id"])].append(e)
     ranked = []
     for sid, members in by_story.items():
@@ -1859,6 +1885,8 @@ SOURCE_VENDOR = {
     "LevelBlue Blog": "LevelBlue", "GuidePoint Security Blog": "GuidePoint Security", "GuidePoint Security Newsroom": "GuidePoint Security",
     "IBM Newsroom": "IBM Security", "McKinsey Insights": "McKinsey", "Macnica Security Research Blog": "Macnica",
     "Secureworks Taegis Release Notes": "Secureworks",
+    # Google News searches: the search is for that vendor, but the headline may name it only in the body text
+    "Google News: Optiv": "Optiv", "Google News: WWT": "WWT", "Google News: Trellix": "Trellix", "Google News: SonicWall": "SonicWall", "Google News: Accenture": "Accenture", "Google News: Deloitte": "Deloitte", "Google News: PwC": "PwC", "Google News: EY": "EY", "Google News: KPMG": "KPMG", "Google News: BCG Platinion": "BCG Platinion", "Google News: Booz Allen Hamilton": "Booz Allen Hamilton", "Google News: Kudelski Security": "Kudelski Security", "Google News: NCC Group": "NCC Group",
     "ESET WeLiveSecurity": "ESET",
     "Check Point Blog": "Check Point", "Check Point Research": "Check Point",
     "Bitdefender Business Insights": "Bitdefender",
