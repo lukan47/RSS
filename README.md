@@ -220,19 +220,19 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 
 | # | Source | Feed URL |
 |---|---|---|
-| 105 | Google News: Optiv | https://news.google.com/rss/search?q=%22Optiv%22+cybersecurity&hl=en-US&gl=US&ceid=US:en |
-| 106 | Google News: WWT | https://news.google.com/rss/search?q=%28%22World+Wide+Technology%22+OR+WWT%29+%28security+OR+cybersecurity%29&hl=en-US&gl=US&ceid=US:en |
-| 107 | Google News: Trellix | https://news.google.com/rss/search?q=Trellix&hl=en-US&gl=US&ceid=US:en |
-| 108 | Google News: SonicWall | https://news.google.com/rss/search?q=SonicWall&hl=en-US&gl=US&ceid=US:en |
-| 109 | Google News: Accenture | https://news.google.com/rss/search?q=Accenture+%28cybersecurity+OR+%22Accenture+Security%22%29&hl=en-US&gl=US&ceid=US:en |
-| 110 | Google News: Deloitte | https://news.google.com/rss/search?q=Deloitte+%28cybersecurity+OR+%22Deloitte+Cyber%22%29&hl=en-US&gl=US&ceid=US:en |
-| 111 | Google News: PwC | https://news.google.com/rss/search?q=PwC+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en |
-| 112 | Google News: EY | https://news.google.com/rss/search?q=%28EY+OR+%22Ernst+%26+Young%22%29+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en |
-| 113 | Google News: KPMG | https://news.google.com/rss/search?q=KPMG+%28cybersecurity+OR+%22cyber+security%22%29&hl=en-US&gl=US&ceid=US:en |
-| 114 | Google News: BCG Platinion | https://news.google.com/rss/search?q=%22BCG+Platinion%22&hl=en-US&gl=US&ceid=US:en |
-| 115 | Google News: Booz Allen Hamilton | https://news.google.com/rss/search?q=%22Booz+Allen%22+%28cyber+OR+cybersecurity%29&hl=en-US&gl=US&ceid=US:en |
-| 116 | Google News: Kudelski Security | https://news.google.com/rss/search?q=%22Kudelski+Security%22&hl=en-US&gl=US&ceid=US:en |
-| 117 | Google News: NCC Group | https://news.google.com/rss/search?q=%22NCC+Group%22+%28cybersecurity+OR+research%29&hl=en-US&gl=US&ceid=US:en |
+| 105 | Google News: Optiv | https://news.google.com/rss/search?q=%22Optiv%22+cybersecurity+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 106 | Google News: WWT | https://news.google.com/rss/search?q=%28%22World+Wide+Technology%22+OR+WWT%29+%28security+OR+cybersecurity%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 107 | Google News: Trellix | https://news.google.com/rss/search?q=Trellix+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 108 | Google News: SonicWall | https://news.google.com/rss/search?q=SonicWall+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 109 | Google News: Accenture | https://news.google.com/rss/search?q=Accenture+%28cybersecurity+OR+%22Accenture+Security%22%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 110 | Google News: Deloitte | https://news.google.com/rss/search?q=Deloitte+%28cybersecurity+OR+%22Deloitte+Cyber%22%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 111 | Google News: PwC | https://news.google.com/rss/search?q=PwC+%28cybersecurity+OR+%22cyber+security%22%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 112 | Google News: EY | https://news.google.com/rss/search?q=%28EY+OR+%22Ernst+%26+Young%22%29+%28cybersecurity+OR+%22cyber+security%22%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 113 | Google News: KPMG | https://news.google.com/rss/search?q=KPMG+%28cybersecurity+OR+%22cyber+security%22%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 114 | Google News: BCG Platinion | https://news.google.com/rss/search?q=%22BCG+Platinion%22+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 115 | Google News: Booz Allen Hamilton | https://news.google.com/rss/search?q=%22Booz+Allen%22+%28cyber+OR+cybersecurity%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 116 | Google News: Kudelski Security | https://news.google.com/rss/search?q=%22Kudelski+Security%22+when%3A30d&hl=en-US&gl=US&ceid=US:en |
+| 117 | Google News: NCC Group | https://news.google.com/rss/search?q=%22NCC+Group%22+%28cybersecurity+OR+research%29+when%3A30d&hl=en-US&gl=US&ceid=US:en |
 
 ### Podcasts (4)
 
