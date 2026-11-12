@@ -130,12 +130,26 @@ FEEDS = [
     ("Tenable Product Security Advisories", "https://www.tenable.com/security/feed"),
     ("Trend Micro Media Coverage",      "https://newsroom.trendmicro.com/media-coverage?pagetemplate=rss"),
     ("Microsoft Official Blog",         "https://blogs.microsoft.com/feed/"),
+    # ── Professional services vendors ────────────────────────────────────
+    ("LevelBlue Blog",                  "https://www.levelblue.com/blogs/levelblue-blog/rss.xml"),
+    ("GuidePoint Security Blog",        "https://www.guidepointsecurity.com/blog/feed/"),
+    ("GuidePoint Security Newsroom",    "https://www.guidepointsecurity.com/newsroom/feed/"),
+    ("IBM Newsroom",                    "https://newsroom.ibm.com/announcements?pagetemplate=rss"),
+    ("McKinsey Insights",               "https://www.mckinsey.com/insights/rss"),
+    ("Macnica Security Research Blog",  "https://security.macnica.co.jp/atom.xml"),
+    ("Secureworks Taegis Release Notes", "https://docs.taegis.secureworks.com/rss.xml"),
     # ── Podcasts ─────────────────────────────────────────────────────────
     ("CyberWire Daily",         "https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast"),
     ("Darknet Diaries",         "https://feeds.megaphone.fm/darknetdiaries"),
     ("Talos Takes",             "https://rss.buzzsprout.com/2018149.rss"),
     ("Security Now",            "https://feeds.twit.tv/sn.xml"),
 ]
+
+# Broad corporate feeds: only items about security are kept (matched on the title and the start of the summary).
+FEED_FILTERS = {
+    "McKinsey Insights": re.compile(r"cyber|secur|ransom|threat|privacy|data protection|zero trust|identity|fraud|resilien", re.I),
+    "IBM Newsroom": re.compile(r"cyber|secur|ransom|threat|quantum[- ]safe|privacy|identity|x-force|resilien", re.I),
+}
 
 FETCH_TIMEOUT  = 10
 MAX_WORKERS    = len(FEEDS)
@@ -276,6 +290,8 @@ SOURCE_CATEGORY = {
     "CISA Advisories": "Vulnerabilities & Patching", "Exploit-DB": "Vulnerabilities & Patching",
     "ZDI Published Advisories": "Vulnerabilities & Patching", "Zero Day Initiative Blog": "Vulnerabilities & Patching",
     "Tenable Product Security Advisories": "Vulnerabilities & Patching",
+    "Secureworks Taegis Release Notes": "Product & Roadmap", "GuidePoint Security Newsroom": "Business & Industry News",
+    "IBM Newsroom": "Business & Industry News", "Macnica Security Research Blog": "Attacks, Breaches & Threat Intel",
     "CIRCL KEV (exploited CVEs)": "Vulnerabilities & Patching", "Google Project Zero": "Vulnerabilities & Patching",
 }
 FALLBACK_CATEGORY = "General Security News"
@@ -308,7 +324,7 @@ VENDORS = {
         "defender for cloud",
     ],
     "Mandiant": [
-        "mandiant",
+        "mandiant", "google threat intelligence",
     ],
     "Sophos": [
         "sophos", "naked security",
@@ -373,7 +389,7 @@ VENDORS = {
         "cyberark", "~privileged access", "conjur",
     ],
     "IBM Security": [
-        "ibm security", "qradar", "ibm x-force", "security intelligence",
+        "ibm security", "qradar", "ibm x-force", "security intelligence", "ibm consulting",
     ],
     "Elastic Security": [
         "elastic security", "elastic siem", "elastic endpoint",
@@ -497,6 +513,66 @@ VENDORS = {
     "Veracode": [
         "veracode",
     ],
+    # Professional services vendors (from PS_Vendors_To_Monitor.xlsx)
+    "LevelBlue": [
+        "levelblue", "trustwave", "stroz friedberg", "alert logic",
+    ],
+    "Optiv": [
+        "~optiv",
+    ],
+    "GuidePoint Security": [
+        "guidepoint security", "guidepointsecurity", "~guidepoint",
+    ],
+    "WWT": [
+        "~wwt", "world wide technology",
+    ],
+    "SonicWall": [
+        "sonicwall",
+    ],
+    "Booz Allen Hamilton": [
+        "booz allen",
+    ],
+    "Accenture": [
+        "accenture",
+    ],
+    "Deloitte": [
+        "deloitte",
+    ],
+    "PwC": [
+        "~pwc", "pricewaterhousecoopers",
+    ],
+    "EY": [
+        "~ey", "ernst & young", "ernst and young",
+    ],
+    "KPMG": [
+        "kpmg",
+    ],
+    "McKinsey": [
+        "mckinsey",
+    ],
+    "BCG Platinion": [
+        "bcg platinion", "~bcg", "boston consulting group",
+    ],
+    "NCC Group": [
+        "ncc group", "nccgroup", "fox-it",
+    ],
+    "Kudelski Security": [
+        "kudelski",
+    ],
+    "Echelon Cyber": [
+        "echelon cyber",
+    ],
+    "Macnica": [
+        "macnica",
+    ],
+}
+
+# Every company on the Professional Services watch list. An article that names one of them and uses a
+# professional-services term is tagged with the "Professional Services (PS)" module (see classify_modules).
+PS_VENDORS = {
+    "LevelBlue", "Optiv", "GuidePoint Security", "WWT", "Mandiant", "Trellix", "SonicWall", "Snyk", "Booz Allen Hamilton",
+    "Accenture", "Deloitte", "IBM Security", "PwC", "EY", "KPMG", "McKinsey", "BCG Platinion", "NCC Group", "Kudelski Security",
+    "Secureworks", "Echelon Cyber", "Macnica", "Fortinet", "Zscaler", "Check Point", "Cisco Security", "Microsoft Security",
 }
 
 # ---------------------------------------------------------------------------
@@ -680,6 +756,9 @@ def fetch_feed(name: str, url: str) -> list[dict]:
                 article["podcast"] = True
             articles.append(article)
 
+    keep = FEED_FILTERS.get(name)
+    if keep:
+        articles = [a for a in articles if keep.search(a["title"] + " " + a.get("feed_text", "")[:600])]
     FEED_STATUS[name] = {"ok": True, "error": "", "items": len(articles)}
     return articles
 
@@ -1309,7 +1388,7 @@ MODULE_TYPES = [
     "Compliance Management", "Container Security", "Cyber Risk Quantification",
     "Data Security Posture Management", "Email and Collaboration Security", "Endpoint Security",
     "File Security", "Identity Security Posture Management", "Mobile Security", "Network Security",
-    "Phishing Simulations", "Server & Workload Protection", "Threat Intelligence",
+    "Phishing Simulations", "Professional Services (PS)", "Server & Workload Protection", "Threat Intelligence",
     "Threat and Exposure Management", "Vulnerability Management", "Zero Trust Secure Access",
     MODULE_OTHER, MODULE_NA,
 ]
@@ -1415,8 +1494,15 @@ _MODULE_RULES = {
         r"zero[- ]trust|\bztna\b|\bsase\b|\bsse\b|secure access|least privilege|micro-?segmentation|secure web gateway|\bcasb\b|"
         r"conditional access|remote access (security|solution)",
         r"remote access|\bvpn\b|access control"),
+    # Keywords from PS_Vendors_To_Monitor.xlsx. "Pair with company name": the weak terms only count for the PS_VENDORS.
+    "Professional Services (PS)": (
+        r"professional services|partner delivery program|services partner program|services? retainers?|incident response retainers?|"
+        r"\bir retainers?\b|service units?|services? credits?|post-incident recovery",
+        r"partner[- ]led|guided onboarding|quick[- ]?start|health[- ]?checks?"),
 }
 _MODULE_RX = {n: (re.compile(sr, re.I), re.compile(wk, re.I)) for n, (sr, wk) in _MODULE_RULES.items()}
+# Module -> vendors whose own mentions of a (weak or strong) term are enough to tag it
+_MODULE_VENDOR_BOOST = {"Professional Services (PS)": PS_VENDORS}
 
 
 def classify_modules(article: dict) -> list[str]:
@@ -1431,9 +1517,12 @@ def classify_modules(article: dict) -> list[str]:
     limit = MODULE_BODY_CHARS * 3 if article.get("text_source") == "transcript" else MODULE_BODY_CHARS
     body = " ".join((context + " " + article.get("full_text", "")[:limit]).split())
     scored = []
+    vendor = article.get("vendor") or vendor_of(article)
     for order, (name, (strong, weak)) in enumerate(_MODULE_RX.items()):
         score = (3 if strong.search(title) else 0) + min(len(strong.findall(body)), 3)
         score += (1 if weak.search(title) else 0) + 0.5 * min(len(weak.findall(body)), 4)
+        if vendor in _MODULE_VENDOR_BOOST.get(name, ()) and (strong.search(title) or weak.search(title) or strong.search(body)):
+            score += 2
         if score >= MODULE_MIN_SCORE:
             scored.append((-score, order, name))
     if scored:
@@ -1767,6 +1856,9 @@ SOURCE_VENDOR = {
     "Sophos Blogs": "Sophos", "Fortinet Blog": "Fortinet", "Cisco Newsroom": "Cisco Security", "Cloudflare Blog": "Cloudflare",
     "Tenable Cyber Exposure Alerts": "Tenable", "Tenable in the News": "Tenable", "Tenable Product Security Advisories": "Tenable",
     "Trend Micro Media Coverage": "Trend Micro",
+    "LevelBlue Blog": "LevelBlue", "GuidePoint Security Blog": "GuidePoint Security", "GuidePoint Security Newsroom": "GuidePoint Security",
+    "IBM Newsroom": "IBM Security", "McKinsey Insights": "McKinsey", "Macnica Security Research Blog": "Macnica",
+    "Secureworks Taegis Release Notes": "Secureworks",
     "ESET WeLiveSecurity": "ESET",
     "Check Point Blog": "Check Point", "Check Point Research": "Check Point",
     "Bitdefender Business Insights": "Bitdefender",
@@ -2100,6 +2192,23 @@ VENDOR_COLORS = {
     "Splunk":                              "#65a637",
     "Varonis":                             "#0d9bd7",
     "Veracode":                            "#00b0b9",
+    "LevelBlue":                           "#0b6fb8",
+    "Optiv":                               "#e2231a",
+    "GuidePoint Security":                 "#f58220",
+    "WWT":                                 "#d50032",
+    "SonicWall":                           "#ff6a13",
+    "Booz Allen Hamilton":                 "#b52025",
+    "Accenture":                           "#a100ff",
+    "Deloitte":                            "#86bc25",
+    "PwC":                                 "#e0301e",
+    "EY":                                  "#ffe600",
+    "KPMG":                                "#00338d",
+    "McKinsey":                            "#2251ff",
+    "BCG Platinion":                       "#197a56",
+    "NCC Group":                           "#00a1e0",
+    "Kudelski Security":                   "#005baa",
+    "Echelon Cyber":                       "#3f8f9a",
+    "Macnica":                             "#e60012",
     NO_VENDOR:                            "#95a5a6",  # grey
 }
 

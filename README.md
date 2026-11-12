@@ -23,6 +23,7 @@ A GitHub Actions-powered cybersecurity news aggregator. It fetches articles from
 - **Watchlist** — vendors and keywords in `watchlist.json` get a star on matching cards, a *Watchlist* filter on the dashboard and the all-articles page, a section in the briefing, and an alert in the e-mail (see below)
 - **Source health** — `archive/data/sources.html` lists every feed with its latest fetch result, failures in a row, latest article and 7 / 30-day counts, and flags feeds that are Failing, Stale (no new article for 14 days) or Retired
 - **Module tagging** — each article is tagged with one or more security module types by keyword rules (no AI), shown on cards and usable as a filter
+- **Professional Services (PS)** — a module (not a category: an article can be *Business & Industry News* and also about professional services). It is tagged on terms such as *professional services*, *services retainer*, *incident response retainer*, *service units*, *services credits*, *partner delivery program*, *partner-led*, *guided onboarding* and *health check*. The weaker terms (*partner-led*, *guided onboarding*, *quick start*, *health check*) only count when the article names one of the PS watch-list companies (`PS_VENDORS` in the script: LevelBlue, Optiv, GuidePoint Security, WWT, Accenture, Deloitte, PwC, EY, KPMG, McKinsey, BCG Platinion, NCC Group, Kudelski Security, Booz Allen Hamilton, Echelon Cyber, Macnica and the product vendors with partner services programs). Broad corporate feeds (McKinsey Insights, IBM Newsroom) are filtered to security items by `FEED_FILTERS`
 - **All-articles page** — every article ever collected, newest first, filterable by period, category, vendor, module, source and text; exports the filtered list as JSON or CSV
 - **Details popup** — a *Details* button on every card opens the article's details with an *Open article* button and a one-article JSON/CSV export. All of an article's tags are shown as chips: its category, its vendor, every module, and *Podcast* / *Transcript available* where they apply
 - **Podcasts** — episodes carry a microphone icon on cards and a *Podcast* tag, can be filtered on the all-articles page (*Type*), and have a `podcast` field in JSON exports and a `Type` column in CSV exports. Where a transcript is published (feed transcript tag, or the show's own transcript page: SANS Stormcast, CyberWire, Security Now, Smashing Security), it is saved as the episode's text and the card's summary snippet and module tags are taken from it
@@ -83,7 +84,7 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 ---
 
 <!-- feeds:start -->
-## RSS Feeds (101)
+## RSS Feeds (108)
 
 ### General security news (18)
 
@@ -202,14 +203,26 @@ Each run also writes `WATCHLIST_FOUND`, `WATCHLIST_COUNT`, `WATCHLIST_TEXT` and 
 | 96 | Trend Micro Media Coverage | https://newsroom.trendmicro.com/media-coverage?pagetemplate=rss |
 | 97 | Microsoft Official Blog | https://blogs.microsoft.com/feed/ |
 
+### Professional services vendors (7)
+
+| # | Source | Feed URL |
+|---|---|---|
+| 98 | LevelBlue Blog | https://www.levelblue.com/blogs/levelblue-blog/rss.xml |
+| 99 | GuidePoint Security Blog | https://www.guidepointsecurity.com/blog/feed/ |
+| 100 | GuidePoint Security Newsroom | https://www.guidepointsecurity.com/newsroom/feed/ |
+| 101 | IBM Newsroom | https://newsroom.ibm.com/announcements?pagetemplate=rss |
+| 102 | McKinsey Insights | https://www.mckinsey.com/insights/rss |
+| 103 | Macnica Security Research Blog | https://security.macnica.co.jp/atom.xml |
+| 104 | Secureworks Taegis Release Notes | https://docs.taegis.secureworks.com/rss.xml |
+
 ### Podcasts (4)
 
 | # | Source | Feed URL |
 |---|---|---|
-| 98 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
-| 99 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
-| 100 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
-| 101 | Security Now | https://feeds.twit.tv/sn.xml |
+| 105 | CyberWire Daily | https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast |
+| 106 | Darknet Diaries | https://feeds.megaphone.fm/darknetdiaries |
+| 107 | Talos Takes | https://rss.buzzsprout.com/2018149.rss |
+| 108 | Security Now | https://feeds.twit.tv/sn.xml |
 <!-- feeds:end -->
 
 ---
@@ -232,46 +245,54 @@ Priority order — the first match wins. Titles that match nothing fall back to 
 | 5 | Attacks, Breaches & Threat Intel | Ransomware, breaches and data leaks, cybercrime, malware analysis, threat actors and campaigns |
 | 6 | General Security News | Catch-all for everything else |
 
-### Tracked Vendors (67)
+### Tracked Vendors (84)
 
 An article from a vendor's own blog or news feed that names no vendor in its title is filed under that vendor (`SOURCE_VENDOR`). Articles that name no tracked vendor show as *No Specific Vendor*.
 
 | # | Vendor | # | Vendor |
 |---|---|---|---|
-| 1 | 1Password | 35 | Huntress |
-| 2 | Abnormal Security | 36 | IBM Security |
-| 3 | Akamai Technologies | 37 | Juniper Networks |
-| 4 | Aqua Security | 38 | Kaspersky |
-| 5 | Arctic Wolf | 39 | Lacework |
-| 6 | Armis | 40 | Mandiant |
-| 7 | Automox | 41 | Microsoft Security |
-| 8 | Barracuda | 42 | Mimecast |
-| 9 | BeyondTrust | 43 | Netskope |
-| 10 | Bitdefender | 44 | Nozomi Networks |
-| 11 | Bitwarden | 45 | Okta |
-| 12 | Blackberry / Cylance | 46 | Orca Security |
-| 13 | Broadcom / Symantec | 47 | Palo Alto Networks |
-| 14 | Cato Networks | 48 | Ping Identity |
-| 15 | Check Point | 49 | Proofpoint |
-| 16 | Checkmarx | 50 | Qualys |
-| 17 | Cisco Security | 51 | Rapid7 |
-| 18 | Claroty | 52 | Recorded Future |
-| 19 | Cloudflare | 53 | Rubrik |
-| 20 | Cohesity | 54 | Secureworks |
-| 21 | CrowdStrike | 55 | SentinelOne |
-| 22 | CyberArk | 56 | Snyk |
-| 23 | Cybereason | 57 | Sophos |
-| 24 | Darktrace | 58 | Splunk |
-| 25 | Delinea | 59 | Tenable |
-| 26 | Dragos | 60 | Trellix |
-| 27 | Elastic Security | 61 | Trend Micro |
-| 28 | ESET | 62 | Varonis |
-| 29 | ExtraHop | 63 | Vectra AI |
-| 30 | F5 | 64 | Veracode |
-| 31 | Falco / Sysdig | 65 | WithSecure |
-| 32 | Flashpoint | 66 | Wiz |
-| 33 | Forescout | 67 | Zscaler |
-| 34 | Fortinet | | |
+| 1 | 1Password | 43 | IBM Security |
+| 2 | Abnormal Security | 44 | Juniper Networks |
+| 3 | Accenture | 45 | Kaspersky |
+| 4 | Akamai Technologies | 46 | KPMG |
+| 5 | Aqua Security | 47 | Kudelski Security |
+| 6 | Arctic Wolf | 48 | Lacework |
+| 7 | Armis | 49 | LevelBlue |
+| 8 | Automox | 50 | Macnica |
+| 9 | Barracuda | 51 | Mandiant |
+| 10 | BCG Platinion | 52 | McKinsey |
+| 11 | BeyondTrust | 53 | Microsoft Security |
+| 12 | Bitdefender | 54 | Mimecast |
+| 13 | Bitwarden | 55 | NCC Group |
+| 14 | Blackberry / Cylance | 56 | Netskope |
+| 15 | Booz Allen Hamilton | 57 | Nozomi Networks |
+| 16 | Broadcom / Symantec | 58 | Okta |
+| 17 | Cato Networks | 59 | Optiv |
+| 18 | Check Point | 60 | Orca Security |
+| 19 | Checkmarx | 61 | Palo Alto Networks |
+| 20 | Cisco Security | 62 | Ping Identity |
+| 21 | Claroty | 63 | Proofpoint |
+| 22 | Cloudflare | 64 | PwC |
+| 23 | Cohesity | 65 | Qualys |
+| 24 | CrowdStrike | 66 | Rapid7 |
+| 25 | CyberArk | 67 | Recorded Future |
+| 26 | Cybereason | 68 | Rubrik |
+| 27 | Darktrace | 69 | Secureworks |
+| 28 | Delinea | 70 | SentinelOne |
+| 29 | Deloitte | 71 | Snyk |
+| 30 | Dragos | 72 | SonicWall |
+| 31 | Echelon Cyber | 73 | Sophos |
+| 32 | Elastic Security | 74 | Splunk |
+| 33 | ESET | 75 | Tenable |
+| 34 | ExtraHop | 76 | Trellix |
+| 35 | EY | 77 | Trend Micro |
+| 36 | F5 | 78 | Varonis |
+| 37 | Falco / Sysdig | 79 | Vectra AI |
+| 38 | Flashpoint | 80 | Veracode |
+| 39 | Forescout | 81 | WithSecure |
+| 40 | Fortinet | 82 | Wiz |
+| 41 | GuidePoint Security | 83 | WWT |
+| 42 | Huntress | 84 | Zscaler |
 <!-- categories:end -->
 
 ---
@@ -303,6 +324,7 @@ Every article is tagged with up to 4 of these (strongest first):
 - Mobile Security
 - Network Security
 - Phishing Simulations
+- Professional Services (PS)
 - Server & Workload Protection
 - Threat Intelligence
 - Threat and Exposure Management
