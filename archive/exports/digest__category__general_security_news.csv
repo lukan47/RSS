@@ -1,4 +1,73 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+d0660fa93fae,d0660fa93fae,2026-11-12 02:00 UTC,General Security News,,SANS ISC,Server & Workload Protection; Vulnerability Management,Podcast,"ISC Stormcast For Thursday, November 12th, 2026 https://isc.sans.edu/podcastdetail/10176, (Thu, Nov 12th)",https://isc.sans.edu/diary/rss/33512,"Apache, for example, today released an update fixing a critical vulnerability in mod_http2. It would bring back some of these older CLFS attacks that before that feature was introduced.","Hello and welcome to the Thursday, November 12, 2026 edition of the SANS Internet Storm Center's Stormcast. My name is Johannes Ullrich. We're recording today from Jacksonville, Florida. And this episode is brought to you by the SANS.edu Graduate Certificate Program in Cybersecurity Engineering. And as so often after a Patch Tuesday, we have a bit of a cleanup episode here today covering issues that we may have missed. Apache, for example, today released an update fixing a critical vulnerability in mod_http2. The vulnerability allows for remote code execution. The problem here is that during stream processing, the assign_headers function is used to assign request headers to specific streams. That's where a heap overflow happens. And well, that of course, then could potentially be used to trigger remote code execution. No working exploit has been made public yet. Disabling HTTP/2 can be used to mitigate the issue. Of course, you may run into other issues. If you, for example, have proxies translating to HTTP/2, you have always to be careful with HTTP request smuggling in this case. And Fortinet published 89 different advisories addressing more than 100 different vulnerabilities across its product portfolio. 17 of these vulnerabilities are considered critical, FortiMail being sort of the product with the most critical vulnerabilities being addressed in this update. Now, several of the critical issues may lead to arbitrary code execution without authentication. Too many vulnerabilities really to talk in detail on about each particular vulnerability. But well, if you have Fortinet products in your environment, there's probably a patch that you must apply. And now for these product. And as listeners probably expect when they hear about that many vulnerabilities all of a sudden popping up. Yes, AI took a part in discovering these vulnerabilities. And Ivanti also released its November 2026 security update. Now in this update, there is one patch for another SQL injection vulnerability, in Endpoint Manager. This SQL injection vulnerability may be leveraged to accomplish remote code execution. And then we also have a vulnerability in Ivanti CSA that allowed altering trusted EPM Core certificates without authentication. And then we got another, well, Saturday, Wednesday after patch Tuesday, thanks to Nightmare Eclipse. Nightmare Eclipse released what they're calling SignDrop. SignDrop is a privilege escalation vulnerability in the Windows Common Log File System. What makes this kind of interesting is that about a year ago, Microsoft added HMAC based authentication to CLFS log files to make it harder to abuse them in response to some of the vulnerabilities in this overall system. While SignDrop abuses exactly that new feature with some symlink and timing tricks, a regular user can escalate to system on Windows 11, 26H2 and Windows Server 2025. A proof of concept exploit has been posted to GitHub. So far, Microsoft has not confirmed the issue. There is no CVE number. I have not seen any reports of it being exploited. And as tempting as it may be, disabling CLFS log authentication is probably not a good workaround. Again, that was specifically established to prevent other security issues. It would bring back some of these older CLFS attacks that before that feature was introduced. And a quick follow up to the N-able N-central story from earlier this week. N-able has now released the 2026.4 hotfix 2 for N-central. And with that release notes explaining what they're fixing here. They're identifying three different CVE numbers that are addressed in this update. Now, if you remember N-able shut down actually its own sort of cloud -based infrastructure in response to these vulnerabilities being reported to N-able. And yes, now we get the patch for it. The initial news release, I think, talked about like 30 vulnerabilities. So not sure if these are just the sort of the critical ones they're patching here. They're actually being exploited right now. Or if they sort of consolidated some of these vulnerabilities. There are some reports that attackers are already probing for vulnerable paths that were leaked. Of course, there have been a lot of issues with N-able N-central in the past. This could be also some older stuff. The good news, many of you appear to have listened. Shadowserver's count of exposed N-central servers dropped from about 1,338 to around 148. So almost like a factor of nine or 10 here. If you run N-central on premise, apply the hotfix before you bring the server back online. And probably still avoid exposing it if you can help it. Well, and that's it for today. Thanks for listening. Thanks for liking. Thanks for subscribing. And talk to you again tomorrow. Bye. You"
+f975fe495212,441b4addc7ea,2026-11-11 16:27 UTC,General Security News,,Bleeping Computer,Other/General,Article,eMudhra revokes 8 more CA certificates after private key mishap,https://www.bleepingcomputer.com/news/security/emudhra-revokes-8-more-ca-certificates-after-private-key-mishap/,"The investigation also found that an earlier problem in June 2025 could have revealed the flaw more than a year before it was discovered by a security researcher known as ""Wayne","Certificate authority eMudhra has revoked eight additional intermediate CA certificates after an investigation into its recent certificate security incident found improper handling of private keys during the certificate-generation process.
+
+The new revocations bring the total number of affected intermediate CA certificates to 16, including eight previously compromised certificates whose private keys were so weak that anyone could recover them almost instantly.
+
+In a new incident report published Tuesday, eMudhra said that both sets of certificates were affected by a custom Python script used to transfer private keys between hardware security modules (HSMs) in April 2025.
+
+HSMs are devices designed to securely generate and store cryptographic keys, preventing sensitive private keys from being exposed outside the hardware.
+
+eMudhra says it developed the script to move certificate authority keys between different HSM vendors at its facilities after delays in obtaining new hardware.
+
+However, the script contained a bug that reduced eight ECDSA private keys to a single byte, making them extremely easy to recover.
+
+The same script also processed eight RSA private keys, which handled sensitive key information in the memory of the computer running the script rather than keeping it protected within the HSM.
+
+While the RSA keys were not weakened like the original eight certificates, eMudhra says it could not demonstrate that it handled them under its certificate security policies.
+
+""A re‑import performed from host process memory is not consistent with the CPS §6.2.6 and the RSA objects are therefore treated as not meeting that requirement,"" reads the incident report.
+
+Due to this, the company revoked the additional eight RSA intermediate CA certificates on November 7, including certificates used to issue TLS and code-signing certificates.
+
+Some of the affected RSA intermediates had been actively issuing certificates since May 2026, with the last certificate issued on November 3.
+
+eMudhra says the affected customer certificates have also been replaced or migrated.
+
+The investigation also found that an earlier problem in June 2025 could have revealed the flaw more than a year before it was discovered by a security researcher known as ""Wayne.""
+
+At that time, eMudhra detected certificate revocation lists (CRLs) signed with private keys that did not match the corresponding CA certificates.
+
+The company fixed the issue by signing the revocation lists with the matching keys but did not investigate why the problem occurred.
+
+The new report confirms this was an early warning sign of the faulty key-generation process that went undetected until October 2026.
+
+The investigation also found that eMudhra did not verify the strength of generated private keys or check that the keys used for certification matched those originally created in the HSM.
+
+Major browsers blocked compromised certificates
+
+As BleepingComputer previously reported, the incident was first disclosed on October 17, when a security researcher named Wayne discovered that eight eMudhra intermediate CA private keys could be recovered by testing just 256 possible values.
+
+Major browsers and operating systems trusted the compromised certificates, potentially allowing attackers to forge certificates for legitimate websites and intercept encrypted communications.
+
+Mozilla, Google, Apple, and other software vendors subsequently released protections to block the compromised certificates.
+
+Microsoft also released out-of-band Windows updates on October 26 to remove trust in affected eMudhra certificate trust chains on systems that could not receive automatic certificate trust updates.
+
+Following the incident, eMudhra announced that it would exit the publicly trusted TLS certificate business and transition its remaining customers to another provider.
+
+The company says it plans to stop issuing certificates under its remaining G1 hierarchy by November 16.
+
+eMudhra has also commissioned an independent review by KPMG, with findings expected by December 4, to identify improvements to its certificate management and key-generation procedures.
+
+The company says it has not detected any evidence that the compromised keys were used maliciously.
+
+Uncover email threats your existing defenses may miss.
+
+Adaptive Security's AI agents analyze email intent, context, and behavior to uncover phishing, business email compromise, and invoice fraud.
+
+See what's getting through with a 14-day read-only scan of Microsoft 365 or Google Workspace, with no MX changes.
+
+Start your free email security scan.
+
+Related Articles:
+
+Mozilla, Google, Apple block compromised eMudhra CA certificates
+
+Microsoft releases Windows OOB updates to distrust eMudhra certificates
+
+Hackers hijack Google domains after breaching ccTLD registries"
+8889b2a09036,8889b2a09036,2026-11-11 21:20 UTC,General Security News,,Dark Reading,N/A,Article,AI Raises the Stakes for Cyber Resilience,https://www.darkreading.com/cyber-risk/ai-raises-stakes-cyber-resilience,,
 b22945cfe927,b22945cfe927,2026-11-11 19:57 UTC,General Security News,,AWS Security Blog,Identity Security Posture Management; Cloud Risk Management,Article,Ease of use and secure defaults in the new AWS experience,https://aws.amazon.com/blogs/security/ease-of-use-and-secure-defaults-in-the-new-aws-experience/,"As you grow, you add more projects—each its own member account—when you have work that needs its own budget or collaboration boundary, like a personal experiment kept separate...","Starting on Amazon Web Services (AWS) is now more straightforward and more secure by default than it’s ever been. Over the past several months, we rolled out a new AWS experience that changes how you start building. It brings together a set of sensible, secure defaults, and taken one at a time, it’s easy to miss the bigger picture of what we’re building and why.
 
 When we first built how you get started on AWS, cloud was a new concept. It was a world where RSS and APIs were the exciting new thing. Twenty years later, we’ve come a long way and learned a lot about how people start, build, and grow on AWS.
@@ -1112,6 +1181,41 @@ Dave Bittner: Yes, thank you. This was great fun. Talk to you soon.
 Maria Varmazis: Thank you for joining me for this special edition. See you next time."
 854c7a3154b9,854c7a3154b9,2026-11-11 06:20 UTC,General Security News,,The Register Security,Network Security; AI Security,Article,OpenAI builds a kill switch for its research models,https://www.theregister.com/ai-and-ml/2026/11/11/openai-builds-a-kill-switch-for-its-research-models/5309006,"The Register fancies recent examples of agents exceeding their brief in worrying ways – like attacking Hugging Face, causing trouble at the Wikimedia Foundation, or going a...","In 2019, OpenAI decided not to publicly release a new model because its research uncovered “concerns about malicious applications of the technology.” And on Tuesday, the company announced it has built a kill switch for the models deployed in its research labs, months after some of them displayed disturbing behavior. “As our models get more powerful and the associated safety and security risks become bigger, it becomes more and more critical that we can detect potential issues, and quickly stop models in their tracks when needed,” OpenAI explains in a Tuesday post. The company named the kill switch “Control Room” and described it as “a central system to track model workloads across our research infrastructure and stop them quickly when safety or security concerns arise.” The facility can apparently stop models from producing any output 35 seconds after a decision to pull the plug – and can go faster. “The 35-second lag comes from a caching layer for inference authorization, to support the required volume of traffic. We are working to drive this number down to zero so that we can end jobs instantly,” the company promises. A rookie mistake in critical infrastructure design is to build both production and resilience tools on shared resources that could be taken offline by a single incident. OpenAI seems conscious of that risk, because it says the tool “has been built to keep working even when other systems fail, and to stop model output if Control Room itself goes down.” OpenAI hasn’t explained why it took so long to build a kill switch or why it decided now is the moment when it needs one. The Register fancies recent examples of agents exceeding their brief in worrying ways – like attacking Hugging Face, causing trouble at the Wikimedia Foundation, or going a little too deep when researching Australian healthcare data – may have influenced the timing of this development. “Control Room is already deployed across our research infrastructure, where the need is greatest,” the company’s announcement states. “Our external model-serving stack is already much more centralized by nature, with a well-developed operational capability to quickly take down model deployments if needed.” OpenAI says it plans to “strengthen and expand the system over the coming months, alongside our investments in monitoring for misaligned behavior and security breaches.” That’s a variant of Big Tech’s usual “We’re sorry and we promise to do better in future” proclamation that follows the latest SNAFU. Yet back in 2019, OpenAI pulled the pin before matters ever reached that state. ®"
 e4102dcfe932,e4102dcfe932,2026-11-11 02:00 UTC,General Security News,,SANS ISC,Vulnerability Management; Endpoint Security; Server & Workload Protection,Podcast,"ISC Stormcast For Wednesday, November 11th, 2026 https://isc.sans.edu/podcastdetail/10174, (Wed, Nov 11th)",https://isc.sans.edu/diary/rss/33510,Of course I have to start with the one vulnerability that's already being exploited. Nothing too serious and Microsoft also does not rate this vulnerability critical.,"Hello and welcome to the Wednesday November 11th, 2026 edition of the SANS Internet Storm Center's Stormcast. My name is Johannes Ullrich, recording today from Washington DC. And this episode is brought to you by the SANS.edu, Graduate Certificate Program in Cybersecurity Leadership. And of course today Microsoft Patch Tuesday is at the top of the news and the AI induced patch surge continues with Microsoft. Microsoft is addressing 1260 different vulnerabilities this month. 68 of these vulnerabilities are considered critical. Now out of these vulnerabilities there are 167 vulnerabilities that are actually Chromium vulnerabilities. And yes they affect Microsoft Edge. That's why Microsoft is including them in their patch lists. But not really sort of a Microsoft product per se. And we haven't always included them. Depends a little bit on how Microsoft is representing them in their vulnerability feed. But still a lot of vulnerabilities sort of in line with what we had the last couple months from Microsoft. Now I picked a couple vulnerabilities here that I considered somewhat more significant. Of course I have to start with the one vulnerability that's already being exploited. That's an Outlook spoofing vulnerability. And apparently Outlook will not really tell you the risk of a particular file when you're opening it. So probably one of those Mark of the Web style vulnerabilities that is being exploited here. Nothing too serious and Microsoft also does not rate this vulnerability critical. And definitely something that you want to take care of. Now as far as the critical vulnerabilities are concerned. There are sort of three groups really that I'm paying a little bit more attention to. One is remote code execution vulnerability in Microsoft LDAP. LDAP of course they're used throughout the sort of Active Directory ecosystem. So there's certainly some at least internal exposure here. And something that you have to watch out for. Yes and please don't expose it to the internet. And then we have a number of different vulnerabilities. I listed five in the diary. These are all critical vulnerabilities that relate to Microsoft Queuing, Queue Manager. This sort of a group of issues that keeps coming up around Queue Manager. Definitely something I haven't seen a lot of exploit out there yet. But haven't really been looking that much at it either. Definitely something that tends to be exposed at least internally. Something that you must pay attention to. And then we do have sort of interestingly Windows TCP/IP remote code execution vulnerability. Has a fairly low CVSS score, 7.5. But Microsoft still rates it critical. Will be interesting to see a little bit more detail about this particular vulnerability. Given all the issues we had sort of in the Linux world. With like the Multipath TCP option issue and such. So maybe there's something related going on in Windows as well. Other than that, yes lots and lots of vulnerabilities. So too much to really talk about them all in detail. But again only one that's already being exploited. And otherwise, yes just a lot of them. Nothing really that sort of in my opinion sticks out that much. Just apply those patches before the next month's release comes out. But then we also got patches from Apple. iOS, iPadOS, macOS, watchOS and visionOS are being addressed in these patches. Only nine different vulnerabilities. We're not yet seeing sort of that AI surge from Apple as we're seeing from Microsoft. There's of course always a possibility of some silent patching happening here. But yeah, a fairly small patch set. What Apple however is doing that we are seeing more sort of of these incremental updates. So that may be hiding a little bit the total number of patches. But last time I checked really it didn't go up like by orders of magnitude. It's like what we're seeing with Microsoft. Now for iPadOS we are getting patches back to 18. Same for macOS. watchOS we only get sort of one version back. And visionOS just for the current version. Now as far as the older versions go. One of the vulnerabilities actually only affects the older version of iOS. And this is a vulnerability when an attacker may be able to pair your device with an AirPlay receiver. The attacker must have physical access to the device. But this works even if the device is locked. Interesting there are a couple of vulnerabilities that affect Bluetooth. That's sort of the majority here of the vulnerabilities. And the idea behind these vulnerabilities is that these vulnerabilities weaken the handshake procedure with Bluetooth. So essentially someone would be able to pair a device with your phone or your Mac. There's also some rate limiting issues for example here with AirPlay. That also you know could make it easier to kind of brute force connection with your device. And then we also have a vulnerability that sort of leaks sensitive data. And probably some of the more interesting vulnerability from this set is a vulnerability in iMessage. Where someone may be able to actually join an iMessage group. And then receive its messages without you actually sort of inviting them or adding them to an iMessage group. Not sure if they would still show up as a member in that group. Anyway, apply the patches. Nothing sort of outrageously dangerous here or critical. Nothing exploited at least as far as Apple states it in their advisory. Well we also have a patch day from SAP. Now SAP typically does have a patch day in sync with Microsoft. I often don't cover them because not too many people are using SAP. But if you're using SAP and SAP NetWeaver which is one of the affected products here. Well you certainly care about these vulnerabilities. And earlier this week I wrote about it. So figured I'll at least mention the patch Tuesday for SAP. There are four vulnerabilities that have a perfect 10 as their CVSS score. And then an additional three with a 9.9. And two more in the nines. And so certainly something to pay attention to. There is one vulnerability that's broken access control in SAP Gateway. Onapsis, a company that does research in ERP security, has reported this vulnerability and published a blog post about it. They're luckily not going into too much detail. So it's not sort of a blueprint for exploitation of the vulnerability. But it gives a couple of hints. Like for example the proxy's access control list. Here is apparently sort of one of the culprits in enabling this vulnerability. So that one actually sounds like it's once the details are out. Not that terribly difficult to exploit. We also have memory corruption vulnerabilities. Again Onapsis has details about at least one of these vulnerabilities. It affects WebSockets. This one is likely a little bit more difficult to exploit. Onapsis is only talking about sort of how they exploit it for denial of service. But yes, remote code execution is possible via that vulnerability. Just of course as many of these memory corruption vulnerabilities may not be that easy sort of to exploit reliably. So definitely get your SAP products updated. And as all of these complex systems of course, take also look at which components you are actually running in your environment. Well, that's it for today. Thanks for listening. Thanks for liking. Thanks for subscribing to this podcast. And talk to you again tomorrow. Bye."
+6ff08ea650e7,6ff08ea650e7,2026-11-11 00:00 UTC,General Security News,Okta,Okta Blog,Identity Security Posture Management; Vulnerability Management,Article,Node.js Project: November 11 Security Releases,https://sec.okta.com/articles/2026/11/node.js-project-november-11-security-releases/,"js project released security updates addressing multiple vulnerabilities across core modules, including authentication bypasses in TLS certificate handling, memory-safety...","What happened?
+
+On November 11, 2026, the Node.js project released security updates addressing multiple vulnerabilities across core modules, including authentication bypasses in TLS certificate handling, memory-safety defects in HTTP request parsing and HTTP/2 session handling, denial-of-service conditions, and information disclosure in proxy configuration, 8.0.5 (CVE-2026-123863, CVE-2026-123864, CVE-2026-123865, CVE-2026-123866, CVE-2026-123867, CVE-2026-123868, CVE-2026-123871, CVE-2026-123872, CVE-2026-123874, CVE-2026-123875, CVE-2026-123877, CVE-2026-123828, CVE-2026-123829, CVE-2026-123862, CVE-2026-123873, CVE-2026-126051)
+
+Okta's response
+
+No Evidence of Exploitation: Our assessment identified no exploitable exposure in Okta or Auth0 production environments.
+
+Do I need to do anything?
+
+Customers using the Auth0 AD/LDAP connector: We recommend downloading and installing the latest version, v8.0.5.
+
+Customers using Auth0 Actions: We recommend updating the runtime to Node 22 and deploying your changes. Customers already on Node 22 do not need to redeploy.
+
+Customers using Okta or Auth0 Node.js SDKs: We recommend updating your Node.js runtime to the latest patched version across:
+
+node-auth0
+
+nextjs-auth0
+
+express-openid-connect
+
+passport-auth0
+
+node-jsonwebtoken
+
+okta-sdk-nodejs
+
+okta-oidc-middleware
+
+okta-jwt-verifier-js.
+
+References
+
+Node.js November 2026 Security Advisory"
 d49a54d7e850,d49a54d7e850,2026-11-11 00:00 UTC,General Security News,Sophos,Sophos Blogs,AI Security; Data Security Posture Management; Phishing Simulations,Article,Your training data is boring: Anomaly detection with LLMs,https://www.sophos.com/en-us/blog/your-training-data-is-boring-anomaly-detection-with-llms,"The team developed an automated pipeline that combines anomaly detection and LLMs to augment training data for a suite of cybersecurity models, using complementary anomaly...","Following on from research presented at Black Hat USA 2025, Sophos data scientists Ben Gelman, Tamas Nyiri, and Tibor Kristóf Lányi recently showcased new work on anomaly detection at BSides Las Vegas 2026. As promised, we’re sharing more details of that research (the recording of the talk is also available here).
 
 Supervised classifiers in cybersecurity are often trained on data that doesn't capture the most unusual examples. Benign training sets are dominated by simple, common patterns, while malicious sets reflect known attacks from past investigations. The long tail of unusual files on both sides goes unlabeled.
@@ -1321,41 +1425,6 @@ Dual-prompt LLM labeling achieves high precision on both malicious and benign la
 The pipeline is filetype-agnostic (as long as an LLM can produce high precision labels for them – test this empirically first) and runs on a single machine. A new data type therefore requires a config file, rather than having to become an onerous engineering project
 
 Although research on traditional ML models has slowed in recent times, this research shows that LLMs can help revitalize the field by infusing them into the process for significant performance gains"
-6ff08ea650e7,6ff08ea650e7,2026-11-11 00:00 UTC,General Security News,Okta,Okta Blog,Identity Security Posture Management; Vulnerability Management,Article,Node.js Project: November 11 Security Releases,https://sec.okta.com/articles/2026/11/node.js-project-november-11-security-releases/,"js project released security updates addressing multiple vulnerabilities across core modules, including authentication bypasses in TLS certificate handling, memory-safety...","What happened?
-
-On November 11, 2026, the Node.js project released security updates addressing multiple vulnerabilities across core modules, including authentication bypasses in TLS certificate handling, memory-safety defects in HTTP request parsing and HTTP/2 session handling, denial-of-service conditions, and information disclosure in proxy configuration, 8.0.5 (CVE-2026-123863, CVE-2026-123864, CVE-2026-123865, CVE-2026-123866, CVE-2026-123867, CVE-2026-123868, CVE-2026-123871, CVE-2026-123872, CVE-2026-123874, CVE-2026-123875, CVE-2026-123877, CVE-2026-123828, CVE-2026-123829, CVE-2026-123862, CVE-2026-123873, CVE-2026-126051)
-
-Okta's response
-
-No Evidence of Exploitation: Our assessment identified no exploitable exposure in Okta or Auth0 production environments.
-
-Do I need to do anything?
-
-Customers using the Auth0 AD/LDAP connector: We recommend downloading and installing the latest version, v8.0.5.
-
-Customers using Auth0 Actions: We recommend updating the runtime to Node 22 and deploying your changes. Customers already on Node 22 do not need to redeploy.
-
-Customers using Okta or Auth0 Node.js SDKs: We recommend updating your Node.js runtime to the latest patched version across:
-
-node-auth0
-
-nextjs-auth0
-
-express-openid-connect
-
-passport-auth0
-
-node-jsonwebtoken
-
-okta-sdk-nodejs
-
-okta-oidc-middleware
-
-okta-jwt-verifier-js.
-
-References
-
-Node.js November 2026 Security Advisory"
 3a9145dc711b,3a9145dc711b,2026-11-10 23:04 UTC,General Security News,,AWS Security Blog,Identity Security Posture Management,Article,Reduce alert fatigue by customizing threat detection features in Amazon GuardDuty,https://aws.amazon.com/blogs/security/reduce-alert-fatigue-by-customizing-threat-detection-features-in-amazon-guardduty/,"Over the past year, AWS has released a set of capabilities within GuardDuty that you can use to supply that missing context, most recently with the launch of Custom Detection Rules","The teams responsible for security today don’t have a problem with the number of alerts they receive; they have a problem turning those alerts into something truly actionable. When an analyst concludes an investigation with “this was caused by our vulnerability scanner” or “this account is configured to share Amazon Machine Images (AMIs) publicly on purpose,” the detection worked as designed, it just wasn’t applicable to the environment. When this happens continuously at scale, alert fatigue sets in. As teams sort through these events, incident response slows down or, worse, teams stop paying attention to the alerts at all.
 
 Amazon GuardDuty is a threat detection service that continuously monitors, analyzes, and processes Amazon Web Services (AWS) data sources and logs in your AWS environment for suspicious or potentially malicious activity. GuardDuty then delivers detailed security findings to you for visibility and remediation. GuardDuty accomplishes this by analyzing independent streams of available sources. This includes logging of management events in AWS CloudTrail, information about IP traffic through Amazon Virtual Private Cloud (Amazon VPC) Flow Logs, and Amazon Route 53 DNS query logs to name a few. These sources don’t need to be enabled or configured within your accounts for GuardDuty to use them. When GuardDuty observes activity that looks suspicious or anomalous, it produces a finding that’s a detailed security alert naming the behavior, the resources involved, and any supporting evidence. A finding is a signal to investigate, not a final verdict.
@@ -2573,73 +2642,6 @@ Looking Ahead
 Our roadmap is straightforward: finalize the contract with an assessment body and formally commence the external ISMAP assessment audit in early 2027. We will share further updates as we hit key audit milestones over the next year.
 
 If you are navigating Japanese public sector compliance today, we can walk you through our current security posture, share our active ISO and SOC 2 reports, and show you how our existing control mapping aligns with ISMAP. Reach out to your Wiz account team or contact us directly."
-096bc783d5e0,096bc783d5e0,2026-11-10 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,The Ripple Effect: How Mentorship Transforms Lives,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/the-ripple-effect-how-mentorship-transforms-lives.html?source=rss,"I was the youngest of four kids, and suddenly my mom — with only a high school diploma, no job, and no child support — was faced with raising four children alone","When I was six years old, my father left our family. I was the youngest of four kids, and suddenly my mom — with only a high school diploma, no job, and no child support — was faced with raising four children alone.
-
-A year later, Coach Weir recognized I was a kid who needed direction and introduced me to wrestling. He drove me to tournaments up and down the East Coast, pushed me academically, and encouraged me to make good choices. Wrestling eventually took me to Rutgers University, where I competed at the Division I level and became team captain.
-
-But Coach Weir’s greatest gift wasn't wrestling. He gave me an opportunity and showed me what happens when someone invests in another person.
-
-“Culture is our operating system”
-
-Wrestling taught me that success comes from fundamentals practiced consistently: Preparation, accountability, resilience, integrity, and continuous improvement.
-
-Those lessons followed me to Cisco, where I lead the global team responsible for our Wells Fargo relationship.
-
-The C2X Academy creates a community where mentors build leaders, one student at a time.
-
-We've learned that great doesn’t happen by accident. Culture is our operating system.
-
-Our team follows 33 fundamentals called The Cisco/Wells Fargo Way. Each week, a teammate from somewhere around the globe shares their personal story and what that week's fundamental means to them.
-
-Suddenly, a colleague thousands of miles away becomes more than a name on a Webex screen. We build trust, understand one another, and become more invested in each other’s success.
-
-We share these stories with Wells Fargo colleagues, too. What started as an internal initiative has become part of how we strengthen customer relationships and differentiate ourselves as a partner.
-
-That same philosophy lives at C2X
-
-In 2014, two partners and I opened C2X — Commitment 2 Excellence Wrestling Academy — in a 2,400-square-foot warehouse in Fort Mill, South Carolina.
-
-Like Cisco, we've made culture intentional. Our 24 fundamentals, The C2X Way, include: Listen Generously, Walk in Others' Shoes, Assume Positive Intent, and Practice Blameless Problem-Solving.
-
-Today, C2X is a nonprofit where 10 former collegiate wrestlers coach and mentor more than 200 young people annually. Beyond wrestling, we provide academic support, college recruiting guidance, mentorship, and scholarships for families in need.
-
-The impact goes far beyond the wrestling mat.
-
-Two former wrestlers dreamed of becoming firefighters. We connected them with a C2X family member who leads Charlotte Fire Academy. Today, both serve their communities as firefighters.
-
-Tim (left) with C2X partners Tom Tanis, previous Division I All-American at Rutgers, and Vas Lahanas, a former NCAA qualifier at the University of Maryland.
-
-Another graduated from the University of Virginia after we helped negotiate $250,000 in wrestling scholarship support. He’s now preparing for medical school.
-
-And two young men who attended our first practice in 2014 returned after successful Division I wrestling careers. Today, they’re C2X coaches, investing in the next generation.
-
-The ripple effect
-
-We're now preparing to open a state-of-the-art facility, expanding our reach to approximately 350 young people annually. I'm especially proud that Cisco will support this next chapter with technology to help our athletes train, study, learn, and thrive. CX2 has also been accepted into Benevity, Cisco’s matching gift program.
-
-When I walk into C2X, I think about looking into the stands and always finding my mom. And I remember Coach Weir making room in his car for one more kid.
-
-Neither could have imagined where those sacrifices and acts of kindness would lead. But I see it now.
-
-It’s the culture I strive to create at C2X and the culture we've built with our Cisco/Wells Fargo team: Give someone an opportunity. Believe in them. Help them become more than they thought they could be.
-
-Then, watch the ripple effect continue.
-
-You may also like…
-
-Discover how a culture of support helped James Lovell scale his career at the biggest company you’ve never heard of.
-
-How Laura Tinnelly helped build Cisco’s AI Presentation Coach, proving anyone can innovate.
-
-Monica Naim shares her journey from homelessness to Cisco and how Sleep Out helps youth find hope and stability.
-
-Related links
-
-CX2 Academy
-
-Employee Giving and Volunteering
-
-Cisco Corporate Social Responsibility"
 3654950f8356,3654950f8356,2026-11-10 13:00 UTC,General Security News,Orca Security,Orca Security Blog,AI Security; Data Security Posture Management; Identity Security Posture Management; Server & Workload Protection,Article,See Your Cloud and Coding AI Agents in Context,https://orca.security/resources/blog/see-your-cloud-and-coding-ai-agents-in-context/,"When a prompt injection lands on an agent, the attacker inherits all of it","Securing AI in the cloud has historically meant securing models. Teams called Amazon Bedrock or Azure OpenAI, maybe hosted an open model on a GPU instance, and security’s job was to find those services, check their configurations, and keep training data from leaking.
 
 AI Agents changed that. An agent takes the model’s output and acts on it. It calls tools, reads and writes data, opens tickets, runs code, and talks to other agents. To do any of that, it needs credentials and permissions. And in most organizations, nobody reviewed what those permissions are.
@@ -2832,6 +2834,73 @@ Want to see which AI app builders are already running in your environment? Reque
 About the Orca Platform
 
 Orca Security delivers security for the companies that build. As cloud, applications, AI and app generation expand the attack surface, Orca transforms security risk into the context teams need to act. The Orca Platform provides complete visibility across cloud, AI, and application environments, correlates risk across every layer, and prioritizes the exposures that matter most so organizations can remediate faster and innovate with confidence. Trusted by hundreds of organizations, including SAP, Autodesk, Gannett, Lemonade, and Digital Turbine, Orca is backed by leading investors including Temasek, CapitalG, ICONIQ Capital, and Redpoint Ventures."
+096bc783d5e0,096bc783d5e0,2026-11-10 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,The Ripple Effect: How Mentorship Transforms Lives,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/the-ripple-effect-how-mentorship-transforms-lives.html?source=rss,"I was the youngest of four kids, and suddenly my mom — with only a high school diploma, no job, and no child support — was faced with raising four children alone","When I was six years old, my father left our family. I was the youngest of four kids, and suddenly my mom — with only a high school diploma, no job, and no child support — was faced with raising four children alone.
+
+A year later, Coach Weir recognized I was a kid who needed direction and introduced me to wrestling. He drove me to tournaments up and down the East Coast, pushed me academically, and encouraged me to make good choices. Wrestling eventually took me to Rutgers University, where I competed at the Division I level and became team captain.
+
+But Coach Weir’s greatest gift wasn't wrestling. He gave me an opportunity and showed me what happens when someone invests in another person.
+
+“Culture is our operating system”
+
+Wrestling taught me that success comes from fundamentals practiced consistently: Preparation, accountability, resilience, integrity, and continuous improvement.
+
+Those lessons followed me to Cisco, where I lead the global team responsible for our Wells Fargo relationship.
+
+The C2X Academy creates a community where mentors build leaders, one student at a time.
+
+We've learned that great doesn’t happen by accident. Culture is our operating system.
+
+Our team follows 33 fundamentals called The Cisco/Wells Fargo Way. Each week, a teammate from somewhere around the globe shares their personal story and what that week's fundamental means to them.
+
+Suddenly, a colleague thousands of miles away becomes more than a name on a Webex screen. We build trust, understand one another, and become more invested in each other’s success.
+
+We share these stories with Wells Fargo colleagues, too. What started as an internal initiative has become part of how we strengthen customer relationships and differentiate ourselves as a partner.
+
+That same philosophy lives at C2X
+
+In 2014, two partners and I opened C2X — Commitment 2 Excellence Wrestling Academy — in a 2,400-square-foot warehouse in Fort Mill, South Carolina.
+
+Like Cisco, we've made culture intentional. Our 24 fundamentals, The C2X Way, include: Listen Generously, Walk in Others' Shoes, Assume Positive Intent, and Practice Blameless Problem-Solving.
+
+Today, C2X is a nonprofit where 10 former collegiate wrestlers coach and mentor more than 200 young people annually. Beyond wrestling, we provide academic support, college recruiting guidance, mentorship, and scholarships for families in need.
+
+The impact goes far beyond the wrestling mat.
+
+Two former wrestlers dreamed of becoming firefighters. We connected them with a C2X family member who leads Charlotte Fire Academy. Today, both serve their communities as firefighters.
+
+Tim (left) with C2X partners Tom Tanis, previous Division I All-American at Rutgers, and Vas Lahanas, a former NCAA qualifier at the University of Maryland.
+
+Another graduated from the University of Virginia after we helped negotiate $250,000 in wrestling scholarship support. He’s now preparing for medical school.
+
+And two young men who attended our first practice in 2014 returned after successful Division I wrestling careers. Today, they’re C2X coaches, investing in the next generation.
+
+The ripple effect
+
+We're now preparing to open a state-of-the-art facility, expanding our reach to approximately 350 young people annually. I'm especially proud that Cisco will support this next chapter with technology to help our athletes train, study, learn, and thrive. CX2 has also been accepted into Benevity, Cisco’s matching gift program.
+
+When I walk into C2X, I think about looking into the stands and always finding my mom. And I remember Coach Weir making room in his car for one more kid.
+
+Neither could have imagined where those sacrifices and acts of kindness would lead. But I see it now.
+
+It’s the culture I strive to create at C2X and the culture we've built with our Cisco/Wells Fargo team: Give someone an opportunity. Believe in them. Help them become more than they thought they could be.
+
+Then, watch the ripple effect continue.
+
+You may also like…
+
+Discover how a culture of support helped James Lovell scale his career at the biggest company you’ve never heard of.
+
+How Laura Tinnelly helped build Cisco’s AI Presentation Coach, proving anyone can innovate.
+
+Monica Naim shares her journey from homelessness to Cisco and how Sleep Out helps youth find hope and stability.
+
+Related links
+
+CX2 Academy
+
+Employee Giving and Volunteering
+
+Cisco Corporate Social Responsibility"
 e495c89464b2,a67a7c8343b5,2026-11-10 12:15 UTC,General Security News,,Infosecurity Magazine,Identity Security Posture Management,Article,Default Admin Password Let Researchers Unlock and Start Cars,https://www.infosecurity-magazine.com/news/forgerock-openidm-default-password/,"Test Car Unlocked and Started From a Hijacked Account In early 2026, the researchers bypassed the web application firewall (WAF) in front of the login servers and found the...","Researchers been able to take over customer accounts at two car brands. They then demonstrated how they could remotely unlock and start a test car after finding an administration console on the brands' login servers still protected by its default password.
 
 Security researchers Shubham Shah and Sam Curry detailed the work in a write-up published November 7. Customer logins for both brands ran on OpenIDM, identity management software from ForgeRock, now part of Ping Identity. The brands were not named, at the automakers' request.
@@ -6377,7 +6446,7 @@ The plugin works in Pipeline and Freestyle jobs. In a pipeline, the aqua step go
 Each job chooses what happens to a noncompliant image: never fail the build, or perform the actions defined in the Image Assurance Policy. Local images and archives are evaluated against the Default Image Assurance Policy. Registry images are evaluated against every policy whose scope includes them. Optional settings register the image with Aquasec after a successful scan, hide base image vulnerabilities and run a shell command when an image fails.
 
 Results appear in Jenkins as an Aquasec scan report organized like the image view in the Aquasec UI. A View in Aqua Platform button opens the image under Workload Protection, Images & Functions, Images, CI/CD Scans. A separate Aqua Security Serverless Scanner plugin scans function code for vulnerabilities, sensitive data and excessive permissions."
-4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Cloudflare,Cloudflare Blog,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
+4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Cloudflare,Cloudflare Security,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
 
 Privacy Pass is a protocol used by site operators like Cloudflare to help protect applications from abuse. One way we do this is by rate limiting individual clients so that no one client consumes too many of the site's resources. Normally this involves some combination of friction or loss of privacy for users: CAPTCHAs or other challenges to moderate traffic, along with accounts and fingerprinting to identify traffic.Privacy Pass was designed to avoid this tradeoff between friction and privacy. The basic idea is that a client gets issued a number of tokens, which they can redeem in exchange for access to the site. Crucially, each token is unlinkable to the client it was issued to, ensuring the client can use the site as they always had without sacrificing privacy.
 
@@ -6664,43 +6733,6 @@ Kubernetes CVEs aren’t slowing down, and patching everything the moment it’s
 Orca helps you do exactly that. From the first alert to the closed ticket, the Orca Cloud Security Platform shows you where a CVE runs, whether it’s exposed, whether it’s exploitable, what it can reach, and how it affects your compliance posture. Copy Fail is one example. The same workflow works for whatever CVE lands next.
 
 See it in your own environment. Request a demo and we’ll walk through how Orca triages the Kubernetes CVEs that matter most to your clusters. To go deeper on Orca’s Kubernetes and Container Security capabilities, download the data sheet."
-7a7020b7aa34,7a7020b7aa34,2026-11-06 11:37 UTC,General Security News,,CSO Online,AI Security; Identity Security Posture Management,Article,Railway’s AI agents go off the track on a rival’s network,https://www.csoonline.com/article/4245637/railways-ai-agents-go-off-the-track-on-a-rivals-network.html,"Amir Boldo, co-founder and chief product and technology officer of Above Security, cautioned against describing agents as attackers, as they can execute attacker-like sequences...","AI agents operated by cloud infrastructure and application hosting platform, Railway, have attempted to access a rival platform’s infrastructure, prompting the cloud provider’s leadership to acknowledge the incident on social media.
-
-Railway senior product engineer Jake Runzer acknowledged running agents to perform signups and agentic testing on similar platforms after Primcloud founder Josh Manders publicly questioned why Railway employees were attempting to breach his infrastructure.
-
-Runzer said he had halted the testing harness after it began reaching too far. Railway co-founder and CEO Jake Cooper apologized, saying the models were “getting a bit too good at this point,” and pledged to prohibit non-manual external testing.
-
-According to Manders, the agents attempted to receive credentials from an application container, request platform secrets, access cloud-provider metadata, discover internal databases and caches, and scan all 65,536 addresses on Primcloud’s internal network twice.
-
-The activity reportedly involved 24 scripted commands over 15 minutes.
-
-“An agent can act without a person directing every step,” said Diana Kelley, chief information security officer at Noma Security. “It doesn’t remove the responsibility of the people and organizations that deploy it.”
-
-Primcloud said its defenses blocked every attempt and that “nothing” was accessed. The incident follows Railway’s own security disclosure involving encrypted customer environment variables.
-
-The engineer was acting on his own
-
-Cooper said the employee had developed the testing tool independently, using personal accounts, a personal credit card, and his own time. He added that Runzer ran it against a single external provider and halted it proactively within 15 minutes, adding that Railway had addressed the incident internally.
-
-“I can confirm they ran this tool once and only once,” Cooper said in an X post. “Railway does not condone these actions. We expect all our employees to uphold our standards of conduct, whether acting on behalf of Railway or in a personal capacity.”
-
-Although that timeline checks out with Manders’ own account, some details remain murky. After publicly calling out Runzer on X, Manders posted a follow-up, saying he had observed another attempt to access the account after his initial warning.
-
-“I see you tried to access the account after this tweet too, Jake,” he had written more than 30 minutes after his first post.
-
-Primcloud does not have a bug bounty program, according to its Acceptable Use Policy (AUP). It forbids unauthorized probing, scanning, or vulnerability testing without prior written consent.
-
-‘The AI did it’ is not an accountability strategy
-
-Experts condemn Railway’s “rogue AI” explanation for the incident.
-
-Amir Boldo, co-founder and chief product and technology officer of Above Security, cautioned against describing agents as attackers, as they can execute attacker-like sequences without any malicious intent.
-
-Execution traces can establish what an agent did, but they cannot independently prove intent, he said, adding that investigators need evidence spanning instructions, identities, permissions, inputs and tool calls. “You can’t put an agent on trial. You can hold each party accountable for its part,” Boldo said.
-
-Ronald Lewis, head of cybersecurity governance at Black Duck, argued that users may not fully appreciate that delegating work to an agent also delegates the authority associated with their identity.
-
-“We now have to ask what happens when trusted identity is delegated to a non-deterministic system capable of independently deciding how to use it,” Lewis said. Cooper confirmed in his X post that Railway had addressed the incident internally and was reinforcing its expectations for employee conduct, including when employees act in a personal capacity."
 5b39febcfa45,5b39febcfa45,2026-11-06 17:00 UTC,General Security News,,The Hacker News,Vulnerability Management,Article,The Flood is Coming And The Pipes Were Already Full,https://thehackernews.com/2026/11/the-flood-is-coming-and-pipes-were.html,"Who gets a vulnerability first, how fast a fix reaches the people running the code, whether the operators who can't move on an attacker's timeline get a head start","An update on Athena, and some unsolicited predictions on what's coming next
 
 On Saturday, Dario Amodei published We Must Pace the Frontier. I agree with him. Go read it if you haven't. I've spent the summer looking at what these models find, and the gap he describes between what they can do and what the rest of us are ready for is the one I've been staring at since May.
@@ -7374,7 +7406,7 @@ Join us at Microsoft Ignite for Secure your on-prem estate (BRK215) to explore t
 Modernize where you can. Strengthen the security of what must remain.
 
 The post New investments to reduce on-premises security risk appeared first on Microsoft Security Blog."
-e617b2a600b9,e617b2a600b9,2026-11-05 17:03 UTC,General Security News,Cloudflare,Cloudflare Blog,AI Security,Article,Agents aren’t humans (but they kinda are),https://blog.cloudflare.com/trusted-agent-delegation/,"The bank can see an attack happening, but the only person it can ban is Ezra","AI Agents now act on the web for millions of people. To a Site, an Agent can take many forms. It may be indistinguishable from a human user carrying out a task, or it might look like one visitor carrying many Users. This removes the ability for the Site to recognize, serve, and hold accountable the user or users behind the Agent, and causes the Site to face the costs when something goes wrong. This post argues that in order for Sites to maximize the access they provide to Agents, the ecosystem must develop new mechanisms to preserve the relationship between Sites and Users. Traditionally, in Security and Fraud Prevention, that requires three things: Identity, Reputation, and Accountability, allowing Sites to answer: Is the person acting being truthful about who they are? Is that person trustworthy? And who answers for the action?
+e617b2a600b9,e617b2a600b9,2026-11-05 17:03 UTC,General Security News,Cloudflare,Cloudflare Security,AI Security,Article,Agents aren’t humans (but they kinda are),https://blog.cloudflare.com/trusted-agent-delegation/,"The bank can see an attack happening, but the only person it can ban is Ezra","AI Agents now act on the web for millions of people. To a Site, an Agent can take many forms. It may be indistinguishable from a human user carrying out a task, or it might look like one visitor carrying many Users. This removes the ability for the Site to recognize, serve, and hold accountable the user or users behind the Agent, and causes the Site to face the costs when something goes wrong. This post argues that in order for Sites to maximize the access they provide to Agents, the ecosystem must develop new mechanisms to preserve the relationship between Sites and Users. Traditionally, in Security and Fraud Prevention, that requires three things: Identity, Reputation, and Accountability, allowing Sites to answer: Is the person acting being truthful about who they are? Is that person trustworthy? And who answers for the action?
 
 “Personal AI Agents” (“Agents” for short) are automations that take instructions from a human (“User”) and pursue a goal by controlling a cloud computer or browser. They are usually hosted and maintained by an “Operator” as part of a managed service or consumer offering. Examples include Muse from Meta and dots from OpenAI, and more are launching all the time. Agents can potentially take any action online that their User could, without the limits that hold humans back. They don't tire, they run around the clock, they act in parallel, and they put up with friction no person would. Much of the web, from how Sites plan capacity to how they make money, assumes those limits.
 
@@ -7756,7 +7788,6 @@ Read the full findings in our 2026 Application Access Governance Report.
 WHITEPAPER The AI Governance Gap
 
 See where the gaps are and how to extend control from the point of access to the moment of action."
-6107ce579952,6107ce579952,2026-11-05 11:25 UTC,General Security News,,SANS ISC,Network Security; Code Security; Email and Collaboration Security; Threat Intelligence,Podcast,"ISC Stormcast For Thursday, November 5th, 2026 https://isc.sans.edu/podcastdetail/10166, (Thu, Nov 5th)",https://isc.sans.edu/diary/rss/33490,"One of the first sort of web vulnerabilities that I've sort of experienced, worked with was an old email script vulnerability for FormMail that had a number of issues. It's really more of a very focused and very full feature in that sense, a vulnerability scanner for these type of devices.","Hello and welcome to the Thursday, November 5th, 2026 edition of the SANS Internet Storm Center's Stormcast. My name is Johannes Ullrich, recording today from Jacksonville, Florida. And this episode is brought to you by the SANS.edu Graduate Certificate Program in Cybersecurity Engineering. Well today's diary I titled it with the classics return. One of the first sort of web vulnerabilities that I've sort of experienced, worked with was an old email script vulnerability for FormMail that had a number of issues. So one was where it sort of would leak environment variables but could also be used to send spam to anybody in some versions. Now what I noticed in our web honeypot logs today was a number of different requests for script like sendmail.php, test-mail.php. Now what this I think looks for is, and I found a couple of these scripts, is these are scripts that you may deploy in development to just check your email configuration. These scripts will also send email to random email addresses that you specify as part of a GET or POST parameter. Two issues with this. First of all, yes, just like the good old FormMail script, these scripts will leak environment variables and server configuration. So that's one problem. But it can also be abused by a spammer to send email to arbitrary email addresses. Make sure you're not deploying them in production. Apparently enough people are doing so for attackers to make it worthwhile to actually scan for these scripts. So I think the real problem here is how do you manage moving code live and how do you sort of manage your entire sort of production environment and your build pipeline. That's sort of where these checks probably should be implemented that something like this never makes it to a production site. And then we've got an interesting new tool, OOB scan, out-of-band scan from H.D. Moore with runZero. This tool scans your network for exposed baseboard management controllers, IPMI, SNMP, and various other things that could be used to control systems, often used sort of as part of like these out-of-band management tools. Well, that's the name of the tool to manage servers. I just ran it before the podcast against my home network and definitely my AI agent has some work to do later to clean up some of the things that found, like found a printer that had SNMP enabled. I didn't know about, never use it. So that's one of the things that's going to be disabled. Yes, it's sort of a better port scanner, but it's really focused on these out-of -band management interfaces, like also IP KVMs and such. It finds that are found by other tools, but this one will give you all the details. It will flag any specific vulnerabilities it found on these systems. So it's more than a port scanner. It's really more of a very focused and very full feature in that sense, a vulnerability scanner for these type of devices. Well, then we have a critical vulnerability in apt, the script that you typically use to manage packages on Debian systems. This vulnerability is triggered by sending error messages from the web server, serving apt packages. And if you do it right, well then apt will not verify the signature on this package. So this allows the attacker to inject malicious packages for the system to download and install. This is particularly an issue because apt still doesn't always use HTTPS. So in order to trigger this vulnerability, an attacker does not have to have actually control of the endpoint. It's sufficient to then inject data on path. So another thing that you may want to look at if you're still using HTTP for apt, maybe switch to HTTPS. That may be an option depending on your distribution. Ubuntu, I think by default still does HTTP, not HTTPS. Then I got some bad news for you. If you're using SonicWall's GMS appliance, their global management system, well this product has been out of support and end of life for a while now. And there is a new vulnerability, one that does allow unauthenticated file read and then also an authenticated SQL injection vulnerability. Well, neither will be fixed. So your only option is really to check with SonicWall what else to give the money for that will replace GMS if you still need something with this feature set. It's a virtual appliance, so you can't really upgrade it by throwing it into the trash. I guess you can still just delete it or throw it into the desktop trash can. Well, and this is it for today. So thanks again for listening. Thanks for liking. Thanks for recommending this podcast and talk to you again tomorrow. Bye."
 f13c95c93590,f13c95c93590,2026-11-05 09:25 UTC,General Security News,,Infosecurity Magazine,Other/General,Article,NATS Air Traffic Control Failure Cost UK Economy £33m,https://www.infosecurity-magazine.com/news/nats-air-traffic-control-fail-cost/,"Although not the result of a malicious attack, the incident highlights the ongoing challenge of improving business and IT resilience in critical sectors","A major IT failure at the UK’s National Air Traffic Services (NATS) in September was not caused by a cyber incident, but still cost the economy tens of millions of pounds, a new report has revealed.
 
 The Cyber Monitoring Centre (CMC) claimed in a report published on November 4 that the cost to the UK economy was around £33m ($44m), with 70 domestic organizations affected.
@@ -8000,65 +8031,6 @@ How much could you free up by rationalizing your needs within a single system?
 So, SIEM or XDR? Yes. XDR is a SIEM rebuilt for security outcomes, which means the real decision is about capabilities and economics. With your answers in hand, weigh the opportunity cost of each path: replace your SIEM, buy a SIEM-less SIEM, adopt XDR, or keep both and narrow the SIEM to non-cybersecurity use cases. Then balance that against your organization’s needs.
 
 So, where does the agentic SOC fit into all of this? More on that in my next blog."
-446fa3f7d804,446fa3f7d804,2026-11-05 00:00 UTC,General Security News,Falco / Sysdig,Falco / Sysdig Blog,AI Security; Cloud Risk Management; Threat Intelligence; Container Security,Article,Refreshing the 555 Benchmark for Cloud Detection and Response in the AI era,https://webflow.sysdig.com/blog/refreshing-the-555-benchmark-for-cloud-detection-and-response-in-the-ai-era,"It used to take attackers days to conduct reconnaissance, lateral movement, and exploitation, but now it only requires a few minutes","How long does it take your security teams to detect a threat, correlate and contextualize relevant data, and take action? For most organizations, the honest answer is still measured in hours or days. Mature organizations are actively working toward reducing that time to minutes, and the most innovative teams are moving to sub-minute timescales using agentic AI.
-
-The reality is that attackers don’t wait. Researchers across the industry, like the Sysdig Threat Research Team, have continuously shown that cloud attacks unfold in 10 minutes or less, and with AI and agentic workflows, the window for defense continues to shrink.
-
-In mid-July 2026, Hugging Face disclosed a security incident unlike anything the industry had documented before. An agentic security research harness breached their production infrastructure. This harness was later confirmed to be part of OpenAI’s internal cyber-capability evaluation. Hugging Face logged more than 17,000 recorded events before the agents were contained, and they deployed LLM-driven analysis agents to reconstruct the timeline, extract indicators of compromise, and map the credentials touched. It took an AI to catch an AI.
-
-Just one month prior, the Sysdig TRT documented JADEPUFFER, which targeted AI and ML infrastructure with purpose-built ransomware. The attacker was also an agent with no human at the keyboard.
-
-These are not isolated incidents; they are the new normal. AI-assisted attacks have compressed the kill chain, and frontier AI models like Anthropic’s Claude Mythos have uncovered thousands of new vulnerabilities, too. It used to take attackers days to conduct reconnaissance, lateral movement, and exploitation, but now it only requires a few minutes.
-
-“Cloud threats aren’t just fast; they are automated. Without real-time visibility, an attacker can move from a container escape to resource hijacking in minutes, spiking your compute costs before your team even receives an alert. Early detection is the only way to intercept execution before it impacts your bottom line.” — CISO at a Cryptocurrency Exchange and Trading Platform
-
-The 555 Benchmark was designed for this
-
-The 555 Benchmark for Cloud Detection and Response gives organizations a framework to meet this reality: detect threats in 5 seconds, investigate them in 5 minutes, and respond with precision in 5 minutes. And with agentic capabilities in the hands of defenders, meeting that benchmark is more than achievable.
-
-When 555 was first introduced, it was a challenge; something to work toward. The Hugging Face incident, and other reports of agentic threat actors (ATAs), make clear why this benchmark is now a business imperative. When an autonomous system can break out and breach a production infrastructure via the fastest path, our concern is no longer whether AI can find vulnerabilities. It is whether organizations have continuous visibility into what attackers can reach, what they did, and how quickly they can be stopped. That is exactly what 555 operationalizes.
-
-Ultimately, the 555 Benchmark isn’t a product or quick fix to implement, but a call to action to pressure-test your security processes against the speed of modern attacks. By continuously improving and modernizing your people, processes, and tooling, and by supplementing them with well-governed agentic AI security capabilities, you can reduce the risk of material breach, reputational damage, and financial loss.
-
-Long gone are the days of working to defend your environment over the course of several days. Today, you only have minutes to respond to an attack.
-
-“I don't want to know 15 minutes after someone breached my system. I need to know instantly so we can shut it down before the blast radius expands. To move at the necessary speed, you need to not only be alerted to the right things, but also respond appropriately. Having a benchmark gives us a goal to hold ourselves to.” — Désiré Banse, Former NIST Researcher and Security Operations Manager at a healthcare technology company
-
-Introducing the updated 555 Benchmark Guides for CISOs and practitioners
-
-To help organizations operationalize this framework for the AI era, Sysdig has republished two guides — aimed at different roles working toward the same goal — to support and encourage organizations in striving for 10-minute threat detection and response.
-
-One guide is designed for the practitioners who work in and around the SOC: the security professionals in the trenches and on the front lines. The Hugging Face response team is a model for what this looks like in practice: After the breach was contained, they used agentic AI to do in hours what would’ve taken a team of analysts days. This guide focuses on how to operate at machine speed using the automation, AI tooling, and agentic workflows that make 555 achievable.
-
-“Cloud threat detection and response goes far beyond tooling. You need to implement a specific set of skills and finesse and a different kind of mindset to detect cloud attacks in real time. ”
-
-The Guide to the 555 Benchmark for Cloud Security Practitioners
-
-The other guide is for the CISOs and security leaders who are responsible for leading teams through battle. They own the security strategy and risk, and must report value and breach impact to the board and to other business functions. This guide aligns security outcomes with organizational risk and reflects how, in the AI era, speed is the defining risk factor and defining board-level question.
-
-“For large enterprises, a single hour of downtime costs over $100,000, with industries like finance, healthcare, media, and communications reaching well over $5 million per hour.”
-
-The Guide to the 555 Benchmark for CISOs
-
-Together, these guides provide a framework for security teams and leaders to meet common goals and expectations. It also helps them speak a unified language. By collaborating and following the strategies outlined, they can implement changes that modernize and accelerate cloud security practices, turning what were once ambitious goals into operational reality.
-
-Enterprise security is like a symphony orchestra, with the CISO as the conductor. An oboist cannot sit in for a violinist, and different teams play their own distinct roles. SOC analysts, developers, platform engineers, and business stakeholders each contribute unique skills to the overall composition. Today, AI agents have joined that orchestra — not replacing whole sections, but playing alongside them, automating manual, repetitive processes and handling the parts that move too fast for humans hands alone, so humans can exercise judgment and have a greater impact. Synchronization and speed are survival requirements to maintain a secure and harmonious organization.
-
-What you’ll learn
-
-The updated 555 guides were designed to help organizations mature and modernize detection and response for the AI era through:
-
-Collaboration: Working cross-functionally inside and outside of security and technical teams around shared context and outcomes to enable coordinated, real-time detection and response as humans and automated systems work together.
-
-Integration: Unifying cloud-native telemetry and identity behaviors across cloud, SaaS, and AI systems to build real-time, decision-ready context across your entire environment to enable faster, more accurate detection and response.
-
-Automation: Reducing manual effort across detection, investigation, and response to keep pace with AI-driven attacks by enabling orchestration to execute at machine speed.
-
-Fast and automated incident response = Less attack risk = Lower chance of materiality = Business and operational value of security
-
-If your organization operates in the cloud, now is the time to reassess how fast your security processes actually move. You don’t always need more tools or budget, but you do need the right architecture and better orchestration of the people, processes, and tooling you already have to modernize your cloud threat detection and response and meet the speed that threats demand.
-
-Read and share The Guide to the 555 Benchmark for CISOs and The Guide to the 555 Benchmark for Cloud Security Practitioners today. Attackers are already running at machine speed — it’s time your defense does, too."
 56686331d6bc,56686331d6bc,2026-11-05 00:00 UTC,General Security News,Vectra AI,Vectra AI Blog,AI Security; Network Security; Identity Security Posture Management,Article,Vectra AI Named a 2026 Gartner Peer Insights Customers’ Choice: Customers Validate the Power of Behavioral AI  by Tiffany Nip,https://www.vectra.ai/blog/vectra-ai-named-a-2026-gartner-peer-insights-customers-choice,"Another highlighted: “Highly accurate and fast detection with good and detailed explanations” By correlating related behaviors into prioritized threats, Vectra AI helps analysts...","99% of customers would recommend Vectra AI. Here’s what they’re telling us about defending against modern cyberattacks.
 
 I'm excited to share that Vectra AI has been named a Customers' Choice in the 2026 Gartner Peer Insights Voice of the Customer for Network Detection and Response (NDR).
@@ -8162,6 +8134,65 @@ To our customers, thank you for your trust, feedback, and partnership. Your expe
 Hear Directly From Our Customers
 
 Read the reviews: Explore what customers are saying about the Vectra AI Platform on Gartner Peer Insights."
+446fa3f7d804,446fa3f7d804,2026-11-05 00:00 UTC,General Security News,Falco / Sysdig,Falco / Sysdig Blog,AI Security; Cloud Risk Management; Threat Intelligence; Container Security,Article,Refreshing the 555 Benchmark for Cloud Detection and Response in the AI era,https://webflow.sysdig.com/blog/refreshing-the-555-benchmark-for-cloud-detection-and-response-in-the-ai-era,"It used to take attackers days to conduct reconnaissance, lateral movement, and exploitation, but now it only requires a few minutes","How long does it take your security teams to detect a threat, correlate and contextualize relevant data, and take action? For most organizations, the honest answer is still measured in hours or days. Mature organizations are actively working toward reducing that time to minutes, and the most innovative teams are moving to sub-minute timescales using agentic AI.
+
+The reality is that attackers don’t wait. Researchers across the industry, like the Sysdig Threat Research Team, have continuously shown that cloud attacks unfold in 10 minutes or less, and with AI and agentic workflows, the window for defense continues to shrink.
+
+In mid-July 2026, Hugging Face disclosed a security incident unlike anything the industry had documented before. An agentic security research harness breached their production infrastructure. This harness was later confirmed to be part of OpenAI’s internal cyber-capability evaluation. Hugging Face logged more than 17,000 recorded events before the agents were contained, and they deployed LLM-driven analysis agents to reconstruct the timeline, extract indicators of compromise, and map the credentials touched. It took an AI to catch an AI.
+
+Just one month prior, the Sysdig TRT documented JADEPUFFER, which targeted AI and ML infrastructure with purpose-built ransomware. The attacker was also an agent with no human at the keyboard.
+
+These are not isolated incidents; they are the new normal. AI-assisted attacks have compressed the kill chain, and frontier AI models like Anthropic’s Claude Mythos have uncovered thousands of new vulnerabilities, too. It used to take attackers days to conduct reconnaissance, lateral movement, and exploitation, but now it only requires a few minutes.
+
+“Cloud threats aren’t just fast; they are automated. Without real-time visibility, an attacker can move from a container escape to resource hijacking in minutes, spiking your compute costs before your team even receives an alert. Early detection is the only way to intercept execution before it impacts your bottom line.” — CISO at a Cryptocurrency Exchange and Trading Platform
+
+The 555 Benchmark was designed for this
+
+The 555 Benchmark for Cloud Detection and Response gives organizations a framework to meet this reality: detect threats in 5 seconds, investigate them in 5 minutes, and respond with precision in 5 minutes. And with agentic capabilities in the hands of defenders, meeting that benchmark is more than achievable.
+
+When 555 was first introduced, it was a challenge; something to work toward. The Hugging Face incident, and other reports of agentic threat actors (ATAs), make clear why this benchmark is now a business imperative. When an autonomous system can break out and breach a production infrastructure via the fastest path, our concern is no longer whether AI can find vulnerabilities. It is whether organizations have continuous visibility into what attackers can reach, what they did, and how quickly they can be stopped. That is exactly what 555 operationalizes.
+
+Ultimately, the 555 Benchmark isn’t a product or quick fix to implement, but a call to action to pressure-test your security processes against the speed of modern attacks. By continuously improving and modernizing your people, processes, and tooling, and by supplementing them with well-governed agentic AI security capabilities, you can reduce the risk of material breach, reputational damage, and financial loss.
+
+Long gone are the days of working to defend your environment over the course of several days. Today, you only have minutes to respond to an attack.
+
+“I don't want to know 15 minutes after someone breached my system. I need to know instantly so we can shut it down before the blast radius expands. To move at the necessary speed, you need to not only be alerted to the right things, but also respond appropriately. Having a benchmark gives us a goal to hold ourselves to.” — Désiré Banse, Former NIST Researcher and Security Operations Manager at a healthcare technology company
+
+Introducing the updated 555 Benchmark Guides for CISOs and practitioners
+
+To help organizations operationalize this framework for the AI era, Sysdig has republished two guides — aimed at different roles working toward the same goal — to support and encourage organizations in striving for 10-minute threat detection and response.
+
+One guide is designed for the practitioners who work in and around the SOC: the security professionals in the trenches and on the front lines. The Hugging Face response team is a model for what this looks like in practice: After the breach was contained, they used agentic AI to do in hours what would’ve taken a team of analysts days. This guide focuses on how to operate at machine speed using the automation, AI tooling, and agentic workflows that make 555 achievable.
+
+“Cloud threat detection and response goes far beyond tooling. You need to implement a specific set of skills and finesse and a different kind of mindset to detect cloud attacks in real time. ”
+
+The Guide to the 555 Benchmark for Cloud Security Practitioners
+
+The other guide is for the CISOs and security leaders who are responsible for leading teams through battle. They own the security strategy and risk, and must report value and breach impact to the board and to other business functions. This guide aligns security outcomes with organizational risk and reflects how, in the AI era, speed is the defining risk factor and defining board-level question.
+
+“For large enterprises, a single hour of downtime costs over $100,000, with industries like finance, healthcare, media, and communications reaching well over $5 million per hour.”
+
+The Guide to the 555 Benchmark for CISOs
+
+Together, these guides provide a framework for security teams and leaders to meet common goals and expectations. It also helps them speak a unified language. By collaborating and following the strategies outlined, they can implement changes that modernize and accelerate cloud security practices, turning what were once ambitious goals into operational reality.
+
+Enterprise security is like a symphony orchestra, with the CISO as the conductor. An oboist cannot sit in for a violinist, and different teams play their own distinct roles. SOC analysts, developers, platform engineers, and business stakeholders each contribute unique skills to the overall composition. Today, AI agents have joined that orchestra — not replacing whole sections, but playing alongside them, automating manual, repetitive processes and handling the parts that move too fast for humans hands alone, so humans can exercise judgment and have a greater impact. Synchronization and speed are survival requirements to maintain a secure and harmonious organization.
+
+What you’ll learn
+
+The updated 555 guides were designed to help organizations mature and modernize detection and response for the AI era through:
+
+Collaboration: Working cross-functionally inside and outside of security and technical teams around shared context and outcomes to enable coordinated, real-time detection and response as humans and automated systems work together.
+
+Integration: Unifying cloud-native telemetry and identity behaviors across cloud, SaaS, and AI systems to build real-time, decision-ready context across your entire environment to enable faster, more accurate detection and response.
+
+Automation: Reducing manual effort across detection, investigation, and response to keep pace with AI-driven attacks by enabling orchestration to execute at machine speed.
+
+Fast and automated incident response = Less attack risk = Lower chance of materiality = Business and operational value of security
+
+If your organization operates in the cloud, now is the time to reassess how fast your security processes actually move. You don’t always need more tools or budget, but you do need the right architecture and better orchestration of the people, processes, and tooling you already have to modernize your cloud threat detection and response and meet the speed that threats demand.
+
+Read and share The Guide to the 555 Benchmark for CISOs and The Guide to the 555 Benchmark for Cloud Security Practitioners today. Attackers are already running at machine speed — it’s time your defense does, too."
 f272446aa25a,f272446aa25a,2026-11-04 21:30 UTC,General Security News,,CyberWire Daily,AI Security; Vulnerability Management; Email and Collaboration Security; Identity Security Posture Management,Podcast,"Ballots, bots, and backlash.",https://www.thecyberwire.com/podcasts/daily-podcast/2671/notes,"Attackers also exploited an internal AI tool to expand their access, eventually reaching Binance's wallet signing infrastructure. Barracuda says attackers must first reach the devices’ administrative interfaces.","Election Day brings typical cyber threats, technical glitches, and misinformation. Hackers tamper with European refrigeration systems. OpenAI faces questions over years of security warnings. Nvidia reportedly restricts business with Chinese data center customers. Binance details a six-billion-dollar heist attributed to North Korea. Barracuda patches critical security flaws. Gartner predicts an engineering-heavy future for security operations. Canadians face charges for hacking U.S. universities. Our guest is Heather Ceylan, CISO at Box, discussing Enterprise AI in 2026: what security leaders learned — and what comes next. AI takes the pitch, misses the point.
 
 Today is Wednesday November 4th 2026. I’m Dave Bittner. And this is your CyberWire Intel Briefing.
@@ -8593,7 +8624,7 @@ A clean image running on a vulnerable node is still a vulnerable workload. Pull 
 Bring your Kubernetes nodes into the same Vulnerability Management and Policy Audit coverage as the rest of your estate.
 
 Get the Containerized Cloud Agent"
-e38c5e855ca5,e38c5e855ca5,2026-11-04 14:00 UTC,General Security News,Cloudflare,Cloudflare Blog,AI Security; Identity Security Posture Management; Network Security,Article,"See the agents, set the terms: New visibility and control for personal agents",https://blog.cloudflare.com/personal-agents-visibility-control/,Agent identity is only part of the story The analytics and policies we’re launching today give site owners visibility into personal agent activity and control over their access,"Personal agents are the intermediary between humans and the Internet, turning a person’s instructions into requests and actions on websites. A customer might ask a personal agent to compare products across your site, find support articles, or complete a purchase. To a site owner, all three interactions show up as automated traffic — and without a clear view of which agents are visiting and what they are doing, it can be difficult to know whether that traffic is helping your business or creating risk. Blocking agents altogether can feel like the safest choice, but it can mean losing customers. Better visibility into agent activity allows you to decide what access makes sense for your site.
+e38c5e855ca5,e38c5e855ca5,2026-11-04 14:00 UTC,General Security News,Cloudflare,Cloudflare Security,AI Security; Identity Security Posture Management; Network Security,Article,"See the agents, set the terms: New visibility and control for personal agents",https://blog.cloudflare.com/personal-agents-visibility-control/,Agent identity is only part of the story The analytics and policies we’re launching today give site owners visibility into personal agent activity and control over their access,"Personal agents are the intermediary between humans and the Internet, turning a person’s instructions into requests and actions on websites. A customer might ask a personal agent to compare products across your site, find support articles, or complete a purchase. To a site owner, all three interactions show up as automated traffic — and without a clear view of which agents are visiting and what they are doing, it can be difficult to know whether that traffic is helping your business or creating risk. Blocking agents altogether can feel like the safest choice, but it can mean losing customers. Better visibility into agent activity allows you to decide what access makes sense for your site.
 
 Today, we’re launching new analytics to help you understand how personal agents access your site on behalf of humans, along with more granular access policies to put those decisions into practice. Together, they let you welcome agents on your own terms, and in ways that support your business.
 
@@ -8900,151 +8931,6 @@ You can submit a question to Security Now at the GRC Feedback Page.
 For 16kbps versions, transcripts, and notes (including fixes), visit Steve's site: grc.com, also the home of the best disk maintenance and recovery utility ever written Spinrite 6.
 
 Join Club TWiT for Ad-Free Podcasts! Support what you love and get ad-free audio and video feeds, a members-only Discord, and exclusive content. Join today: https://twit.tv/clubtwit"
-1b4c2314e582,1b4c2314e582,2026-11-04 00:00 UTC,General Security News,Sophos,Sophos Blogs,Network Security; AI Security; Vulnerability Management,Article,Securing the AI-era network: Why performance and defense now belong together,https://www.sophos.com/en-us/blog/securing-the-ai-era-network-why-performance-and-defense-now-belong-together,"The vulnerability you haven’t patched, the unsupported device you’ve forgotten about, or the management interface exposed to the internet can be discovered and exploited sooner","AI doesn’t operate in isolation. Its prompts, workflows, data exchanges, and API calls all depend on the network. As organizations put AI to work, it adds a new layer of traffic that is increasingly encrypted, application-driven, and machine-to-machine.
-
-Attackers are using AI too, helping them find weaknesses and act on them faster. The vulnerability you haven’t patched, the unsupported device you’ve forgotten about, or the management interface exposed to the internet can be discovered and exploited sooner. AI is narrowing the gap between exposure and attack.
-
-The network connects the users, devices, applications, cloud services, workloads, and AI systems that keep your organization running. That makes it one of the first places risk becomes visible and one of the fastest places to act. But only if the network has the performance to inspect demanding traffic, the visibility to recognize suspicious activity, and the ability to coordinate a response.
-
-Four pressures reshaping today’s networks
-
-The challenges will be familiar to most IT and security teams. AI is increasing their scale, speed, and operational impact:
-
-More demanding traffic. Encrypted, application-rich, and AI-enabled activity requires more inspection capacity. If the firewall becomes a bottleneck, organizations can be forced to choose between stronger protection and acceptable performance.
-
-Faster-moving threats. AI can accelerate reconnaissance, vulnerability discovery, exploitation, and other stages of an attack, reducing the time defenders have to respond.
-
-More blind spots. Distributed users, contractors, unmanaged and IoT devices, cloud services, and unsanctioned AI tools make it harder to see what is connected and govern how it is used.
-
-Less time to respond. Disconnected tools, incomplete context, and manual handoffs make it harder to contain threats before they spread.
-
-Performance and protection can no longer be planned separately
-
-This is not a reason to slow AI adoption. It is a reason to reconsider an old network trade-off. Organizations should not have to choose between supporting innovation and maintaining strong protection. Securing the AI-era network requires:
-
-Protected performance: enough capacity to inspect encrypted and application-rich traffic with the necessary protections enabled, without slowing the business down.
-
-Connected defense: network visibility and signals that strengthen investigation and response, helping security teams recognize and contain threats before they spread.
-
-Three questions to ask about your network
-
-Securing the AI-era network is not simply a matter of buying a faster firewall. It means planning performance, visibility, and response together.
-
-1. Can your network maintain performance with protection enabled?
-
-Headline throughput tells only part of the story. Capacity planning should reflect the TLS inspection, threat prevention, application control, and other protections you expect to keep switched on.
-
-2. Can you see beyond traditional network boundaries?
-
-Users, contractors, SaaS applications, unmanaged devices, and AI services all contribute to your exposure. Your visibility needs to extend across the environments where work now happens.
-
-3. Can network activity trigger a coordinated response?
-
-A network anomaly becomes more valuable when your team can investigate it alongside endpoint, identity, application, and threat context, then take action before the threat spreads.
-
-The goal is a network that can see what is connected, understand what is happening, maintain protection without compromising performance, and help stop threats before they spread.
-
-How Sophos is helping secure the AI-era network
-
-Sophos Fusion provides the foundation for our connected approach to cybersecurity, bringing Sophos products, services, and security intelligence together to help organizations see more, understand more, and respond faster. For the network, that means connecting protection, visibility, and context across the places where users, devices, applications, and data come together.
-
-The latest Sophos network security innovations build on that foundation:
-
-Sophos Firewall provides protection and control at key network boundaries.
-
-Sophos NDR extends visibility and response deeper into the network.
-
-Sophos Workspace Protection helps secure access wherever work happens.
-
-Sophos Wireless and Sophos Switch add visibility into connected devices and network segments.
-
-Together, they extend the Sophos Fusion story into the network, helping organizations maintain performance, reduce blind spots, and respond faster.
-
-Sophos Firewall v23: More control with less operational effort
-
-Sophos Firewall v23 helps organizations improve visibility, simplify administration, and strengthen resilience. It includes more than 30 enhancements, many based directly on customer and partner feedback.
-
-See and control AI use. Integration with Sophos AI Defense adds network-level visibility, reporting, and policy enforcement for AI services.
-
-Simplify firewall administration. The AI Assistant turns plain-language requests into proposed firewall rules that remain disabled until an administrator reviews and enables them. Redesigned rule management and an updated REST API make day-to-day administration and automation easier.
-
-Improve resilience. Faster high-availability failover, visible hotfix status, firmware update scheduling, and DNS over HTTPS help organizations maintain protection and availability.
-
-Protect more users and applications. Support for Microsoft Entra ID and Google identity providers, together with increased Web Application Firewall scale, helps protect larger and more diverse environments.
-
-Learn more about Sophos Firewall v23
-
-New XGS 1U firewall appliances: More performance. More choice.
-
-We’re also adding four new models to the XGS 1U range: the XGS 2380, XGS 3380, XGS 4580, and XGS 5580. They give mid-sized and distributed organizations more options on price and performance:
-
-Keep inspection switched on as traffic grows. Major gains in threat protection and TLS inspection performance, up to four times higher than comparable existing models, give you room to decrypt and protect growing volumes of encrypted traffic.
-
-Get more from every watt. Two purpose-built Xstream FastPath designs improve performance per watt, helping lower operating costs over the life of the appliance.
-
-Support higher-speed connectivity. 2.5G interfaces come on every new model, with up to 25G fiber on the XGS 3380 and above.
-
-Reduce downtime. Field-replaceable SSDs mean only a faulty drive needs to be returned, while the appliance stays in the rack. Improved internal redundant power options add further resilience.
-
-The new models expand the XGS range rather than replacing the existing appliances. The right choice depends on the protected performance, connectivity, resilience, and growth headroom your organization needs. Your Sophos partner can help you choose and size the right model for your environment.
-
-Xstream Plus: Expand protection with one firewall license
-
-Xstream Plus is a new Sophos Firewall term license for organizations that need more than network-edge protection alone. It includes everything in our most popular subscription bundle, Xstream Protection, together with:
-
-a model-specific allocation of Sophos Workspace Protection licenses
-
-Enhanced Plus Support
-
-up to one year of Sophos Fusion Firewall Reporting data retention, depending on traffic volume
-
-This gives organizations a simpler way to extend secure access and browser-based controls to remote and hybrid users, strengthen support for business-critical deployments, and retain reporting data longer for investigations, trend analysis, and compliance needs.
-
-Sophos NDR: Find and stop threats beyond the firewall
-
-Not every threat crosses a firewall, and not every device can run an endpoint agent. Now available as a standalone solution, Sophos NDR analyzes network activity to identify suspicious behavior across managed, unmanaged, IoT, and other agentless devices. It combines AI- and machine learning-powered behavioral detection with deep packet inspection and IDS/IPS capabilities.
-
-Reveal activity other controls may miss. Detect suspicious behavior and lateral movement across managed, unmanaged, and agentless devices.
-
-Disrupt malicious activity in real time. In Active Inline mode, Sophos NDR can drop identified malicious packets before they reach their target.
-
-Deploy it to suit your network. Choose virtual deployment, compatible third-party hardware, or a purpose-built Sophos NDR appliance, with Active Inline, Passive Inline, and SPAN/TAP options.
-
-Investigate with broader context. Bring NDR detections and network context into Sophos Fusion alongside information from other Sophos defenses.
-
-Sophos NDR works alongside Sophos Firewall to provide a more complete view of the network. Sophos Firewall controls traffic at key network boundaries, while Sophos NDR analyzes activity inside the network to identify threats that boundary controls may not see. Both contribute network context through Sophos Fusion.
-
-Sophos Workspace Protection: Secure access wherever work happens
-
-Sophos Workspace Protection helps secure how users access web, SaaS, private applications, and AI tools from anywhere, including from unmanaged contractor and BYOD devices. A model-specific allocation of Sophos Workspace Protection licenses is included with Xstream Plus, giving organizations a straightforward way to extend secure access and browser-based controls beyond the office.
-
-As we connect more Sophos solutions, customers will be able to apply protection more consistently across the network, endpoint, and workspace. New synchronized web policies are an important step in that direction. Administrators can configure web filtering in Sophos Fusion and apply it across Sophos Firewall and Sophos Endpoint.
-
-A Generative AI web category adds control over which AI services users can access, helping organizations allow approved tools, block unsanctioned services, and reduce the risk of sensitive information being shared inappropriately. Additional policy support for Sophos Protected Browser and Sophos DNS Protection is planned for future releases.
-
-We’re also extending this connected approach to AI security. Integration between Sophos Workspace Protection and Sophos AI Defense is planned to bring additional visibility and control to how organizations use AI services.
-
-A more connected view of network risk
-
-Each solution contributes a different part of the picture. Sophos Firewall provides visibility and control at key boundaries. Sophos Wireless and Sophos Switch show what is connected and where. Sophos NDR identifies suspicious activity inside the network, including on devices that cannot run an agent. Sophos Workspace Protection extends secure access and browser-based controls to users wherever they work.
-
-Sophos Fusion brings more of this context together, helping security teams investigate activity across the network and coordinate a faster, better-informed response. Instead of treating each network signal in isolation, teams can use it as part of a broader view of risk.
-
-Prepare the network for what comes next
-
-AI is making the network more important, not less. It is increasing organizations’ dependence on encrypted, application-driven, and machine-to-machine communication, while giving attackers new ways to find and exploit weaknesses faster.
-
-The answer is not to slow innovation. It is to build a network that can maintain protection as traffic evolves, reveal activity across managed and unmanaged environments, and turn network signals into faster action. By planning performance, visibility, and response together, organizations can adopt AI with greater confidence without allowing security or user experience to become the constraint.
-
-Explore what the AI era means for your network
-
-Join Sophos CEO Joe Levy, Sophos SVP of Product Management Dan Cole, and Eric Hanselman, Chief Analyst at 451 Research, part of S&P Global Market Intelligence, on November 17 for the Securing the AI-Era Network virtual roundtable.
-
-Hear their perspectives on how AI is changing the role of the network, why performance and security must now be planned together, and how organizations can prepare for threats that move at machine speed.
-
-Register for the virtual roundtable.
-
-To explore the latest Sophos Firewall, XGS appliance, Sophos NDR, and Sophos Workspace Protection innovations, contact your Sophos partner or visit the relevant product web pages."
 aba35cbbdf00,aba35cbbdf00,2026-11-04 00:00 UTC,General Security News,Falco / Sysdig,Falco / Sysdig Blog,AI Security,Article,What one organization revealed about AI agent risk,https://webflow.sysdig.com/blog/a-first-look-under-the-hood-of-ai-agents,"A First Look: Under the Hood of AI Agents With early access to Sysdig AI Defense, one software development company spent a month looking at AI agent usage across their enterprise","A First Look: Under the Hood of AI Agents
 
 With early access to Sysdig AI Defense, one software development company spent a month looking at AI agent usage across their enterprise. Below is what they found.
@@ -9881,7 +9767,6 @@ Explore All Posts by Aaron Linskens
 Tags
 
 vulnerability governance vulnerabilities open source governance risk management dependencies CVE remediation open source risk management artificial intelligence AI"
-5ec5f77213aa,5ec5f77213aa,2026-11-03 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,AI Security,Article,How Cisco defends at machine speed with OpenAI,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/how-cisco-defends-at-machine-speed-with-openai.html?source=rss,"<img src=""https://newsroom.cisco.com/c/dam/r/newsroom/en/us/assets/a/y2026/m11/CitN_Jeetu-cisco-cyber.jpg"" width=""450px""><br>Cisco combines network intelligence and OpenAI models to build more adaptive defenses.<br><b>More RSS Feeds: </b><a href=""https://newsroom.cisco.com/c/r/newsroom/en/us/rss-fee",
 77e5f78cecf3,77e5f78cecf3,2026-11-03 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,Why I Sleep Out for Covenant House,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/why-i-sleep-out-for-covenant-house.html?source=rss,"When you meet me now, you see a career at Cisco, a title, a life that looks like it worked out","When you meet me now, you see a career at Cisco, a title, a life that looks like it worked out. What you do not see is the teenager I used to be.
 
 At sixteen, I was working long hours to keep a roof over my head and going to school at night. That experience is part of my story, but it was never the whole story. I had dreams. I had potential. I had a future worth fighting for, even when my circumstances made that future hard to imagine.
@@ -9941,6 +9826,7 @@ Covenant House
 Covenant House Pennsylvania
 
 Cisco Corporate Social Responsibility"
+5ec5f77213aa,5ec5f77213aa,2026-11-03 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,AI Security,Article,How Cisco defends at machine speed with OpenAI,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/how-cisco-defends-at-machine-speed-with-openai.html?source=rss,"<img src=""https://newsroom.cisco.com/c/dam/r/newsroom/en/us/assets/a/y2026/m11/CitN_Jeetu-cisco-cyber.jpg"" width=""450px""><br>Cisco combines network intelligence and OpenAI models to build more adaptive defenses.<br><b>More RSS Feeds: </b><a href=""https://newsroom.cisco.com/c/r/newsroom/en/us/rss-fee",
 0f722490a4a3,0f722490a4a3,2026-11-03 13:00 UTC,General Security News,Delinea,Delinea Blog,AI Security; Identity Security Posture Management,Article,AI Agent Security: Who Ran That Query?,https://delinea.com/blog/ai-agent-security-who-ran-that-query,"” Investigators can settle attribution only from a session record, and they need the answer after the session ends","What you will learn
 
 Why audit trails record a developer when an AI agent acted, how entitlement scope differs from action attribution, and the five facts a session record needs to show which agent ran a query and whose credentials it used.
@@ -10139,6 +10025,53 @@ The work is so lucrative that Google expects cybercriminals will prioritize LLMJ
 “As enterprises integrate higher-tier models and agentic workflows into production environments, cybercriminals will likely refine automated reconnaissance to target exposed API tokens and exploit vulnerabilities in model routing middleware,” it concluded.
 
 “This operational specialization will sustain a growing illicit resale marketplace, allowing threat actors to rapidly siphon enterprise quotas while passing the billing costs to victims before compromises are detected.”"
+18b6023f661c,18b6023f661c,2026-11-03 08:00 UTC,General Security News,Huntress,Huntress Blog,Endpoint Security,Article,"Gangsters, Money Trails, and Wuffy | Huntress",https://www.huntress.com/blog/declassified-money-train-episode-four,""" - Geoff White, author and investigative journalist Zhdanova reportedly tried Garantex first, a sanctioned Russian exchange, which only made the crypto hotter","Your kids spend a month begging for an AI toy dog they found online. At $30, marked down 70% from $100, it feels cheap enough to risk, and you finally cave. You know online orders like this can go sideways, but the worst-case scenario is a piece of junk and a few disappointed kids, right?
+
+The dog arrives, and it's basically a battery-operated stuffed animal with no AI inside. You mutter a few curse words under your breath and write it off. What you never see is that your $30 went to one of more than 250 near-identical websites in the same cybercrime network.
+
+Mastercard scam investigators ordered the same dog, aka Wuffy, and followed the money trail. The online store looked legit, with a 4.7-star rating and customer support that answered fast and in detail. But the payment record showed a company headquartered in Lithuania while the site listed a US address, and the store had 250 look-alikes that all carried a 4.7-star rating and a 70% discount. Mastercard's analysis tied an estimated $50 million a year in transactions to the network, and the full scale was likely larger.
+
+Why nobody chases a $30 charge
+
+Victims see the loss, but the trail behind it, who got paid and what that money funded next, stays hidden. A scam like Wuffy is built to keep it that way.
+
+According to Ann Johnson, Mastercard's Executive Vice President of Security Solutions, scammers like credit cards because the loss lands on someone else. When a store turns out to be a scam, the bank covers the loss. Scammers rarely have to pay any of it back, and they know it. So they keep prices reasonable on purpose. They list a $100 ""regular"" price, so $30 feels like a Black Friday deal. They count on buyers to write off a $30 charge, since fighting it costs more time and money than it's worth.
+
+Now multiply that across more than 250 websites. Each charge looks too small to chase, and only someone who connects the dots across all of them sees the full scale.
+
+For the cybercriminal, a convincing cover story and a price nobody pushes back on add up to steady money with little risk. For you, it's a $30 annoyance that's easy to forget.
+
+Where a $40 million ransom really goes
+
+The criminals behind Wuffy hid in plain sight, making small sales incrementally through a legit-looking store and normal payment systems.
+
+Ransomware has the opposite problem. You're the ransomware gang, and the victim just paid, which leaves you holding millions in traceable crypto. No mainstream exchange will take that much without asking questions, so you need someone who can clean it.
+
+Investigative journalist Geoff White, who covers organized crime and technology, tells the story of one reported $40 million ransom paid by CNA Financial, a US financial firm. As he tells it, Britain's National Crime Agency (NCA), in an investigation called Operation Destabilise, followed the money and traced chunks of it to accounts it links to Ekaterina Zhdanova, a Russian socialite.
+
+""CNA Financial's daily revenues are apparently $38 million. It's a massive amount of money. You can't go to Coinbase or Kraken with that huge quantity of money and expect them not to ask a lot of questions. So the hackers were looking for somewhere else to put that money."" - Geoff White, author and investigative journalist
+
+Zhdanova reportedly tried Garantex first, a sanctioned Russian exchange, which only made the crypto hotter. Then she turned to UK drug gangs. The NCA says she offered them a swap: their cash for her crypto. The gangs wanted to unload bulky, vulnerable piles of cash, and crypto could cross borders to buy more product.
+
+""Where does the money from ransomware go? Suddenly you expand out into this massive world connecting all these different networks, not just criminal, but illicit and state-level."" - Geoff White
+
+The money trail keeps branching. When Russia invaded Ukraine, Russians with frozen money wanted funds in the UK to buy property or pay school fees. Reportedly, they paid Zhdanova in rubles, and she freed up the same amount in cash in the UK.
+
+The NCA says another branch was tied to the Russian government's efforts to move money into the UK to fund spy rings. Police raided a guest house and found surveillance gear, including a Minion toy with a hidden camera. Six people were convicted, and the NCA says Zhdanova sat at the heart of the funding.
+
+The bottom line is that a company that pays a ransom has no way to know where the money will end up, and neither does anyone who pays $30 for a toy dog.
+
+We can all cut off the money trail
+
+Criminals watch their margins closely, so every bit of friction helps, whether you're protecting your own card or your company's accounts.
+
+If a deal or request is too good to be true, it is. Don't share your information. Take your business elsewhere, to retailers you trust.
+
+If someone contacts you claiming to be your bank or a trusted vendor, stop and verify through a number or website you already know, like the one on the back of your card. Spoofed phone numbers are common, and a link a caller sends can be one digit off.
+
+Talk about scams at home and work, especially with younger family members and colleagues, whose sense of what's private online may differ from yours.
+
+Ready to start following the money trail? Watch the full _declassified episode."
 e5842bc0d6c4,e5842bc0d6c4,2026-11-03 00:00 UTC,General Security News,CrowdStrike,CrowdStrike Blog,AI Security; Endpoint Security,Article,CrowdStrike Advances AI Security and Safety from Endpoint to Cloud,https://www.crowdstrike.com/en-us/blog/crowdstrike-advances-ai-security-and-safety-falcon-guardian/,"OS-level runtime security is the foundation (Available now): The Falcon sensor provides deep visibility into agents’ activity, including the processes they launch, commands they...","AI agents are transforming enterprise computing. What began with employees using AI assistants is evolving into autonomous agents that access enterprise resources, invoke tools, execute code, and take action at machine speed.
 
 This introduces a new security and safety challenge. Organizations must protect agents from attacks while ensuring those agents operate safely and as intended. Security teams need to discover where agents operate, understand what they were instructed to do, trace their actions, and intervene when their behavior becomes dangerous.
@@ -10209,53 +10142,6 @@ The integration is focused on visibility and detection inside the VM. Available 
 Forward-Looking Statements
 
 This release includes discussion of unreleased services or features. Any unreleased services or features referenced here are still in development and subject to change. Customers should make their purchase decisions based upon features that are currently available."
-18b6023f661c,18b6023f661c,2026-11-03 08:00 UTC,General Security News,Huntress,Huntress Blog,Endpoint Security,Article,"Gangsters, Money Trails, and Wuffy | Huntress",https://www.huntress.com/blog/declassified-money-train-episode-four,""" - Geoff White, author and investigative journalist Zhdanova reportedly tried Garantex first, a sanctioned Russian exchange, which only made the crypto hotter","Your kids spend a month begging for an AI toy dog they found online. At $30, marked down 70% from $100, it feels cheap enough to risk, and you finally cave. You know online orders like this can go sideways, but the worst-case scenario is a piece of junk and a few disappointed kids, right?
-
-The dog arrives, and it's basically a battery-operated stuffed animal with no AI inside. You mutter a few curse words under your breath and write it off. What you never see is that your $30 went to one of more than 250 near-identical websites in the same cybercrime network.
-
-Mastercard scam investigators ordered the same dog, aka Wuffy, and followed the money trail. The online store looked legit, with a 4.7-star rating and customer support that answered fast and in detail. But the payment record showed a company headquartered in Lithuania while the site listed a US address, and the store had 250 look-alikes that all carried a 4.7-star rating and a 70% discount. Mastercard's analysis tied an estimated $50 million a year in transactions to the network, and the full scale was likely larger.
-
-Why nobody chases a $30 charge
-
-Victims see the loss, but the trail behind it, who got paid and what that money funded next, stays hidden. A scam like Wuffy is built to keep it that way.
-
-According to Ann Johnson, Mastercard's Executive Vice President of Security Solutions, scammers like credit cards because the loss lands on someone else. When a store turns out to be a scam, the bank covers the loss. Scammers rarely have to pay any of it back, and they know it. So they keep prices reasonable on purpose. They list a $100 ""regular"" price, so $30 feels like a Black Friday deal. They count on buyers to write off a $30 charge, since fighting it costs more time and money than it's worth.
-
-Now multiply that across more than 250 websites. Each charge looks too small to chase, and only someone who connects the dots across all of them sees the full scale.
-
-For the cybercriminal, a convincing cover story and a price nobody pushes back on add up to steady money with little risk. For you, it's a $30 annoyance that's easy to forget.
-
-Where a $40 million ransom really goes
-
-The criminals behind Wuffy hid in plain sight, making small sales incrementally through a legit-looking store and normal payment systems.
-
-Ransomware has the opposite problem. You're the ransomware gang, and the victim just paid, which leaves you holding millions in traceable crypto. No mainstream exchange will take that much without asking questions, so you need someone who can clean it.
-
-Investigative journalist Geoff White, who covers organized crime and technology, tells the story of one reported $40 million ransom paid by CNA Financial, a US financial firm. As he tells it, Britain's National Crime Agency (NCA), in an investigation called Operation Destabilise, followed the money and traced chunks of it to accounts it links to Ekaterina Zhdanova, a Russian socialite.
-
-""CNA Financial's daily revenues are apparently $38 million. It's a massive amount of money. You can't go to Coinbase or Kraken with that huge quantity of money and expect them not to ask a lot of questions. So the hackers were looking for somewhere else to put that money."" - Geoff White, author and investigative journalist
-
-Zhdanova reportedly tried Garantex first, a sanctioned Russian exchange, which only made the crypto hotter. Then she turned to UK drug gangs. The NCA says she offered them a swap: their cash for her crypto. The gangs wanted to unload bulky, vulnerable piles of cash, and crypto could cross borders to buy more product.
-
-""Where does the money from ransomware go? Suddenly you expand out into this massive world connecting all these different networks, not just criminal, but illicit and state-level."" - Geoff White
-
-The money trail keeps branching. When Russia invaded Ukraine, Russians with frozen money wanted funds in the UK to buy property or pay school fees. Reportedly, they paid Zhdanova in rubles, and she freed up the same amount in cash in the UK.
-
-The NCA says another branch was tied to the Russian government's efforts to move money into the UK to fund spy rings. Police raided a guest house and found surveillance gear, including a Minion toy with a hidden camera. Six people were convicted, and the NCA says Zhdanova sat at the heart of the funding.
-
-The bottom line is that a company that pays a ransom has no way to know where the money will end up, and neither does anyone who pays $30 for a toy dog.
-
-We can all cut off the money trail
-
-Criminals watch their margins closely, so every bit of friction helps, whether you're protecting your own card or your company's accounts.
-
-If a deal or request is too good to be true, it is. Don't share your information. Take your business elsewhere, to retailers you trust.
-
-If someone contacts you claiming to be your bank or a trusted vendor, stop and verify through a number or website you already know, like the one on the back of your card. Spoofed phone numbers are common, and a link a caller sends can be one digit off.
-
-Talk about scams at home and work, especially with younger family members and colleagues, whose sense of what's private online may differ from yours.
-
-Ready to start following the money trail? Watch the full _declassified episode."
 6a2b758cb5ee,6a2b758cb5ee,2026-11-03 08:00 UTC,General Security News,,Darknet Diaries,Endpoint Security; Mobile Security; Identity Security Posture Management,Podcast,182: Blackshades,https://darknetdiaries.com/episode/182/,"In the midst of this, researchers at the Electronic Frontier Foundation and the Citizen Lab noticed that Syrian activists were getting hit with malware. Some built botnets to launch DDoS attacks.","This file was generated by Descript  JACK: Have you ever tried installing an app on your computer but then ended up with something else? Like, you downloaded something you actually wanted like a app to retrieve a deleted file or to get some video to play properly, [Music] you get it on your machine the way everyone does, you downloaded it, run the installer, click through the screens, next, next, next, agree, and then it’s installed, but then something strange happens. You might not notice right away, but there’s something new on your computer, a new app or toolbar in your browser, or maybe your homepage changed to something like a search engine you never heard of, and your computer seems to be doing something every now and then that just doesn't make sense. Like, it’s a tad slower or the fans are suddenly louder, but you're just not exactly sure why. Most of the time it’s relatively harmless. It’s some kind of junkware. Some company paid a few cents to bundle their stuff into your download, hoping that you wouldn't remove the software and you would start using their software. It’s annoying but it’s easy to delete and forget about it. But stop and think what just happened; you went to try to install one thing and something else came along with it, something you didn't choose to download and didn't even know you were installing it at the time. You didn't even know what it was. It latched onto something else that you trusted and came into your PC and got installed. I hate this kind of software, software that you didn't install. It just came along for the ride, software that you don't want on your machine. It has a hidden agenda, and who knows what that thing is doing there. This is a story about a piece of software that snuck onto our machines like that. It’s called Blackshades. Intro: [Intro music] These are true stories from the dark side of the internet. I’m Jack Rhysider. This is Darknet Diaries. JACK: Let me start at beginning. Alex Yucel and Michael Hogue created a program called Blackshades, and in 2010 they started selling it online. Blackshades, or more specifically, the Blackshades RAT, is a piece of software that allows an attacker to gain complete control remotely of a victim’s machine. They can view their files, record their keystrokes, lock their data, and hijack their webcam. [Music] They marketed Blackshades like a regular software product. They had a website with an About Us page and an Order Now button. The page said ‘Blackshades is mainly an IT surveillance and security-based company directed at making your PC experiences easier. Our main goal is to offer affordable software solutions comparable to bigger names out there.’ Then they listed the benefits of using the product; to spy on your children or spouse, to find out if your partner is cheating on you, or to see if someone was using your computer in unwanted ways. They even had a legal notice saying that it’s legal to install monitoring software on your own computer according to the Spy Act of 2004. The price? Forty bucks. The site wasn't hidden on the dark web. It was right there in the open with normal-sounding marketing language, and at first glance it doesn't look nefarious. But as you think about it, you're like, wait, hold on a minute. The software is used to spy on people? Which makes me wonder, is Blackshades legal? Well, there’s actually two questions here. Is making and selling Blackshades legal, and is using Blackshades legal? The website says that this is a surveillance and security tool used to monitor the activity of your child’s computer. Well, that in itself isn't illegal even if it can be abused, kinda like a knife isn't illegal. We need it to make food with. Someone waving it around on the street is suddenly a big threat. In fact, many businesses today use software just like that to monitor what their employees are doing. It’ll take screenshots, record what apps are opened and in focus, and track the locations of devices. But when a company spies on its own computers, it typically makes it very clear; there is a monitoring system on your computer, or they make the employees sign a document which says ‘You may be monitored while you're here at work’, which is what makes it legal. That person being spied on knows and consents to it. So, on the surface, both making and using software like this can be perfectly legal. But Blackshades wasn't marketing this to businesses. They were marketing it on hacker forums. [Music] They specifically were building a tool that they knew people would use for malicious purposes. They weren't in the business of selling kitchen knives. They were specifically marketing their product to people they knew would abuse it. So, their whole website, which was saying this is used to track your kids, that was really a lie, a ruse to make it look legal and look perfectly fine. To the courts, who look at things through the lens of the law, intent matters a lot. If you know you're selling to people who will use it to commit crimes with, then yeah, it’s illegal to sell that. When it comes to the customers, if they were putting it on people’s computers without their consent and spying on someone without them knowing, then that’s illegal, too. That’s unauthorized access to a computer, privacy violations, identity theft, intercepting communications, and extortion. So yeah, this can be illegal to use as well, both illegal to make and illegal to use. But again, it all comes down to intent of whether or not this is legal versus illegal. If these people who use it and make it are going to get in trouble over this, then the courts are gonna have to prove that intent was there to sell it to criminals or to spy on people without their permission. Blackshades is better known as the Blackshades RAT, and RAT stands for Remote Access Trojan. Remote access is like when you need computer help and IT support takes over your computer to fix something, or when you log into your home computer from a coffee shop. A RAT is the exact same thing, except it’s malicious in nature. Someone you don't know takes over your computer without your knowledge or consent, and they can see everything you're doing. The scariest bit is you have no idea it’s happening, since it’s completely running silently. Once Blackshades was on your machine, the attacker has an astonishing level of access. They could read every file and view every photo and video on your computer. They could see every single key you pressed. Every password, every credit card number, every private message went straight to the attacker. They could steal the log-ins to your bank, your e-mail, your social media accounts. They could turn your webcam and microphone on, and from there they can commit a litany of crimes; theft, extortion, blackmail, for example, but also wire fraud and identity theft. And it gets worse. Blackshades had a feature called the Spreader. Once it was on your computer, the attacker could use your social media accounts and chat apps to try to spread it to your friends’ computers, too. They could even use Blackshades for ransomware, locking up their targets’ files and demanding payments to unscramble them. [Music] I can't imagine this feature being used for any legitimate purpose. So, the fact that this had a ransomware feature squarely puts it in the malicious software territory, if you're asking me, making it clearly illegal. But Blackshades would make their users click on a button stating that the user is responsible for whatever the action resulted in, and warning them to be careful when using this feature. It also said this was made for educational purposes only. Yeah, okay, sure. But there was one problem for Blackshades users. You couldn't just wave a wand at someone and infect their computer with Blackshades, and no one in their right mind would install this to give some random attacker full access to their computer. So, to get Blackshades on a victim’s machine, they had to trick the victim into installing it themselves, to make them think they're installing something else, and that’s tricky because you basically have to exploit another human to get it installed, which brings us into the world of social engineering, the art of tricking people into doing things they don't actually want to do. There are a 1001 ways that we can all be tricked into installing things that we don't actually want. Humans are a weak link when it comes to computer security. You might have seen some of them, obvious links; click here for a free iPhone, and you're like, yeah, nah, I’m not doing that. But sometimes it’s not so obvious. Since Blackshades can spread from a friend’s computer to yours using malicious links, it can look like it’s coming from someone you trust. They can also hide malware inside pirated software, games, or movies on peer-to-peer file-sharing sites. So, if you downloaded a cracked version of a video game that you didn't want to buy, Blackshades might come along for the ride and get installed with it. I should know, too. When I was a teenager I downloaded a lot of shady apps and games from shady parts of the internet, and I would constantly be dealing with infections. I didn't care because I really wanted to play the game, but eventually the infection would get so bad that I couldn't use my computer at all. Pop-ups would just constantly be showing up. The CPU would crawl to a standstill. I must have been hit with malware hundreds of times when I was a teenager. But that’s what got me good at fixing computers, learning how to find malware and remove it and cleaning up my computer. After a while I took pride in knowing there is no problem that I can't fix on my computer. Worst case is I could just reinstall the operating system if I had to, which I did a lot. I mean, a lot, a lot. Anyway, sometimes devices you buy in the store actually come with malware on them. There was a story I read once where a Chinese laptop maker was selling their laptops on Amazon that came with Windows 11. Well, the thing was the Chinese seller was trying to cut costs and didn't want to pay for Windows 11 license keys for every computer, so they found a pirated version of Windows, installed that, and shipped it with their laptops. Little did they know, the pirated version contained malware and was draining people’s crypto wallets and robbing their Steam accounts. So, you need to be really careful with what apps you install and where you get them from, because having one bad app on your computer can ruin you. But even apps you vet thoroughly can turn rogue. I’ve seen some popular browser extensions get purchased by someone who had malicious intent, and then they put spyware on people’s browsers without them knowing. Or maybe someone makes a simple mobile app that’s clean and fine and free, even. But as it grows in popularity, there’s always someone that asks them, hey, I’ll give you a few thousand dollars if you can put this widget in your app. Don't worry, it’s just an advertising pixel. If someone’s making free software and suddenly get offered a few thousand dollars to add a simple advertising pixel, they might say yes. Now suddenly that app, which was clean and good, now has some malicious code in it tracking what you're doing on your phone. Stuff can sneak into our devices from all kinds of directions. It’s a war out there. [Music] Then there’s USB sticks. If you put a USB stick into a computer, Windows will look at it and see if there’s a file called autorun.inf, and if so, it’ll run the commands in that file. So, if someone swings by your computer, pops a USB stick in the slot, it may auto-infect that machine. Then you could pull the USB stick out, and nobody knows what happened. Back in the days of Windows XP and Vista, this feature was on by default in Windows. Nowadays the Autorun feature is not on by default, thank goodness, but this was a popular way people would infect computers with Blackshades, since it was just dead simple to do. Just stick the USB stick in for a few seconds and pull it out, and you're done. I think the most popular way people were getting victims to install this is to send them a message saying, ‘Oh my god, is this you? How embarrassing!’ with a link to a photo or a video. Except it wasn't a photo or video. It’d look like it, but when you tried to open it, it was really a program that would install Blackshades. Another one, which I’ve actually seen in my own inbox, was something like, ‘We’ve tried to deliver a package to you three times now. We were unsuccessful. We're gonna send it back to the shipper unless you click here.’ I always have this knee-jerk reaction like, oh man, I don't want my package returned. Then I realize it’s to an e-mail I’ve never used for ordering things before. I’m like, oh, that’s a scam. They're trying to trick me. So, no matter how vigilant you are, I think we're all susceptible to phishing e-mails. It just has to be clever enough to make you click. Once Blackshades got installed on a victim’s computer, the operator needed no skill at all. You didn't even have to open a terminal. It came with a slick, little dashboard to show you every computer that you've infected, with icons telling you if there is a camera available on that computer or not. If you were the operator, you could simply point and click on the computer you wanted to see, and now you could see their desktop, files, and yeah, camera. I mean, you could see it all; people’s private messages, social media accounts, Google searches. It was spooky. [Music] There was this guy named Stefan Rigo from Leeds in the UK who saw what Blackshades could do, and he became interested. He was thirty-four years old. He bought it for forty bucks using his ex-girlfriend’s credit card, and then he infected his ex-girlfriend with this malware. Maybe he sent her a phishing chat message or plugged in a USB stick when he visited her house one day and she left the room or something. But when he was at his computer, he could see when her computer was online. Her computer had a camera on it, and from the dark comfort of his own house, he turned on her camera and watched her in her bedroom. He found it incredibly addicting. She had no idea he was watching her. Usually there’s a little light that comes on when your camera is on, right? Well, Blackshades made sure that light didn't come on. Watching her in her bedroom gave him a rush. He liked it. He had some other lady friends and wondered what they were doing, too. So, he started infecting more and more women that he knew with Blackshades. He could hear conversations people were having. He watched them get undressed. Of course, he’s taking screenshots of them changing and saving the recordings. He liked that kind of stuff the most. Stefan got seriously addicted to watching what women do in the privacy of their own homes. Every day he would open up his Blackshades dashboard and look to see what computers he infected were online, and then he’d double-click on one and sit there, watching what they were doing. Not only was he watching through the cameras, but when they'd use their computers, he’d watch what they were doing on it, too. He could see their passwords, their private messages with people, their photos, what they bought online, their online banking activity, everything they did on that computer. The thing that made it addicting to him was that he never knew when something interesting would happen or what would happen. To him it was like a wave of excitement when he actually saw someone changing in front of a camera. That would make it all worth the time to him. He started out by putting it on the computers of women he knew, but then he learned how to spread it from those computers to their friends’ computers, and now he was infecting other women that he didn't even know, and he didn't stop there. He was trying to infect other women, too, like people working in coffee shops or at a library. It was real easy for him just to put in a USB drive and try to infect someone’s laptop. He was seriously addicted to this, and over time he got over a dozen people infected with Blackshades. With that, there was always someone online doing something interesting that he liked watching. There’s a whole voyeurism fetish out there on the internet. People will secretly film women getting undressed and posting it online. Or maybe they’ll hold a camera under some lady’s skirt and take a photo of that and share it. Well, this voyeurism community was hearing about what you could do with Blackshades, and they were into it. The Blackshades RAT had incredible potential for secretly getting videos of women undressing or having sex. Soon the biggest user base of Blackshades were guys spying on girls to see them naked, and in most cases the guys were spying on the girls they knew, keeping tabs on exes, getting dirt on someone they're jealous of, or just spying on women because they found it fascinating. Over time, thousands of Blackshades users were using this tool to spy on women. It really helped Blackshades grow in popularity. But they weren't the only people interested in Blackshades. It was also used to target activists. In 2012, Syria was in the middle of a civil war. People were really upset with the president of Syria, Bashar al-Assad, for using chemical weapons on his own civilians. The country ignited in large-scale protest and pro-democracy rallies as part of the Arab Spring. In the midst of this, researchers at the Electronic Frontier Foundation and the Citizen Lab noticed that Syrian activists were getting hit with malware. They would get a link from a Skype account from someone they knew and trusted without realizing that account was compromised. One message read, ‘There’s a person who hates you, and he keeps talking about you. Here's a screenshot of the conversation.’ There was a link to the malicious file, and when they’d click it, Blackshades would install itself on their device. [Music] The Syrian government used Blackshades to spy on opposition activists and tried to suppress them by having total control of their computers. They could do things like get information on the next rally or delete social media accounts or look through photos and documents. Before Blackshades there was another tool called DarkComet. It was developed back in 2008 by a French programmer named Jean-Pierre Lesueur, also known as DarkCoderSc. He discontinued the program partially due to its use in the Syrian civil war and possibly due to the fear of him being arrested. Like Blackshades, DarkComet was used to spy on victims through key-logging, screen captures, and by stealing their passwords. To me, this is really fascinating because at the time, a lot of activists within the hacker group Anonymous were very active in the Arab Spring trying to help the protesters from afar by knocking the government offline and doing stuff like that, and it’s wild that the very people who wanted to assist the protesters are also the ones who are accidentally assisting the government to suppress the protesters, because tools are typically neutral and can be used by either side. When you make something so effective, people will notice it on both sides and use it for their own agenda. I don't have any knowledge of whether the creators of DarkComet or Blackshades were members of Anonymous, and it wouldn't surprise me if they were, because, well, at least the maker of DarkComet said some stuff online that looked a lot like what the Anonymous activists were saying about Syria at the time. So, this was yet another thing this malware was being used for. A $40 piece of software marketed to suspicious spouses and parents was being used to find dissidents during a war. Which, by the way, government intelligence units love using off-the-shelf tools to conduct their spying, since they don't have to burn any of their trade craft to conduct their tasks. A $40 off-the-shelf tool is way cheaper than spending a lot of time and energy developing their own tool to do the same thing. By this time Blackshades was becoming well known in the hacker communities. Hundreds of people were buying it and infecting thousands of machines with it, which also meant the victims were waking up to the nightmare happening to their computers. Victims would often get extortion e-mails where they would receive an embarrassing photo of them with some kind of demand. The obvious demand is to pay some Bitcoin and we’ll delete it, but some were downright evil. Like, people would send a half-naked photo to their victim and say, ‘Send me a fully-nude photo or I’m posting this on your own social media account. Let me show you that I have access to it.’ Then they would post a test message to prove it. It would rattle a lot of these women, and they would sometimes send the pictures that were demanded simply out of fear. [Music] Sometimes the attacker would catch a picture of their victim having sex and send them a picture of that and demand a video call over Skype, and they'd ask the women to do a five-minute sex show for them on camera as part of the ransom demand. If they didn't do it, the attacker had access to all their social media accounts and said they'd post something really terrible if they didn't to it. Blackshades was a growing problem, and victims were being almost entirely silent about the matter due to all the embarrassment and fear. I hate to say it, but it’s possible that some women died by suicide because of this. I didn't see any specific stories about that happening with Blackshades, but I’ve seen countless stories where online bullying and abuse and harassment has led to women feeling so desperate that they'd rather die than face the embarrassment or harassment anymore. It’s really tragic. We're gonna take a quick ad break, but stay with us because this is where the FBI starts to get involved. The FBI started rooting around in some hacker forums looking for crime, but they weren't focused on this. Not yet, at least. They were focused on stuff like credit card fraud and online fraud. In 2010 the FBI decided to go on the dark web and build their own stolen credit card exchange. They were hoping thieves would come and sell stolen cards and people would buy them, and then the FBI would catch them in the act. It’s wild to me that the FBI built their own carders market on the dark web, a honeypot to trap people. Not only could you buy and sell stolen credit cards there, but they sold tools for stealing credit cards, too. However, dark web forums like this only work when there’s trust, so the FBI, which was acting like dark web operators, said they’ll verify every tool before it’s allowed to be sold on the site. So, for instance, if you wanted to sell a credit card scraper, the FBI would have to vet you as a seller first. Send us one and we’ll test it, and if it’s good, we’ll approve you as a vendor. The administrators were either undercover agents or confidential sources in the investigation. They were reviewing these products to get evidence of criminal activity and to investigate the hardware, software, and methods used. The FBI was looking for credit card fraud, but then the co-creator of Blackshades, Michael Hogue, wanted to become a vendor on this forum. [Music] So, he submitted his tool, Blackshades, to show them that he has a real tool that can be used to scrape credit card data. He had no idea he was pitching the FBI. It’s kind of ironic that the co-creator of Blackshades fell for a social engineering trap himself. See? Even he’s susceptible to that. The FBI couldn't believe Michael sent them his malware. This was clear evidence of his intent, to sell Blackshades to criminals. All that language that this was only for educational purposes or for a parent to monitor their kid wasn't gonna fly anymore. When you're selling it to criminals on a dark web forum to steal credit card data with, then that’s clear intent. In 2012, the trap snapped shut. The FBI ran a sting operation called Operation Card Shop. It led to twenty-four arrests in eight countries. Almost all of these arrests were for credit card fraud, but there was one exception. One of the people arrested was Michael Hogue, the maker of Blackshades. He was charged under the Computer Fraud and Abuse Act for conspiracy to commit computer hacking and transmission of malware. Writing and selling software isn't illegal, but writing and selling software with the intent of logging keystrokes, ransomwaring files, stealing credit cards, and spying on webcams without consent is illegal. Hogue cooperated with investigators, which meant he avoided prison entirely. He was sentenced to five years of probation and he was ordered to forfeit $40,000, and had to perform 500 hours of community service. So, that’s it, right? Co-creator of Blackshades arrested, 2,000 people in cuffs, game over for Blackshades at least, right? Except it wasn't. The Blackshades website stayed up and operational and kept selling it to people for forty bucks. What's hilarious is around that time, Blackshades became so popular that you could find pirated versions of it floating around, too. People who didn't want to pay the $40 could download it and install a pirated version and use it, and it’s hilarious because almost certainly a pirated version of Blackshades is going to come with some other malware bundled on it. You're gonna get some other spy tool installed if you install this. People were spying on the spies. Over the next year, Blackshades did not shrink. It grew. In 2013 Blackshades made its news again. REPORTER: Miss Teen USA 2013, Cassidy Wolf, was one of the victims of a hacker using the malicious software called Blackshades RAT, or remote access tool. Authorities say last year a hacker used Wolf’s personal computer webcam to take nude photos of her and threatened to post them online if Wolf didn't send him more revealing photos. Instead, she went to police. JACK: Cassidy Wolf, a high-school student from Temecula, California, got an anonymous e-mail. A stranger said he had photos of her, photos taken in her bedroom through her webcam, on her own computer after he hacked into it. He tried to extort her after threatening to release intimate photos unless she provided him with a special performance. Classic sextortion. [Music] She had no idea she was infected by this. She said her camera light never came on, and she didn't know anybody had been staring at her in her room this whole time or watching her computer. She didn't send any photos to this stranger. She went to law enforcement instead. The FBI ran the investigation, and when they figured out who was behind it, it turned out the hacker wasn't some shadowy figure on the far side of the world. It was a guy she went to high school with, a former classmate named Jared Abrahams, and she was not the only one. Jared used Blackshades to break into the computers of at least two dozen women and girls. Their ages ranged from sixteen to the early twenties. Jared got arrested by the FBI. Two months later he pled guilty to extortion and hacking. He went to court for sentencing and he was sentenced to eighteen months in federal prison. Four months after this extortion attempt, Cassidy Wolf was crowed Miss Teen USA 2013. Instead of keeping quiet about what happened to her, she did the opposite. She spent her year using that title to go to schools and talk about exactly that, webcam hacking and sextortion. CASSIDY: Yeah, so, a few years ago I was with a friend of mine, and I randomly got an e-mail, and in that e-mail he had attached photos that he had taken of me through my webcam. So, it ended up being a federal investigation… INTERVIEWER: Yeah. CASSIDY: …for three months straight. The guy that did it ended up going to prison for eighteen months. JACK: Wow, how brave of her to use her newfound popularity to fight for justice and to win. So, that’s one guy caught for spying on girls, but that didn't slow down the continual growth of Blackshades’ sale and usage, because by May 2014, Blackshades was booming. By then it had infected over a million computers worldwide. [Music] When the FBI arrested Blackshades’ co-creator, Michael Hogue, he became a cooperating witness, which meant he let them see all the inside baseball of his organization. He showed the FBI how many computers it had infected, who the users were, everything. Well, actually, I don't know how much he actually showed them versus how much they saw, because they just seized all his servers and took all the computers for themselves. So, the FBI knew the malware had infected over 500,000 computers in over a hundred countries and had generated over $350,000 in sales. They had the names and addresses of more than 6,000 customer accounts, basically a customer list of all the people around the world who bought Blackshades. They shared this list with law enforcement partners around the world. So, what do you do as the FBI when you have the billing information for thousands of Blackshades customers? I know you've heard the term before; they can't arrest us all. But can they? I think they wanted to. But the FBI has a 99% conviction rate. If they arrest someone, they better have bulletproof evidence that that person committed a crime. I mean, that one user, Stefan, bought the thing using his ex-girlfriend’s credit card, right? So, just in the list of names of people who purchased it isn't enough. They need to go through each customer individually and prove that they were actually abusing the tool. Because what if someone’s just using it to monitor their child’s computer activity like the website advertised it? They didn't want to make any mistakes. So, they spent months and an enormous amount of time building cases for as many of its users as they could. They were able to get enough evidence on lots of people who were clearly abusing the tool, but those people were located all over the world, so they reached out to law enforcement in eighteen different countries to try to do a worldwide coordinated takedown. On May 19th, 2014, law enforcement officials from around the world raided the homes of Blackshade users, arresting as many people as they could. Here's Preet Bharara, the US Attorney for the Southern District of New York, in a press conference explaining what they did. PREET: We are announcing another global law enforcement operation that has exposed and crippled a frightening form of cybercrime affecting hundreds of thousands of computer users around the world. JACK: The operation led to ninety-seven arrests and 359 searches across the world, with people detained in the US, the UK, Germany, France, the Netherlands, Belgium, Austria, Switzerland, Italy, Croatia, Denmark, Estonia, Finland, Moldova, Canada, and Chile. The age of the criminals varied. Some were teenagers; a sixteen-year-old in the UK, a seventeen-year-old in Finland, an eighteen-year-old in the Netherlands. Others were adults, and I’m pretty sure it was all males who got arrested. Ninety-seven people arrested for using the tool. The reasons for using it varied, too. Some used it for voyeurism and extortion. Some used it for financial theft. Some built botnets to launch DDoS attacks. Some locked computers up with ransomware. More than a thousand data-storage devices were also seized, and they took the Blackshades website offline. One case involved an eighteen-year-old man from the Netherlands who allegedly infected 2,000 computers to take photos of women and girls who were using their machines. 2,000 infections from one guy alone. In 2014 prosecutors in the US unsealed charges against five people. Here's FBI’s Special Agent in charge, Leo Taddeo. LEO: [Music] We have charged three key members of the Blackshades organization, as well as two cybercriminals in the New York area who purchased the software and used it to victimize hundreds of innocent people. Specifically we announce charges against the two alleged  [truncated for CSV - full text is in the JSON export]"
 e3eea1d2b551,e3eea1d2b551,2026-11-03 00:00 UTC,General Security News,Falco / Sysdig,Falco / Sysdig Blog,Vulnerability Management; Endpoint Security; AI Security; Code Security,Article,Security briefing: October 2026,https://webflow.sysdig.com/blog/security-briefing-october-2026,"The first public GitHub repository tracking the CVE appeared only hours after the fix, and exploitation attempts were confirmed within days","Attackers were definitely testing our cybersecurity best practices during Cybersecurity Awareness Month. A cloud region was knocked offline in Japan. Grocery stores across the US and Europe were either taken offline temporarily or lost produce. An AI agent chained two vulnerabilities to breach an organization that was established to help others with vulnerability disclosure. And finally, there were well over one thousand vulnerability patches in a single day. No seriously. Vulnerability management was like walking into a burning building in October.
 
@@ -13094,69 +12980,6 @@ Demand for AI Compute Accelerates #
 The rush to code with AI has reached a fever pitch, with developers chasing more capable models, longer sessions, and enough compute to keep fleets of agents running. AI demand is squeezing memory supplies and driving prices higher. At the high end of the local hardware market, Apple’s newly available 512GB Mac Studio configuration reached an eye-watering $29,799 with 16TB of storage.
 
 In the OpenCode thread, that hunger for compute curdled into a pile-on. The reporter went from proposing a fix to boasting about running 130 agents through the loophole. Other users blamed them for spoiling the arrangement, hurled abuse, and kept asking how to get the free models working again. The thread captures the AI coding gold rush at its most frantic, with users scrambling to keep their agents running and searching for the next route around the limits."
-fff66bbfc754,fff66bbfc754,2026-10-29 15:44 UTC,General Security News,,Dark Reading,AI Security; Email and Collaboration Security,Article,Threat Modeling With 4 Simple Questions on a White Board,https://www.darkreading.com/cyber-risk/threat-modeling-4-simple-questions,Related: 3 Frameworks to Protect CISOs & Orgs Against AI Liability This type of intel is free and available from sources like the Cybersecurity and Infrastructure Security...,"ISC2 Strategic Congress 2026 — Denver — A threat model should be a starting organizing principle for any security program. But rather than investing in a 200-page high-dollar threat model report, one longtime chief information security officer (CISO) argues that ""four questions on a white board,"" can provide any team with an actionable plan forward.
-
-Lora Vaughn, cybersecurity expert, former CISO, and now founder of her own consulting firm, The Vaughn Group, said that over her many years leading cybersecurity programs, she has developed a wickedly simple four-question threat modeling exercise that can be used in a wide range of organizations, be it the ""National Security Agency (NSA) or your friendly neighborhood small-to-medium business (SMB).""
-
-The answers, she said, can then offer a road map for investment decisions. That requires further exploration, she acknowledges, given there's always a new technology right around the corner that promises to drive down the cost of cybersecurity investment in enterprises. And reality must be balanced with industry hype.
-
-Related:Rethinking Cybersecurity Awareness in the AI Era
-
-For instance, around 2015, the move to the cloud was supposed to put the onus on providers like AWS to protect enterprises. What came next was a flood of misconfigurations and misunderstandings about who owned which part of security. By 2018, the buzzword was ""automation."" But teams quickly learned that automating anything required defining buttoned-downed processes first — often a prohibitively time-consuming exercise that pushed many of these project timelines out. By 2021, zero-trust networks were on everyone's mind. But that turned out to be less of a prescription and more of a customizable, guiding principle; and, architecting a true zero-trust environment requires a big investment in systems that would prove to be a much longer journey than many in the sector had hoped.
-
-And regarding the current zeitgeist, handing over enterprise security to an agentic AI model is a ""fantasy,"" according to Vaughn, speaking from the stage while presenting her four-question threat model at ISC2 Strategic Congress in Denver this week.
-
-""AI is a force multiplier,"" Vaughn said. ""It just multiplies what you already have. Zero times anything is still zero. Math is undefeated.""
-
-Bottom line: Once the threat modeling is done, choose your path wisely, and with your eyes wide open. And recognize that it's an ongoing cycle. ""Refresh the threat model quarterly,"" Vaughn added. ""Or after any big change.""
-
-Threat Modeling With 4 Questions on a White Board
-
-What would hurt most on Monday?
-
-Ask yourself, if you walked into work at 8 a.m. Monday morning, what would be the worst-case scenario(s)? For example, is it a ransomware attack that could result in the leak of sensitive information? What about one that locks up production systems? Mass pwning of firewalls and edge devices? What about a business email compromise (BEC) that results in a $100,000 bank transfer to attackers? Would falling for the North Korean fake worker scheme cause big problems?
-
-Related:Attacker Relentlessly Scans for Credentials by Impersonating AI Bots
-
-Vaughn stressed that once identified, these should be ranked by pain to the business. She added, five to eight ""painful"" items are a reasonable number to determine.
-
-Vaughn ranks risk in three categories: existential, painful, and annoying. Existential risk means that a breach would close the doors of the business. Painful risk equates to business disruption with associated costs and bad press. Annoying risk is something that can be fixed semi-easily.
-
-Who actually attacks an organization like yours?
-
-A key piece of determining your risk profile is understanding who sees you as a target. Do state-sponsored advanced persistent threat (APT) groups have your organization in their sights? Or is your business most likely to be targeted by BEC scams? Are ransomware affiliates trying to find a way into your systems? Do you have a large inventory of software or appliances that are high on attackers' hit lists? How is your patching hygiene, and do you have bugs that are known to be exploited?
-
-Related:3 Frameworks to Protect CISOs & Orgs Against AI Liability
-
-This type of intel is free and available from sources like the Cybersecurity and Infrastructure Security Agency (CISA), but can also come from private threat intelligence services. Vaughn recommended that CISOs and security leaders lean on their vertical Information and Analysis Centers (ISACs) as well.
-
-""That’s your most valuable resource,"" Vaughn said. ""And it's free.""
-
-Where do the first two lists overlap?
-
-Items that fall between both the ""worst-case scenario"" and ""who's targeting you"" lists are where teams need to start first. ""Every overlap is a scenario,"" Vaughn explained. ""Write one sentence for each: who, how, against what, and costing what?""
-
-What is the cheapest control that breaks the attack scenario?
-
-In terms of a BEC attack, Vaughn pointed out a simple phone call verification could be the most effective prevention, and it costs nothing. ""Find where the attack stops for the least money,"" Vaughn advised. ""Spend in that order.""
-
-Additional free controls that actually work, according to Vaughn, are multifactor authentication (MFA) everywhere, which is something she adds is ""non-negotiable"" and urges CISOs to ""fight for."" An asset inventory is also invaluable, even if it's just a spreadsheet, and of course it ""beats doing nothing."" Patching bugs that have already been exploited, resisting the urge to give everyone admin credentials, and testing backups also make the list. And for ransomware, having backups isn't enough; network segmentation has to go along with it.
-
-""If you can't restore from backups, or you don't have backups, you have hope,"" Vaughn said. ""Hope is not a control.""
-
-She pointed out that nothing on this list of controls can be bought from a vendor. ""There's no SKU for 'turn on MFA' and 'keep a spreadsheet,'"" she added.
-
-Taking the Threat Model Findings to Management
-
-It might be tempting for cybersecurity teams to try and tackle these four questions on their own, but Vaughn said that including management in these conversations will help better align priorities to the broader business and will help management understand the potential fallout of not taking care of cybersecurity.
-
-There are some best practices for doing this; for instance, Vaughn recommends linking spend to a business outcome: ""If nobody funds a CVE, we stop shipping for a week,"" is one example she offered.
-
-She also recommends bringing three spend options, with prices attached, and then making a recommendation for one. Additionally, Vaughn said CISOs and cyber teams should never promise ""security,"" only reduced risk, and discuss investment decisions from that lens.
-
-Offer, say, options that cost ""$12K, $4K, or zero,"" she explained. ""Zero means we accept the risk, so I recommend the $4K.""
-
-And once the decision is made, Vaughn suggested an email follow-up like, ""Confirming we’re deferring X and accepting the risk of Y. Tell me if I got that wrong."" That paper trail can prove invaluable following a compromise, she said."
 e25094ea0e79,e25094ea0e79,2026-10-29 15:00 UTC,General Security News,Fortinet,Fortinet Blog,Zero Trust Secure Access; Network Security; Data Security Posture Management,Article,Extending SASE Sovereignty Beyond Data to Management,https://feeds.fortinet.com/~/972093263/0/fortinet/blogs~Extending-SASE-Sovereignty-Beyond-Data-to-Management,An integrated architecture can ease the transition by reducing the need for separate products and custom integrations,"Integrated Security for Private Deployments
 
 Building a private SASE environment can require organizations to bring together separate technologies for secure web access, firewalling, zero-trust network access (ZTNA), cloud application security, data protection, logging, and orchestration. IT teams must then integrate, scale, and maintain them.
@@ -13714,45 +13537,6 @@ Crystal Kung, Head of Communications, Cisco ASEAN crkung@cisco.com
 Sandpiper on behalf of Cisco cisco@sandpipercomms.com
 
 Chong Shin Yen Corporate Communications & Commercial, PSA Singapore sychong@globalpsa.com"
-0ac08988ccae,0ac08988ccae,2026-10-29 10:00 UTC,General Security News,,Dark Reading,AI Security; File Security,Article,"Shadowy AI Relay Disables OpenAI Codex, Claude Code Sandboxes",https://www.darkreading.com/threat-intelligence/ai-relay-service-openai-codex-claude-code-sandboxes,The enigmatic service is providing popular AI coding tools to mainland China and other regions where OpenAI and Anthropic products are not officially for sale — but with key...,"A mysterious relay service is installing authentic but unauthorized OpenAI Codex and Anthropic Claude Code tools for enterprise users overseas, and making dangerous configuration changes that put those organizations at risk.
-
-The AI relay, first spotted by the Symantec Threat Hunter Team, appears to be designed to bypass regional restrictions that prevent certain countries and regions from using AI tools and platforms of US companies. According to Symantec's report published Thursday, the relay service installs genuine versions of the command-line interfaces (CLIs) for Codex and Claude Code on enterprise systems, but reconfigures them to route requests through the relay's infrastructure rather than OpenAI's or Anthropic's networks.
-
-On the surface, this appears to be the case of a gray market provider or unauthorized reseller providing the AI tools to markets where they are not officially sold. Symantec researchers noted that the service, which has been active since early 2026, has installed the tools on systems at a dozen organizations, primarily in mainland China but also in South Korea, Taiwan, and Malaysia.
-
-Related:Researchers Infiltrate Microsoft Tech Support Scam Operation
-
-But the relay service also disables security safeguards for the tools, and the research team said it's unclear why it's being done (no malware or malicious activity has been observed thus far). One thing is for certain, according to Symantec: the relay service is creating enormous cyber-risk for the organizations using it.
-
-Dangerous Configurations for Codex, Claude Code Users
-
-Brigid O Gorman, senior intelligence analyst at the Symantec Threat Hunter Team, tells Dark Reading that researchers found a suspicious PowerShell downloader that they later determined to be ""an AI-agent hijack script."" After investigating further, the team found similar activity on other networks and traced it to the unauthorized relay service.
-
-According to Symantec's report, when a user of the AI relay installs a legitimate Codex or Claude Code CLI through npm, the fileless PowerShell or bash script is fetched from ""a lookalike domain by a one-line command that the user appears to run themselves. While this evokes the specter of attack techniques like ClickFix and InstallFix, the research team noted that the CLI clients aren't modified or Trojanized in any way.
-
-And yet, the tools perform suspicious actions that heighten risks for enterprises. For example, the reconfigurations turn off the CLIs' execution sandbox, which is a key security feature because it limits what the AI coding tools can do.
-
-Related:F-Secure Launches Victim-First Scam Encyclopedia Covering 50+ Types of Consumer Fraud
-
-Additionally, the relay service enables network access for the write sandbox, turns off telemetry and error reporting features, and replaces the user's API credentials with relay-issued tokens. In one case observed by the Symantec Threat Hunter Team, the script logged a user out of their Anthropic session and deleted their authentication variables before reissuing credentials controlled by the relay service.
-
-""Bypassing the regional restrictions that keep Western AI vendors from selling directly into certain markets is the simplest explanation, but it does not require disabling a CLI's sandbox or establishing persistent credentials that survive a reboot,"" the report stated.
-
-Grave Risks for Gray Market Users
-
-The relay service activity is something of an enigma. The Symantec Threat Hunter Team said it's unclear why the operators of the client-side relay would need this level of control over users' systems, though the researchers did not observe any evidence of the operators abusing the access. The report noted that the architecture of the service would support malicious exploitation of the access if the operator's intentions were to change.
-
-Furthermore, the Claude Code keys issued by the relay service are formatted with the prefix that Anthropic reserves for subscription-based OAuth tokens, ""which is consistent with, though not proof of, a relay pooling flat-rate subscriptions and splitting the capacity across many customers,"" the team wrote.
-
-Related:AI Slop Isn't Just for Social Media; It's Ruining Cyberattacks, Too
-
-On the other hand, disabling security features hints at a potential fraud operation involving stolen credentials or payment cards, or even the malicious resale of prompts and files that run through the relay infrastructure. Gorman says it's ""certainly notable"" that the relay disables execution sandboxes and establishes its own persistent credentials.
-
-""We did not see any malicious activity being carried out using these relay services, so any commentary on the potential intended goals of those using it are speculative,"" Gorman says. ""However, a relay in this position can see every prompt, file, and secret an employee sends to the agent, and can alter or fabricate every response it returns. With the sandbox disabled and network access enabled, a malicious or compromised response could execute with the full privileges of the user's account.""
-
-Symantec provided indicators of compromise (IoCs) in the report, even though technically speaking there have been no compromises at this stage. ""The organizations affected here look less like chosen targets and more like workplaces where individual employees found and used such a service to get access to tools they wanted,"" the report stated.
-
-Nevertheless, the research team warned that using the service presents serious risk to corporate networks. And while the relay appears to be aimed at regions where Codex and Claude Code tools aren't officially offered, organizations looking for cheaper alternatives and users engaging in shadow AI activity could potentially find their way to such a service."
 9d2182e33582,9d2182e33582,2026-10-29 10:00 UTC,General Security News,Broadcom / Symantec,Broadcom/Symantec Blog,File Security; AI Security; Code Security,Article,Sandbox Flipped to ‘Danger-Full-Access’: Unauthorized AI Relays Create Risk for Organizations,https://www.security.com/threat-intelligence/openai-claude-unauthorized-relays,Threat Hunter has found the relay in use across a dozen organizations since early 2026,"Key findings
 
 An unauthorized relay service has been observed installing the genuine OpenAI Codex and Anthropic Claude Code CLIs on enterprise systems and then reconfiguring them to route every request through third-party infrastructure instead of the vendors' own servers.
@@ -16125,7 +15909,7 @@ We tested this on macOS (Apple Silicon) with colima, OpenShell 0.1.2, Falco 0.45
 One thing we learned running real sessions: Claude Code does a lot in the background (telemetry, claude.ai connectors, a plugin-marketplace clone). OpenShell's policy blocks all of it, as it should, and Falco reported every blocked connection and credential probe: about 160 alerts in a session where nothing bad happened. Three Claude Code environment variables in the entrypoint and a few narrow rule exceptions brought that to 0. Tune detection against real agent sessions, not just the attacks you script.
 
 No single layer was enough: each caught something the others missed. The demo is repo available, so you can run the scenarios yourself and see what each layer catches and misses"
-7f2b6f346c9b,7f2b6f346c9b,2026-10-26 22:01 UTC,General Security News,Cloudflare,Cloudflare Blog,AI Security; Vulnerability Management,Article,"Cross-request KV cache exposure in the GLM-5.3 Workers AI model, and our remediation with SGLang",https://blog.cloudflare.com/kv-cache-exposure-remediation/,We found no evidence of deliberate exploitation,"On September 8, 2026, we were alerted by a security researcher, Gadi Evron from Knostic, to a tenant isolation issue affecting the GLM-5.3 Workers AI model (@cf/zai-org/glm-5.3) starting on August 27, 2026. We have remediated the issue, and we restored the model on September 9. We have confirmed that no other model hosted on Workers AI was affected.
+7f2b6f346c9b,7f2b6f346c9b,2026-10-26 22:01 UTC,General Security News,Cloudflare,Cloudflare Security,AI Security; Vulnerability Management,Article,"Cross-request KV cache exposure in the GLM-5.3 Workers AI model, and our remediation with SGLang",https://blog.cloudflare.com/kv-cache-exposure-remediation/,We found no evidence of deliberate exploitation,"On September 8, 2026, we were alerted by a security researcher, Gadi Evron from Knostic, to a tenant isolation issue affecting the GLM-5.3 Workers AI model (@cf/zai-org/glm-5.3) starting on August 27, 2026. We have remediated the issue, and we restored the model on September 9. We have confirmed that no other model hosted on Workers AI was affected.
 
 Between August 27 and September 9, a small number of customers using the GLM 5.3 Workers AI model received responses that contained data from other customers' requests made to the same model shortly before theirs. In total, 155 responses were affected, all to prompts longer than 681,280 tokens.
 
@@ -19884,6 +19668,19 @@ How Tenable One AI Exposure protects multilingual users
 Threat actors do not limit themselves to English, and neither should your defenses. With this work, Tenable One AI Exposure extends the same detection quality (for jailbreaks, prompt injection, harmful content, and data exposure) natively across 10 languages, at production speed and without a translation bottleneck in the request path. As customers adopt AI in more markets and more languages, that multilingual coverage extends with them.
 
 Learn more about Tenable One AI Exposure"
+ebdd75dc0fa7,ebdd75dc0fa7,2026-10-21 12:00 UTC,General Security News,,NCSC UK,Attack Surface Discovery; Vulnerability Management,Article,Critical security issue affecting PHP,https://www.ncsc.gov.uk/news/critical-security-issue-affecting-php,Prioritise internet-facing systems first and then internal systems,"The NCSC recommends following vendor best practice advice in the mitigation of vulnerabilities. The NCSC highly encourages organisations to follow these priority actions:
+
+Identify systems running PHP across your infrastructure, prioritising internet-facing systems. As all versions may be affected, do not limit discovery to outdated PHP versions; identify PHP installations generally and assess their exposure to CVE-2026-109618 and CVE-2026-109619.
+
+Update to the latest version of PHP and continue to monitor for future updates. Prioritise internet-facing systems first and then internal systems.
+
+If you are unable to update to a version with the security update applied, the PHP Foundation have provided temporary mitigations.
+
+If you are unable to apply the temporary mitigations, or applying them would take too long, you should consider taking the system offline until it can be fully mitigated.
+
+If you are unable to update or disable the system immediately then you should assess the system for any evidence of compromise prior to your upgrade or mitigation and look for backdoors installed by an attacker. If you are not confident in your ability to do this yourselves then you can get assistance from an NCSC-assured Cyber Incident Response provider.
+
+Continuously monitor for security updates from third-party software vendors, including for appliances and services that may bundle PHP. NCSC-NL have published an inventory list of software products with a PHP dependency potentially affected by the vulnerabilities. Apply relevant updates as they become available."
 da7c77f7f9ef,da7c77f7f9ef,2026-10-21 12:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,You Don't Have to Work in Product to Help Build One,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m10/you-dont-have-to-work-in-product-to-help-build-one.html?source=rss,"We kept circling the same two barriers: One-on-one communications coaching cost an eye-watering $250-$800 per session, and coaching wasn’t always available when you needed it,...","A year ago, my colleague Eva Hamburger and I were deep in fiscal planning for director development. We kept circling the same two barriers: One-on-one communications coaching cost an eye-watering $250-$800 per session, and coaching wasn’t always available when you needed it, like at 9 p.m. the night before that last-minute Executive Update.
 
 In this AI era, we knew there had to be a better way, so we began exploring existing tools. After realizing that none quite hit the mark, we asked: Why don’t we build it ourselves?
@@ -19935,19 +19732,6 @@ Related links
 Vidcast
 
 WebexOne AI Presentation Coach Launch"
-ebdd75dc0fa7,ebdd75dc0fa7,2026-10-21 12:00 UTC,General Security News,,NCSC UK,Attack Surface Discovery; Vulnerability Management,Article,Critical security issue affecting PHP,https://www.ncsc.gov.uk/news/critical-security-issue-affecting-php,Prioritise internet-facing systems first and then internal systems,"The NCSC recommends following vendor best practice advice in the mitigation of vulnerabilities. The NCSC highly encourages organisations to follow these priority actions:
-
-Identify systems running PHP across your infrastructure, prioritising internet-facing systems. As all versions may be affected, do not limit discovery to outdated PHP versions; identify PHP installations generally and assess their exposure to CVE-2026-109618 and CVE-2026-109619.
-
-Update to the latest version of PHP and continue to monitor for future updates. Prioritise internet-facing systems first and then internal systems.
-
-If you are unable to update to a version with the security update applied, the PHP Foundation have provided temporary mitigations.
-
-If you are unable to apply the temporary mitigations, or applying them would take too long, you should consider taking the system offline until it can be fully mitigated.
-
-If you are unable to update or disable the system immediately then you should assess the system for any evidence of compromise prior to your upgrade or mitigation and look for backdoors installed by an attacker. If you are not confident in your ability to do this yourselves then you can get assistance from an NCSC-assured Cyber Incident Response provider.
-
-Continuously monitor for security updates from third-party software vendors, including for appliances and services that may bundle PHP. NCSC-NL have published an inventory list of software products with a PHP dependency potentially affected by the vulnerabilities. Apply relevant updates as they become available."
 775edd139225,775edd139225,2026-10-21 11:56 UTC,General Security News,Cato Networks,Cato Networks Blog,Endpoint Security; Identity Security Posture Management,Article,Make Your SIEM Smarter with Cato,https://www.catonetworks.com/blog/make-your-siem-smarter-with-cato/,"Network outages and cyber threats demand real-time responses, making timely insights critical","Effective security operations require more than isolated alerts. Analysts need context from across the environment to understand what happened, assess its significance, and decide what to do next. That is why accessing insights and telemetry from across your networking and security stack is critical to teams using a SIEM tool. That wider context from endpoints, identity, cloud, applications, network infrastructure, and threat intelligence, brought into a common operational workflow, adds essential intelligence. With more complete information available where analysts already work, they can investigate faster and make better-informed decisions.
 
 Cato XOps brings network and security context from across the Cato SASE Platform into a shared operational view to accelerate incident detection, investigation, and response. Organizations can use that context in the operating model that works best for them, by enriching their existing SIEM workflows with the Custom HTTP Push Connector, or by bringing network and security operations closer together with Cato XOps.
@@ -21446,6 +21230,7 @@ The report also noted that when AI agents are deployed correctly, they can provi
 Of those surveyed, 86% said that the deployment of AI had improved the speed at which they are able to detect IT or security issues and 36% classed that improvement as “significant”.
 
 However, while the majority of those surveyed said that agentic AI had made them more efficient at work, some disagreed: 14% suggested that the deployment of AI agents had made issues harder to detect and resolve. One of the main issues cited was the extra time it took to double check if what the agent was saying was correct."
+c2726f9810d7,c2726f9810d7,2026-10-20 12:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,President & CPO at Cisco | Why Agents Now Consume 5x More Tokens Than Humans,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m10/president-cpo-at-cisco-why-agents-now-consume-5x-more-tokens-than-humans.html?source=rss,"<img src=""https://newsroom.cisco.com/c/dam/r/newsroom/en/us/assets/a/y2026/m10/CitN_Jeetu-Product-School.jpg"" width=""450px""><br>In February, agents passed humans in token consumption. By August, their consumption had grown 14x, and today it is five times that of humans.<br><b>More RSS Feeds: </b><a ","In February, agents passed humans in token consumption. By August, their consumption had grown 14x, and today it is five times that of humans.More RSS Feeds: https://newsroom.cisco.com/c/r/newsroom/en/us/rss-feeds.html"
 1204db74fe48,1204db74fe48,2026-10-20 12:00 UTC,General Security News,Splunk,Cisco Newsroom,AI Security,Article,Splunk State of Observability 2026: Avoiding the Hidden Costs of AI Agents,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m10/splunk-state-of-observability-2026-avoiding-the-hidden-costs-of-ai-agents.html?source=rss,"Shared data across observability and security teams is essential to AI trust, with more than three quarters of respondents saying monitoring AI has increased their collaboration...","News Summary
 
 The global Splunk State of Observability 2026 report reveals agentic AI is creating unpredictable outcomes and costs, leaving observability practices to rein them in.
@@ -21527,7 +21312,6 @@ About Cisco
 Cisco (NASDAQ: CSCO) is the worldwide technology leader that is revolutionizing the way organizations connect and protect in the AI era. For more than 40 years, Cisco has securely connected the world. With its industry leading AI-powered solutions and services, Cisco enables its customers, partners and communities to unlock innovation, enhance productivity and strengthen digital resilience. With purpose at its core, Cisco remains committed to creating a more connected and inclusive future for all. Discover more on The Newsroom and follow us on X at @Cisco.
 
 Cisco and the Cisco logos are trademarks or registered trademarks of Cisco and/or its affiliates in the U.S. and other countries. A listing of Cisco’s trademarks can be found at http://www.cisco.com/go/trademarks. Third-party trademarks mentioned are the property of their respective owners. The use of the word ‘partner’ does not imply a partnership relationship between Cisco and any other company."
-c2726f9810d7,c2726f9810d7,2026-10-20 12:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,President & CPO at Cisco | Why Agents Now Consume 5x More Tokens Than Humans,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m10/president-cpo-at-cisco-why-agents-now-consume-5x-more-tokens-than-humans.html?source=rss,"<img src=""https://newsroom.cisco.com/c/dam/r/newsroom/en/us/assets/a/y2026/m10/CitN_Jeetu-Product-School.jpg"" width=""450px""><br>In February, agents passed humans in token consumption. By August, their consumption had grown 14x, and today it is five times that of humans.<br><b>More RSS Feeds: </b><a ","In February, agents passed humans in token consumption. By August, their consumption had grown 14x, and today it is five times that of humans.More RSS Feeds: https://newsroom.cisco.com/c/r/newsroom/en/us/rss-feeds.html"
 587461f11cbe,587461f11cbe,2026-10-20 11:00 UTC,General Security News,,Sonatype Blog,Other/General,Article,The New Release Metric: Less Cleanup Per Release,https://www.sonatype.com/blog/the-new-release-metric-less-cleanup-per-release,"A dependency problem discovered after development has started can interrupt feature work while an engineer investigates the component, finds an alternative, updates the project,...","AI makes it easier to create code. That does not automatically make software easier to ship.
 
 A team can move from an idea to a pull request in minutes, then lose those gains to a failed build, a dependency conflict, a late finding, or an upgrade that was not worth making. The code arrived faster. But the release did not.
@@ -25410,120 +25194,3 @@ Watch the Tragic Quadrant livestream to see how small threats stack up to OH $#!
 Grab the Tragic Quadrant report to get a full readout of which cyber threats to find and fix first.
 
 Then, step into Doris' shoes with our Defense Drill and walk through the same custom GPT, ClickFix, and sneaky inbox activity to see if you'd catch the attack before any damage is done."
-3ec2b277cef3,3ec2b277cef3,2026-10-13 00:00 UTC,General Security News,Falco / Sysdig,Falco / Sysdig Blog,Identity Security Posture Management; Data Security Posture Management; Phishing Simulations; AI Security,Article,Why Cybersecurity Awareness Month still comes back to the basics,https://webflow.sysdig.com/blog/why-cybersecurity-awareness-month-still-comes-back-to-the-basics,"The 2024 report found that only two percent of granted permissions were being used, which leaves 98% of granted access sitting there for an attacker","October gives us an official excuse to revisit the security fundamentals every year. But the basics shouldn’t be a seasonal topic, because they’re the struggles that lead to breaches every single month.
-
-Everything applies whether or not you use AI. It’s the fastest way to run your defense, because attackers are already using it. If your organization is slower to adopt AI, the list actually still holds. We’ve found that 50% of AI tools are operating under the radar (that’s shadow AI.) AI workloads are identified at runtime, operate in the cloud, and are secured the same way as all else.
-
-The data proves it: Basic gaps stills cause breaches
-
-Before digging into the “what to do,” let’s start with the justification as to why we need to do these things.
-
-Verizon’s 2026 Data Breach Investigations Report (DBIR) was built from more than 22,000 confirmed breaches. System intrusion and social engineering combined account for 78% of breaches. Additionally, vulnerability exploitation overtook credential abuse as the top initial access vector, appearing in 31% of breaches — a 55% increase year over year.
-
-Additionally, the human element still appears in 62% of breaches, and third-party and supply chain involvement jumped 60% year over year to 48% of all breaches. Blame the lack of MFA, unrotated or exposed credentials, and lack of least privilege implementation.
-
-Identity is a common thread. Google Cloud's Threat Horizons Report H1 2026 found compromised identities in 83% of cloud and SaaS intrusions in the second half of 2025. The Sysdig 2026 Cloud-Native Security and Usage Report found that 97.2% of managed identities within CSPs belong to machines. The 2024 report found that only two percent of granted permissions were being used, which leaves 98% of granted access sitting there for an attacker.
-
-Skip the basics and it’ll cost you
-
-IBM’s 2026 Cost of a Data Breach Report puts the global average just shy of $5 million, up 12% year over year. The US average is a whopping $11.5 million. If you’re wondering why that can climb so high, in some cases, like a DDoS attack or the rare destructive ransomware attack, this includes downtime. According to the ITIC’s 2024 Hourly Cost of Downtime Survey, for large enterprises, a single hour of downtime costs over $100,000, with industries like finance, healthcare, media, and communications reaching well over $5 million per hour. That means a critical service outage spanning the length of an average workday could cost a business tens of millions of dollars during recovery.
-
-Every basic security fundamental you need, in one place
-
-If you haven’t caught on yet, the pattern across every single one of these reports is the same: The fundamentals aren’t being executed consistently (if at all), and those gaps are exactly why attackers keep getting in. What follows isn’t new or unique, and that’s the point. Here’s the full list:
-
-Identity and access management
-
-Enforce MFA on every human account with elevated privileges, especially cloud admin and root. There should be no exceptions for “just this one admin.”
-
-Give service accounts short-lived credentials and workload identities instead of long-lived keys.
-
-Apply the concept of least privilege to every human and non-human identity. Excessive permissions for service accounts and CI/CD pipelines are as dangerous, if not more dangerous, as excessive permissions for human accounts, because they are increasingly being targeted by threat actors.
-
-Audit and revoke access on a scheduled cadence, not on a whim. Temporary access required for a migration, incident investigation, or marketing project should expire automatically, not linger for six months. (Seriously consider automating the access review process in full.)
-
-Rotate credentials and API keys on a fixed cadence, and immediately after any personnel changes or third-party service offboarding. (You can automate this too!)
-
-Monitor for anomalous identity behavior at runtime in addition to during initial login. A valid credential doing something it's never done before, from somewhere it’s never logged in from before, or at a weird time of day, is still a signal.
-
-Vulnerability and patch management
-
-Patch based on exploitability and exposure, not just CVSS score. A mid-severity flaw on an internet-facing workload will be exploited before a critical one buried three layers deep.
-
-Close the remediation gap. Only 26% of critical vulnerabilities in CISA’s KEV catalog were fully remediated last year. Track time-to-remediate as a KPI, not a footnote.
-
-Scan images and dependencies before they reach production, and continuously scan running workloads, because a clean image today can have a new CVE tomorrow.
-
-Maintain an accurate software inventory (SBOM) so you know what's actually running when a new CVE drops. You can't patch what you can't see.
-
-Cloud and Kubernetes configuration
-
-Run continuous posture checks against every account, across your entire enterprise. Configuration can drift between static scans, so scan continuously.
-
-Lock down storage by default and only expose it if it’s necessary. Public buckets and open blobs are common, preventable exposure paths in a cloud service provider.
-
-Restrict network exposure. Close unused ports, tighten security groups, and don't let permissive firewall rules become the default because someone was in a hurry. Add network policies in Kubernetes because pod traffic is open across namespaces by default.
-
-Scope Kubernetes RBAC to least privilege. Use namespace-scoped Roles instead of cluster-wide ones where you can. Treat every cluster-admin binding as an exception that needs an owner, because cluster-admin handed out liberally is a lateral movement problem waiting to happen.
-
-Disable or tightly scope pod privilege escalation, hostPath mounts, and privileged containers unless there's a legitimate reason for it. If so, monitor its behavior for anomalous usage.
-
-Runtime detection and response
-
-Deploy runtime sensors on every workload, because static build-time scanning misses what happens after deployment.
-
-Detect drift the moment it happens. A container that starts running a binary that wasn't in the original image is a red flag.
-
-Mapping detections to MITRE ATT&CK helps your team know what technique they're looking at and responding to, not just, ""something fired, what happened?""
-
-Tune alerts against actual behavior baselines from your environment. Alert fatigue will diminish your triage speed and false positives waste time you don’t have.
-
-Have tested containment actions ready to go when high-fidelity alerts fire. Detection without a response playbook just documents the breach as it happens, and you’ll watch it fly by.
-
-Logging, monitoring, and visibility
-
-Centralize logs across cloud, container, and identity layers. Fragmented logs mean fragmented investigations, and that means slow speed.
-
-Enable audit logging everywhere and verify it's actually capturing what you think it is.
-
-Retain logs long enough to investigate. Mean time to identify and contain sits at 247 days; a 30-day data retention window only covers 12% of that.
-
-Correlate signals across layers. An IAM anomaly plus a runtime anomaly on the same workload is a different story than either alone.
-
-Supply chain and CI/CD management
-
-Scan third-party dependencies and container base images continuously, not just at import.
-
-Treat CI/CD credentials and pipeline permissions with the same scrutiny as production access. Compromised pipelines lead to compromised production.
-
-Vet and monitor vendor and partner access. Third parties now factor into 48% of breaches.
-
-Sign and verify artifacts through the pipeline so nothing unverified reaches a runtime environment.
-
-Governance
-
-Assign clear ownership for every basic item on this list. Stopping at ""security is everyone’s responsibility"" is how things fall through the cracks.
-
-Write down what's approved (hello AI tools.) Set a policy for approved tools, what data can go in, and who approves new ones. Of the organizations with an AI-related incident, 68% had no AI governance policy.
-
-Enforce the policies you write. A ban with no usage detection is a suggestion.
-
-When exceptions are given, assign an owner and an expiration date.
-
-Anchor to established frameworks. For example, use NIST AI RMF for AI risk and the OWASP Top 10 for LLM Applications works as a complementary threat checklist.
-
-Revisit these fundamentals on a real cadence, not just every October.
-
-People and process management
-
-Train for the social engineering people actually see now: Voice phishing, MFA fatigue prompts, and help desk impersonation, not just email attachments.
-
-Practice incident response before an incident, with the people who'll actually be on the call.
-
-Report metrics to leadership on a regular schedule. Include things like MFA coverage on privileged accounts, percentage of identities at least privilege, and time to remediate known exploited vulnerabilities.
-
-Your takeaway
-
-Every suggestion above traces back to a control that already exists and already works. MFA works. Least privilege works. Patching works. Runtime visibility works. The breaches keep happening because these fundamentals get treated as a checklist to revisit once a year instead of a discipline to run every single day.
-
-Cybersecurity Awareness Month is a fine reminder. Just don't let it be the only one."
