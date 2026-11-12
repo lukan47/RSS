@@ -1,4 +1,125 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+8135bd436926,a3d815e35bcf,2026-11-12 09:15 UTC,General Security News,Qualys,Qualys Blog,Vulnerability Management; Threat Intelligence,Article,"PHP2Shell and Node2Shell: Find, Fix, and Verify Across Your Web Apps and APIs",https://blog.qualys.com/product-tech/2026/11/12/php2shell-node2shell-totalappsec-web-apps-apis,"Amazon Threat Intelligence spotted attackers targeting it four days before patches shipped, though early activity was mostly scanning, fingerprinting and non-working exploits","Key Takeaways
+
+Neither flaw is in your application code. Every app and API on a vulnerable runtime inherits the risk.
+
+PHP2Shell (CVE-2026-109618, CVE-2026-109619) is fixed in PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35.
+
+Node2Shell (CVE-2026-111497) is fixed in Node.js 22.23.4, 24.22.1, and 26.12.1.
+
+Both are on the CISA KEV list. PHP2Shell was added on October 26. Node2Shell followed on October 27.
+
+Qualys TotalAppSec tests the application and the APIs with four non-intrusive QIDs for detection of vulnerabilities and two intrusive QIDs for verification of the fix.
+
+Patching fixes the runtime. A rescan confirms the fix worked and the application is no longer exposed.
+
+On October 21, fixes came out for PHP2Shell and Node2Shell, two critical flaws in the runtimes beneath your web apps and APIs. Five days later, PHP2Shell was on CISA’s Known Exploited Vulnerabilities list, and Node2Shell followed the next day. Attackers had been probing PHP2Shell four days before a patch even existed.
+
+With a timeline that short, the standard response of finding hosts, upgrading, and closing the ticket is not enough. Patched is a claim about a server. However, attackers really connect to the applications and APIs running on them. The question for application security teams is not whether PHP and Node.js were upgraded. It is whether an attacker can still reach the flaw through any application you run, and how you would know.
+
+This post covers how the two flaws impact your application estate, where most response plans break, and how Qualys TotalAppSec turns a runtime flaw into a finding you can fix and verify.
+
+A Runtime Flaw Is an Application Risk You Inherit
+
+Neither flaw is in your application code, which is why code scans, reviews and tests won’t flag them. Every application and API running on a vulnerable runtime inherits the exposure.
+
+PHP2Shell is a wide-scale problem. Qualys Threat Research Unit analyzed anonymized data from more than 10,000 customers and found 167 million PHP installations. Of the 156 million where the PHP version could be identified, 73% are on internet-facing assets. About 71% of the same 156 million run end-of-life or end-of-support versions that will likely never get a vendor patch, and only 199,000 were patched in the first 12 hours after disclosure.
+
+Node2Shell (CVE-2026-111497, a flaw in the Brotli decoder bundled with Node.js) hides in plain sight. Apps can be exposed even if they never call a Brotli API, because frameworks or dependencies may decompress attacker-controlled data. Node.js fetch() and Express 5 request-body parsing are examples of such attack vectors. As with PHP, end-of-life Node.js lines, including 25.x, 23.x and 20.x, get no fix and must move to a supported release.
+
+In practice, the exposed estate includes customer portals, CMS-powered sites, microservices and the APIs that connect them. It also includes anything that fetches or accepts compressed content.
+
+Attackers are not waiting for your patch cycle
+
+Details of PHP2Shell leaked before the coordinated release. Amazon Threat Intelligence spotted attackers targeting it four days before patches shipped, though early activity was mostly scanning, fingerprinting and non-working exploits. Then it escalated. CISA added PHP2Shell to its catalog on October 26 and Node2Shell on October 27.
+
+Confirmed code execution: a researcher’s honeypots recorded confirmed remote code execution with usable memory disclosure against Apache mod_php running PHP 8.4.26.
+
+Scale of attacks: Delft University’s Threat Intelligence Lab tracked more than 50,000 PHP2Shell exploitation requests from over 600 IP addresses across 70 countries.
+
+Node2Shell: Public exploit code is available, and exploitation attempts have been observed in the wild.
+
+What’s at stake: Researchers have shown that PHP worker memory can be disclosed without authentication, exposing passwords, authentication tokens and API keys.
+
+To be precise: CISA hasn’t said which organizations were compromised, and the confirmed PHP exploit was on a deliberately favorable single-worker setup. The safe reading is that attackers have working exploits and are scanning widely, so treat any unpatched internet-facing app as a target.
+
+Find, fix and verify PHP2Shell and Node2Shell across your apps and APIs with TotalAppSec.
+
+Where Most Response Plans Break
+
+Most plans follow the same path: inventory hosts, upgrade, restart, close the ticket. That works until one of three gaps appears. In each case, the fix was applied in one place, but the attacker reaches the application through another.
+
+The application nobody owns
+
+You can’t test or patch what isn’t in your inventory. Forgotten microsites, acquired apps, and shadow APIs can run old runtimes, and they are the ones nobody is watching.
+
+A version string is a hint, not proof
+
+Proxies can strip the headers that reveal a PHP version, so a version-based check can miss a vulnerable app. Distribution builds can carry a backported fix under an older version number, so the same check can flag a fixed one. Neither a version banner nor a package list tells you how the application behaves when an attacker sends a request.
+
+Patched on disk is not patched in production
+
+Running processes keep the vulnerable code in memory until services such as PHP-FPM or long-running Node.js apps restart. Servers can also carry more than one PHP copy, so upgrading one leaves another. The fix only counts if the patched runtime is the one serving requests.
+
+A response built to end in proof
+
+An industry-neutral response has five steps, and the fourth is the one most teams skip.
+
+Find every runtime and application. Inventory the web apps and APIs behind your internet-facing services and the runtimes under them. Include end-of-life versions, containers, vendor-bundled runtimes and apps nobody owns.
+
+Scan, then rank by exposure. Start with internet-facing apps. Most teams can’t tell which apps use Apache mod_php or decompress untrusted Brotli data until they scan, so test first and rank the confirmed findings.
+
+Fix, then restart. Upgrade to a fixed version or your distribution’s backported build, and restart every service that loads the runtime. If you can’t patch yet, apply the vendor’s interim mitigations and restrict access to the service.
+
+Prove it from the outside. Retest the same applications and APIs, and treat any remaining finding as an incomplete fix. Also check for signs of compromise from before the patch, since exploitation began early.
+
+Make it repeatable. The next trending CVE will start the same race. A standing process beats a scramble.
+
+How to detect PHP2Shell and Node2Shell in web apps and APIs with TotalAppSec
+
+Qualys TotalAppSec brings AI-powered, unified risk management to web apps and APIs. For PHP2Shell and Node2Shell, it tests the application itself over HTTP, the same path an attacker uses, not just the host. Six new QIDs cover both web applications and APIs.
+
+Two kinds of evidence: Potential findings (QIDs 520310 and 520404) read PHP version signals from response headers and application cookies. Confirmed findings (QIDs 533086 and 533203) observe behavior in the live application: how PHP handles a session ID with an invalid character, and how Node.js handles a crafted Brotli payload. Four of the six checks are non-intrusive and can be safely used in production.
+
+A safe way to verify: The two intrusive checks (QIDs 533068 and 533085) stress the application and can crash an unpatched one. Run them in a QA environment or on a patched production system, through the Trending Vulnerability Intrusive Options profile, so verification is a deliberate step with approvals and a maintenance window.
+
+A ready starting point for the next one: TotalAppSec includes two system-generated option profiles for scanning trending CVEs such as PHP2Shell and Node2Shell. To run a PHP2Shell and Node2Shell web application scan, choose a profile, select your apps by name or tag, and launch. The product tour below walks you through each step. Your scheduled scans may already include the four non-intrusive QIDs, because they are part of the Core, OWASP Top 10 and Everything option profiles and of AI-powered scans.
+
+Each finding attaches to a named application or API, so its owner can act on it. After the fix and restart, rescan the same applications. If a QID still reports, the patched runtime isn’t the one serving those requests.
+
+TotalAppSec shows what is exposed at the application and API layer. The runtime underneath lives on hosts, in images and in cloud workloads, where Qualys VMDR, TotalCloud and Container Security find vulnerable PHP and Node.js components. The Qualys Threat Research Unit covers that side in the PHP2Shell and Node.js blogs.
+
+See It in Action with This Interactive Product Tour
+
+The Next Runtime Flaw Is Already On Its Way
+
+PHP2Shell and Node2Shell showed how quickly a flaw in the layer under your applications can become an application risk. The pattern will repeat. The next critical runtime flaw may also sit outside your own code, and attackers will again move faster than most patch cycles.
+
+The teams that cope best aren’t the ones scrambling hardest in the first week. They already know which web apps and APIs they have, can see which are exposed, and can confirm a fix actually worked. Patched is a claim about a server. Proof is a finding about an application. Qualys TotalAppSec gives you that application-level view, with ready-made trending vulnerability profiles to start from.
+
+Know Your PHP2Shell Exposure and Mitigate It with Qualys
+
+Our free service finds PHP2Shell across your internet-facing assets, proves which servers attackers can exploit, and gives you a patch or mitigation path for each one, including versions PHP will never fix.
+
+Get Our Free Services
+
+Frequently Asked Questions (FAQs)
+
+Which option profiles include the PHP2Shell and Node2Shell QIDs?
+
+The four non-intrusive QIDs (520310, 533086, 520404 and 533203) are in the Trending Vulnerability Options profile, and also in the Core, OWASP Top 10 and Everything option profiles. The two intrusive QIDs (533068 and 533085) are only in Trending Vulnerability Intrusive Options.
+
+Does an AI-powered scan test for the new QIDs?
+
+Yes, for the four non-intrusive QIDs. The two intrusive QIDs are not part of AI-powered scans, so run them separately with the Trending Vulnerability Intrusive Options profile.
+
+When can a scan miss PHP2Shell or Node2Shell?
+
+Version-based checks (QIDs 520310 and 520404) can miss an app when a web server or proxy strips response headers and hides the PHP version. The confirmed checks (QIDs 533086 and 533203) test how the application responds instead of reading version headers.
+
+How do I confirm a fix worked?
+
+Upgrade the runtime, restart the affected services, then rescan the same applications with Trending Vulnerability Intrusive Options on patched systems or outside production, with approvals and a maintenance window. If a QID is still reported, the fix is incomplete, so check that the patched runtime is serving requests."
 385260c16c79,385260c16c79,2026-11-10 20:39 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Identity Security Posture Management,Article,"Microsoft and Adobe Patch Tuesday, November 2026 Security Update Review",https://blog.qualys.com/vulnerabilities-threat-research/2026/11/10/microsoft-patch-tuesday-november-2026-security-update-review,"In this month’s updates, Microsoft has addressed only one vulnerability that has been exploited in the wild","As the year approaches its final stretch, Microsoft’s November 2026 Patch Tuesday highlights the continued importance of proactive vulnerability management. This month’s security updates address vulnerabilities across the Microsoft ecosystem, reinforcing the need for organizations to promptly identify, prioritize, and remediate security risks.
 
 This month’s release includes fixes for several vulnerabilities that could potentially enable remote code execution, privilege escalation, or denial-of-service attacks. As always, timely patch deployment is crucial to reduce exposure and ensure systems remain resilient against exploitation attempts.
@@ -2256,499 +2377,4 @@ Qualys Certificate View search tokens and API documentation
 Contributors
 
 Russ Sanderlin, Director, Subject Matter Expert, VMDR, Qualys"
-96063189c6dc,15b5fe82f315,2026-10-23 12:58 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management,Article,Node.js Patches Brotli Remote Code Execution Flaw: Find Vulnerable Runtimes Before Attackers Do,https://blog.qualys.com/product-tech/2026/10/23/node-js-patches-brotli-remote-code-execution-flaw-find-vulnerable-runtimes-before-attackers-do,QVSS adds live Qualys threat intelligence and the customer’s own asset impact to show which flaws attackers are exploiting now and need fixing first,"Executive Summary
-
-On October 21, 2026, Node.js released fixes for 10 vulnerabilities across its three supported release lines: 22.x, 24.x, and 26.x. Four are rated High. The most severe, CVE-2026-111497, is an out-of-bounds write in the bundled Brotli decoder that Node.js says permits remote code execution. These flaws live in the Node.js runtime itself, not in application packages, so application dependency checks will not surface them. Qualys Threat Research Unit data shows that nine in 10 Node.js installations are either unpatched or on lines that will never receive these fixes. Qualys customers can detect exposure with InstaScan as soon as the advisory is published and find affected runtimes across hosts, containers, and cloud workloads, including copies outside standard install paths. They can then prioritize those exposed to the internet, patch with TruRisk Eliminate, and confirm each fix.
-
-Why This Release Needs Attention Now
-
-The four high-severity vulnerabilities affect two areas almost every Node.js service relies on: compressed data and outbound connections.
-
-Brotli decompression (CVE-2026-111497): This flaw is in the code that decompresses Brotli data. Any service that unpacks Brotli content it didn’t create is exposed, and Node.js says the flaw can permit remote code execution.
-
-Hostname and certificate checks (CVE-2026-105482, CVE-2026-105483, CVE-2026-106069): These flaws weaken Node.js’s ability to verify hostnames and certificates. Services that connect to hosts on behalf of users are most at risk.
-
-Where things stand now:
-
-Scores confirm the urgency: CVE-2026-111497 now has a CVSS 4.0 score of 9.2 (Critical). Its QVSS score, which adds Qualys threat intelligence, is higher. See the latest score and threat indicators in ETM below.
-
-Patches are available: Node.js fixed these flaws in 22.23.4, 24.22.1, and 26.12.1. Qualys patches are available in TruRisk Eliminate for 22.x, 24.x, and 26.x. Check each patch’s reliability score before deploying.
-
-No official workarounds: Node.js has not published workarounds. Upgrading the runtime is the only complete fix. The Qualys TRU mitigations later in this post reduce exposure while teams patch.
-
-Unsupported lines stay vulnerable: Only 22.x, 24.x, and 26.x received fixes. All other lines, including 25.x, 20.x, and earlier, remain vulnerable and must be upgraded to a supported release.
-
-Why Updating Application Dependencies Is Not Enough
-
-Updating application dependencies alone will not resolve these issues. The vulnerable code is included in the Node.js runtime, which encompasses runtimes embedded in container images and single-executable applications (SEAs).
-
-Node.js also often runs from nonstandard locations:
-
-Version managers such as nvm
-
-Application folders
-
-Bundled runtimes
-
-SEAs
-
-Container images, running containers, and serverless functions such as AWS Lambda Node.js runtimes
-
-What the Vulnerabilities Affect
-
-The vulnerabilities span zlib, DNS, TLS, HTTP, crypto, and the Permission Model. Three of the four high-severity issues weaken hostname or certificate validation, which matters for any service that makes outbound TLS or DNS calls on behalf of users.
-
-CVE
-
-Severity
-
-Module
-
-Description
-
-Affected lines
-
-CVE-2026-111497
-
-High
-
-zlib (Brotli)
-
-Brotli decoder out-of-bounds write; potential remote code execution
-
-22.x, 24.x, 26.x
-
-CVE-2026-105482
-
-High
-
-DNS
-
-DNS resolution truncation involving embedded NUL characters
-
-22.x, 24.x, 26.x
-
-CVE-2026-105483
-
-High
-
-TLS
-
-TLS hostname validation bypass using fullwidth IP digits
-
-24.x, 26.x
-
-CVE-2026-106069
-
-High
-
-TLS
-
-TLS hostname validation bypass with noncanonical IP addresses
-
-22.x, 24.x, 26.x
-
-CVE-2026-105481
-
-Medium
-
-HTTP
-
-HTTP keep-alive response handling issue
-
-22.x, 24.x, 26.x
-
-CVE-2026-106072
-
-Medium
-
-TLS
-
-Improper certificate validation for unusual IPv4 representations
-
-22.x, 24.x, 26.x
-
-CVE-2026-106074
-
-Medium
-
-crypto
-
-Repeated random values across startup snapshots
-
-22.x, 24.x, 26.x
-
-CVE-2026-106070
-
-Low
-
-zlib (ZipFile)
-
-ZIP validation exposes attacker-controlled bytes
-
-26.x
-
-CVE-2026-106071
-
-Low
-
-Permission Model
-
-Permission Model filesystem over-grant
-
-26.x
-
-CVE-2026-106073
-
-Low
-
-fs / Permission Model
-
-Permission Model bypass using fs.realpathSync
-
-22.x, 24.x, 26.x
-
-High-Severity Vulnerabilities
-
-CVE-2026-111497 (Brotli). A crafted Brotli stream can cause the decoder to write outside its allocated memory bounds. Node.js classifies this outcome as a remote code execution vulnerability. Services that decompress Brotli data from untrusted sources, such as HTTP clients and proxies that accept the Content-Encoding: br, or services that handle uploaded compressed files, are particularly at risk.
-
-CVE-2026-105482 (DNS). The functions dns.resolve*, dns.reverse, and the Resolver class send names to c-ares as C strings. Therefore, if an embedded NUL character is present, it will truncate the name. An application has the ability to validate one hostname against an allowlist while querying a different name. The dns.lookup function remains unaffected by this issue.
-
-CVE-2026-106069 (TLS). The `tls.checkServerIdentity` function can verify a non-canonical IP address, such as one in octal or shortened form, against a certificate for one address while the connection is directed to a different one. This vulnerability allows an attacker to present a certificate that is valid for an endpoint that does not actually belong to them.
-
-CVE-2026-105483 (TLS). Hostnames using Unicode fullwidth digits normalize to an IP address and can match a certificate issued for that IP. This issue only affects the 24.x and 26.x lines.
-
-Medium- and Low-Severity Vulnerabilities
-
-CVE-2026-105481 (Medium, HTTP): With http.Agent keep-alive, a server can send a response through an idle reused socket before the next request, which Node.js will interpret as the response to that request.
-
-CVE-2026-106072 (Medium, TLS): Certificates with DNS names were accepted for non-canonical IPv4 endpoints. This issue has been resolved in the same commit as CVE-2026-106069.
-
-CVE-2026-106074 (Medium, crypto): Cached values for crypto.randomUUID and crypto.randomInt were stored in startup snapshots, causing processes that initiated from the same snapshot to produce identical initial values. Only SEAs using useSnapshot or user-land snapshots are affected.
-
-CVE-2026-106070 (Low, zlib): In the experimental zlib.ZipFile API (added in 26.8.0), a read after a failed header check could return bytes from the wrong file position.
-
-CVE-2026-106071 (Low, Permission Model): Using Wildcard paths in the --allow-fs-read or --allow-fs-write options may provide access to more files paths than originally intended.
-
-CVE-2026-106073 (Low, fs): fs.realpathSync bypassed the Permission Model check that its sibling functions perform, allowing calls on ungranted paths.
-
-Node.js by the Numbers: Nine in 10 Installations Are Unpatched or Unsupported
-
-The Qualys Threat Research Unit analyzed anonymized data to measure exposure to the October 2026 Node.js vulnerabilities.
-
-We found 3.3 million Node.js package installations, and 15% of them are on internet-facing assets, within reach of remote attackers.
-
-Across those installations:
-
-1.3 million run supported lines, Node.js 22, 24, and 26. A fixed release is available for these versions, but it has not been applied yet.
-
-1.7 million run end-of-life or end-of-support lines, Node.js 25, 23, 20, and older. These lines get no upstream fix, so moving to a supported line is the only remedy.
-
-Only 42,000 have been patched so far.
-
-The takeaway: More than half of Node.js installations run versions that will never receive these fixes, and nearly all of the rest have not been patched yet.
-
-Fixed Versions and Upgrade Guidance
-
-Each supported line has a fixed release, and any subsequent release in the same line also includes the fixes.
-
-Node.js version 26 will become LTS on October 28, 2026. Teams using version 26.x should upgrade to version 26.12.1 before this transition.
-
-Node.js branch
-
-Security Update
-
-Priority
-
-22.x LTS
-
-22.23.4
-
-High
-
-24.x LTS
-
-24.22.1
-
-High
-
-26.x
-
-26.12.1
-
-High
-
-25.x, 23.x, 21.x
-
-No Fix
-
-Upgrade to a supported branch
-
-20.x and older
-
-End of Life
-
-Upgrade to a supported branch
-
-Simply updating application dependencies does not resolve these issues. The vulnerable code is included with the Node.js runtime, which encompasses runtimes found in container-based images and single-executable applications (SEAs).
-
-What Qualys Customers Can Do
-
-Qualys customers can identify every vulnerable Node.js runtime across hosts, containers, and cloud workloads, and track remediation in a single view. Detections for the October 2026 release are detailed below.
-
-QID
-
-CVE(s)
-
-Fix (22.x / 24.x / 26.x)
-
-Title
-
-Platform
-
-389117
-
-CVE-2026-105481, 105482, 106069, 106072, 106073, 106074, 111497
-
-22.23.4 / 24.22.1 / 26.12.1
-
-Node.js Multiple Security Vulnerabilities
-
-Windows, Windows DeepScan, Apple MacOS
-
-389119
-
-CVE-2026-105483
-
-Not affected / 24.22.1 / 26.12.1
-
-Node.js TLS Certificate Hostname Bypass Vulnerability
-
-Windows, Windows DeepScan, Apple MacOS
-
-389122
-
-CVE-2026-106070, 106071
-
-Not affected / Not affected / 26.12.1
-
-Node.js Multiple Security Vulnerabilities
-
-Windows, Windows DeepScan, Apple MacOS
-
-106287
-
-EOL
-
-No patch. Migrate to a supported line
-
-EOL/Obsolete Software: Node.js 18.x Detected
-
-Windows, Unix
-
-106242
-
-EOL
-
-No patch. Migrate to a supported line
-
-EOL/Obsolete Software: Node.js 16.x Detected
-
-Windows, Unix
-
-106401
-
-GENERIC-MAP-NOMATCH
-
-20.x
-
-Node.js 20.x Detected
-
-Microsoft Windows, Unix, Apple MacOS
-
-Extend Node.js Remediation Verification to Web Applications and APIs with TotalAppSec
-
-Patching vulnerable Node.js runtimes is the crucial first step in addressing the Brotli vulnerability (CVE-2026-111497). Qualys TotalAppSec extends remediation verification to the web applications and APIs running on these runtimes.
-
-After applying the necessary security patch updates, rescan your web applications and APIs with TotalAppSec using QID 533085 to validate that the Node.js Brotli vulnerability has been resolved.
-
-Important: Use caution when employing QID 533085. This intrusive check may cause applications or APIs running on vulnerable Node.js versions to crash, potentially disrupting service availability. Therefore, run this check only in QA/test environments or against systems confirmed to have patched Node.js runtimes. Do not enable QID 533085 on unpatched or unverified production applications or APIs.
-
-For comprehensive remediation verification, use Qualys VMDR or TotalCloud to check the installed Node.js runtime versions and patch status in conjunction with TotalAppSec’s application-level assessment.
-
-How Qualys Finds and Closes Node.js Exposure
-
-The Qualys Enterprise TruRisk Platform takes teams from advisory to verified fix in six stages, using the inventory and telemetry they already have.
-
-Detect at disclosure with InstaScan. InstaScan, powered by Agent Insta, matches new advisories against your existing software inventory, so Node.js findings surface without a new scan job. See how InstaScan surfaced Node.js exposure.
-
-Find every runtime with CSAM and Qualys Deep Scan. List assets running on affected Node.js, including copies outside standard install paths and in cloud and container workloads. See how to find every affected Node.js runtime See how to find every affected Node.js runtime.
-
-Cover cloud, containers, and serverless with TotalCloud and Container Security. Find affected Node.js across cloud workloads, images, and serverless functions, and see which copies are actually in use See the full cloud and container details.
-
-Prioritize with Enterprise TruRisk Management (ETM). TruRisk scoring adds asset and exposure context, so teams can fix the most exposed runtimes first. See how to prioritize Node.js remediation.
-
-Patch with TruRisk Eliminate. Qualys-published patches are available for the 24.x and 26.x lines; teams on 22.x should upgrade the runtime manually until a patch is available. See patch reliability and deployment guidance.
-
-Confirm the fix. After upgrading, rescan with Cloud Agent, TotalAppSec, or Container Security and confirm the detection QIDs are closed. See the full remediation checklist.
-
-Detect Node.js Exposure at Disclosure with InstaScan
-
-On most platforms, a security release kicks off a waiting game. Wait for the vendor to write a signature. Wait for the next scan window. Wait for the results to process. Only then does a team learn where it’s exposed, often days after the advisory went live. InstaScan ends that cycle.
-
-InstaScan ends that cycle. Within minutes of the October 2026 Node.js security release going public, InstaScan, powered by Agent Insta, correlated the new CVEs against the asset and software telemetry Qualys customers already collect and surfaced exposed Node.js runtimes as live findings: tagged by CVE, including the Brotli remote code execution flaw (CVE-2026-111497), rated by severity, and tied to the impacted asset. No scan to schedule. No waiting for the next scan window. No processing lag.
-
-That matters for a release like this one. The vulnerable code lives in the runtime itself, not in a package manifest, and it hides in version managers, container images, single-executable apps, and serverless functions that dependency checks never touch. InstaScan doesn’t care where the runtime is installed; it reasons from what’s actually on the asset and flags exposure the moment a new advisory lands. The result is a view of Node.js risk that is already prioritized and already tied to the assets that matter, long before a traditional detection pipeline would have surfaced the first finding.
-
-That’s scanless scanning in action, and it’s why Qualys customers knew exactly where they stood on Node.js while everyone else was still waiting on their scanner.
-
-Find Every Node.js Runtime with CSAM and Qualys Deep Scan
-
-Deep Scan identifies vulnerable Node.js runtimes in custom application folders, secondary drives, and other configured directories. Findings appear in VMDR with the full binary path, installed version, and recommended fixed version. This information gives security and IT teams the details they need to locate and address overlooked installations.
-
-Run the following queries in CSAM > Inventory > Assets.
-
-Step
-
-Action
-
-All assets with Node.js installed
-
-(software: ((name: “Node.js”)))
-
-Assets running end-of-life Node.js (21.x and earlier, 23.x, 25.x)
-
-((software: (((name: “Node.js”) AND (version: (*..22.0.0))))))
-
-Node.js on your most critical assets
-
-((asset.criticalityScore: [4..*)) AND (software: ((name: “Node.js”))))
-
-Identify Vulnerable Node.js Across Cloud Workloads, Containers, and Serverless Functions
-
-With Qualys TotalCloud and Container Security, customers can use Qualys Query Language (QQL) to quickly identify cloud workloads, containers, images, serverless functions, VM images (AMIs), and code built on affected Node.js versions, including older releases that have reached end-of-life or end-of-support.
-
-Customers can use the following QQL query to find images and containers running affected Node.js versions:
-
-software: (name: ""nodejs"" and version: [0 ... 22.23.3]) or software: (name: ""nodejs"" and version: [23.0.0 ... 23.11.1]) or software: (name: ""nodejs"" and version: [24.0.0 ... 24.22.0]) or software: (name: ""nodejs"" and version: [25.0.0 ... 25.9.0]) or software: (name: ""nodejs"" and version: [26.0.0 ... 26.12.0])
-
-Beyond identifying vulnerable images, Qualys provides visibility into the deployed containers associated with those images, helping teams understand where affected Node.js packages are running. With the Qualys Runtime Sensor, customers can further distinguish packages that are simply present in an image from those actively in use or runtime reachable, enabling more precise risk prioritization.
-
-Security teams can then focus remediation on the most critical workloads, update affected Node.js packages, rebuild and redeploy container images, and verify that exposures have been eliminated.
-
-The outcome is a unified view of impacted Node.js runtimes across hosts, containers, and serverless workloads, ranked by real exposure and tracked through to a confirmed fix.
-
-Prioritize with Enterprise TruRisk Management (ETM)
-
-Not every Node.js runtime carries the same risk, so not every affected asset needs to be patched first. ETM combines Node.js findings from Qualys and third-party sources, removes duplicates, and gives each one a TruRisk score. That score weighs Qualys threat intelligence against each asset’s business criticality and exposure.
-
-From CVSS to QVSS
-
-CVSS rates how severe a flaw could be. QVSS adds live Qualys threat intelligence and the customer’s own asset impact to show which flaws attackers are exploiting now and need fixing first.
-
-With that context, the order of remediation becomes clear:
-
-Fix first: Internet-facing services that decompress untrusted Brotli data (CVE-2026-111497). They are the most direct path to remote code execution.
-
-Fix next: Services that open TLS connections to user-supplied hosts (CVE-2026-106069, CVE-2026-105483). Here, a hostname validation bypass can expose traffic to interception.
-
-Plan upgrades: Runtimes on end-of-life lines. They will never receive a fix, so they need an upgrade plan rather than a patch.
-
-With this approach, teams focus their efforts on the assets an attacker can actually reach, not on every Node.js installation in the environment.
-
-Track Exposure with the Node.js Dashboard
-
-Once priorities are set, the dashboard turns them into a view that teams can act on. It shows Node.js runtimes across the customer’s environment, which ones are at risk, and what to fix first:
-
-Know the full Node.js footprint. Assets running Node.js and how each one was discovered. This includes runtimes in container images, serverless functions, and bundled or nonstandard install paths.
-
-See where the real risk is. Internet-facing runtimes, instances grouped by affected release line (22.x, 24.x, 26.x), and end-of-life or unsupported versions in their own group.
-
-Prioritize and act fast. High-TruRisk assets grouped by operating system, with each detection’s age and status (active, fixed, or reopened).
-
-As patches roll out, the dashboard tracks progress and confirms that QIDs 389117, 389119, and 389122 close after the rescan, so teams can see that the risk is gone and not just assume the patch worked.
-
-Download the Node.js exposure dashboard today.
-
-Download Now
-
-Reduce Exposure and Patch
-
-Upgrading the runtime is the only complete fix. Use the interim steps below to narrow exposure while you plan the upgrade, then deploy the fixed releases.
-
-Reduce Exposure Before You Patch
-
-Node.js has not published workarounds, so the interim steps below come from the Qualys Threat Research Unit (TRU). They narrow specific attack paths; they do not make an unpatched runtime safe.
-
-Avoid Brotli decompression of untrusted input where possible. Limit compressed payload size and decompression ratio at the reverse proxy or WAF.
-
-Resolve user-supplied names with dns.lookup instead of dns.resolve*, and reject hostnames containing NUL characters.
-
-Convert IP addresses to canonical form before they reach a TLS connection. Reject fullwidth and other non-canonical forms.
-
-Disable keepAlive on http.Agentfor connections to untrusted servers.
-
-Do not rely on the Permission Model as a security boundary on affected versions.
-
-Patch with Confidence
-
-Node.js has released fixes, and Qualys-published patches are already available in TruRisk Eliminate for the 22.x, 24.x, and 26 lines.
-
-Customers can use the following QQL query in the patch catalog to find the patches associated with these vulnerabilities. Any of these patches that are missing from a customer’s environment appear in the results.
-
-patch.cveId:[CVE-2026-111497, CVE-2026-105482,CVE-2026-105483, CVE-2026-106069,CVE-2026-105481,CVE-2026-106072,CVE-2026-106074, CVE-2026-106070,CVE-2026-106071,CVE-2026-106073]
-
-For the 22.x, 24.x and 26.x patches:
-
-Patch reliability: High for 22.23.4, 24.22.1, and 26.12.1. Qualys rates both patches with a High reliability score, so they’re unlikely to disrupt production.
-
-No OS reboot required. Node.js does not include kernel modules, drivers, or system services, so upgrading the runtime does not require a reboot.
-
-Restart every service that runs on Node.js. Long-running processes, containers and SEAs keep the vulnerable runtime in memory until they restart.
-
-Once the relevant patch is successfully applied, the next VM scan marks the vulnerabilities on that host as closed.
-
-Confirm That Remediation Is Complete
-
-Upgrade every copy. Move each supported line to 22.23.4, 24.22.1, or 26.12.1, and migrate end-of-life lines to a supported release.
-
-Rebuild what embeds the runtime. Rebuild container images and SEAs on the fixed version, then redeploy them.
-
-Restart long-running services, so they load the new runtime.
-
-Rescan and verify. Rescan with Cloud Agent or Container Security and confirm the detection QIDs are closed.
-
-Connect Your AI Assistant to Qualys in Three Steps
-
-You can now bring Qualys data into your AI workflows with qualys-cli-mcp, a Model Context Protocol (MCP) server for the Qualys Cloud Platform. Claude, Cursor, VS Code, and other MCP-capable assistants can use it to query your Qualys environment in plain language. For example, you can ask “Can you check in Qualys if I’m vulnerable to CVE-2026-111497 or any of the October 2026 Node.js vulnerabilities?″ without writing API calls or switching consoles.
-
-Step
-
-Action
-
-Install (requires Python 3.11 or later)
-
-pip install qualys-cli-mcp
-
-Configure your credentials
-
-qualys-cli configureIt asks for your Qualys username and password, automatically detects your platform, and securely stores the credentials in your OS keyring. Your credentials never go into the AI client’s config file.
-
-Connect your AI client
-
-For Claude Desktop, add this to claude_desktop_config.json (VS Code and Cursor use the same entry):{ “mcpServers”: { “qualys”: { “command”: “qualys-cli-mcp” } } }
-
-That’s it. Your assistant can now work across Qualys.
-
-What This Means for Security Teams
-
-The crucial question after the release of the Node.js security update is not just, “Are we using Node.js?” but rather, “Where are all the vulnerable runtime installations, and which ones could be accessed by attackers?” Node.js runtimes can be found in various environments such as version managers, application directories, containers, serverless environments, and embedded deployments, often outside of standard installation paths. As these vulnerabilities impact the runtime itself, traditional application dependency checks may overlook them.
-
-With Qualys, security teams can identify potentially affected Node.js runtimes immediately after a vulnerability is disclosed, including those installed outside standard paths and across various cloud and container workloads. Qualys helps prioritize remediation of internet-facing services that handle untrusted input. Teams can apply available patches using Qualys TruRisk Eliminate, manually upgrade runtimes as needed, and rebuild and redeploy affected container images or embedded runtimes. Follow-up vulnerability assessments ensure that remediation efforts have been successfully completed.
-
-By integrating vulnerability detection, risk-based prioritization, supported patch deployment, and remediation verification into the Qualys platform, organizations can reduce their reliance on disconnected tools and accelerate their response to critical Node.js vulnerabilities, especially in cloud-native workloads with separate deployment pipelines.
-
-Reference
-
-Node.js Project: Wednesday, October 21, 2026 Security Releases"
 09047266bf0c,0b247b0fab7c,2026-10-14 09:00 UTC,Product & Roadmap,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys Unveils TruRisk Eliminate 2.0 with TruConfidence to Power Autonomous RemOps,https://investor.qualys.com/news-releases/news-release-details/qualys-unveils-trurisk-eliminate-20-truconfidence-power,"TruConfidence brings AI-powered remediation intelligence to help organizations eliminate cyber risk at machine speed and increase confidence in business resiliency FOSTER CITY, Calif., Oct. 14, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a pioneer of cloud-native cyber risk management, today","TruConfidence brings AI-powered remediation intelligence to help organizations eliminate cyber risk at machine speed and increase confidence in business resiliency FOSTER CITY, Calif., Oct. 14, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a pioneer of cloud-native cyber risk management, today"

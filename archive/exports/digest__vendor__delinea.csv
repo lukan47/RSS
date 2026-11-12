@@ -1,5 +1,54 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-88e1e9299a6f,441b4addc7ea,2026-11-11 15:53 UTC,General Security News,Delinea,Delinea Blog,Vulnerability Management,Article,"Node2Shell and eMudhra: 2 Unrelated Problems, 1 Node.js release",https://delinea.com/blog/node2shell-and-emudhra-2-unrelated-problems-1-node.js-release,"js released a security update addressing CVE-2026-111497, a remote code execution vulnerability in its bundled Brotli decoder","What you will learn
+0f52fff49b5d,0f52fff49b5d,2026-11-12 13:00 UTC,General Security News,Delinea,Delinea Blog,Identity Security Posture Management; AI Security; Code Security; Container Security,Article,When Coding Agents Inherit Your Pipeline’s Permissions,https://delinea.com/blog/when-coding-agents-inherit-your-pipelines-permissions,"Nobody attacked anything, and according to the founder, all it took was nine seconds","What you will learn
+
+How coding agents borrow the permissions of your CI/CD pipeline, why enforcement is thinnest in those environments and how to scope agents to the task, treat pipelines as privileged identities and check each action at runtime.
+
+A coding agent working in PocketOS’s staging environment hit a credential error, found an unrelated API token and used it to delete the production database and the backups stored alongside it.
+
+Nobody attacked anything, and according to the founder, all it took was nine seconds.
+
+Most of the conversation about coding agents is about the code they write, but engineering and security leaders need to be able to say what an agent can set in motion, and whose authority it uses when it does.
+
+Enforcement is thinnest where AI agents do their work
+
+In Delinea’s 2026 Identity Security Report, Fall Edition, 2,254 IT and security leaders told us where AI access is checked at the moment of action, before the action runs. CI/CD pipelines came in at 35% and Kubernetes at 28%, the lowest of the six environments we asked about. And 47% of organizations lack enforcement at the moment of action across at least two of the six.
+
+Those are the environments developers hand off to agents first, and they're where deploy roles, cluster permissions, and production credentials live.
+
+The agent doesn’t need the prod credential
+
+Say you ask an agent to bump a service in staging. It updates the deploy workflow and opens a pull request. On GitHub, a pull request from a branch in the same repo runs the workflow as modified in that PR. If the workflow can pick up the pipeline’s cloud role, and that role reaches prod as well as staging, the agent’s edit now has production authority behind it.
+
+The agent never touched a prod credential. It borrowed the pipeline’s.
+
+Over-scoped CI roles were a problem long before agents showed up. Workflows branch too, but someone wrote and reviewed every branch. An agent can write a new one and trigger it in the same session.
+
+Permissions that were safe for a predictable job become much broader once the identity using them can improvise
+
+Identity has to follow the action
+
+Security teams already know how to limit privileged access. Agents need those same controls applied to each action because they decide what to do next on their own.
+
+Scope the agent to the task, not the person who launched it. You might be allowed to query the production database, but your agent shouldn’t inherit that because you started it. A policy that can tell the two apart lets your query through and stops the same query when the agent sends it.
+
+Treat the pipeline as a privileged identity. The deploy role is what actually touches prod, so it deserves the scrutiny you’d give an admin account: one role per environment, and a human review before anything reaches production.
+
+Keep enforcing policy after access is granted. Authentication only checks who's connecting, so a command an agent runs 40 minutes into the session goes through unchecked. Access should exist only while the task needs it, and each consequential action should be checked against policy before it runs.
+
+Where Delinea fits
+
+Delinea extends Privileged Access Management from the point of access to the moment of action. For the connections it brokers, including databases, servers, Kubernetes and MCP tools, access is granted just-in-time for the task, and in a brokered session the credential is injected at the proxy so it never reaches the agent. Each query, command and tool call is checked at runtime, and one that’s out of scope doesn’t run.
+
+Start with one agent-assisted workflow
+
+Pick one agent-assisted workflow and trace it to production. List each identity it touches, from the agent to the runner to the deploy role to the cluster, and what each one is allowed to do. Then find the point where a production action from a staging task would be stopped. If the answer is “we’d catch it in the logs,” you’ve found your gap.
+
+Explore the findings in Delinea’s 2026 Identity Security Report, Fall Edition: The AI Enforcement Gap.
+
+WHITEPAPER The AI Enforcement Gap
+
+See where the gaps are and how to extend control from the point of access to the moment of action."
+88e1e9299a6f,a3d815e35bcf,2026-11-11 15:53 UTC,General Security News,Delinea,Delinea Blog,Vulnerability Management,Article,"Node2Shell and eMudhra: 2 Unrelated Problems, 1 Node.js release",https://delinea.com/blog/node2shell-and-emudhra-2-unrelated-problems-1-node.js-release,"js released a security update addressing CVE-2026-111497, a remote code execution vulnerability in its bundled Brotli decoder","What you will learn
 
 Find out how Node2Shell and the eMudhra CA compromise differ, why Node.js 24.22.1 addresses both, why patching a host doesn’t fix old containers, and what each risk means for machine identities.
 
@@ -630,84 +679,3 @@ A note on Delinea: Delinea products and services do not use PHP and are not affe
 Delinea Platform Powered by Delinea Iris AI
 
 Reduce risk across human and machine identities with intelligent, centralized authorization."
-b84f957f9f51,b84f957f9f51,2026-10-22 12:00 UTC,"Attacks, Breaches & Threat Intel",Delinea,Delinea Blog,Identity Security Posture Management; AI Security; Data Security Posture Management,Article,Attackers Forge Trust Targeting the Foundations of Identity Trust,https://delinea.com/blog/attackers-forge-trust-targeting-the-foundations-of-identity-trust,"The big theme: Attackers are targeting the foundations of identity trust Recent Delinea Labs outlooks have tracked attackers exploiting stolen credentials, third-party...","What you will learn
-
-Find out how forged tokens and exposed signing keys let cyber criminals create trusted identities, why trusted apps and AI agents became entry points, and the four priorities for protecting identity trust in October.
-
-Delinea Labs October 2026 Threat Outlook
-
-In this monthly series, Delinea Labs breaks down the identity-related incidents that had the greatest operational impact over the previous month: how attacks unfolded, what failed in real environments and what those failures signal for the month ahead.
-
-In September, a critical vulnerability in Casdoor exposed a weakness at the core of identity security
-
-An organization administrator could retrieve a private signing key and use it to forge authentication tokens for any user, including global administrators. Rather than stealing an administrator's credentials, an attacker could manufacture an identity the system already trusted.
-
-It was one of several September disclosures pointing to the same problem: weaknesses in the mechanisms that establish and enforce identity trust.
-
-Here's Delinea Labs' outlook for October.
-
-The big theme: Attackers are targeting the foundations of identity trust
-
-Recent Delinea Labs outlooks have tracked attackers exploiting stolen credentials, third-party applications and increasingly autonomous AI agents. September added a new layer: Attackers targeting the systems that decide which identities to trust.
-
-Several vulnerabilities traced back to hard-coded authentication secrets, exposed signing keys, certificate authorities and gaps in authentication or authorization. Any of them could let an attacker forge legitimate-looking tokens, impersonate trusted services or gain privileges beyond their intended scope.
-
-A stolen credential gives an attacker access to an existing identity. A compromised signing key lets them create new ones. Rotating a user's password does little if an attacker can generate another valid authentication token.
-
-As organizations rely more on federated identity, APIs, machine identities and AI agents, the infrastructure that establishes trust needs the same protection as the identities themselves.
-
-What we're seeing at Delinea Labs
-
-Trusted applications became entry points.
-
-Two September incidents showed attackers exploiting access organizations had already granted. At Brevo, a SAML single sign-on (SSO) scoping weakness allowed an attacker to access 138 customer accounts, export contacts from 43 of them, and use 6 of them to send phishing campaigns. Days later, a separate attacker used a long-lived Cloudflare API key stored in source code to deploy malicious code through Brevo-hosted infrastructure.
-
-At BigCommerce, attackers compromised API credentials for third-party Ribon applications, using them to reach merchant environments, steal customer information and inject malicious scripts. BigCommerce said its own platform was not breached.
-
-Access that had been granted to a trusted application turned into a way in
-
-The risk goes up when credentials never expire or permissions cover more than the job requires. Identity verification data is now a tool for attackers.
-
-Identity-verification provider IDScan.net confirmed an unauthorized third party accessed or copied customer information from its cloud platform. The disclosure followed reports that about 153 million driver's-license scans were up for sale. IDScan.net hasn’t confirmed that figure.
-
-Government-issued identification documents are more than sensitive personal information. They’re evidence used to establish identity. Once they’re exposed, attackers can use them for impersonation, social engineering and attempts to get past identity verification.
-
-AI agents keep reaching systems they were never meant to trust. On September 18, Google confirmed Gemini models unintentionally accessed systems belonging to three real companies during cybersecurity evaluations run by Irregular in May. The models were supposed to target fictional organizations. Instead, they had internet access nobody expected, and they used it to discover or guess credentials and authenticate to real systems.
-
-Anthropic identified a fourth incident, in addition to the three covered in last month’s outlook. In January 2026, an early Claude Opus 4.6 model gained unauthorized access to a real third-party system. Anthropic also documented threat actors using AI in intrusion workflows involving credential theft, authentication artifacts and token replay.
-
-AI agents are getting better at finding and using existing access paths on their own. Securing them means controlling not just what they're instructed to do, but which credentials, tools and permissions they can use.
-
-There's a vulnerability here: September recorded 14,841 common vulnerabilities and exposures (CVEs), including 1,799 identity-related vulnerabilities and 146 affecting identity products, up from 84 in August.
-
-Several disclosures showed how weaknesses in authentication infrastructure can undermine trusted access.
-
-Microsoft Entra ID (CVE-2026-62916 and CVE-2026-83941). Two critical privilege-escalation vulnerabilities affected authentication and authorization controls. One could allow an unauthorized remote attacker to elevate privileges without any existing access; the other could allow an already authorized attacker to gain more. Both are reminders that authentication was only the first check, and what an identity can do afterward still has to be enforced.
-
-Casdoor (CVE-2026-90942 and CVE-2026-91998). One vulnerability exposed an instance-wide signing key that could be used to forge JSON Web Tokens (JWTs) for other users, including global administrators. Another allowed an attacker to use application credentials to manage users across organizations, including creating administrator accounts. Together, they showed how limited access could be transformed into broader authority.
-
-JWT signing-key vulnerabilities (CVE-2026-89026, CVE-2026-85391 and CVE-2026-75431). Vulnerabilities in Issabel, Peppermint and PowerJob came down to hard-coded or predictable signing secrets. Attackers could use them to forge authentication tokens, create unauthorized sessions, and in some cases, achieve remote code execution.
-
-Machine identity forgery (CVE-2026-78234). A vulnerability in hawtio-operator could let users with namespace edit permissions to obtain certificates containing attacker-controlled identity information and use them to impersonate trusted services.
-
-The common thread is clear. Compromising the mechanisms that establish identity can do more damage than compromising a single account.
-
-Ransomware activity
-
-Qilin and TheGentleMen tied for the largest share of September's ransomware activity at 10.66% each, followed by KryBit at 4.96%.
-
-KryBit, a ransomware-as-a-service operation that emerged in March 2026, has expanded across Windows, Linux, VMware ESXi and network-attached storage environments. KryBit reportedly uses phishing and compromised credentials for initial access, which fits the familiar pattern that stolen identities and privileged accounts remain reliable paths from initial compromise to ransomware deployment.
-
-What to prioritize in October
-
-Protect the systems that establish identity trust. Treat JWT signing keys, certificate-authority keys and other signing material as Tier-0 identity assets. Eliminate hard-coded secrets, restrict access and set up reliable rotation and revocation.
-
-Strengthen authorization boundaries. September's Brevo and Entra ID findings showed that authenticating an identity is only the first step. Review federation scoping, cross-organization permissions and privilege-escalation paths, and enforce authorization on the action itself.
-
-Reduce standing privilege for machine and third-party identities. Inventory API keys, service accounts and application integrations. Remove unnecessary permissions and replace long-lived credentials with short-lived, task-scoped access wherever possible.
-
-Enforce AI agent access at runtime. Limit the credentials, tools and network destinations available to agents, and verify their authority when they attempt consequential actions. Model-level restrictions alone can’t contain an agent with access to trusted systems.
-
-A stolen password gives an attacker one identity; a stolen signing key lets them create as many as they want
-
-The Delinea Platform helps organizations discover identities, analyze privilege risk and enforce access control at the moment of action. By extending Privileged Access Management (PAM) from the point of access to the moment of action, organizations can control what AI agents, humans and machines can do, and for how long."

