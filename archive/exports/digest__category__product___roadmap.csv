@@ -1,4 +1,176 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+dcd9025e1197,dcd9025e1197,2026-11-13 14:00 UTC,Product & Roadmap,Cloudflare,Cloudflare Blog,Other/General,Article,Introducing Spend Management: Spending limits and alerts for Cloudflare,https://blog.cloudflare.com/spend-management/,"Get started This launch is a first step toward making spend controls a normal part of building on Cloudflare, alongside deploying code and monitoring your applications","Spend controls have been at the top of the list of most requested features from developers building on our developer platform for quite some time now. With more than 10 million developers now building on Cloudflare, this matters more than ever.
+
+Although we’ve had usage notifications and budget alerts available to paid plans for a while, this doesn’t solve the problem completely; informing is not the same as controlling.
+
+You can now set spending thresholds and choose to have Cloudflare pause activity when those limits are reached, thus avoiding unexpected bills from unplanned usage. Today, we're introducing Spend Management in Beta, for any pay-as-you-go (PayGo) customer, starting with Workers and Durable Objects.
+
+Use Spend Management alongside AI Gateway spend limits to manage compute and AI inference costs across your application. AI Gateway already supports per-user and per-model budgets for Workers AI and other AI providers, applied to requests routed through your gateway.
+
+How it works
+
+You can start using Spend Management using the dashboard, cf CLI, or REST API.
+
+In the dashboard, head over to Manage Account > Billing > Spend limits and enable the products for which you want to control spending.
+
+When you enable controls on a product, you can define a spending limit, specify a recipient email for notifications, and set one or more alert thresholds.
+
+If you configure a recipient email, Cloudflare will send notifications when the evaluated spend reaches one of the thresholds or your spending limit. When the limit is reached, a blocking policy is enforced and your product is paused automatically.
+
+If you go to the dashboard, you can see the current billing cycle costs for each supported product in near real time (under 10 minutes), and manage your settings and thresholds from there. The overview panel tells you which products have thresholds and limits configured. In this example, you can see that Workers triggered two alerts before hitting the hard limit.
+
+Note that the billing cycle starts when the paid subscription begins, not when you deploy a Worker or create a spending cap; a subscription starting October 10 generally has a cycle of October 10-November 10 — not a calendar month.
+
+The dashboard also shows an audit log, so you can see who changed a limit and when, or when a cap was reached.
+
+As with most Cloudflare services, Spend Management is also an API that you can use programmatically; the documentation can be found in our Developer Documentation. Here’s an example, but using the API:
+
+curl --fail-with-body --request POST \ ""https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/billing/spend-policies"" \ --header ""Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"" \ --header ""Content-Type: application/json"" \ --data '{ ""name"": ""Workers spending cap"", ""product_id"": ""workers"", ""enabled"": true, ""threshold_cents"": 10000, ""action"": ""usage_block"", ""notification_email"": ""me@example.com"" }'
+
+And, of course, you can use cf, the CLI for the entire Cloudflare API:
+
+cf billing spend-policies list cf billing spend-policies create cf billing spend-policies get cf billing spend-policies update cf billing spend-policies delete cf billing spend-policies audit list cf billing spend-policies activity list cf billing spend-policies create --body '{ ""name"": ""Workers spending cap"", ""product_id"": ""workers"", ""enabled"": true, ""threshold_cents"": 10000, ""action"": ""usage_block"", ""notification_email"": ""me@example.com"" }'
+
+Once a cap is enforced, new invocations of that product are rejected. Note that we only pause customer-code invocations that incur costs — in Workers, for example, Cron Triggers and Queue consumer invocations are paused, but static assets continue to be served.
+
+To resume service, you can:
+
+Raise the limit above the current cycle’s accumulated spend.
+
+Disable or delete the blocking policy.
+
+Wait until the next billing cycle, when the existing block expires.
+
+That’s it. You can start using Spend Management for Workers and Durable Objects today, and other products will follow soon.
+
+Read on to learn how we built the system, and what’s going to happen next.
+
+How we built Spend Management
+
+As easy and straightforward as it seems on the surface, building a system like this at Cloudflare scale was no small feat. From an invocation anywhere on our distributed network to a blocking decision that we need to apply globally, building Spend Management required working with multiple teams, changing code in existing systems, and creating new systems from scratch.
+
+Let’s start by looking at the bird's-eye view of a capped billable event:
+
+Now let's dig deeper.
+
+Collecting and aggregating close to the source
+
+Each invocation produces usage measurements: requests, CPU time, execution duration, or storage operations, depending on the product. But transporting and processing this volume of raw data all the way from the sources down to the rating engine would not scale or be efficient.
+
+So what we do is we collect and aggregate the measurements as close to the source as possible using a two-stage metering pipeline that combines events into usage aggregates, so the engine sees accumulated usage rather than having to process all the events one by one.
+
+Let's look at a diagram.
+
+The first stage reduces raw-event volume close to parsing down to one-minute windows. Each metering parser converts raw events into usage measurements, then combines matching measurements into typically one-minute buckets. Still, several records can describe the same account and time window.
+
+In the second stage, a separate service merges those first-stage partial aggregates using the same grouping rules, but over typically five-minute windows, and further reduces the volume before downstream processing by the Usage Engine. Here we also archive the consolidated aggregates; this gives us a durable dataset for later analytics and reconciliation.
+
+The nice thing about this two-stage pipeline is that it reduces the raw event volume early, so the downstream engines process only the aggregated usage they need to calculate spend and act on it. That’s what makes this practical at Cloudflare’s scale.
+
+Usage Engine: account-partitioned processing
+
+The Usage Engine translates aggregated measurements into usage records, which are standardized records containing the account, usage window, metric, quantity, and relevant dimensions. In other words, it maps product-specific meters into supported usage metrics.
+
+We partition processing by account, so an account’s usage and subscription information meet in the same place. That lets us maintain its accumulated usage and apply included allowances without coordinating across pricing processors on every update.
+
+As you can see, we run different partitions in parallel, giving us a way to spread the work across accounts while keeping each account’s pricing state together. Also note that each partition keeps both a local state for fast access, and also a durable write-ahead logging (WAL) changelog on disk. This buys us:
+
+Less cross-partition coordination: each account’s usage and subscription state stay together.
+
+Consistent pricing: usage updates share the same allowance and accumulated-spend state.
+
+Parallel processing: different partitions calculate spend independently.
+
+Recoverability: durable state lets replacement processors rebuild and resume after failures, if necessary.
+
+Then, finally, the usage metrics are fed into the Rating Engine.
+
+The Rating Engine
+
+The Rating Engine is the most important block of Spend Management; it turns usage into monetary value and it’s what’s able to answer the question: “Given what this account has consumed, its subscription, and its pricing, how much has it spent so far?”
+
+Here’s how it works.
+
+In essence, the Rating Engine brings together three things:
+
+Usage records: quantities such as requests and CPU milliseconds.
+
+Subscription information: the account’s billing period and plan changes.
+
+Pricing rules: rates, included allowances, and billing rounding.
+
+Usage data and subscriptions are independent streams
+
+Usage and subscription updates arrive as independent streams, so we can’t assume they reach the Rating Engine in order. Furthermore, we have to be able to recover from a data processing failure or missing subscription information from, say, a failed webhook.
+
+If usage arrives before the subscription information needed to price it, we retain it as pending and revisit it when that information becomes available. This lets us tolerate temporary delays without treating unpriced usage as free.
+
+Tracking accumulated spend
+
+Finally, we calculate and track accumulated spend. The Rating Engine uses a product catalog database that defines usage metrics, including allowances, rates, and rounding rules, alongside the account’s subscription information. One million CPU milliseconds doesn’t necessarily mean an extra charge: the engine first applies the account’s included CPU allowance, then prices any excess. It prices accumulated usage rather than rounding and charging for each request independently.
+
+Once the accumulated spend is calculated, two steps follow:
+
+Policy evaluation: decide whether one or more warning or blocking thresholds have been reached.
+
+Reporting: we show estimated usage charges in the dashboard via our APIs, and we send out email alerts (via Cloudflare Email Service) if necessary.
+
+Asynchronous cap enforcement
+
+The Rating Engine doesn’t sit in the request path or directly reject requests. Instead, the policy service sends the cap to our runtime configuration service and Quicksilver, our internal key-value store developed to enable fast global replication and low-latency access at planet scale. This propagates it to all our nodes asynchronously.
+
+Once the cap reaches Quicksilver, the runtime picks it up during its periodic refresh and starts rejecting capped invocations or operations.
+
+In other words, enforcement uses local state, so requests never have to wait on the Rating Engine. By reusing our existing runtime account-limit architecture, we keep rating out of the request path while distributing caps across the global network.
+
+What’s next
+
+Any pay-as-you-go customer can start using Spend Management today. While this is a major milestone in our roadmap, it’s also just the start. Let us share some of our plans for the next few weeks and months ahead.
+
+More products
+
+We are starting with caps for Workers and Durable Objects, but you’ll be able to measure and cap many other Cloudflare products and primitives in the near future. We’ve built the system in a way that makes it easy and familiar for our products to onboard, so expect the catalog to grow.
+
+Closer to real time
+
+While near real time under 10 minutes is a great benchmark, we’re not satisfied with it, and being the stubborn engineers we are, we have pretty good ideas on how to reduce that time even further. Expect us to shorten the gap between measurement and enforcement over time, hopefully to under a minute.
+
+Agent and application-based budgets
+
+Right now, we measure spend by products and primitives, but there are other useful dimensions to explore when controlling costs. For example, a developer might want to monitor the costs of a specific application — such as a Worker script that uses other primitives like R2 or Workers AI. How can we measure the aggregated cost of an entire application and pause that application, rather than disabling the underlying primitives across all customer applications?
+
+Another compelling use case for cost controls is AI agents. We’ve all read horror stories about rogue agents entering unconstrained recursive reasoning loops to brute-force a problem — generating thousands of dollars in costs from high-frequency, expensive API calls, not to mention causing denial-of-service (DoS) issues on databases and other services. AI Gateway already lets you give an agent a budget for AI requests routed through it. A task can also consume compute, database, and storage resources. We want to make it possible to budget for that broader resource use across products.
+
+You’ll be able to tag the calls from your agents and our pipeline will carry that metadata from the runtime through to the Rating Engine. That will let us attribute spend and pause an application or an agentic task across products, without interrupting other unrelated applications.
+
+Get started
+
+This launch is a first step toward making spend controls a normal part of building on Cloudflare, alongside deploying code and monitoring your applications.
+
+Check out the billing developer documentation for more information. Start using Spend Management and tell us what works, what’s missing, or where more granular budgets would help.
+
+Join us on Discord or our socials. We’re listening!"
+5cb8926c1214,5cb8926c1214,2026-11-13 09:21 UTC,Product & Roadmap,,SecurityWeek,AI Security; Vulnerability Management; Threat Intelligence,Article,"OpenAI Unveils Daybreak Red Team, Defense Factory Security Tools",https://www.securityweek.com/openai-unveils-daybreak-red-team-defense-factory-security-tools/,"The products, Daybreak Red Team and Daybreak Defense Factory, were announced at the company’s Cyber at the Frontier event on November 12","OpenAI has introduced two new Daybreak cybersecurity products that use AI agents to test web applications for vulnerabilities and help security teams develop fixes.
+
+The products, Daybreak Red Team and Daybreak Defense Factory, were announced at the company’s Cyber at the Frontier event on November 12. Red Team focuses on penetration testing and vulnerability validation, while Defense Factory investigates security findings and prepares patches.
+
+Daybreak Red Team uses multiple AI agents to identify and investigate potential security weaknesses in web applications. “Agents use source code and app context to investigate attack paths and confirm vulnerabilities,” OpenAI says.
+
+The product can examine findings from code scanners, bug bounty submissions, and vulnerability disclosure reports.
+
+OpenAI says the agents operate in isolated environments, with Guardian review enforcing testing boundaries and controlling which applications and endpoints they can access.
+
+Daybreak Defense Factory, meanwhile, is designed to help organizations address vulnerabilities identified by their security tools.
+
+Advertisement. Scroll to continue reading.
+
+“Agents trace vulnerabilities through your code and develop patches. Engineers review and test proposed patches before merge,” OpenAI explains.
+
+Defense Factory can investigate findings from Daybreak Red Team and other security products, and supports importing vulnerability information from Wiz, Snyk, and Endor Labs. The product can scan connected GitHub repositories, monitor new commits, and perform scheduled security assessments.
+
+Engineers can examine supporting evidence, modify proposed patches using Codex, and create draft GitHub pull requests. However, patches are not deployed automatically.
+
+OpenAI is accepting requests for early access to Daybreak Red Team. Defense Factory is offered through a preview plugin in ChatGPT for workspaces with Daybreak access."
 c83822ad9549,c83822ad9549,2026-11-12 21:48 UTC,Product & Roadmap,,The Register Security,AI Security; Vulnerability Management,Article,"OpenAI launches security products, tells orgs they’re doomed if they don’t use them",https://www.theregister.com/security/2026/11/12/openai-launches-security-products-tells-orgs-theyre-doomed-if-they-dont-use-them/5309500,"OpenAI has launched two new security products, one for penetration testing and another for defense, and warned organizations that their businesses are only safe if they use...","OpenAI has launched two new security products, one for penetration testing and another for defense, and warned organizations that their businesses are only safe if they use tools like these. “We're now at a point where companies will be secure only to the extent of the frontier model that they use to defend themselves and how well they utilize that,” OpenAI President Greg Brockman said during a Thursday keynote address. The co-founder of the company that broke security did admit that security “fundamentals are important, and not to be discounted.” However, “you need to really reorient your security practice around what these models can do,” Brockman said, with zero irony, and presumably talking about using AI models for defense - not for hacking other organizations. “Also very important is product.” This product, of course, should come from OpenAI, and, to that end, the company rolled out Daybreak Red Team and Daybreak Defense Factory, which are both part of OpenAI’s Daybreak security platform. Red Team, which is available in early access, uses OpenAI models to test companies’ web applications for vulnerabilities. Nancy Wang, who leads cyber-applied AI, described it as “superhuman pen-test at the scale of automated continuous scanning,” with a fleet of agents using source code and app context to investigate and test attack paths. It also helps security teams validate reported vulnerabilities - from code scanners, bug bounty programs, and disclosure reports - and then test the patches for these flaws. The second product, Daybreak Defense Factory, automates the “defensive loop” by “finding, validating, and fixing vulnerabilities at scale.” This one also uses agents built on OpenAI’s latest cyber models - currently, that’s GPT-6 Cyber. The agents scan organizations’ codebases, hunting for vulnerabilities and developing patches. Engineers review and approve the proposed fixes before they go into production. “This way engineers get a merge-ready pull request with the patch and a test that shows that it works,” Wang said. Meanwhile, as OpenAI execs touted the new security products, a coalition of nonprofits filed a lawsuit in San Francisco Superior Court asking a judge to stop OpenAI, Anthropic, Google, Meta, and SpaceX's AI businesses from developing or deploying AI systems more capable than their most advanced existing models. The lawsuit, filed by Irreplaceable Education Fund, Public Citizen, Heat Initiative, and The Alliance for Secure AI, cites incidents involving OpenAI agents accessing Hugging Face, gaining unauthorized access to an Australian government portal containing Medicare statistics, and other AI-related cybersecurity incidents. “Defendants tell us that the AI technology they are developing poses catastrophic risks to the public, including by enabling AI-driven cyberattacks and bioweapons,” the court documents allege, adding that the AI companies “are not wrong.” ®"
 3e67c6897915,3e67c6897915,2026-11-12 15:25 UTC,Product & Roadmap,Check Point,Check Point Blog,AI Security; Threat Intelligence; Vulnerability Management; Attack Path Prediction,Article,Check Point Extends Its Penetration Testing Capabilities,https://blog.checkpoint.com/security/check-point-extends-its-penetration-testing-capabilities/,Attackers rarely need one critical flaw; they chain small weaknesses into a full attack path,"The Check Point Services organization is extending its penetration testing capabilities with deeper, adversary-led engagements. Customers can now choose anything from a scoped penetration test to an objective-based engagement. Each engagement shows three things: how an attacker could break into the environment, how far the attacker could get, and whether the security team would detect the attack. And because environments never stand still, the testing is proactive and continuous, not a one-time project.
 
@@ -98,127 +270,6 @@ Download our datasheet
 Read our blog for more Secure Cloud Platform for Data and AI insights
 
 About GuidePoint SecurityGuidePoint Security helps organizations overcome the most complex cybersecurity challenges, mature their security posture, minimize risk and ensure compliance. As a trusted cybersecurity advisor and partner, GuidePoint keeps people, data, and operations safe. We deliver tailored cybersecurity services and offerings that adapt and scale to safeguard the nation’s leading organizations today, while preparing them to confidently face tomorrow’s cyber challenges. More than 5,600 organizations of all sizes and across every industry, and all U.S. cabinet-level agencies, rely on GuidePoint to strengthen their defenses and reduce risk. Stronger Together. Protecting What’s Next. Learn more at guidepointsecurity.com."
-29e73b83143f,29e73b83143f,2026-11-12 11:04 UTC,Product & Roadmap,Microsoft Security,Help Net Security,Identity Security Posture Management,Article,Microsoft Entra adds a seven-day safeguard against irreversible identity deletion,https://www.helpnetsecurity.com/2026/11/12/microsoft-entra-hard-deletion-protection/,The feature is designed to help organizations respond to accidental or malicious deletion of critical directory objects,"Microsoft Entra’s Hard Deletion Protection, now in preview, gives administrators a seven-day window to recover selected identities before they can be permanently erased.
-
-The feature is designed to help organizations respond to accidental or malicious deletion of critical directory objects. It supports users that are not synchronized from on-premises systems, cloud-only groups, applications, and service principals. Entra Agent ID objects are covered through their underlying identity types.
-
-How the recovery window works
-
-Entra generally retains supported soft-deleted objects for 30 days, during which administrators can restore them. However, permanent deletion can end that recovery opportunity sooner.
-
-Hard Deletion Protection blocks permanent removal during the first seven days after an object is soft deleted. It does not prevent the initial deletion, which makes the object inactive and can disrupt access to dependent services.
-
-After seven days, permanent deletion is allowed. Restoring an object preserves its protection, and a subsequent deletion starts a new seven-day window.
-
-Microsoft Entra Backup and Recovery cannot recover hard-deleted objects. They must be recreated and reconfigured, with new identifiers and access relationships that may need to be rebuilt.
-
-Enabling protection
-
-Configuration requires the Microsoft Entra Backup Administrator role. In the Entra Admin center, administrators open Backup and recovery, choose Hard deletion protection, and select Add protection.
-
-Hard Deletion Protection (Source: Microsoft)
-
-Each operation can protect up to 20 objects of one supported type. Enabling the feature is recorded in audit logs, and no additional license is required for the currently supported types.
-
-Administrators must review the selection carefully, because protection cannot be disabled once enabled. If an administrator needs to permanently remove an object protected unintentionally, it must first be soft deleted, followed by the seven-day waiting period.
-
-Monitoring deletions
-
-Microsoft recommends tracking deletion events in Entra audit logs and exporting them to a security information and event management platform, such as Microsoft Sentinel.
-
-Organizations can also use Entra Conditional Access protected actions to apply additional requirements to sensitive permissions, including permanent deletion of directory objects."
-cd0f8f08a493,cd0f8f08a493,2026-11-12 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security,Article,Introducing Claude Meetings,https://claude.com/resources/articles/claude-meetings,"It asks the first time, and a yes applies going forward","Claude can now join your video calls as a visible participant, follow the conversation and start on work during the meeting. Claude Meetings is now in beta.
-
-Your team can ask Claude questions during the meeting, out loud or in chat. By default, Claude answers in writing, and it can use your connected tools with your permission.
-
-Claude also works with you live to build docs, whiteboards (opens in new tab), or other artifacts, while teammates on the invite refine them. Claude writes the notes and action items, so no one on the call has to.
-
-Claude Meetings is starting to roll out in beta on Team and Enterprise plans. Support for other video conferencing platforms is coming soon.
-
-What it looks like
-
-Say your team is planning a customer event, and Claude is on the call. You say, “Claude, start a doc for this plan.” Claude writes up what the team has said so far, and teammates on the invite can edit the plan while you keep talking.
-
-When you start discussing the budget, someone asks Claude what last year’s event cost. Claude asks for their approval to look it up, posts it in the meeting chat, and compares it to the current plan. When you start discussing timelines, someone asks Claude to put it on a whiteboard, and the team works on the schedule alongside the doc.
-
-Before the meeting ends, someone asks Claude to share a recap with the team. After the call, any notes, action items, plan, and whiteboard are on the meeting’s page in claude.ai (opens in new tab).
-
-Later, you can go back to meetings you were part of and ask Claude about them, or add Claude to the next one from your calendar in claude.ai.
-
-We’re working with partners like Gong, Attention, Granola, Fireflies.ai, Otter, and Plaud, so you’ll soon be able to send a meeting’s transcript to the tools your team already uses.
-
-Security and privacy
-
-Claude adds a separate page for each meeting in claude.ai (opens in new tab) with the notes, transcript, and anything it built. People from your organization on the invite can see it and edit what Claude made, and it can be shared with others in your organization from the page.
-
-By default, Claude is set to stay out of calls when someone from outside your organization is invited, and to leave if someone from outside joins partway through. An admin can allow Claude on calls with outside guests. On those calls, Claude posts its notice in the call’s chat but doesn’t reply there, and what guests say is included in the notes and transcript.
-
-Claude uses each person’s connected tools with that person’s permission. It asks the first time, and a yes applies going forward. For now, when someone asks out loud, Claude asks each time to confirm who’s speaking. An answer posted in the call’s chat is visible to everyone on the call.
-
-When Claude joins, it appears as a participant and posts a notice in the call’s chat. It saves a transcript, summary, and screen descriptions, not audio.
-
-Before you add Claude or turn on auto-join, make sure everyone on your calls is OK with being transcribed.
-
-Getting started
-
-Claude joins when someone adds it or has auto-join on. Support is currently available for Google Meet, with other platforms coming soon. On Team plans, inviting Claude to your meetings is available by default, and an admin can turn it off. On Enterprise plans, an admin turns it on for all or part of the organization. While it’s in beta, it isn’t available to some organizations, including those with zero data retention (ZDR), HIPAA-ready configuration, or customer-managed encryption keys (CMEK).
-
-During the beta, Claude’s notes and transcripts are free on Team and Enterprise plans. So are its answers in your calls, unless an answer uses one of your connected tools, which counts toward your plan’s usage. The docs, whiteboards, (opens in new tab) and other artifacts Claude makes in a call are free through February 10, 2027.
-
-Setup steps are in the Help Center."
-d34223f34926,d34223f34926,2026-11-12 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Email and Collaboration Security,Article,Introducing Claude for Manufacturing,https://claude.com/resources/articles/claude-for-manufacturing,"Today we’re launching Claude for Manufacturing (opens in new tab), a plugin that includes skills for work from pricing a new job to diagnosing a stopped machine","Today we’re launching Claude for Manufacturing (opens in new tab), a plugin that includes skills for work from pricing a new job to diagnosing a stopped machine. An estimator can now have Claude read a customer’s request, compare costs on similar jobs, and draft the quote. The plugin works from a manufacturer’s own records through connectors to Autodesk Fusion, Infor, Microsoft 365, and Oracle NetSuite. Claude for Manufacturing is built so the person responsible can review and approve the work before it reaches a customer or supplier.
-
-Manufacturing teams can spend much of the day gathering information. In a 2025 Manufacturing Leadership Council survey, 79% of manufacturers said they enter data (opens in new tab)manually. With Claude carrying each process to the point of review, an estimator can focus on the price, a quality engineer on the fix, and a technician on what to check first.
-
-Skills built for manufacturers
-
-The plugin’s 17 skills cover sales, quality, operations, supply chain, design, and setup. Some handle a single task, while others run several in order, so Claude can carry a job through several steps until a person needs to review it. The skills can run processes that include:
-
-Quoting a new job: An estimator can ask Claude to read a customer’s request, list what’s missing, compare costs on similar jobs, and draft the quote for release.
-
-Investigating a failed inspection: A quality engineer can have Claude document the failure, check past reports for the same problem, rank the likely causes, and draft the corrective action report.
-
-Diagnosing a breakdown: A technician can have Claude read the sensor exports, repair notes, photos, and manual, then rank the likely causes for the technician to check and decide on next steps.
-
-Sourcing from another supplier: A buyer can have Claude prepare the request for quotes, then compare the bids that come back.
-
-Comparing designs with Autodesk Fusion: An engineer can have Claude generate variations from an existing model, score them against the engineer’s targets, and draft a decision memo.
-
-Reporting on production: A plant manager can have Claude compile production data into one report showing output against target, equipment downtime, and what the downtime and missed output cost.
-
-These skills are a starting point. Organizations can build on them to fit their specific operations, and we plan to add new manufacturing skills over time.
-
-Connectors to manufacturing systems
-
-Claude for Manufacturing works with the software at the core of manufacturing operations, and that software stays central to how teams run the business:
-
-Autodesk Fusion: Engineers can compare more design options before choosing one, because Claude generates variations from their existing model.
-
-Infor: Buyers and planners can check purchase orders and stock before they act, because Claude looks them up in Infor.
-
-Microsoft 365: Quality engineers can bring procedures, supplier emails, and exported reports into one job, because Claude finds them in shared folders and inboxes.
-
-Oracle NetSuite: Estimators can price new work against actual orders, inventory, production steps, and job costs, because Claude pulls those records when it drafts a quote.
-
-Manufacturers can also use the plugin with systems that have no connector. They save regular exports from those systems to Microsoft 365, and Claude works from the files to draft a quote or compile a production report.
-
-Making changes in Infor with Claude
-
-Infor, which makes core software for manufacturers, is also releasing its own plugin (opens in new tab). With the Infor connector in Claude for Manufacturing, teams can look up records. With Infor’s plugin, they can also make changes in Infor from Claude.
-
-For example, if a steel shipment slips by two weeks, a buyer can ask Claude which customer orders are affected and how much steel other sites have. Once the buyer approves, Claude can release a purchase order to another supplier and reschedule the affected production in Infor. Claude’s access follows the buyer’s Infor permissions.
-
-Manufacturing teams stay in control
-
-Skills are built to end with a user’s review, so an estimator checks and releases a quote, and a quality engineer verifies a fix for the corrective action report. To support that review, Claude can link figures and claims back to the underlying data and documents.
-
-Claude for Manufacturing doesn’t operate equipment. For that, Anthropic is developing the Model Hardware Standard (opens in new tab), a research preview that gives programmable equipment a standard way to describe its measurements, settings, and safety limits.
-
-How to get started
-
-On Team or Enterprise plans, install the plugin (opens in new tab) and tell Claude, “Set us up.” Claude asks which systems the team uses, tests the connectors, and reports which skills can’t fully run yet.
-
-To see the plugin at work, register for our technical webinar (opens in new tab) on November 17 at 11:00 a.m. ET. To talk through a company’s manufacturing systems, contact our sales team (opens in new tab)."
 4ac5f63540a0,f653dee337ce,2026-11-12 00:00 UTC,Product & Roadmap,Secureworks,Secureworks Taegis Release Notes,Identity Security Posture Management; Threat Intelligence; Endpoint Security,Article,"November 12, 2026",https://docs.taegis.secureworks.com/release/notes/#3928-november-12-2026,"22 (October 1, 2026)🔗 Features AI Expression Assistant: The new AI Expression Assistant, which helps you create CEL expressions from natural language descriptions in supported...","Release Notes for XDR🔗
 
 3.9.27 (November 5, 2026)🔗
@@ -930,6 +981,98 @@ Detection Flow Widget: The Tenant and Tenant ID columns in the expanded view of 
 Features
 
 Sophos Endpoint Agent: Sophos Agent for macOS is now available for all XDR tenants. For more information, see So [truncated for CSV - full text is in the JSON export]"
+cd0f8f08a493,cd0f8f08a493,2026-11-12 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security,Article,Introducing Claude Meetings,https://claude.com/resources/articles/claude-meetings,"It asks the first time, and a yes applies going forward","Claude can now join your video calls as a visible participant, follow the conversation and start on work during the meeting. Claude Meetings is now in beta.
+
+Your team can ask Claude questions during the meeting, out loud or in chat. By default, Claude answers in writing, and it can use your connected tools with your permission.
+
+Claude also works with you live to build docs, whiteboards (opens in new tab), or other artifacts, while teammates on the invite refine them. Claude writes the notes and action items, so no one on the call has to.
+
+Claude Meetings is starting to roll out in beta on Team and Enterprise plans. Support for other video conferencing platforms is coming soon.
+
+What it looks like
+
+Say your team is planning a customer event, and Claude is on the call. You say, “Claude, start a doc for this plan.” Claude writes up what the team has said so far, and teammates on the invite can edit the plan while you keep talking.
+
+When you start discussing the budget, someone asks Claude what last year’s event cost. Claude asks for their approval to look it up, posts it in the meeting chat, and compares it to the current plan. When you start discussing timelines, someone asks Claude to put it on a whiteboard, and the team works on the schedule alongside the doc.
+
+Before the meeting ends, someone asks Claude to share a recap with the team. After the call, any notes, action items, plan, and whiteboard are on the meeting’s page in claude.ai (opens in new tab).
+
+Later, you can go back to meetings you were part of and ask Claude about them, or add Claude to the next one from your calendar in claude.ai.
+
+We’re working with partners like Gong, Attention, Granola, Fireflies.ai, Otter, and Plaud, so you’ll soon be able to send a meeting’s transcript to the tools your team already uses.
+
+Security and privacy
+
+Claude adds a separate page for each meeting in claude.ai (opens in new tab) with the notes, transcript, and anything it built. People from your organization on the invite can see it and edit what Claude made, and it can be shared with others in your organization from the page.
+
+By default, Claude is set to stay out of calls when someone from outside your organization is invited, and to leave if someone from outside joins partway through. An admin can allow Claude on calls with outside guests. On those calls, Claude posts its notice in the call’s chat but doesn’t reply there, and what guests say is included in the notes and transcript.
+
+Claude uses each person’s connected tools with that person’s permission. It asks the first time, and a yes applies going forward. For now, when someone asks out loud, Claude asks each time to confirm who’s speaking. An answer posted in the call’s chat is visible to everyone on the call.
+
+When Claude joins, it appears as a participant and posts a notice in the call’s chat. It saves a transcript, summary, and screen descriptions, not audio.
+
+Before you add Claude or turn on auto-join, make sure everyone on your calls is OK with being transcribed.
+
+Getting started
+
+Claude joins when someone adds it or has auto-join on. Support is currently available for Google Meet, with other platforms coming soon. On Team plans, inviting Claude to your meetings is available by default, and an admin can turn it off. On Enterprise plans, an admin turns it on for all or part of the organization. While it’s in beta, it isn’t available to some organizations, including those with zero data retention (ZDR), HIPAA-ready configuration, or customer-managed encryption keys (CMEK).
+
+During the beta, Claude’s notes and transcripts are free on Team and Enterprise plans. So are its answers in your calls, unless an answer uses one of your connected tools, which counts toward your plan’s usage. The docs, whiteboards, (opens in new tab) and other artifacts Claude makes in a call are free through February 10, 2027.
+
+Setup steps are in the Help Center."
+d34223f34926,d34223f34926,2026-11-12 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Email and Collaboration Security,Article,Introducing Claude for Manufacturing,https://claude.com/resources/articles/claude-for-manufacturing,"Today we’re launching Claude for Manufacturing (opens in new tab), a plugin that includes skills for work from pricing a new job to diagnosing a stopped machine","Today we’re launching Claude for Manufacturing (opens in new tab), a plugin that includes skills for work from pricing a new job to diagnosing a stopped machine. An estimator can now have Claude read a customer’s request, compare costs on similar jobs, and draft the quote. The plugin works from a manufacturer’s own records through connectors to Autodesk Fusion, Infor, Microsoft 365, and Oracle NetSuite. Claude for Manufacturing is built so the person responsible can review and approve the work before it reaches a customer or supplier.
+
+Manufacturing teams can spend much of the day gathering information. In a 2025 Manufacturing Leadership Council survey, 79% of manufacturers said they enter data (opens in new tab)manually. With Claude carrying each process to the point of review, an estimator can focus on the price, a quality engineer on the fix, and a technician on what to check first.
+
+Skills built for manufacturers
+
+The plugin’s 17 skills cover sales, quality, operations, supply chain, design, and setup. Some handle a single task, while others run several in order, so Claude can carry a job through several steps until a person needs to review it. The skills can run processes that include:
+
+Quoting a new job: An estimator can ask Claude to read a customer’s request, list what’s missing, compare costs on similar jobs, and draft the quote for release.
+
+Investigating a failed inspection: A quality engineer can have Claude document the failure, check past reports for the same problem, rank the likely causes, and draft the corrective action report.
+
+Diagnosing a breakdown: A technician can have Claude read the sensor exports, repair notes, photos, and manual, then rank the likely causes for the technician to check and decide on next steps.
+
+Sourcing from another supplier: A buyer can have Claude prepare the request for quotes, then compare the bids that come back.
+
+Comparing designs with Autodesk Fusion: An engineer can have Claude generate variations from an existing model, score them against the engineer’s targets, and draft a decision memo.
+
+Reporting on production: A plant manager can have Claude compile production data into one report showing output against target, equipment downtime, and what the downtime and missed output cost.
+
+These skills are a starting point. Organizations can build on them to fit their specific operations, and we plan to add new manufacturing skills over time.
+
+Connectors to manufacturing systems
+
+Claude for Manufacturing works with the software at the core of manufacturing operations, and that software stays central to how teams run the business:
+
+Autodesk Fusion: Engineers can compare more design options before choosing one, because Claude generates variations from their existing model.
+
+Infor: Buyers and planners can check purchase orders and stock before they act, because Claude looks them up in Infor.
+
+Microsoft 365: Quality engineers can bring procedures, supplier emails, and exported reports into one job, because Claude finds them in shared folders and inboxes.
+
+Oracle NetSuite: Estimators can price new work against actual orders, inventory, production steps, and job costs, because Claude pulls those records when it drafts a quote.
+
+Manufacturers can also use the plugin with systems that have no connector. They save regular exports from those systems to Microsoft 365, and Claude works from the files to draft a quote or compile a production report.
+
+Making changes in Infor with Claude
+
+Infor, which makes core software for manufacturers, is also releasing its own plugin (opens in new tab). With the Infor connector in Claude for Manufacturing, teams can look up records. With Infor’s plugin, they can also make changes in Infor from Claude.
+
+For example, if a steel shipment slips by two weeks, a buyer can ask Claude which customer orders are affected and how much steel other sites have. Once the buyer approves, Claude can release a purchase order to another supplier and reschedule the affected production in Infor. Claude’s access follows the buyer’s Infor permissions.
+
+Manufacturing teams stay in control
+
+Skills are built to end with a user’s review, so an estimator checks and releases a quote, and a quality engineer verifies a fix for the corrective action report. To support that review, Claude can link figures and claims back to the underlying data and documents.
+
+Claude for Manufacturing doesn’t operate equipment. For that, Anthropic is developing the Model Hardware Standard (opens in new tab), a research preview that gives programmable equipment a standard way to describe its measurements, settings, and safety limits.
+
+How to get started
+
+On Team or Enterprise plans, install the plugin (opens in new tab) and tell Claude, “Set us up.” Claude asks which systems the team uses, tests the connectors, and reports which skills can’t fully run yet.
+
+To see the plugin at work, register for our technical webinar (opens in new tab) on November 17 at 11:00 a.m. ET. To talk through a company’s manufacturing systems, contact our sales team (opens in new tab)."
 c66089931f5a,c66089931f5a,2026-11-11 04:39 UTC,Product & Roadmap,,CSO Online,Identity Security Posture Management,Article,One Identity Unveils Active Roles 8.6 with Enhanced Security and Administration,https://www.csoonline.com/article/4247164/one-identity-unveils-active-roles-8-6-with-enhanced-security-and-administration.html,"6: Cumulative security, feature and administration upgrades One Identity has introduced Active Roles 8","Active Roles 8.6: Cumulative security, feature and administration upgrades
 
 One Identity has introduced Active Roles 8.6, strengthening secure and streamlined Active Directory administration with cumulative platform improvements, expanded API capabilities and greater authentication flexibility.
@@ -1040,6 +1183,85 @@ Jaffery also observed that Commvault is far from alone in the automated restorat
 “I don’t think Commvault has an uncontested position here. Rubrik, Cohesity and Veeam have all been investing in cyber recovery, application recovery and orchestration,” he said. “Rubrik, in particular, has been pushing toward automated business application recovery and dependency mapping. Cohesity has capabilities around cyber recovery orchestration and cloud application reconstruction, while Veeam has an established disaster recovery orchestration offering.”
 
 This article originally appeared on NetworkWorld."
+7ddd691320af,7ddd691320af,2026-11-10 20:48 UTC,Product & Roadmap,Proofpoint,Proofpoint Blog,Identity Security Posture Management,Article,18 Outdated Identity And Access Management Assumptions To Retire,https://www.proofpoint.com/us/newsroom/news/18-outdated-identity-and-access-management-assumptions-retire,"Fraudsters are finding ways to take over established, verified accounts and exploit the trust those accounts carry","getty
+
+At its core, identity and access management helps companies control who—or what—can access their systems and data. But as businesses adopt new technologies and authentication methods, keeping that access secure without making everyday work unnecessarily difficult is becoming more complicated.
+
+The challenge isn’t just keeping up with new security technologies; it’s recognizing when familiar practices and long-held beliefs may be creating vulnerabilities. Below, members of Forbes Technology Council discuss outdated identity and access management assumptions tech leaders should reconsider as digital identities and authentication continue to evolve.
+
+1. Verifying Users At Sign-Up Is Enough
+
+Retire the idea that verifying someone once at sign-up is enough. Fraudsters are finding ways to take over established, verified accounts and exploit the trust those accounts carry. A one-time “yes” shouldn’t mean lifetime trust. Verification needs to be continuous, combining device and network signals, behavioral biometrics, and risk-based orchestration to assess risk over time and ensure trust extends beyond the initial onboarding moment. - Kaarel Kotkas, Veriff
+
+2. Strong Authentication Guarantees Identity Security
+
+We need to retire the assumption that strong authentication alone secures identity. As machines and AI agents gain access, organizations must limit privileges, detect unauthorized changes and restore trusted identities and access policies after an attack. Identity resilience keeps businesses running and enables rapid recovery when preventive controls fail. - Robert Bobel, Cayosoft
+
+Forbes Technology Council is an invitation-only community for world-class CIOs, CTOs and technology executives. Do I qualify?
+
+3. More Login Hurdles Mean Better Security
+
+The assumption that more complex authentication always means stronger security is a myth. Every unnecessary login, password reset or access hurdle introduces friction for users, costing organizations productivity while encouraging risky workarounds. Security that employees routinely circumvent isn’t effective security. The goal should be to make secure access the easiest path. - Fran Rosch, Imprivata
+
+4. Only People Have Digital Identities
+
+Retire the assumption that identities are human. Non-human identities, from service accounts to AI agents, now outnumber employees and often hold standing, overprivileged access with no clear owner. Treat every NHI as a governed identity: Assign ownership, enforce least privilege and review access continuously. - Damon Tompkins, Pathlock
+
+5. One Workload Equals One Actor
+
+Giving a service its own identity addressed the assumption that identities are human, but that is no longer enough. An orchestrator, several sub-agents and ordinary application code can now act from inside the same process using the same credentials. The question is not whether the caller is authenticated. It is which of the things inside it decided to make the call. - Aviv Mussinger, Kodem
+
+6. Trust Doesn’t Need To Change With Risk
+
+Static trust is the identity assumption leaders should kill. In e-commerce, a customer browsing from a known device may pass frictionlessly, but a $5,000 refund, new device or delivery address change should trigger stronger verification. Risk-based access adjusts authentication to context and consequence. The payoff is lower fraud without sacrificing conversion. Adaptive identity is now part of enterprise resilience. - Sumit Srivastava
+
+7. Identity Providers Are Always Available
+
+Retire the assumption that the identity provider is always available. If it fails, staff may be locked out of incident response, payroll or customer systems just when they are needed most. Define a separate emergency path for a few critical actions, keep it isolated and monitored, and rehearse its use and shutdown. Resilience means proving both that ordinary access stops and that recovery remains possible. Test emergency access with the primary identity service offline. - Jagadish Gokavarapu, Wissen Infotech
+
+8. Authentication Is Enough To Govern Access
+
+The assumption technology leaders should retire is that authentication establishes durable trust. Identity and access management is becoming as much a governance discipline as a security one. Organizations need clear boundaries around what people, applications and agents are permitted to do, as well as the ability to ensure those boundaries continue to hold as conditions change. - Jay Bavisi, EC-Council
+
+9. AI Agents Should Inherit Users’ Permissions
+
+Retire the assumption that an agent should inherit the permissions of the person it acts for. I can delete every entry on my calendar and pull salary data from our HR system. An agent acting for me should start with zero access, with its own identity and limits, until someone deliberately decides what it may do. That way, when something breaks, we know which agent did it and who is accountable. - Linus Hakansson, Gravitee
+
+10. Identity Management Is Solely An IT Problem
+
+Who can access what is now a business risk decision, the same as financial controls. When a single stolen login can stop operations or expose customer data, it belongs on the leadership agenda. CEOs should know who owns identity in their company, how often access is reviewed, and how quickly it can be shut off when something goes wrong. - Asad Khan, TestMu AI
+
+11. Administrators Need Permanent Privileges
+
+One outdated assumption is that administrators usually need standing privileges. Privileges are not always needed and are not needed for every command. Permanent admin rights or access to service accounts are exactly what attackers hunt for. Just-in-time access, granted for a specific task and expiring automatically, makes a stolen admin account worth far less. If someone holds the keys to the kingdom all the time, 24/7, “just in case,” that convenience is being paid for with risk. - Dan Sorensen, Nexus Security Advisors
+
+12. Phone Or Video Calls Can Verify Identity
+
+As video and voice cloning rise, tech leaders must retire the assumption that they can verify identity over the phone or through a video conference. Instead, we have to start relying increasingly on technical signals that users are the persons they claim to be unless they are standing right in front of us. - Kevin Korte, Univention
+
+13. Knowing Who’s Acting Is Enough To Grant Access
+
+The next access management question isn’t “who”; it’s “why.” An AI agent can be fully entitled to a resource and still be doing something it shouldn’t. Behavior is a signal, but it only shows what already happened. Intent is the purpose behind the action. Instead of asking, “Can this agent access this?” leaders should ask, “What is this agent trying to accomplish, and should that happen?” Access should not be given without understanding intent. - Sumit Dhawan, Proofpoint
+
+14. Occasional Credential Rotation Is Enough
+
+The main assumption to rethink is how we manage credentials. The old-school practice was to generate credentials, which were rotated occasionally or stored in a vault. That approach assumed credentials would be used only occasionally and would remain largely static. Agents require us to rethink how we authenticate and authorize activity: It needs to be on a per-use basis. That means credentials must be generated just in time and/or there must be enforcement scoped on a per-action basis. - Alex Bovee, C1
+
+15. A Trusted Device Proves An Action Is Authorized
+
+Leaders must retire the assumption that device or network verification signals user intent. Possessing a registered device or passing a biometric check does not guarantee a human explicitly authorized the action, especially with the rapid rise of session hijacking and AI-driven prompt injection. Cybersecurity and identity management processes must evolve to continuously verify contextual user intent at the transaction level. - Mark Brown, The Mark of Security Ltd.
+
+16. Disabling An Employee’s Login Ends All Access
+
+Retire the assumption that disabling an employee’s login closes all access they set up. Include service accounts and AI agents in offboarding, reassign ownership, and revoke credentials the employee could retain so you do not leave machine access under a former employee’s control. - Kayode Faturoti, Breet
+
+17. Traditional MFA Methods Prevent Account Takeovers
+
+Assuming traditional multifactor authentication methods like SMS codes or push notifications guarantee safety is a dangerous misconception in modern security. Adversary-in-the-middle and push-fatigue tactics routinely bypass these basic controls to capture session tokens. To truly lower account takeover risk, organizations must eliminate shared secrets entirely and transition to domain-bound, phishing-resistant standards like FIDO2 and passkeys. - Neil Lampton, TIAG
+
+18. One Login Is Enough For An Entire Session
+
+Retire the idea that one login proves identity for an entire session. Access should be continuously evaluated using context, device trust and behavior. Authentication is becoming an ongoing process, not a one-time checkpoint at the front door. - Michael Gargiulo, VPN.com"
 b2edc4b90f62,b2edc4b90f62,2026-11-10 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Anthropic launches roadshow for proposed initial public offering,https://www.anthropic.com/news/roadshow-launch,"Today Anthropic, PBC launched the roadshow for its proposed initial public offering of its Class A common stock","Today Anthropic, PBC launched the roadshow for its proposed initial public offering of its Class A common stock.
 
 The proposed offering consists of 825,000,000 shares of Class A common stock. Of these, 801,351,354 shares are being offered by Anthropic and 23,648,646 shares are being offered by certain existing stockholders. Anthropic will not receive any proceeds from the sale of shares by the selling stockholders. Anthropic also expects to grant the underwriters a 30-day option to purchase up to an additional 123,750,000 shares of its Class A common stock.
@@ -2341,7 +2563,7 @@ Blake Franzen
 
 Blake is a Sr. Security Solutions Architect at AWS Industries. He works with large enterprises across industries like Media & Entertainment and Healthcare and Life Sciences to help secure their most critical workloads and find new ways to innovate securely. He is based out of Seattle with over 7 years of experience."
 476b0394e32c,476b0394e32c,2026-11-05 16:48 UTC,Product & Roadmap,,Dark Reading,N/A,Article,SecurityDataPipeline.com Launches as a New Educational Resource for the AI Era,https://www.darkreading.com/cybersecurity-operations/securitydatapipeline-com-launches-as-a-new-educational-resource-for-the-ai-era,,
-b9205073cd7b,b9205073cd7b,2026-11-05 14:50 UTC,Product & Roadmap,PwC,Google News: PwC,N/A,Article,PwC Adds Kavitha Menon to Strengthen Cybersecurity and GCC Advisory Leadership,https://news.google.com/rss/articles/CBMiswFBVV95cUxPMVh4cWR4NWVvQ01mSTdJVFZ0OHJ2VFJ6dHZ3NmdQSEs3VEJfV2lUbnlNX3dhZEtlTHgwRHRQVmQ3SE5IcndzMXllNzVwcDZXN1J3c0pSbzYyVlRGZXhqQXQ3OEpVb0IzbWp4TjJhQWJSeV9xaWUySzNIN1RRdGY4ekxzU2ZYa21WVFJtQzlxUVY4LWVFYS1DYkhRYmdDV2U2dUZMdFg2T1JwYVNVclgteDRDRQ?oc=5,,
+b9205073cd7b,b9205073cd7b,2026-11-05 14:50 UTC,Product & Roadmap,PwC,Google News: Accenture,N/A,Article,PwC Adds Kavitha Menon to Strengthen Cybersecurity and GCC Advisory Leadership,https://news.google.com/rss/articles/CBMiswFBVV95cUxPMVh4cWR4NWVvQ01mSTdJVFZ0OHJ2VFJ6dHZ3NmdQSEs3VEJfV2lUbnlNX3dhZEtlTHgwRHRQVmQ3SE5IcndzMXllNzVwcDZXN1J3c0pSbzYyVlRGZXhqQXQ3OEpVb0IzbWp4TjJhQWJSeV9xaWUySzNIN1RRdGY4ekxzU2ZYa21WVFJtQzlxUVY4LWVFYS1DYkhRYmdDV2U2dUZMdFg2T1JwYVNVclgteDRDRQ?oc=5,,
 6b4470f7094b,6b4470f7094b,2026-11-05 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Identity Security Posture Management,Article,Introducing Personal Finance in Claude,https://claude.com/resources/articles/introducing-personal-finance-in-claude,"Access is read-only, and Personal Finance can’t move, manage, or invest your money","Getting answers about your money no longer means opening every banking app and doing the math yourself. With Personal Finance in Claude, you can securely connect your bank and card accounts and ask in your own words. Access is read-only, and Personal Finance can’t move, manage, or invest your money.
 
 Claude gives you answers in everyday language, from your balances and transactions, and explains any term that's new to you. Like the rest of Claude, Personal Finance has no ads or sponsored recommendations, and it doesn’t offer credit cards, loans, or savings accounts of its own, so your money questions get a straight answer.
@@ -2611,6 +2833,7 @@ Build on the Huntress API: Start with the Huntress API docs.
 
 Share feedback: Have an idea for this integration, a new endpoint, or a webhook? Add it to our Integrations, Webhooks, and APIs feedback board."
 1d9bb32e6ba4,1d9bb32e6ba4,2026-11-03 04:55 UTC,Product & Roadmap,CrowdStrike,CrowdStrike IR News,AI Security,Article,CrowdStrike Announces New Native AI Security Innovations on AWS,https://ir.crowdstrike.com/news-releases/news-release-details/crowdstrike-announces-new-native-ai-security-innovations-aws,"New integrations with Amazon Bedrock AgentCore and Amazon ECS extend CrowdStrike protection across AI workloads, applications, agents, and cloud infrastructure AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD), in collaboration","New integrations with Amazon Bedrock AgentCore and Amazon ECS extend CrowdStrike protection across AI workloads, applications, agents, and cloud infrastructure AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026 -- CrowdStrike (NASDAQ: CRWD), in collaboration"
+3990952feccd,3990952feccd,2026-11-03 08:00 UTC,Product & Roadmap,Deloitte,Google News: Deloitte,N/A,Article,Deloitte Unifies Oracle (NYSE: ORCL) Capabilities Under Single Business Group As AI Adoption Accelerates,https://news.google.com/rss/articles/CBMi5AFBVV95cUxQV0w5Zkh5cEx6T3p2M09FVkRRQmFGVWpXUHpROGc0N2s1dWFWbHNHaVh5ZmNnYXZueEVqc1hRZ0RZckczZ3BLSmotNlZqam1uSEhSV0U4SFh6eExrSm1UcUFVZjFoNVVxZmd6VUtQbm1FT1ZpbXBjYnRzZTFONXRpbnpVZDRFSU9aaXBNSkM2NlFDenhHVFFIYmFJcnVwREttWE1UQXp0OGZrOGFZa2pwQ3dBNjJxY1hLOUVUY3lTaUxNTFExRUZKeDF1MFZwV2FIalF1aHdrd0ZvaDQ5eEt3MmdHNUo?oc=5,,
 9d210fc73591,9d210fc73591,2026-11-03 00:00 UTC,Product & Roadmap,CrowdStrike,CrowdStrike Blog,AI Security; Network Security,Article,Introducing AI Kill Switch: Taking Control When AI Agents Go Rogue,https://www.crowdstrike.com/en-us/blog/crowdstrike-introduces-ai-kill-switch/,"The objective is simple: Give organizations the confidence to embrace AI, control its expanding attack surface, and stop threats before they become breaches","One Kill Switch with Comprehensive Enforcement Points
 
 Coming soon, CrowdStrike will extend AI Kill Switch beyond gateway enforcement to deliver coordinated agent containment across the Falcon platform.
@@ -2648,7 +2871,6 @@ Learn more about Falcon Guardian and CrowdStrike's approach to securing AI acros
 Disclaimer
 
 This blog includes discussion of unreleased services or features. Any unreleased services or features referenced here are still in development and subject to change. Customers should make their purchase decisions based upon features that are currently available."
-3990952feccd,3990952feccd,2026-11-03 08:00 UTC,Product & Roadmap,Deloitte,Google News: Deloitte,N/A,Article,Deloitte Unifies Oracle (NYSE: ORCL) Capabilities Under Single Business Group As AI Adoption Accelerates,https://news.google.com/rss/articles/CBMi5AFBVV95cUxQV0w5Zkh5cEx6T3p2M09FVkRRQmFGVWpXUHpROGc0N2s1dWFWbHNHaVh5ZmNnYXZueEVqc1hRZ0RZckczZ3BLSmotNlZqam1uSEhSV0U4SFh6eExrSm1UcUFVZjFoNVVxZmd6VUtQbm1FT1ZpbXBjYnRzZTFONXRpbnpVZDRFSU9aaXBNSkM2NlFDenhHVFFIYmFJcnVwREttWE1UQXp0OGZrOGFZa2pwQ3dBNjJxY1hLOUVUY3lTaUxNTFExRUZKeDF1MFZwV2FIalF1aHdrd0ZvaDQ5eEt3MmdHNUo?oc=5,,
 8a58dc8719f7,8a58dc8719f7,2026-11-03 04:23 UTC,Product & Roadmap,,Socket,Code Security; Vulnerability Management,Article,Composer 2.11 Adds Dependency Cooldowns,https://socket.dev/blog/composer-dependency-cooldowns?utm_medium=feed,"The release arrives nearly a year after developers first requested the feature, bringing Composer into line with package managers that have already adopted minimum release age...","Composer 2.11 has introduced dependency cooldowns, giving PHP developers a native way to delay newly published package versions before they become eligible for installation. The release arrives nearly a year after developers first requested the feature, bringing Composer into line with package managers that have already adopted minimum release age policies to reduce exposure to supply chain attacks.
 
 The new config.policy.cooldown setting allows developers to specify a waiting period in hours, days, or weeks. It is disabled by default and applies during dependency resolution, including composer update and composer require. Existing lockfile installations remain unaffected.
@@ -3998,5 +4220,3 @@ For admins: Enable Code Review in your Claude Code settings, install the GitHub 
 For developers: Once enabled, reviews run automatically on new PRs. No configuration needed.
 
 Explore the docs for more information."
-09047266bf0c,0b247b0fab7c,2026-10-14 09:00 UTC,Product & Roadmap,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys Unveils TruRisk Eliminate 2.0 with TruConfidence to Power Autonomous RemOps,https://investor.qualys.com/news-releases/news-release-details/qualys-unveils-trurisk-eliminate-20-truconfidence-power,"TruConfidence brings AI-powered remediation intelligence to help organizations eliminate cyber risk at machine speed and increase confidence in business resiliency FOSTER CITY, Calif., Oct. 14, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a pioneer of cloud-native cyber risk management, today","TruConfidence brings AI-powered remediation intelligence to help organizations eliminate cyber risk at machine speed and increase confidence in business resiliency FOSTER CITY, Calif., Oct. 14, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a pioneer of cloud-native cyber risk management, today"
-3a84cbfe2a2a,3a84cbfe2a2a,2026-10-14 07:00 UTC,Product & Roadmap,Trellix,Google News: Trellix,N/A,Article,Trellix launches private cloud AI for security teams,https://news.google.com/rss/articles/CBMikAFBVV95cUxQWE9fQjVGX1BUR1lMY3VJaER0MGtBcWkyQXpULVd2Y1gyWkZhNjZaSWFnMXMyOWJDMEx5LVZacGFtcHBRTmxEZzVFbWdXQTNnQzlyRnBDZDdpVVUzOE9td3o5dm8wYWdKNnpVbGR6T3hoc0xLZ1U2SGp3Q0VteVBsbEpUTlF4RkNMRE1mc3FkalI?oc=5,,

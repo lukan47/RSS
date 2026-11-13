@@ -1,89 +1,4 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-7560396b2f64,7560396b2f64,2026-11-12 18:07 UTC,"Attacks, Breaches & Threat Intel",Anthropic,Help Net Security,AI Security; File Security; Network Security; Identity Security Posture Management,Article,Self-hosted Claude Managed Agents keeps agent credentials in your environment,https://www.helpnetsecurity.com/2026/11/12/anthropic-self-hosted-claude-managed-agents/,Anthropic has released a self-hosted version of Claude Managed Agents,"Anthropic has released a self-hosted version of Claude Managed Agents. Companies can run the agent harness, sandboxes, credentials, and session history in their cloud or on-premise. The option opened as a private beta on November 12, and customers request access through their Anthropic account team.
-
-The change matters for agents that already work unattended inside corporate systems, fixing broken builds, testing releases, triaging alerts, and working through bug backlogs. Until now, customers could host the sandbox themselves. That is the isolated environment where an agent’s code runs. Anthropic ran everything else, including the credential handling and the record of what each agent did. Teams that wanted the whole service inside their perimeter had to build the platform themselves.
-
-What the customer runs now
-
-In the self-hosted setup, the customer operates three things: the Managed Agents server, its PostgreSQL database, and the workers where agents run their shell and file tools. Session history lives in that database. Developers build agents with the same core APIs as the hosted service.
-
-Model requests go wherever the customer points them: to Anthropic directly, to Amazon Bedrock, Google’s Agent Platform or Microsoft Foundry, or to the customer’s gateway. Claude itself still runs outside the customer’s network, so prompts go out and completions come back. Some organizations have a zero data retention (ZDR) agreement with Anthropic. For them, these requests are covered the same way as any other call to the Messages API, Anthropic’s standard interface for model requests.
-
-Where the credentials go
-
-Anthropic built Managed Agents around four security principles. They apply whether Anthropic hosts everything, the customer hosts only the sandbox, or the customer hosts all of it. The company’s reasoning is that a team can’t count on a person checking each step of an unattended agent, so “the limits have to be built into the system itself.”
-
-The first principle separates the harness, which calls Claude, from the sandbox, where the agent’s code runs. The agent loop, session history, and vault secrets sit outside the sandbox, and a sandbox starts only when a tool needs one. Credentials stay out of the sandbox too. For MCP tools and supported API calls, a proxy outside the sandbox attaches the credential to the request. Self-hosted customers can keep those credentials in their own secrets manager. Anthropic limits that protection to MCP tools and “supported API calls,” so any other service an agent reaches is worth checking before the agent goes live.
-
-Allowlists and logs
-
-Each environment can be locked to a list of allowed hosts, and requests to any other host are blocked. For an agent that fixes broken builds, Anthropic suggests the list might be just the git host and the package registry. Customers who host the sandbox enforce those limits in their firewall, which makes the allowlist their configuration to get right.
-
-Managed Agents also keeps a log of every step an agent takes: each tool call it made and what it got back. The log exports over OpenTelemetry, so security teams can pipe it into the monitoring tools they already run and look at agent activity next to everything else they watch.
-
-The server, the database, and the firewall rules are now the customer’s to run, and so is the job of keeping them patched and set up correctly.
-
-Download: The IT and security field guide to AI adoption"
-a85f1e260f34,a85f1e260f34,2026-11-12 15:38 UTC,Vulnerabilities & Patching,Anthropic,SecurityWeek,Server & Workload Protection; Vulnerability Management; AI Security,Article,"Apache Patches Critical HTTP Server RCE Found by Anthropic, Google",https://www.securityweek.com/apache-patches-critical-http-server-rce-found-by-anthropic-google/,"Apache has patched a critical HTTP Server vulnerability that could allow unauthenticated remote code execution (RCE), following independent discoveries by Anthropic and Google...","Apache has patched a critical HTTP Server vulnerability that could allow unauthenticated remote code execution (RCE), following independent discoveries by Anthropic and Google researchers.
-
-Tracked as CVE-2026-119618, the flaw affects Apache HTTP Server versions 2.4.55 through 2.4.70. The issue was addressed on November 11 with the release of version 2.4.71. It resides in mod_http2, the module responsible for handling HTTP/2 traffic.
-
-The vulnerability involves a race condition in which multiple threads improperly access shared resources, potentially corrupting server memory.
-
-According to Red Hat, an attacker could exploit the issue remotely without authentication to execute arbitrary commands and gain control of the server process. Red Hat assigned the vulnerability a CVSS score of 9.8 and explained that “only servers that have HTTP/2 enabled are affected; servers configured to serve only HTTP/1.1 are not vulnerable.”
-
-Apache credited Anthropic’s OSS Scanner with reporting the flaw on October 26. Anthony Weems and Simon Scannell of Google Cloud Vulnerability Research independently reported the same vulnerability on November 3.
-
-Cloud security firm Wiz reported that 64% of cloud environments in its data contained resources running affected Apache versions, while 51% had publicly exposed instances. The company cautioned that these figures do not account for server configuration, so they do not necessarily represent exploitable installations.
-
-Advertisement. Scroll to continue reading.
-
-Red Hat says public research has demonstrated a reliable exploit against a server with mod_http2 enabled, but its advisory does not identify the research.
-
-Wiz noted that when its blog was published on November 11, no exploit was available and there were no reports of exploitation in the wild.
-
-A publicly available proof of concept (PoC) on GitHub reports reproducing memory corruption and Apache process crashes, but does not demonstrate remote code execution.
-
-Organizations are advised to install Apache HTTP Server 2.4.71 or vendor-supplied packages. Disabling HTTP/2 can temporarily prevent exploitation if updates cannot be deployed immediately.
-
-Defiant also warned that WordPress security updates cannot resolve the issue because it affects the underlying web server.
-
-Apache HTTP Server 2.4.71 also fixes two other vulnerabilities: CVE-2026-106023, an important issue that can crash server processes, and CVE-2026-109163, a low-severity stack buffer overflow."
-6e408189b39d,6e408189b39d,2026-11-12 11:00 UTC,"Attacks, Breaches & Threat Intel",Anthropic,Help Net Security,AI Security; Identity Security Posture Management,Article,Stolen Claude API keys can turn Claude Code into a remote-controlled implant,https://www.helpnetsecurity.com/2026/11/12/stolen-claude-api-keys-remote-controlled-implant/,"An attacker first has to compromise a developer’s machine and obtain the user’s Claude credentials, which in Darktrace’s scenario were sitting on the device where the user’s...","Darktrace researchers turned Claude Code into a remote-controlled implant in a lab test, steering the coding agent through the memory stores feature of Anthropic’s Claude platform and pulling a 1 GB file out through the Claude Files API. Once the agent was set up, every job and every result traveled through api.anthropic.com, the endpoint the agent already calls for inference, so the attacker’s traffic looked like a coding agent doing its job.
-
-The technique needs a head start. An attacker first has to compromise a developer’s machine and obtain the user’s Claude credentials, which in Darktrace’s scenario were sitting on the device where the user’s tooling had left them. The technique does not rely on a vulnerability in the Claude platform, and the company has not seen it used in the wild.
-
-A shared notebook for commands
-
-Memory stores are collections of text files attached to a Claude Console workspace, built so agents on Anthropic’s Claude Managed Agents service can remember things between sessions. The researchers found that a store can be added to a workspace through the API whether or not the organization uses Managed Agents.
-
-The researchers created a store with three files. Each new Claude Code process wrote a check-in to a heartbeat file, read a job from an input file, carried it out, and posted results to an output file. The operator read the output and wrote the next job. Because the jobs are plain English, the operator can hand over an objective and let the model work out the commands.
-
-Nine jobs, one domain account, a 1 GB file
-
-The test ran on a simulated corporate Active Directory network. A small shell payload found Claude Code on a Linux machine, collected the credentials, and set up a systemd service that kept launching Claude Code processes with the --dangerously-skip-permissions flag, which turns off tool-use confirmation prompts.
-
-The operator then sent nine jobs through the memory store. The agent mapped the local network, pulled employee names and a password from an anonymous FTP share, generated 190 candidate usernames, and sprayed the password at the domain controller and found the account it belonged to. It listed SMB shares with that account, downloaded a 1 GB file, split it into three pieces, and uploaded them to the Files API. The stolen data left the network for Anthropic’s servers. The names and credentials Darktrace published are fictitious.
-
-Other platforms, other keys
-
-Asked whether the pattern carries over to other AI agent platforms, Tim Bazalgette, Chief AI Officer at Darktrace, told Help Net Security: “We tested one platform and haven’t reproduced it elsewhere. The memory stores feature is specific to the Claude platform. The file-upload endpoint we used for exfiltration has an equivalent at OpenAI.”
-
-“The key factor determining exposure is whether the provider’s API exposes services with text storage functionality alongside inference,” he said. “Beyond that, two things matter: how tightly credentials are scoped — here a standard API key reaches memory stores, while OAuth credentials don’t — and whether the customer can see writes to that store at all. None of those are flaws. They’re trade-offs between capability and exposure, worth examining in any agent platform you deploy.”
-
-Darktrace shared the findings with Anthropic before publication, “as a courtesy – no formal disclosure process, because there’s no vulnerability to disclose,” Bazalgette said.
-
-Lock down the keys, then watch the agent
-
-Bazalgette splits the attack in two: getting into the AI system, which is fairly conventional, and using it for command and control and exfiltration once inside. Credentials matter for the first half. “In general, use OAuth or some form of identity federation wherever the platform allows it. Where that isn’t possible, make keys as short-lived as you can, keep their scope narrow, store them securely, and avoid exposing them anywhere they aren’t needed – shell history, dotfiles, environment variables and the like,” he said. “Treat an AI platform key as seriously as a production credential, because it now carries comparable capability.”
-
-An attacker could also hijack an OAuth session, which Bazalgette said is harder to pull off. “And nothing in that second half is disallowed: no vulnerability, no guardrail bypass, no refusal, no malicious software and no strange destination,” Bazalgette said.
-
-Darktrace’s detection advice rests on correlating what agent harness processes launch with the network traffic they generate, then comparing both against a baseline. A Claude Code process that runs tool calls and talks to Anthropic’s API is normal. What should catch your eye is that same process running tool calls with odd command-line arguments, or moving data to and from the API in a ratio that looks nothing like its usual traffic.
-
-“What you’re left with is legitimate actions, through legitimate channels, with legitimate credentials, in a pattern bearing no resemblance to how that agent normally operates,” Bazalgette said. “Approved is not the same as safe, and only behaviour tells you the difference.”
-
-Download: The IT and security field guide to AI adoption"
 a2ab3d97c862,a2ab3d97c862,2026-11-12 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Using Claude Opus 5.5 as your daily driver for knowledge work,https://claude.com/resources/articles/using-claude-opus-5-5-as-your-daily-driver-for-knowledge-work,"5 puts the most important information first, uses less jargon, and follows the writing rules you give it, and on longer tasks it says plainly what it did, what it found, and...","Claude Opus 5.5 is now the default model in Claude on Pro, Max, Ultra, and Team plans. We recommend it as your daily driver for knowledge work, meaning the model you leave selected when you work with Claude on research, analysis, and writing or producing memos, reports, spreadsheets, and decks.
 
 If you or your team have been using Sonnet for daily work and saving Opus for heavy analysis or complex projects, it’s worth reconsidering because a more capable model can finish a task by doing less work, which can then offset much of its higher price per token.
@@ -1222,6 +1137,59 @@ AI Defense has approximately 400 to 500 customers since the offering was launche
 “We’re expanding the capabilities of AI Defense every single week,” he said. “Whether your agents are running on your laptops, inside of the cloud, or on the edge, we’re going to find ways of being able to secure them,” Sampath said.
 
 Adaptive red teaming with Claude Mythos is coming soon for select enterprises. Broader availability is planned for qualified customers, but dates, scope, and region availability remain subject to change, according to Cisco."
+917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
+
+Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
+
+To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
+
+For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
+
+Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
+
+Reasoning through geometric problems
+
+The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
+
+Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
+
+To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
+
+Revising designs
+
+Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
+
+When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
+
+And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
+
+Using software and documentation
+
+When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
+
+To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
+
+Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
+
+Keeping track of constraints and downstream effects
+
+Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
+
+When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
+
+Designing for real-world manufacturing
+
+In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
+
+Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
+
+Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
+
+Limitations and next steps
+
+All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
+
+Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 760b3e66fbfa,760b3e66fbfa,2026-11-09 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Introducing Claude Fable 5.2 and Claude Mythos 5.2,https://www.anthropic.com/claude-fable-and-mythos-5-2,"In the first problem, physicists in 1983 had shown that as these universes heat up, black holes form abruptly, like water boiling; but their method worked only in large...","We’ve upgraded Claude Fable and Claude Mythos—models that are designed to tackle the most daunting technical challenges.
 
 Claude Fable 5.2 and Claude Mythos 5.2 show improvements in areas like coding, reasoning, and vision. During prerelease testing they’ve helped our engineers complete otherwise-infeasible software migrations, designed three working electronic devices from scratch, solved two open problems in the physics of black holes, made substantial progress on robotics evaluations, and formalized the proof of Fermat’s Last Theorem in 30 hours—among many other applications we’ll discuss below.
@@ -1721,59 +1689,6 @@ The problem of building evaluations that reliably catch every failure before a m
 Safeguards
 
 Cybersecurity and biology safeguards. Consistent with previous Claude Fable models, Fable 5.2 comes with safety classifiers that block high-risk cyber activities, including penetration testing, exploit generation, and binary-based vulnerability, as well as most tasks in research biology. When a query is blocked, users will instead receive a response from Opus 4.8 for cybersecurity and Opus 5 for biology. Since the release of Claude Fable 5.1, we have continued to reduce false positives for our safety classifiers. Based on early testing across claude.ai, Claude Code, and Cowork, we observed about 55% fewer blocks with Fable 5.2 compared with Fable 5.1—about 60% fewer in cybersecurity a [truncated for CSV - full text is in the JSON export]"
-917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
-
-Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
-
-To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
-
-For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
-
-Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
-
-Reasoning through geometric problems
-
-The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
-
-Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
-
-To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
-
-Revising designs
-
-Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
-
-When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
-
-And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
-
-Using software and documentation
-
-When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
-
-To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
-
-Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
-
-Keeping track of constraints and downstream effects
-
-Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
-
-When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
-
-Designing for real-world manufacturing
-
-In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
-
-Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
-
-Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
-
-Limitations and next steps
-
-All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
-
-Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 6c6ec0a3b896,6c6ec0a3b896,2026-11-09 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Which Claude model should you build with?,https://claude.dev/blog/which-claude-model-should-you-build-with/,"The advisor helps only when it adds capability the executor lacks and the executor asks for advice, which it does less often at low effort","MIXING MODELS
 
 Switch at a natural break
@@ -3194,7 +3109,7 @@ Yara Rules
 rule yoba_dropper { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaDropper"" strings: $code1 = {00 BB 40 0D 03 00 B9 7C 15 00 00 FF D6 31 C0} $code2 = {BA 05 15 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {53 B9 75 EE 40 70 48 83 EC 20} $code4 = {BA 5C CD 17 E5 48 89 C1 E8 73 00 00 00} $code5 = {0F C8 89 C0 4? 39 ?? 74 1? (49 0F AF C0| 48 69 C0 ?? ?? ?? ??) (4C 01 C8| 48 05 ?? ?? ?? ??) 49 89 C? 49 C1 E? 18 45 30 [2] 4? FF ?? EB} condition: uint16(0) == 0x5A4D and 2 of them } rule yoba_loader { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaLoader"" strings: $code1 = {B9 80 A8 12 01 FF ?? ?? E9} $code2 = {BA EB 1D 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {B9 5B 80 EF B7 E8} $code4 = {BA F5 8B 2E F2 48 89 C1} $code5 = {B5 C2 D2 06 23 D4 E6 64 7D 06 A4 28 64 ED D8 62 9F 82 C5 C3 84 B2 43 FD AE EE CA 24 B3 87 3D 64} $code6 = {1D 0D 13 68 B4 D5 3F 3A 63 22 CF 40 E8 4E 63 DB} $code7 = {40 80 FE 32 74 42 40 80 FE 33 74 66 40 80 FE 31} $code8 = {41 81 F8 A5 DE 6C C2} condition: uint16(0) == 0x5A4D and 2 of them }
 
 The post Tricks from the Past deployed via signed ChatGPT and Claude binaries appeared first on Check Point Research."
-3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic News,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
+3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
 
 There are many opportunities to speed up drug development, even beyond the most commonly discussed applications of AI, like proposing initial designs for new molecules. Developing a drug involves many varied tasks: doing early research to identify a target for a drug and the right type of drug to engage it, designing a molecule with the right properties, optimizing it to be manufactured reliably at scale, drafting the regulatory filings needed to run clinical trials, designing and administering those trials, and much more.
 
