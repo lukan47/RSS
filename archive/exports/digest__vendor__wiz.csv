@@ -1,4 +1,105 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+879a98c92030,879a98c92030,2026-11-13 17:05 UTC,General Security News,Wiz,Wiz Blog,Data Security Posture Management; Attack Surface Discovery; Network Security; Container Security,Article,The Green Agent POV: Formulating the Fix for an Internet-Facing Container with Sensitive Data Access,https://www.wiz.io/blog/inside-green-agent-investigation,"A critical Issue was just discovered in an environment: an internet-facing container running an image with a known initial-access vulnerability, with a role attached that can...","A critical Issue was just discovered in an environment: an internet-facing container running an image with a known initial-access vulnerability, with a role attached that can reach sensitive data.
+
+With AI speed reducing the time from discovery to exploitation, the pressure to fix it fast is intense. Yet remediation is never just about speed. Teams are forced to balance security urgency with business continuity, racing against the clock to answer three critical questions: what’s impacted, what the fix is, and who to send that fix to.
+
+The Wiz Security Graph helps security teams answer the first question. It lays out the exact exposure path including the exposed endpoints, the deployment behind them, the image where the CVE sits, and the lateral movement path that carries an attacker from code execution to buckets holding PII.
+
+Finding the fix and the owner, however, requires deeper investigation that security teams can’t spend hours on. They must rapidly contact the developer to deploy a fix, if it even exists, and apply mitigations in the meanwhile without disrupting production uptime.
+
+That’s what we built Green Agent for. In this post, we’re excited to pull back the curtain and share how Green Agent investigates this exact Issue in minutes and determines the remediation strategies it recommends.
+
+The Investigation
+
+1. Understanding the Issue
+
+Green Agent started by ingesting the Security Graph context to map the full attack path. This Issue represented a toxic combination centered on a single Kubernetes deployment in an AWS EKS cluster.
+
+The Security Graph correlated five distinct risk types converging on this single workload:
+
+External Exposure: A direct network path from the internet to the container.
+
+Vulnerability: A known initial-access CVE-2026-111497 on the container image.
+
+Insecure Kubernetes Cluster: A pod mounting a service account token to bridge into the cloud.
+
+Unprotected Principal: An IAM role granting the workload access to cloud storage.
+
+Unprotected data: Sensitive customer records residing in those accessible buckets.
+
+Five risk types meant five distinct places where the attack chain could be broken - whether by removing the public exposure, patching the container image, unmounting the service account token, scoping down the IAM role, or purging the sensitive data.
+
+Before it could recommend how to break the chain without disrupting production uptime, Green Agent needed to validate the ground truth behind each risk factor. It began investigating the attack path step-by-step, starting at the perimeter.
+
+2. Validating Exposure: Is the Front Door Really Open?
+
+Before recommending a fix, Green Agent needed to determine whether network containment was even an option. Many cloud workloads appear public in configuration tables but are actually shielded behind internal subnets, VPNs, or closed security groups.
+
+Green Agent traced the full inbound route from 0.0.0.0/0:
+
+The Ingress Route: Traffic flowed from the public internet through an AWS Internet Gateway, routed across an AWS Network Load Balancer, passed through the Traefik Ingress controller, and directly into the application's main container.
+
+Unauthenticated Access: Both HTTP (port 80) and HTTPS (port 443) served public endpoints returning unauthenticated 2XX status codes.
+
+No Perimeter Defense: Green Agent inspected the hops and confirmed no Web Application Firewall (WAF) or firewall rules were in place.
+
+This established a critical operational boundary for remediation. Because this frontend was an intentionally public production service, simply pulling the network plug - like tearing down ingress or blocking the load balancer - would cause a total production outage. Any network-level remediation plan from Green Agent would need to preserve uptime, such as introducing authentication middleware rather than severing traffic entirely.
+
+3. Assessing Exploitability: Is the Vulnerability Running in Memory?
+
+With the front door confirmed open, Green Agent moved to the next link in the attack chain: the vulnerability risk factor, to evaluate whether the attack path could be severed at the application layer.
+
+It investigated the container image flaw: CVE-2026-111497 (""Broccoli2Shell""), a critical RCE in the Brotli decoder bundled with Node.js and cataloged in CISA’s Known Exploited Vulnerabilities (KEV).
+
+It confirmed from the Wiz Sensor that the vulnerable Brotli libraries were actively loaded in memory by the running Node.js process, verifying that code execution was a live, viable threat.
+
+Green Agent also checked upstream advisories and verified that vendor patches (including Node.js 22.23.4 and libbrotli 1.2.1) were already available, confirming a permanent code fix was viable.
+
+However, organizational release processes mean that rolling out a new container image through testing and CI/CD pipelines takes time. Because the attack path can be broken at any of the five risk types, Green Agent turned to the remaining links - the Kubernetes configuration, IAM role, and sensitive data - to see if the toxic combination could be severed immediately in the cloud.
+
+4. Evaluating Cloud Identity & Data: Can the Cloud Path be Severed?
+
+Investigating the workload's connection to cloud storage, Green Agent evaluated the three remaining risk types:
+
+The Cluster Remediation Lever (IRSA): Green Agent examined the Kubernetes service account and confirmed it projected cloud credentials via IRSA into the container. This revealed an immediate mitigation lever: disabling token automount on the pod spec to cut off cloud access.
+
+The IAM Remediation Lever: Inspecting the assumed IAM role, Green Agent found overprivileged s3:GetObject and wildcard s3:* permissions across three S3 buckets. This surfaced a second lever: scoping the IAM policy down to least privilege.
+
+The Data Remediation Lever: Querying the S3 buckets revealed over 5,000 unmasked records (credit cards and PII) in files, identifying a third remediation lever: purging or masking unprotected data at rest.
+
+Investigating these layers proved that Green Agent didn't have to wait on a code deployment to neutralize the risk. Multiple zero-downtime levers were available in the cloud right now.
+
+5. Code-to-Cloud Lineage: Finding the Source and Owners
+
+Cloud mitigations can sever the attack path immediately and buy critical time, but permanent remediation requires fixing at the source. If changes aren't committed to code, the next CI/CD build or Terraform apply will simply overwrite your cloud tweaks and recreate the issue. Green Agent called its Code Subagent to bridge the runtime assets back to version control, tracing the container image to its source Dockerfile, the overprivileged IAM role to its Terraform definitions, and the workload to its GitOps deployment manifests.
+
+By inspecting commit history and metadata, Green Agent connected each fix directly to the engineers who actually maintain the code: the application developer, service owner, and infrastructure lead so security teams didn’t have to go on a search for the right owner.
+
+6. Determining a Verdict and Creating Remediation Plans
+
+Within minutes, Green Agent analyzed organizational context to reach a verdict that this Issue needed to be remediated and is of Critical severity. Green Agent factored in real business impact: the workload belonged to High Business Impact (HBI) production projects, formed an active breach path to 5,000+ sensitive records, and aligned with historical remediation evidence showing 100% of similar sampled issues in the subscription were successfully remediated with a 0% rejection rate.
+
+To break the toxic combination, Green Agent determined that Mitigate and Fix plans were most appropriate to break the risk types identified, balancing immediate protection against permanent resolution:
+
+Mitigate Plans: Immediate actions security teams can deploy right now to reduce the risk, like disabling service account token automount to instantly sever cloud access while developers work on the code fix.
+
+Fix Plans: Permanent root-cause resolutions, like updating the base image in the Dockerfile or scoping down Terraform IAM policies.
+
+Just as importantly, Green Agent evaluated operational trade-offs to skip unviable strategies: it explicitly rejected deleting the ingress because severing an intentionally public frontend would cause a total production outage, and skipped long-term hardening where environment prerequisites weren't in place.
+
+Finally, Green Agent turned planning into execution by assigning each plan directly to its verified owner, ready to resolve via a one-click pull request or by handing instructions straight to a coding agent.
+
+Why this Matters
+
+Green Agent brought two things to this remediation that are notoriously difficult to balance in security: addressing security urgency, and maintaining the context needed to protect business continuity.
+
+First, speed. With risks and threats moving faster than ever, security urgency demands an immediate response. A human team investigating this toxic combination would spend hours or days context-switching: security analysts verifying the public endpoint, platform engineers checking if the Brotli library is actually in memory, cloud admins auditing IAM policies, and developers tracking down which Git repository built the image. Green Agent conducted this investigation in minutes, eliminating the friction and guesswork that typically stalls remediation.
+
+Secondly, operational intelligence. Remediation isn’t only a security team problem, it’s an organizational decision that requires understanding real-world trade-offs. Green Agent knew better than to propose deleting the ingress and taking down a public service that would impact the business. Instead, it distinguished between immediate, zero-downtime cloud mitigations and permanent code fixes, found the exact files in version control, and assigned the work directly to the engineers who own them.
+
+That balance is how organizations can move towards autonomous remediation. Trust has to be earned before teams hand over the keys to auto-execution. That trust is built on context: when engineers see that an agent genuinely understands business trade-offs and won't break production, they can safely evolve from reviewing every action (human-in-the-loop) to supervisory oversight (human-on-the-loop).
+
+That progression is what finally enables teams to get on a path to self-healing, while giving engineers their time back to keep building."
 8974ed8a8485,8974ed8a8485,2026-11-12 18:32 UTC,General Security News,Wiz,Wiz Blog,AI Security; Code Security; Vulnerability Management,Article,ASPM in the AI Era Part 3: Fixing Risk at the Speed of Code,https://www.wiz.io/blog/aspm-ai-era-pt-3-fixing-risk-code-speed,"True AI threat readiness requires an active ASPM strategy that bridges static code with live cloud context to elevate real, exploitable attack paths over theoretical noise","In parts one and two of this series, we covered how to centralize your AppSec tools and use the Wiz Security Graph to isolate critical attack paths. The natural next step to securing your environment is remediating those risks, but for most AppSec teams, fixing vulnerabilities at scale remains a challenge.
 
 Teams invest heavily in SAST, SCA, Secrets, and DAST scanners, only to generate backlogs that stall after triage. According to the Verizon DBIR, unpatched vulnerabilities remain a top attack vector, with organizations taking a median of 47 days to apply a patch, up from 32 days. Those legacy timelines are no longer viable when AI models are compressing the window from vulnerability discovery to active exploitation.
@@ -2887,82 +2988,3 @@ Continuously scan the external attack surface:
 AI agents scan broadly and quickly for any exposed attack path. It is therefore critical to discover and assess internet-facing assets, including developer tools, management consoles, and internal applications, and fix or remove exposures before an attacker finds them.
 
 The Wiz Red Agent can detect attack paths in your environment. The Red Agent is an AI-powered security agent that acts as an intelligent attacker to discover and validate exploitable risks across your web applications and APIs."
-be56a43ff6a5,be56a43ff6a5,2026-10-14 20:13 UTC,General Security News,Wiz,Wiz Blog,AI Security; Code Security; Vulnerability Management; Threat and Exposure Management,Article,ASPM in the AI Era Part 1: Unified Visibility Across Your Stack,https://www.wiz.io/blog/aspm-ai-era-pt-1-centralize-appsec-scanners,"A process that once allowed teams time to manually review scanner alerts, track down code owners, and assign tickets is no longer viable in an era of machine-speed detection and...","Frontier AI models and agentic development have fundamentally changed the demands on application security.
-
-On one hand, AI models can autonomously discover vulnerabilities and generate working exploits, shrinking the window from discovery to exploitation from days to minutes. On the other, AI-assisted development is helping teams ship code faster than ever, amplifying existing risks and expanding the attack surface.
-
-This dual acceleration breaks traditional AppSec workflows. A process that once allowed teams time to manually review scanner alerts, track down code owners, and assign tickets is no longer viable in an era of machine-speed detection and exploitation.
-
-It’s why Application Security Posture Management (ASPM) is even more important today than it was in the past. But, it can’t just be a layer that aggregates risk signals. To drive real security outcomes, ASPM needs to help teams prioritize exploitable risks by drawing on context across the entire application lifecycle.
-
-In this blog series, we’re taking a deep dive into how organizations can operationalize ASPM with Wiz Code. Over the next few weeks, we will cover:
-
-Part 1: Visibility and Coverage: How to connect your existing scanners, correlate and deduplicate your resources, and identify coverage gaps across your codebases.
-
-Part 2: Context and Prioritization: How Wiz enriches third-party findings, removes duplicate alerts, and uses the Security Graph to identify true attack paths.
-
-Part 3: Remediation and Automation: How to systematically group findings for developers using Posture Policies and leverage the Green Agent for AI-generated fixes.
-
-Why Context is the Foundation of ASPM
-
-To drive security outcomes, ASPM needs a strong foundation of context.
-
-Let’s take a practical example with React2Shell (CVE-2025-55182), the critical remote code execution vulnerability impacting Next.js applications from late last year. For an enterprise heavily invested in Next.js, a flaw in a core component does not just trigger one alert. It cascades across micro-frontends, internal tools, and public applications, instantly generating thousands of isolated findings across hundreds of repositories and container images.
-
-Without context, AppSec teams would be left staring at a massive backlog of vulnerable packages, with no way to tell which instances were actually exploitable.
-
-With the right context, organizations could detect every instance of the vulnerable component and immediately prioritize the ones tied to internet-facing applications or workloads with access to sensitive data.
-
-Wiz Code delivers this exact capability by connecting your existing AppSec scanner findings with cloud exposure, runtime insights, and even adversarial testing to prioritize critical risks. The foundation of context is also what enables security teams to achieve broad visibility into application risk across their enterprise footprint and empower developers to remediate at machine speed.
-
-Let’s dive into how organizations can get set up with ASPM in Wiz.
-
-Maximize the Investment on your Existing Scanners
-
-The first step is bringing your existing AppSec tools into Wiz. Whether you standardize entirely on Wiz Code’s native scanners (for SAST, SCA, IaC, and Secrets) or operate a hybrid ecosystem, Wiz provides the flexibility to ingest and contextualize all your application security findings without forcing a rip-and-replace.
-
-Traditionally, building a unified risk dashboard across multiple third-party tools requires massive integration overhead. But with the Wiz Integration Network (WIN) we provide out of the box support for popular AppSec solutions like Snyk, Checkmarx, GitHub Advanced Security, and more.
-
-You can deploy these Wiz-managed connectors with read-only API access and configure them to automatically fetch relevant findings. Wiz handles the API connection, data normalization, and enrichment. This gives your team immediate visibility into SAST, SCA, DAST, and Secret risks without writing or maintaining custom integration scripts.
-
-Custom Integrations
-
-If you use a homegrown scanner or a tool without a native connector, you can still bring that data into Wiz via SARIF file ingestion. Static Analysis Results Interchange Format, or SARIF for short, is a standard, JSON-based file format used to store and share the output of static code analysis tools in a normalized structure. So if your security team is running a custom solution for code analysis, they can still benefit from the enrichment, prioritization, and lifecycle management in Wiz.
-
-Correlate Application Security with Cloud Resources
-
-Once your connectors are active, Wiz begins ingesting the data your scanners generate. You can review this on the Imported Assets page in your inventory.
-
-Each row in this table represents your third-party scanner's perspective of an asset. For example a repository branch scanned by Semgrep or Checkmarx, or Container Image scanned by Snyk. The table shows the asset name, origin scanner, classification, and correlation status.
-
-Crucially, AppSec tools often use completely different naming conventions for the same repository. This is where Wiz asset correlation comes in to serve as your first layer of deduplication. Instead of creating disparate resources for each branch for each scanner, Wiz automatically correlates them to existing resources in Wiz, and adds the third party information as an enrichment on the existing graph entity. If Wiz does not already know of the resource, a new graph resource is created from the scanner’s asset. This cleans up your inventory and prevents unnecessary noise, while allowing you to take your normal action on graph resources such as putting them in Wiz Projects or running Workflows.
-
-This mechanism is the foundation for true code-to-cloud analysis. Traditional AppSec scanners focus on the code. They cannot tell you if a vulnerable repository generates a container image deployed in your environment and is exposed to the internet.
-
-Wiz advances this model. It takes an isolated finding on a repository branch, regardless of the scanner source, traces it to the container image it was built into, linking it to the exact workload where the finding is currently running. Security teams gain immediate context on where vulnerable code lives in reality without any manual searching.
-
-Crucially, this correlation is the engine that allows Wiz to enrich external findings with live cloud context. It sets the stage for the automated prioritization and finding-level deduplication we cover in Part 2 of this series.
-
-Map Coverage and Eliminate Blindspots in Coverage
-
-Enterprise AppSec teams often struggle to answer a fundamental question: Are all of our repositories actually being scanned? In complex environments with multiple development teams, blind spots lead to unmitigated risk, while redundant scanning creates unnecessary noise and wastes resources.
-
-Once your connectors are active and assets are correlated, the Code Repositories inventory gives you a unified view of scanner coverage.
-
-Instead of guessing, you get a clear, per-repository view of exactly what is happening across your codebase.
-
-For each repository, you can see:
-
-Active Scanning Tools: Which AppSec tools are actively scanning each repo (such as Snyk, SonarQube, Checkmarx, Wiz Code native scanners, or VCS-native tools).
-
-Coverage & Gaps: Which finding types are covered (SAST, SCA, Secrets, IaC) and where critical gaps exist.
-
-Finding Volume: The exact number of open findings per category from each scanner.
-
-You can use this view to surface repositories where no SAST scanning is active or where secret scanning exists from one tool but is missing elsewhere. By mapping your coverage, your team can eliminate blind spots, identify redundant tools on the same repository, and ensure consistent security standards across every development project.
-
-Up Next: Prioritizing Critical Risk with Context
-
-Getting your existing AppSec data into one platform and mapping your coverage is the crucial first step. However, visibility alone does not solve the vulnerability fatigue caused by AI-accelerated development. Security teams need context to know what to fix first.
-
-In Part 2 of this series, we will dive into how Wiz enriches your third-party findings, automatically removes duplicate alerts across different scanners, and uses the Security Graph to trace isolated flaws into true, exploitable attack paths."

@@ -1,4 +1,147 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a5c6cf50cb79,a5c6cf50cb79,2026-11-13 15:23 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Server & Workload Protection,Article,November Patch Tuesday: How to Sort Through the Patches,https://blog.qualys.com/product-tech/2026/11/13/november-patch-tuesday-how-to-sort-through-the-patches,"” Why it matters: the first hours after Patch Tuesday are when prioritization happens, and attackers are using AI to create exploits after a patch is released faster than ever","Key Takeaways
+
+At 1,252 CVEs this month, “patch everything now” isn’t a plan; teams need to decide what to patch first, what to test, and what to mitigate.
+
+Know your exposure early: Qualys InstaScan flagged affected assets about 40 minutes before Microsoft’s release notes page finished loading, with no new scan.
+
+Not every patch is safe on day one: about 35% of November patches earned a Low reliability rating from Qualys, based on public signals and telemetry from 500M+ deployed patches.
+
+Deploy in waves: proven risky exposures first, low-impact patches on automation, and high-impact patches through pilot rings.
+
+When a critical patch breaks, mitigate with a compensating control, then patch and retire the mitigation once a fixed update ships.
+
+Every Patch Tuesday forces the same trade-off. Patch too slowly, and attackers get a head start on newly disclosed vulnerabilities. Patch too quickly, and a bad update can take down Exchange, break line-of-business apps, or trigger a wave of help desk tickets.
+
+November 2026 showed both sides of that tension. Our data pointed to three lessons security and IT teams can use this month and every month:
+
+Know your exposure before the details are public
+
+Check whether a patch is reliable before you push it
+
+Have a fallback when it isn’t
+
+November at a glance
+
+In November 2025, Microsoft addressed 63 CVEs on Patch Tuesday. In November 2026, with frontier AI models now accelerating vulnerability discovery, that number reached 1,252, nearly 20 times higher. And this isn’t an isolated month. Since April 2026, Microsoft has addressed an average of roughly 650 CVEs per month, nearly nine times the average of about 74 between November 2025 and March 2026. Each of the last three releases has addressed close to 1,000 CVEs or more.
+
+With the same size team, manual patching can’t keep up. No team’s manual patching capacity has grown twentyfold in a year, and that gap is why speed alone isn’t enough.
+
+The vulnerabilities worth knowing about:
+
+Outlook NTLMv2 hash disclosure (CVE-2026-124194). This one is exploited in the wild despite a Moderate rating. Opening a crafted message file skips Outlook’s external-content warning and leaks the user’s NTLMv2 hash to an attacker-controlled server.
+
+Exchange Server remote code execution (CVE-2026-118207). Rated Critical. An authenticated attacker with low-level access can run code on on-premises Exchange, and Microsoft rates exploitation more likely. If you run Exchange on Windows Server 2019, November hands you both problems at once: a critical Exchange flaw to close, and an OS update reported to break Exchange.
+
+Active Directory Domain Services remote code execution (CVE-2026-118146). A crafted request from a low-privileged user could run code on domain controllers. Exploitation is rated more likely.
+
+Recurring pressure points. Office and Outlook Preview Pane RCEs are back for a third month in a row, alongside a new zero-click Windows Search RCE and more Hyper-V escapes.
+
+At this volume, “patch everything now” isn’t a plan. The real questions are what to patch first, what to test, and what to do when a patch can’t go out.
+
+The three insights below answer those questions in the order they come up during a Patch Tuesday cycle: knowing your exposure as updates land, checking whether a patch is safe to deploy, and falling back to mitigation when it isn’t.
+
+Insight 1: The faster you know your exposure, the sooner you can act
+
+On November 10, Qualys InstaScan picked up Microsoft’s November security updates from Microsoft’s API the moment they were released. It began evaluating customer assets right away, roughly 40 minutes before Microsoft’s public release notes page finished loading. During that window, the page still showed a “{{release}}” placeholder in its title.
+
+By the time most teams were reading the bulletin, InstaScan users already had a list of affected assets in front of them: more than 11,000 Microsoft findings in the InstaScan view, each marked “first found a few seconds ago.”
+
+Why it matters: the first hours after Patch Tuesday are when prioritization happens, and attackers are using AI to create exploits after a patch is released faster than ever. Teams that know which assets are exposed before the details go public can plan rings, line up change windows, and flag critical systems sooner, instead of starting from a blank spreadsheet.
+
+Note: InstaScan, powered by Qualys Agent Insta, works from the inventory and telemetry Qualys already collects, so no new scan is needed.
+
+Find out how to eliminate risk at the source. Read the white paper.
+
+Read More
+
+Insight 2: Not every patch is ready on day one
+
+As of 3 p.m. MT on November 11, about 35% of this month’s patches carried a Low reliability rating in Qualys’s AI-powered Patch Reliability Assessment. The rating combines public signals on every patch, such as vendor KBs and advisories, Linux release notes and sysadmin forums, with Qualys telemetry from more than 500 million deployed patches, including real rollback and vulnerability-reopen rates.Low reliability doesn’t mean “don’t patch.” It means “don’t patch blind.”
+
+Example: KB5131085. Microsoft rated this cumulative update for Windows 10 / Windows Server 2019 (OS Build 17763.9487) Critical. It addresses CVE-2026-119892 and 574 other CVEs. It also earned a Low reliability rating, with two issues reported by the community:
+
+Exchange Server deployments may see sign-in, mailbox access and mail queue failures.
+
+USB Audio Class 1.0 devices may fail to start or lose audio output (Code 10).
+
+For a team running Exchange on Server 2019, that’s the difference between a routine update and a messaging outage.
+
+And it’s not an isolated case. Recent vendor-confirmed examples include a November SQL Server update (KB5129299) that can cause access violations when querying sys.dm_exec_requests during recovery, with no fix yet and a trace-flag workaround, and an October .NET Framework update for Windows 11 (KB5127694) that fails to install with error 0x800F0922 and rolls back after reboot.
+
+No team’s manual patching capacity has grown twentyfold in a year. That gap is why speed alone isn’t enough.
+
+What to do: deploy in waves with Agent Sara
+
+Community signals tell you where to look; your own environment tells you whether a patch is safe. The answer isn’t one big push or one long wait. It’s sequencing.
+
+In Qualys TruRisk Eliminate, Agent Sara builds intelligent remediation waves for you. It sorts every fix by risk, operational impact and patch reliability, then routes it to the right rollout: zero-touch first, rings for riskier patches, and patchless fixes where no patch fits.
+
+Wave 0: Proven risky exposures. Vulnerabilities on CISA’s KEV list, publicly exposed assets, and flaws an adversary can automate to take total control. These get fixed first.
+
+Wave 1: Low operational impact. High-reliability patches for browsers, standalone utilities and non-critical assets that don’t need a reboot. These go out with zero-touch automation.
+
+Wave 2: High operational impact. High-reliability patches for shared runtimes, dependencies and critical assets, where reboots are expected. These go out in rings: a small, representative pilot group first, including the configurations most likely to break (for KB5131085, your Exchange servers), then broader rings once the patch holds up.
+
+Wave 3: Beyond patching. Low-reliability patches, vulnerabilities with no patch available, and end-of-life apps. These get a mitigation instead (more on that below).
+
+Wave 4: Uninstall. Bloatware, unused user-space apps and residual files. Removing them shrinks the attack surface for good.
+
+The result: the riskiest exposures close first, routine patches stop needing hands-on attention, and your team spends its time on the updates that actually need judgment.
+
+Community signals tell you where to look; your own rings tell you whether it applies to you. In Qualys TruRisk Eliminate, Agent Sara builds these remediation waves for you.
+
+Insight 3: When a critical patch breaks, mitigate
+
+Sometimes the pilot ring confirms the bad news: the patch breaks something you can’t live without, yet the vulnerabilities it fixes are critical. Rolling back and waiting for a fix leaves the door open. Pushing it anyway takes the business down.
+
+There’s a third path: mitigate. Apply a compensating control that closes the attack path without installing the update, such as disabling a vulnerable service or feature, changing a registry or configuration setting, or isolating the exposed asset. Keep it in place until the vendor releases a fixed update, then patch and retire the mitigation.
+
+In the news this week: KB5132061. Microsoft has confirmed that its November 2026 security update for Windows 11 (KB5132061) fails to install on some devices that installed the October 2026 non-security preview update (KB5127936). Affected devices may retry the installation repeatedly or return errors 0x80070306, 0x800f0989 or 0x800f0993. Microsoft says the issue will resolve automatically within 24 to 48 hours of November 11, and asks admins to contact support if it persists.
+
+Until then, those devices are missing every fix in this month’s Windows release, and retrying won’t change that. Instead of waiting, teams can identify which devices have KB5127936 installed, apply mitigations for the most critical exposures first, such as anything on CISA’s KEV list or rated exploitation more likely, and let the November update install once Microsoft’s repair lands. Then they retire the mitigations.
+
+The same approach works when there’s no patch at all, or when the software is end-of-life. And for bloatware and unused apps, the cleanest fix is often to uninstall them and shrink the attack surface for good.
+
+With Qualys TruRisk Eliminate, teams can deploy those mitigations at scale from the same platform that detected the exposure, and track which assets are protected by a patch, a mitigation, or neither.
+
+The Patch Tuesday playbook
+
+Speed and stability aren’t opposites if each step has a clear job:
+
+Detect early. Know which assets are exposed as soon as updates are released, not when the bulletin finishes loading.
+
+Assess reliability. Check community signals before deployment so known breakages don’t surprise you.
+
+Deploy in waves. Let Agent Sara sequence the rollout: riskiest exposures first, zero-touch for low-impact patches, rings for critical systems.
+
+Mitigate when the patch breaks. If a critical patch fails in testing, close the risk with a compensating control until a fixed update is available.
+
+Frequently Asked Questions
+
+How should security teams prioritize patches after Patch Tuesday?
+
+Deploy in waves. Fix proven risky exposures first, such as vulnerabilities on CISA’s KEV list and publicly exposed assets. Automate high-reliability, low-impact patches, and send high-impact patches through pilot rings.
+
+Is it safe to deploy Patch Tuesday updates on day one?
+
+Not always. In November 2026, about 35% of patches carried a Low reliability rating, including KB5131085, which is reported to break Exchange on Windows Server 2019. A Low rating means test first, not skip the patch.
+
+What is a patch reliability rating?
+
+It’s an AI-driven rating from Qualys that predicts how likely a patch is to break something in your environment before you deploy it. High reliability means deploy with confidence; Low means test, stage or delay broad rollout.
+
+What is ring-based patch deployment?
+
+It rolls an update out in stages, starting with a small pilot group that includes the configurations most likely to break. Once the patch holds up in your environment, it expands to broader rings.
+
+How do I reduce risk when no patch is available or software is end-of-life?
+
+Use a compensating control to close the attack path. For bloatware and unused apps, the cleanest fix is often to uninstall them and shrink the attack surface for good.
+
+How can I see which assets are affected before Microsoft’s release notes are published?
+
+Qualys InstaScan evaluates assets the moment Microsoft releases updates, with no new scan. In November 2026, it flagged affected assets about 40 minutes before Microsoft’s release notes page finished loading."
 561703625afc,561703625afc,2026-11-13 01:37 UTC,General Security News,Qualys,Qualys Blog,AI Security; Identity Security Posture Management; Threat Intelligence; Vulnerability Management,Article,AI Didn’t Create a New Kind of Risk. It Removed the Time You Had to Fix the Old One.,https://blog.qualys.com/product-tech/2026/11/12/ai-didnt-create-a-new-kind-of-risk-it-removed-the-time-you-had-to-fix-the-old-one,"Attackers now use agentic AI for reconnaissance, vulnerability validation, and, in at least one case, a zero-day, yet vulnerability exploitation is still the leading way in for...","Mandiant’s AI Risk and Resilience 2026 report shows attackers putting agentic AI to work across the intrusion. Vulnerability exploitation is still the leading way in, and the window to fix it is closing.
 
 Executive Summary
@@ -1710,124 +1853,3 @@ Action from the same platform. Teams will be able to apply third-party mitigatio
 
 Download the Node.js exposure dashboard today."
 d896ae424e5b,d896ae424e5b,2026-10-26 09:00 UTC,Business & Industry News,Qualys,Qualys IR News,Cloud Risk Management,Article,"Qualys to Report Third Quarter 2026 Financial Results on November 9, 2026",https://investor.qualys.com/news-releases/news-release-details/qualys-report-third-quarter-2026-financial-results-november-9,"FOSTER CITY, Calif., Oct. 26, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that the company will report its financial results for the third quarter 2026 after the market closes on Monday, November 9, 2026.","FOSTER CITY, Calif., Oct. 26, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that the company will report its financial results for the third quarter 2026 after the market closes on Monday, November 9, 2026."
-b86a8d0efad7,2b62329cc6f4,2026-10-26 04:31 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management,Article,Can’t Patch PHP2Shell Yet? Build a Stopgap with the Controls You Own,https://blog.qualys.com/product-tech/2026/10/25/cant-patch-php2shell-yet-build-a-stopgap-with-the-controls-you-own,"Only 199,000 of 156 million PHP installations were patched in the first 12 hours after disclosure","Executive Summary
-
-PHP2Shell’s fix is to update PHP, but patching at scale is slow. Only 199,000 of 156 million PHP installations were patched in the first 12 hours after disclosure. In the meantime, Qualys’s configuration-level mitigation reduces exposure to the confirmed attack path without code changes, with or without an agent. WAF, IPS, and EDR protections from major vendors add further layers, and TruConfirm shows which hosts are actually reachable: 25 of 1,539 in one customer environment. Soon, Qualys ETM will factor these controls into risk scores. These controls buy time, but patching remains the only complete fix.
-
-PHP2Shell comes with a clear instruction: update PHP. Fixed releases exist for supported branches. Patching at this scale still takes time. In Qualys telemetry, only 199,000 of the 156 million PHP package installations with a known version (about 0.13%) had been patched in the first 12 hours after disclosure.
-
-Those first days are where mitigations and compensating controls earn their place. They reduce risk while updates roll out, and the right visibility shows which servers need attention first. Our PHP2Shell blog post covers detection and fixed versions.
-
-Here is how to bridge the gap between disclosure and patch, in four steps: find and prioritize exposed PHP, apply the Qualys mitigation, layer the controls you already run, then patch and verify.
-
-Step 1: Find and Prioritize Exposed PHP
-
-Qualys customers can identify PHP installations through network scans, Cloud Agents, container assessments, and Deep Scan, where supported. Additionally, they can assess exposed web applications and APIs using Qualys TotalAppSec. To facilitate PHP discovery, use QID 45110, followed by the relevant vulnerability-detection QIDs and software-inventory QIDs, to assess the assets in scope.
-
-It is important to note that not every vulnerable host has the same level of exposure. TruConfirm helps validate the indicators of the tested PHP2Shell entry point. Its benign probe checks whether this entry point is reachable and whether the upload-progress mitigation is absent, all without creating files, executing code, or applying memory pressure. For more details, refer to our PHP2Shell blog post, which explains how the probe works.
-
-In one customer environment with 1,539 assets running PHP, TruConfirm returned positive validation results for 25 of those assets. Consider these results alongside their internet exposure and business criticality to determine what vulnerabilities to prioritize for mitigation and patching. Keep in mind that a negative result does not guarantee that all exploitation paths are closed.
-
-Step 2: Apply the Qualys Mitigation
-
-Qualys provides a configuration-level mitigation for PHP2Shell based on PHP’s guidance and insights from the Qualys Threat Research Unit. It turns off session upload progress and hardens related session-handling configuration on supported hosts. This reduces exposure to the confirmed session-lifecycle attack path without requiring application-code changes.
-
-It does not eliminate every exploitation path associated with the two CVEs. Test applications that depend on upload-progress functionality after the change.
-
-With or without an agent. Customers with vulnerable detections can select Mitigate Now from their dashboards. For appliances, DMZ servers, and legacy hosts that cannot run a Cloud Agent, the same mitigation script is available in the Custom Assessment and Remediation (CAR) library in TruRisk Eliminate and runs directly on scanner-based hosts.
-
-Configuration-level, with restart verification. The mitigation applies configuration changes and automatically restarts the PHP service. Review the execution logs and restart the service manually if a restart is still required. Confirm that every affected PHP worker has picked up the new configuration.
-
-Verified, not assumed. After the restart, Qualys checks the effective configuration to confirm the setting is active and not overridden elsewhere.
-
-Step 3: Add Layers from the Security Stack You Already Run
-
-The tools already in your environment can work alongside the mitigation, each at a different point in the attack path. Each layer can catch what the one before it misses
-
-Inbound: WAF and IPS. WAF and IPS vendors such as Akamai, Cloudflare, F5, Palo Alto Networks, Fortinet, and Check Point have released signatures that name both CVEs. They help block exploit requests before those requests reach PHP. Cloudflare has reported attack traffic that includes evasion attempts, so treat signatures as one of several layers.
-
-After exploitation: EDR. Behavioral policies in endpoint tools such as CrowdStrike Falcon, Microsoft Defender for Endpoint, and Cortex XDR add a second line of defense. They help stop what an attacker tries next, such as a web server process launching a shell or dropping a web shell.
-
-PHP2Shell 3rd-party mitigation and compensating controls
-
-Select the WAF, IPS, and EDR you run to see the exact signatures and policies each vendor has released for CVE-2026-109618 and CVE-2026-109619, ready to copy into your console.
-
-Edge
-
-WAF NoneAkamaiCloudflareF5 BIG-IPFortiWeb
-
-WAF
-
-None
-
-Network
-
-IPS NonePalo Alto NetworksFortiGateCheck PointTrend Vision One
-
-IPS
-
-None
-
-Host
-
-EDR NoneCrowdStrikeDefenderCortex XDRSentinelOneCybereason
-
-EDR
-
-None
-
-Platform
-
-Linux Windows macOS
-
-This interactive view needs JavaScript. Signatures covering both CVEs: Akamai 3000991; Cloudflare seven managed rules; F5 BIG-IP 200204113, 200103697, 200204115; FortiWeb 1002017614, 1002017615; Palo Alto Networks 543004, 97622 to 97625; FortiGate 62657, 62658; Check Point CPAI-2026-15172, 15184, 15224; Trend Vision One 1012749, 1012754. Endpoint policies are listed for CrowdStrike Falcon, Microsoft Defender for Endpoint, Cortex XDR, SentinelOne and Cybereason.
-
-Note: Rule and policy IDs are as published by each vendor in October 2026; confirm them in your console. The endpoint policies act after exploitation and are mapped to the attacker’s next step, not to the CVEs themselves, so verify each one fires for your PHP worker. Compensating controls reduce risk; updating PHP remains the only complete fix.
-
-Step 4: Patch, Restart, and Re-Validate
-
-Mitigation reduces risk in the interim. Updating remains the only complete fix. You can deploy supported vendor patches through TruRisk Eliminate. Qualys reports a High patch reliability rating for these updates and no OS reboot requirement for this PHP package update.
-
-A patch isn’t finished when the package installs:
-
-Restart every service that loads PHP.
-
-Verify the installed packages and that running PHP workers are on the patched build.
-
-Repeat TruConfirm validation and verify the effective configuration. Do the same after applying the mitigation in Step 2.
-
-Coming Next: Give Your Controls Credit in Qualys ETM
-
-The capabilities described in this section are in development and subject to change.
-
-Two servers can run the same unpatched PHP build and carry very different risks. One sits behind a WAF rule that names both CVEs, with EDR watching its web server process. The other faces the internet with nothing in front of it. A traditional scan reports them the same way.
-
-Qualys ETM is being extended to close that gap. It arrives in three steps:
-
-Recommendations on every finding (coming soon). ETM will show which applicable third-party controls can reduce exposure for each vulnerability, so teams know what to enable and where.
-
-Controls reflected in the score. Controls that are in place will lower a finding’s QVSS score to reflect your actual defenses, shown as the Environmental score, so remediation queues focus on what still needs attention.
-
-Action from the same platform. Teams will be able to apply third-party mitigations through TruRisk Eliminate from the platform that found the exposure.
-
-Where to Start
-
-Find. Use QID 45110 to support PHP discovery to detect CVE-2026-109618 and CVE-2026-109619, then use the applicable vulnerability detection QIDs and software inventory to assess assets in scope.
-
-Use TruConfirm results alongside internet exposure and business criticality to prioritize remediation.
-
-Mitigate. Apply the Qualys mitigation to systems awaiting an update, using agent-based or scanner-based execution as applicable. Verify the effective configuration and required restarts.
-
-Layer. Keep applicable WAF, IPS, and EDR protections enabled and current as additional layers.
-
-Patch and verify. Deploy the PHP or vendor update, restart every service that loads PHP, verify that the patched build is running, and repeat the relevant validation checks.
-
-Compensating controls buy valuable time, but they do not remove the flaw. Keep tracking every system until it is patched.
-
-Not a Qualys customer? Access Qualys’ free PHP2Shell mitigation service to help protect your environment against this threat.
-
-Sign Up for Free Mitigation Service
-
-Contributors
-
-Saeed Abbasi, Director, Product Management for Security Research, Qualys"
