@@ -152,6 +152,13 @@ FEEDS = [
     ("Google News: Booz Allen Hamilton",   "https://news.google.com/rss/search?q=%22Booz+Allen%22+%28cyber+OR+cybersecurity%29+when%3A30d&hl=en-US&gl=US&ceid=US:en"),
     ("Google News: Kudelski Security",     "https://news.google.com/rss/search?q=%22Kudelski+Security%22+when%3A30d&hl=en-US&gl=US&ceid=US:en"),
     ("Google News: NCC Group",             "https://news.google.com/rss/search?q=%22NCC+Group%22+%28cybersecurity+OR+research%29+when%3A30d&hl=en-US&gl=US&ceid=US:en"),
+    # ── Olshansk rss-feeds ─────────────────────────────────────────────────────────
+    ("Anthropic Engineering",              "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml"),
+    ("Anthropic Frontier Red Team",        "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_red.xml"),
+    ("Anthropic News",                     "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml"),
+    ("Anthropic Research",                 "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_research.xml"),
+    ("Claude Blog",                        "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_claude.xml"),
+    ("Cloudflare skills (commits/main)",   "https://github.com/cloudflare/skills/commits/main.atom"),
     # ── Podcasts ─────────────────────────────────────────────────────────
     ("CyberWire Daily",         "https://rss.pdrl.fm/85df76/feeds.megaphone.fm/cyberwire-daily-podcast"),
     ("Darknet Diaries",         "https://feeds.megaphone.fm/darknetdiaries"),
@@ -580,6 +587,9 @@ VENDORS = {
     ],
     "Macnica": [
         "macnica",
+    ],
+    "Anthropic": [
+        "anthropic", "claude", "opus", "sonnet", "haiku", "fable", "mythos", "model context protocol", "constitutional ai", "responsible scaling policy", "ai safety level", "asl-3", "asl-4", "project glasswing", "dario amodei", "daniela amodei", "mike krieger", "chris olah",
     ],
 }
 
