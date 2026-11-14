@@ -1,4 +1,39 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3b7dc937e232,3b7dc937e232,2026-11-14 09:08 UTC,Vulnerabilities & Patching,Check Point,Security Affairs,Vulnerability Management; Threat Intelligence; Server & Workload Protection,Article,U.S. CISA adds Check Point and UnrealIRCd flaws to its Known Exploited Vulnerabilities catalog,https://securityaffairs.com/203040/hacking/u-s-cisa-adds-check-point-and-unrealircd-flaws-to-its-known-exploited-vulnerabilities-catalog.html,Threat actors are actively exploiting the vulnerability in attacks against unpatched Check Point gateways,"U.S. Cybersecurity and Infrastructure Security Agency (CISA) adds Check Point and UnrealIRCd flaws to its Known Exploited Vulnerabilities catalog.
+
+The U.S. Cybersecurity and Infrastructure Security Agency (CISA) added Check Point and UnrealIRCd vulnerabilities to its Known Exploited Vulnerabilities (KEV) catalog:
+
+Below are the flaws added to the catalog:
+
+CVE-2026-114713 UnrealIRCd Improper Neutralization of Delimiters Vulnerability
+
+CVE-2026-123039 Check Point Multiple Products Incorrect Permission Assignment for Critical Resource
+
+CVE-2026-114713 (CVSS score of 8.6) is a high-severity command injection vulnerability in UnrealIRCd, an open-source IRC server software. It affects versions from 6.0.0 up to, but not including, 6.2.7.1.
+
+The flaw is in the labeled-response module, which fails to properly sanitize the IRCv3 label message tag when including it in server replies. An attacker can exploit this weakness to inject newlines and additional commands into server-to-server communications. On networks with at least two linked servers, even an ordinary user with no special privileges can execute commands with server-level authority. This could allow them to perform privileged IRC operations, such as disconnecting users or banning them from the network.
+
+The UnrealIRCd maintainer confirmed that attackers were already attempting to exploit the vulnerability on the internet shortly after its disclosure. However, no specific threat group or attacker identity has been publicly identified, and there is no confirmed evidence linking the attacks to a particular campaign or financial motive. The vulnerability could be abused to gain administrative control over IRC networks, manipulate users and channels, or disrupt IRC services.
+
+CVE-2026-123039 (CVSS score of 7.8) is a high-severity local privilege escalation vulnerability affecting Check Point Security Gateways and Security Management products. The flaw resides in the Gaia OS DynamicCLI daemon, which runs with root privileges and listens on a local, world-writable Unix socket (/tmp/dynamic_socket) without properly authenticating connecting processes. An authenticated local attacker with low privileges can exploit this weakness to execute arbitrary commands as root, gaining full control over the affected device.
+
+Threat actors are actively exploiting the vulnerability in attacks against unpatched Check Point gateways. According to Check Point Research, attackers first gain initial access through the Mobile Access portal by exploiting the PHP2Shell vulnerabilities (CVE-2026-109618 and CVE-2026-109619), then leverage CVE-2026-123039 to escalate privileges to root. They subsequently deploy webshells and the TSGA backdoor, establish persistence, move laterally into internal networks, and, in some cases, deploy the destroy_v6 wiper to erase data on VMware ESXi hosts.
+
+The campaign initially targeted Israeli organizations on October 30, 2026, with destructive attacks reported against some victims. A second wave on November 2 expanded to organizations across multiple countries and sectors.
+
+Attribution remains uncertain. The malware shares code and infrastructure characteristics with PhiliKit, a framework previously associated with UNC5221, a China-linked threat actor. However, Check Point cautions that the evidence is insufficient to confidently attribute the entire campaign to this group. Possible explanations include collaboration with another actor or a false-flag operation.
+
+According to Binding Operational Directive (BOD) 22-01: Reducing the Significant Risk of Known Exploited Vulnerabilities, FCEB agencies have to address the identified vulnerabilities by the due date to protect their networks against attacks exploiting the flaws in the catalog.
+
+Experts also recommend that private organizations review the Catalog and address the vulnerabilities in their infrastructure.
+
+CISA orders federal agencies to fix the two vulnerabilities by November 16, 2026.
+
+Follow me on Twitter: @securityaffairs and Facebook and Mastodon
+
+Pierluigi Paganini
+
+(SecurityAffairs – hacking, CISA)"
 2beacf0101ae,2beacf0101ae,2026-11-14 01:39 UTC,"Attacks, Breaches & Threat Intel",Check Point,CSO Online,Network Security; Vulnerability Management; Server & Workload Protection,Article,The firewall becomes the foothold: Attackers turn Check Point gateways against customers,https://www.csoonline.com/article/4248693/the-firewall-becomes-the-foothold-attackers-turn-check-point-gateways-against-customers.html,Attackers first gained access to the Mobile Access portal by exploiting the PHP2Shell vulnerabilities,"A firewall is intended to be a boundary attackers can’t cross.
 
 But firewalls face the web, making them just as vulnerable to attack as other systems, as evidenced by the emergency hotfixes released by Check Point Software for several of its products. The patches address a high-severity privilege escalation flaw, CVE-2026-123039, that gives attackers root privilege access and the ability to send commands to the Gaia OS Dynamic CLI daemon, a core background process.
@@ -260,31 +295,6 @@ Use of wiper malware
 Focus on Israel and explicit references to the Israeli-Palestine conflict in the wiper note
 
 ""Taken together, the evidence does not allow us to assess with high confidence the true nature of this operation,"" Check Point said. ""Several scenarios remain plausible: the identified actor ran the entire campaign, acted solely as an initial access broker, or took part in a false-flag operation. It is also possible that the destructive activity served as a smoke screen."""
-90e4a2d3f1a1,a3d815e35bcf,2026-11-13 07:39 UTC,Vulnerabilities & Patching,Check Point,SecurityWeek,Threat Intelligence; Network Security; Vulnerability Management; Endpoint Security,Article,PHP2Shell Exploited in Destructive Check Point Gateway Attacks,https://www.securityweek.com/php2shell-exploited-in-destructive-check-point-gateway-attacks/,"Threat actors have been exploiting PHP2Shell vulnerabilities to hack Check Point Gateway appliances and deploy a wiper against victim organizations, Check Point reports","Threat actors have been exploiting PHP2Shell vulnerabilities to hack Check Point Gateway appliances and deploy a wiper against victim organizations, Check Point reports.
-
-The attacks unfolded in two waves. An initial, destructive round started on October 30 and targeted Israeli organizations, and a second one started on November 2, targeting organizations across multiple countries.
-
-PHP2Shell, tracked as CVE-2026-109618 and CVE-2026-109619, refers to two critical vulnerabilities leading to remote code execution (RCE) and affecting all PHP versions from PHP 5 onwards. They were patched on October 21, but exploitation started days before patches and mass exploitation shortly after.
-
-Dream has linked attacks targeting PHP2Shell to root Palo Alto Networks firewalls to Chinese hackers, and the hackers targeting Check Point gateways have left a note mentioning the cybersecurity firm.
-
-As part of the Check Point campaign, the attackers exploited PHP2Shell for initial access, then targeted CVE-2026-123039, a local privilege escalation in the DynamicCLI process, to gain root access and deploy PHP webshells and establish persistence.
-
-In late October, the attackers targeted Check Point Mobile Access gateways across multiple Israeli organizations. They placed PHP webshells in a directory the Mobile Access portal uses to construct login pages, allowing them to send commands and establish a stronger foothold on the environment.
-
-Advertisement. Scroll to continue reading.
-
-Next, they deployed TSGA and TSProxy, variants of the malware framework PhiliKit previously seen (PDF) in China-linked UNC5221’s hacking into Ivanti products, for backdoor access and network function interception.
-
-The attackers followed up with internal asset discovery, then moved laterally to a VMware ESXi host where they deployed and executed a wiper, and then deployed a note mentioning Dream Security.
-
-According to Check Point, the hackers operated during typical Chinese working hours. Despite this and the use of China-linked malware and infrastructure, the use of a wiper and the destructive nature of the attacks do not align with known Chinese cyber operations.
-
-“Taken together, the evidence does not allow us to assess with high confidence the true nature of this operation. Several scenarios remain plausible: the identified actor ran the entire campaign, acted solely as an initial access broker, or took part in a false-flag operation. It is also possible that the destructive activity served as a smoke screen,” Check Point says.
-
-The second wave targeted Check Point Security Gateways across organizations worldwide, including some Israeli entities targeted in the first wave. No destructive activity was observed during this second wave.
-
-“Neither wave showed a clear sector preference, suggesting opportunistic initial-access attempts rather than sector-specific targeting,” Check Point notes."
 3e67c6897915,3e67c6897915,2026-11-12 15:25 UTC,Product & Roadmap,Check Point,Check Point Blog,AI Security; Threat Intelligence; Vulnerability Management; Attack Path Prediction,Article,Check Point Extends Its Penetration Testing Capabilities,https://blog.checkpoint.com/security/check-point-extends-its-penetration-testing-capabilities/,Attackers rarely need one critical flaw; they chain small weaknesses into a full attack path,"The Check Point Services organization is extending its penetration testing capabilities with deeper, adversary-led engagements. Customers can now choose anything from a scoped penetration test to an objective-based engagement. Each engagement shows three things: how an attacker could break into the environment, how far the attacker could get, and whether the security team would detect the attack. And because environments never stand still, the testing is proactive and continuous, not a one-time project.
 
 Key Takeaways
