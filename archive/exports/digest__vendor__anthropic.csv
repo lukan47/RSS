@@ -1,443 +1,4 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-0e01428e1307,0e01428e1307,2026-11-13 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Email and Collaboration Security,Article,The Claude Tag guide for startups,https://claude.com/resources/articles/claude-tag-guide-for-startups,Start narrow: only what the first channel’s job needs,"Startups frequently work at a fast pace with lean teams wearing many hats. In many ways, Claude Tag (beta) is suited for how startups work. You @Claude to a Slack channel where your context lives, add connectors, and have your team assign and steer tasks together.
-
-For startup teams new to using Claude Tag, one of the most frequent questions is “which channels should I add Claude to first?” To help answer it, we spoke with eight high growth startups to see how Claude Tag works inside their teams.
-
-Featuring insights from
-
-We heard from leaders at companies with visions from reinventing law firms to building the next generation of resource planning software. Some had added Claude to nearly every channel while others had focused deeply on one or two specific use cases.
-
-Company
-
-On call
-
-Thread to PR
-
-Company brain
-
-Self-serve data
-
-Routine reporting
-
-Kikoff
-
-●
-
-NavigateAI
-
-●
-
-Campfire
-
-●
-
-Flagler Health
-
-●
-
-Moritz
-
-●
-
-Orderful
-
-●
-
-Valence
-
-●
-
-Descript
-
-●
-
-But everyone we spoke with shared an “aha!” moment where they realized a minutes-long Claude Tag conversation replaced days of work or uncovered insights that would otherwise have remained hidden.
-
-The most common are contained in this guide, each with practical implementation details designed to help founders find and deploy the use cases that will move the needle for their team. Here are some examples of how the needle moved for the startups we spoke with:
-
-21
-
-minutes from Slack mention to open PR
-
-134
-
-pull requests merged from Slack threads
-
-5
-
-minutes for the daily end-of-shift update, down from 1 hour
-
-<1
-
-hour from client ask to no-code solution
-
-2
-
-days from Slack question to production
-
-Days to hours
-
-of recurring reporting prep
-
-In this guide, we share the most common use cases, channels, and collective insights from leading startups for using Claude Tag.
-
-Top channels to tag Claude
-
-The eight startups we spoke with use Claude Tag across Slack, but a handful of channels came up again and again as the best places to start.
-
-01 Claude on call
-
-Example setups:
-
-Channels
-
-#on-call #alerts-ci #deploy-watch #support-escalations
-
-Connectors
-
-GitHub, GitLab, Sentry, dbt, PagerDuty, Linear, Datadog, Jira, Grafana, incident.io
-
-Threads and routines
-
-Incident response, morning incident digest, Monday on-call handoff, daily health summary, hourly incident recap
-
-Starter instruction
-
-@Claude remember for this channel: monitor alerts and immediately triage each one in its own thread. Check for an existing ticket. Query the data first, then theorize, and separate what you verified from what you inferred. If it's real, name the likely root cause with links, tag the owner, and open a draft PR only if the fix is contained. If no action is needed, say so. After each incident, add what you learned to [lessons file].
-
-Triage channels are notoriously noisy. There are constant interruptions from Sentry errors, Datadog alerts, customer bug reports, and support requests making it difficult to find the signal from noise. It's usually the first task teams hand to Claude.
-
-With Claude in the channel as a first responder, the first pass is often done before the on-call engineer opens their laptop. Claude reads each item as it lands, investigates the codebase and the tools it has access to, and shares what it found. If the fix is contained, it opens a draft PR; if not, it routes the issue to the right person with the investigation attached. In these setups, a person reviews each fix before it merges, and only genuinely new problems need someone to start the investigation themselves.
-
-At Campfire, which builds an AI-native ERP for finance teams, an engineer tagged Claude on a report that some of its AI agent’s finished answers weren’t reaching users. Claude had a PR open 21 minutes later, and it merged that afternoon.
-
-Kikoff: A first responder in every triage channel
-
-Kikoff is a fintech startup that helps consumers build credit, solve liquidity needs, and achieve financial security. Claude Tag is the first responder in triage channels across the company, including:
-
-#deploys: Claude decides what to watch after each release and flags anything it broke.
-
-#alerts-ci: When a build fails, Claude finds out why and proposes a fix as a draft PR.
-
-#alerts-sentry-backend: Claude takes the first pass on Sentry exceptions and crashes.
-
-#dog-fooding: Claude investigates what employees flag while dogfooding and tags the right owner.
-
-#support: Claude takes the first pass on support tickets.
-
-Kikoff started with Claude contributing to the conversation only when mentioned, and the biggest wins came once the team let it jump in on its own. When sign-up broke, Claude traced it to a backend change, sized the impact, named the team that owned the fix, and opened a draft PR so the app would fail softly in the meantime.
-
-“I’m always hyped when Claude catches an issue before a monitor or human does. One person can only personally manage so much context, Claude Tag helps us organize and own some context, and we manage the outcomes.”
-
-NavigateAI: Fixing bugs with fragmented context
-
-NavigateAI builds AI copilots for construction field teams. They run Claude Tag in about 90 channels for alert triage, bug bashes, quick feature building, and support escalations. Since June, Claude has opened about 223 PRs straight from Slack threads and 134 have merged with a median of two hours from open to merge.
-
-Triage has been a particularly valuable use case for NavigateAI. Because Claude has so much context, it can find unintuitive root causes to issues that may have been missed at first glance.
-
-“Our biggest ‘wow!’ moment with Claude Tag was when we were trying to debug a load issue, which seemed to be caused by a customer (since their calls were failing). A normal human response would be to continue chasing down that customer. But because Claude had access to so many other data sources, it actually found that it was from an uninstrumented internal cron job that was running during the same time.”
-
-With Claude, mean time to resolve issues has improved. In one case, Claude had the root cause eight minutes after a Sentry alert fired, and the fix was merged 93 minutes after the alert.
-
-“Fast-moving startups typically have to pick speed over structure. Claude Tag gives us both. It’s a brain that connects the dots across all our tools, so we get the structure without having to build it ourselves,” said Mike.
-
-02 Thread to PR
-
-Example setups:
-
-Channels
-
-#quick-wins #bug-bash #product-feedback #feature-requests #ux-papercuts #tech-debt #design-polish
-
-Connectors
-
-GitHub, GitLab, Linear, Jira, Confluence, Notion, Figma, Sentry
-
-Threads and routines
-
-One request per thread, weekly backlog sweep, daily PR roundup, weekly shipped recap
-
-Starter instruction
-
-@Claude remember for this channel: when someone describes a bug or small feature, work on it in its own thread. Check for an existing ticket and read the related code first. If details are missing, ask for them or for a real example instead of guessing. If the change is small and contained, open a draft PR with a short summary of what changed and how you tested it. Never merge; a person reviews and approves. If it's too big or risky, say why and suggest a ticket.
-
-Speed is one of a startup’s biggest advantages, but often small requests that delight users can get lost in the shuffle. The intelligence is often gathered by customer-facing teams, submitted in Slack, and, if it's not overlooked, eventually makes its way to Linear or Jira where it’s prioritized against hundreds of other tickets.
-
-With Claude Tag, anyone can draft the PR, technical or not. Surface an idea in a thread, get live feedback from product, engineering, and GTM in the same place, and Claude turns the thread into a draft PR that reflects everyone’s input.
-
-Many of the startups we spoke with used Claude Tag for the “light and delight” features or to remove papercuts that are quick to review but would otherwise not get prioritized.
-
-Orderful: From Slack exchange to production feature in two days
-
-Orderful is an EDI platform that connects companies with their trading partners, through an API or straight from the browser. Its customers trade standard documents with their partners through the platform.
-
-One document type, the 753, wasn’t supported in Orderful’s web app. The request had sat in the backlog, and shipments for one large retailer were delayed.
-
-When an account manager followed up in Slack, the PM tagged Claude in: “@Claude, you should build one.” Claude asked for real examples of the document so it could build to the actual format, then opened a draft PR adding 753 support.
-
-The next morning, Claude filed a ticket for the accompanying 754, the retailer’s response, and opened a second PR. Both were in production about two days after the Slack exchange.
-
-“Something that took weeks or months before just took a Slack conversation,” said Piers MacDonald, CTO at Orderful. “Light features with hard-to-prove value used to get stuck in the backlog. Now they have a way out.”
-
-Valence: From feature request to rollout
-
-Valence works with the world’s largest employers to connect enterprise talent and performance with Nadia, an AI coach. When a Valence engineer explained in Slack how to address an urgent product change requested by an important client, Claude didn’t just follow directions, it identified additional changes that needed to be made as the same configuration lived in two spots. Without Claude, the initial change would have been incomplete.
-
-“It didn’t just agree with the expert. It caught duplicated configuration, the kind of thing humans lose track of.”
-
-In another case, a client urgently asked for a customization. Claude checked the code and, working with an engineer, confirmed it could ship with no code change. In under an hour, a teammate had a solution ready for the client.
-
-03 Company brain
-
-Example setups:
-
-Channels
-
-#ask-anything #company-wiki #product-questions
-
-Connectors
-
-GitHub, Notion, Google Drive, Linear, Jira, Confluence, Granola, Metabase
-
-Threads and routines
-
-One question per thread, decision log updates, weekly stale doc check, repeat questions recap
-
-Starter instruction
-
-@Claude remember for this channel: answer questions from our code, docs and past threads, and link your sources. If sources disagree, check the code, give the current answer, and flag the stale doc. If you aren’t sure, say so and tag the owner. When a thread reaches a decision, record it in [docs location]. Anything going to a client needs a human check first.
-
-At a startup, institutional knowledge often lives in people's heads, from the intricacies of product billing codes to where the onboarding docs are hosted.
-
-For many of the startups we spoke with, Claude Tag has become the company brain. Claude answers with the source, and tags the owner when it isn't confident. It keeps that knowledge current too: when a thread reaches a decision, Claude can record it in your docs the same day and flag docs that have gone stale.
-
-Moritz: A live source of truth from intake to staffing
-
-Moritz is an AI-native law firm that promises a same-day turnaround on contracts, against what Moritz cites as an industry standard of at least three weeks. Everything around the legal work, from intake and quoting to staffing and follow-up, lives in Slack, with a thread per matter and a channel per client.
-
-Now everyone from the CEO to paralegals asks Claude first. Questions that took up to 30 minutes of searching in Slack get answered in under two. The end-of-shift update, now drafted from the day’s threads, went from about an hour of assembly to a five-minute edit.
-
-That time goes back to legal work. Claude Tag handles the administrative work around a case, like follow-up questions, reminders, and status updates. It can’t access client documents or privileged conversations with Moritz’s lawyers.
-
-“A firm working across 44 countries generates hundreds of one-off questions a month that no one will ever build a feature for. Claude Tag answers them from our own history in Slack. Every answer is a thread with links, so institutional memory compounds.”
-
-Campfire: Customer experience on demand
-
-One Slack channel in particular “exploded in popularity”: their CX (or customer experience) channel. Sales uses this channel “to validate certain functionality during prospect conversations,” rather than having to “ping 10 different people.”
-
-This type of channel is particularly effective because sales can answer in the moment, while the customer is paying attention, and can operate more independently and confidently in early customer conversations.
-
-“Claude Tag basically acts as our central knowledge base.”
-
-04 Self-serve data
-
-Example setups:
-
-Channels
-
-#data-requests #ask-revops #metric-definitions
-
-Connectors
-
-dbt, GitHub, Metabase, BigQuery, Snowflake, Databricks, Notion
-
-Threads and routines
-
-One question per thread, weekly pre-standup readout, launch and experiment readouts, pipeline failure triage, new question triage
-
-Starter instruction
-
-@Claude remember for this channel: answer from our governed models and the definitions in [data skills repo]. If the data isn’t covered there, say it’s unvalidated instead of guessing. Lead with the answer, then give the number, what’s driving it, and any caveat. Check recent incidents, releases, and Slack discussions before explaining a change. If a metric’s definition is unclear, ask which one we mean. For anything important, share your plan or SQL before you run it. Separate what you verified from what you assumed, and list any open data quality warnings at the end of your answer. If someone finds a mistake, draft a fix for a data team member to review. If a question comes up twice, suggest scheduling it.
-
-At a fast-growing startup every function wants numbers, and the data team has to decide whose request comes first. With Claude Tag connected to your data, anyone can ask in plain English without waiting in the data team’s queue.
-
-This is a use case we have adopted as well. In one of our data channels over a month, Claude Tag answered more than 75% of questions people posted, typically within a minute or two. It works from governed data and the same definitions analysts use, which live in a versioned repo that Claude re-reads in every conversation.
-
-Descript: Answering ad-hoc data requests
-
-Descript is an AI-powered video editing platform. Claude Tag is now the first line of support for data requests and initial analyses. Product, growth, RevOps, and finance ask questions in Slack and get answers grounded in Descript’s dbt models.
-
-“I used to write complicated SQL and refresh the numbers by hand every week or month. Now I’ve replaced several data-team dashboards with my own Claude artifacts, and I no longer refresh them by hand.”
-
-Daisy’s recurring reporting prep went from days to hours.
-
-The growth team, for example, asks why lifecycle subscriptions dropped, whether paid search is losing last-touch credit to other channels, or how long a self-serve account takes to become an enterprise opportunity. The data team tracks the artifacts Claude generates to see which data assets matter most across teams, and spends its own time on strategic questions and on building the context that makes self-serve work.
-
-“The promise of business intelligence has always been self-serve for business users. I’d never seen it actually realized until we had Claude Tag set up with immense context for our data.”
-
-Orderful: From question to dashboard
-
-At Orderful, self-serve analytics spans conversational analytics and full data builds: anyone can go from a question in Slack to a dashboard merged to production. The key is a semantic layer that encodes agreed definitions and metrics, so every answer and every build uses the same definitions.
-
-“We trust the output because a semantic layer constrains the SQL, CI gates the builds, and there’s a process for agreeing on definitions. Without those, you get confident-looking wrong answers. Once those guardrails were in place, connecting Claude Tag took under 30 minutes. Now teammates build together in shared Slack threads instead of solo sessions.”
-
-05 Reporting and handoffs
-
-Example setups:
-
-Channels
-
-#sales-pipeline #customer-handoffs #standup-summary #qbr-prep
-
-Connectors
-
-Notion, Google Drive, Gong, Salesforce, Gainsight
-
-Threads and routines
-
-End-of-day status draft, pre-QBR brief, deal handoff
-
-Starter instruction
-
-@Claude remember for this channel: draft each recurring report from our threads, docs, and data, and link your sources. Lead with what changed and what needs a decision. Separate what you verified from what you assumed, and flag anything missing instead of filling the gap. Post the draft in its own thread for [owner] to edit. Nothing goes out until a person approves it. If a report keeps getting the same edits, suggest updating these instructions.
-
-Many of the examples we’ve covered are reactive: something happens, Claude responds. Routine reporting is work Claude owns on a schedule, the way a teammate owns a recurring deliverable.
-
-You describe the outcome once; Claude runs it every time and posts the result where the team already works.
-
-Valence: Deal reviews and handoffs
-
-Valence is setting Claude up to brief the team before every quarterly business review, with customer health, open deals, blockers, and next steps. They are also working to make the handoff from sales to customer success when a deal closes more seamless. Claude saves the team time by helping to aggregate details across their engagement and often finds key items they may have missed.
-
-“When a deal closes, Tag builds the handoff from the deal history, calls and contract: who’s who, what was promised, what’s customized, and what’s still open. Customer success then reviews it before their kickoff,” said Sameer.
-
-06 Getting started checklist
-
-The checklist below pulls together these startup teams’ best practices so you can apply them to your own workflows.
-
-Before launch
-
-Check the prerequisites.
-
-Claude Tag is in public beta on Claude Team and Enterprise plans, and isn’t available on Free, Pro, or Max. You’ll need a Claude organization Owner and a Slack workspace admin to connect the two. An admin must also turn on Routines, and Team plans need usage credits before Claude responds.
-
-Set up Claude’s access with a bundle.
-
-In channels, Claude works under its own agent identity, with service accounts rather than anyone’s personal login. Group the connectors, repos, and instructions it needs in a bundle, and attach them org-wide, per workspace, or per channel. That sets what Claude can reach in each place, and everyone in a channel gets the same access. Start narrow: only what the first channel’s job needs.
-
-Experiment in a private channel.
-
-Nearly half the startups we spoke with started their Claude Tag journey by having a small cross-functional team experiment in a private channel. “Start private with a mix of roles, then move to a group channel,” said Sameer.
-
-Determine the boundaries.
-
-By default, anyone in your Slack workspace can use Claude, even without a Claude account. You can restrict access to your org and limit search to channels Claude is in. On Enterprise, you can also restrict access to specific roles or chosen channels.
-
-Set clear expectations for what Claude can do and can never do. Several teams we spoke with let Claude open draft PRs, but people review and merge. For Orderful, Claude Code, not Tag, handles “infrastructure changes, audits, sensitive data.” For a “hard call,” such as “a PR that touches more than one service,” Claude gets a second opinion. Moritz doesn’t give Claude Tag access to client documents or privileged conversations with its lawyers.
-
-Start your security review early.
-
-The usual questions are data retention and what Claude can reach, and the security and data lifecycle pages answer both. Claude Tag isn’t available to orgs with zero data retention turned on, a customer-managed encryption (CMEK) policy, or the HIPAA configuration, and it isn’t covered by our Business Associate Agreement, so check that before you plan a rollout.
-
-Set a budget and alerts.
-
-Claude Tag bills by usage, so an early conversation avoids surprises as adoption grows. You can set spend limits overall and per channel, choose the model per channel, and attribute costs by user using the Enterprise Analytics API. Orderful runs an org-wide cap with alerts at 75% and 90%. “We have extreme ownership on the channel costs. The owner justifies that ‘yes, this spend is reasonable for the output / outcomes,’” said Alex Dejeu, engineering manager at Kikoff. Use your first channel’s actual costs to size the next one.
-
-Deployment
-
-Pick one clear task in a channel your team already uses, like on-call alerts or bug triage.
-
-“We experiment on certain teams, see what works, then once confident we’ve worked out the kinks, we push the idea out to other teams to add to their own similar channels as well. We want to avoid trust breaking experiences with folks with lower tolerance to AI mistakes,” said Alex Dejeu, engineering manager at Kikoff.
-
-Prime your experts and culture bearers.
-
-Have the people your team already trusts use Claude first, and in the open.
-
-“Going back and forth with Claude in the open has been productive and fun. Several people in sales and customer success have watched experts [interact with Claude Tag], then started asking Claude themselves, and got value fast,” said Sameer Bansal, principal AI engineer at Valence.
-
-Tune the noise.
-
-Multiple startups told us they needed to adjust Claude’s chattiness. Too chatty is one risk.
-
-“Conversation in ad hoc requests can sometimes get noisy. We’ve been trying to tune down the responsiveness here and also be more principled on what we use Claude on ad hoc requests for,” said Mike Chen, head of engineering at NavigateAI.
-
-Too little chattiness is also a risk, however. In busy channels, “You either have to @ every time or it won’t do much,” said Will Hu, cofounder at Flagler Health. And “if no one is watching a channel closely or interacts with it, it will sit idle.”
-
-Have teammates connect their own accounts.
-
-The admin bundles from setup are what Claude can reach for everyone in a channel. Personal connectors work differently: Claude acts with the permissions of the person asking, so it can pull from their docs, inbox, or CRM once they approve it (an Owner adds the connector for the org first, and on Enterprise an admin manages personal connectors). The answer still posts in the channel, so choose “Allow with review” for anything sensitive.
-
-Write channel instructions like you’re onboarding a new hire:
-
-what to check first, when to open a PR, when to ask, and that “no action needed” is a valid answer.
-
-Give Claude feedback in the channel, not in DMs.
-
-Correct it in the thread. It remembers per channel, and teammates learn how to work with it by watching. For a lasting fix, ask Claude to update its memory for this channel.
-
-Not sure where to go next? Tag Claude and ask what it has learned about your org and which use cases it would expand to.
-
-Moritz’s co-founder and CTO, Stefan Mandaric, asked Claude to recommend use cases for each team. Fifteen minutes later, it had read the firm’s Slack channels, Linear issues, Notion SOPs, Drive, and Metabase dashboards, and published 25. “18 of 25 worked with no further setup. That became our rollout plan.”
-
-Last word: what we learned from the wow moments
-
-The wow moments weren’t always about speed. Often, Claude found something no one had asked it to look for. Sometimes the surprise was restraint. And sometimes the surprise was the unexpected exchanges. “Eventually you get used to Claude jumping in on jokes, and you soon appreciate that it’s an easy audience and the first one to laugh,” said Piers MacDonald, CTO at Orderful.
-
-We hope you found this guide useful. Special thanks to Campfire, Descript, Flagler Health, Kikoff, Moritz, NavigateAI, Orderful and Valence for sharing their experiences and insights.
-
-Additional resources
-
-Get started
-
-Claude Tag overview
-
-Claude Tag documentation
-
-Set up Claude Tag
-
-On-call guided setup
-
-Troubleshoot setup
-
-Connect your tools
-
-Add connections and bundles
-
-Configure GitHub access
-
-Personal connectors
-
-Network requirements
-
-Access, security and spend
-
-Restrict access
-
-How agent identity works
-
-Security and data
-
-Data lifecycle and deletion
-
-What the Claude Slack app can access
-
-Set spend limits
-
-Attribute costs to users
-
-Work with Claude in Slack
-
-Control when Claude responds
-
-Commands Claude Tag understands
-
-Channel memory
-
-Set up routines
-
-Use cases
-
-Use case library
-
-Fix bugs
-
-Answer data questions
-
-How Anthropic uses Claude Tag
-
-How Claude Tag serves as Anthropic’s first responder for CI/CD failures
-
-How Anthropic enables self-service data analytics with Claude"
 a2ab3d97c862,a2ab3d97c862,2026-11-12 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Using Claude Opus 5.5 as your daily driver for knowledge work,https://claude.com/resources/articles/using-claude-opus-5-5-as-your-daily-driver-for-knowledge-work,"5 puts the most important information first, uses less jargon, and follows the writing rules you give it, and on longer tasks it says plainly what it did, what it found, and...","Claude Opus 5.5 is now the default model in Claude on Pro, Max, Ultra, and Team plans. We recommend it as your daily driver for knowledge work, meaning the model you leave selected when you work with Claude on research, analysis, and writing or producing memos, reports, spreadsheets, and decks.
 
 If you or your team have been using Sonnet for daily work and saving Opus for heavy analysis or complex projects, it’s worth reconsidering because a more capable model can finish a task by doing less work, which can then offset much of its higher price per token.
@@ -666,59 +227,6 @@ Claude joins when someone adds it or has auto-join on. Support is currently avai
 During the beta, Claude’s notes and transcripts are free on Team and Enterprise plans. So are its answers in your calls, unless an answer uses one of your connected tools, which counts toward your plan’s usage. The docs, whiteboards, (opens in new tab) and other artifacts Claude makes in a call are free through February 10, 2027.
 
 Setup steps are in the Help Center."
-d34223f34926,d34223f34926,2026-11-12 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Email and Collaboration Security,Article,Introducing Claude for Manufacturing,https://claude.com/resources/articles/claude-for-manufacturing,"Today we’re launching Claude for Manufacturing (opens in new tab), a plugin that includes skills for work from pricing a new job to diagnosing a stopped machine","Today we’re launching Claude for Manufacturing (opens in new tab), a plugin that includes skills for work from pricing a new job to diagnosing a stopped machine. An estimator can now have Claude read a customer’s request, compare costs on similar jobs, and draft the quote. The plugin works from a manufacturer’s own records through connectors to Autodesk Fusion, Infor, Microsoft 365, and Oracle NetSuite. Claude for Manufacturing is built so the person responsible can review and approve the work before it reaches a customer or supplier.
-
-Manufacturing teams can spend much of the day gathering information. In a 2025 Manufacturing Leadership Council survey, 79% of manufacturers said they enter data (opens in new tab)manually. With Claude carrying each process to the point of review, an estimator can focus on the price, a quality engineer on the fix, and a technician on what to check first.
-
-Skills built for manufacturers
-
-The plugin’s 17 skills cover sales, quality, operations, supply chain, design, and setup. Some handle a single task, while others run several in order, so Claude can carry a job through several steps until a person needs to review it. The skills can run processes that include:
-
-Quoting a new job: An estimator can ask Claude to read a customer’s request, list what’s missing, compare costs on similar jobs, and draft the quote for release.
-
-Investigating a failed inspection: A quality engineer can have Claude document the failure, check past reports for the same problem, rank the likely causes, and draft the corrective action report.
-
-Diagnosing a breakdown: A technician can have Claude read the sensor exports, repair notes, photos, and manual, then rank the likely causes for the technician to check and decide on next steps.
-
-Sourcing from another supplier: A buyer can have Claude prepare the request for quotes, then compare the bids that come back.
-
-Comparing designs with Autodesk Fusion: An engineer can have Claude generate variations from an existing model, score them against the engineer’s targets, and draft a decision memo.
-
-Reporting on production: A plant manager can have Claude compile production data into one report showing output against target, equipment downtime, and what the downtime and missed output cost.
-
-These skills are a starting point. Organizations can build on them to fit their specific operations, and we plan to add new manufacturing skills over time.
-
-Connectors to manufacturing systems
-
-Claude for Manufacturing works with the software at the core of manufacturing operations, and that software stays central to how teams run the business:
-
-Autodesk Fusion: Engineers can compare more design options before choosing one, because Claude generates variations from their existing model.
-
-Infor: Buyers and planners can check purchase orders and stock before they act, because Claude looks them up in Infor.
-
-Microsoft 365: Quality engineers can bring procedures, supplier emails, and exported reports into one job, because Claude finds them in shared folders and inboxes.
-
-Oracle NetSuite: Estimators can price new work against actual orders, inventory, production steps, and job costs, because Claude pulls those records when it drafts a quote.
-
-Manufacturers can also use the plugin with systems that have no connector. They save regular exports from those systems to Microsoft 365, and Claude works from the files to draft a quote or compile a production report.
-
-Making changes in Infor with Claude
-
-Infor, which makes core software for manufacturers, is also releasing its own plugin (opens in new tab). With the Infor connector in Claude for Manufacturing, teams can look up records. With Infor’s plugin, they can also make changes in Infor from Claude.
-
-For example, if a steel shipment slips by two weeks, a buyer can ask Claude which customer orders are affected and how much steel other sites have. Once the buyer approves, Claude can release a purchase order to another supplier and reschedule the affected production in Infor. Claude’s access follows the buyer’s Infor permissions.
-
-Manufacturing teams stay in control
-
-Skills are built to end with a user’s review, so an estimator checks and releases a quote, and a quality engineer verifies a fix for the corrective action report. To support that review, Claude can link figures and claims back to the underlying data and documents.
-
-Claude for Manufacturing doesn’t operate equipment. For that, Anthropic is developing the Model Hardware Standard (opens in new tab), a research preview that gives programmable equipment a standard way to describe its measurements, settings, and safety limits.
-
-How to get started
-
-On Team or Enterprise plans, install the plugin (opens in new tab) and tell Claude, “Set us up.” Claude asks which systems the team uses, tests the connectors, and reports which skills can’t fully run yet.
-
-To see the plugin at work, register for our technical webinar (opens in new tab) on November 17 at 11:00 a.m. ET. To talk through a company’s manufacturing systems, contact our sales team (opens in new tab)."
 7b04c906d6a3,7b04c906d6a3,2026-11-11 16:30 UTC,Vulnerabilities & Patching,Anthropic,Infosecurity Magazine,AI Security; Vulnerability Management,Article,"Anthropic's Glasswing Finds Many Vulnerabilities Yet Delivers Few Fixes, Researcher Says",https://www.infosecurity-magazine.com/news/anthropic-glasswing/,"The researcher added that since his last analysis of Glasswing vulnerability findings in September, Anthropic had added 4613 vulnerability findings to its ledger, yet only 15...","The researcher added that since his last analysis of Glasswing vulnerability findings in September, Anthropic had added 4613 vulnerability findings to its ledger, yet only 15 were marked as fixed within the same period. A significant volume of findings added to the ledger between September and November (1668) were marked as duplicates.
 
 This led the researcher to question Anthropic’s latest claimed true positive rate of 94.2%, which, he said, raises “questions about how it accounts for duplicates and withdrawn findings.”
@@ -1086,6 +594,59 @@ AI Defense has approximately 400 to 500 customers since the offering was launche
 “We’re expanding the capabilities of AI Defense every single week,” he said. “Whether your agents are running on your laptops, inside of the cloud, or on the edge, we’re going to find ways of being able to secure them,” Sampath said.
 
 Adaptive red teaming with Claude Mythos is coming soon for select enterprises. Broader availability is planned for qualified customers, but dates, scope, and region availability remain subject to change, according to Cisco."
+917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
+
+Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
+
+To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
+
+For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
+
+Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
+
+Reasoning through geometric problems
+
+The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
+
+Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
+
+To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
+
+Revising designs
+
+Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
+
+When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
+
+And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
+
+Using software and documentation
+
+When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
+
+To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
+
+Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
+
+Keeping track of constraints and downstream effects
+
+Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
+
+When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
+
+Designing for real-world manufacturing
+
+In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
+
+Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
+
+Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
+
+Limitations and next steps
+
+All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
+
+Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 760b3e66fbfa,760b3e66fbfa,2026-11-09 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Introducing Claude Fable 5.2 and Claude Mythos 5.2,https://www.anthropic.com/claude-fable-and-mythos-5-2,"In the first problem, physicists in 1983 had shown that as these universes heat up, black holes form abruptly, like water boiling; but their method worked only in large...","We’ve upgraded Claude Fable and Claude Mythos—models that are designed to tackle the most daunting technical challenges.
 
 Claude Fable 5.2 and Claude Mythos 5.2 show improvements in areas like coding, reasoning, and vision. During prerelease testing they’ve helped our engineers complete otherwise-infeasible software migrations, designed three working electronic devices from scratch, solved two open problems in the physics of black holes, made substantial progress on robotics evaluations, and formalized the proof of Fermat’s Last Theorem in 30 hours—among many other applications we’ll discuss below.
@@ -1585,59 +1146,6 @@ The problem of building evaluations that reliably catch every failure before a m
 Safeguards
 
 Cybersecurity and biology safeguards. Consistent with previous Claude Fable models, Fable 5.2 comes with safety classifiers that block high-risk cyber activities, including penetration testing, exploit generation, and binary-based vulnerability, as well as most tasks in research biology. When a query is blocked, users will instead receive a response from Opus 4.8 for cybersecurity and Opus 5 for biology. Since the release of Claude Fable 5.1, we have continued to reduce false positives for our safety classifiers. Based on early testing across claude.ai, Claude Code, and Cowork, we observed about 55% fewer blocks with Fable 5.2 compared with Fable 5.1—about 60% fewer in cybersecurity a [truncated for CSV - full text is in the JSON export]"
-917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
-
-Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
-
-To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
-
-For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
-
-Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
-
-Reasoning through geometric problems
-
-The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
-
-Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
-
-To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
-
-Revising designs
-
-Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
-
-When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
-
-And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
-
-Using software and documentation
-
-When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
-
-To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
-
-Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
-
-Keeping track of constraints and downstream effects
-
-Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
-
-When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
-
-Designing for real-world manufacturing
-
-In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
-
-Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
-
-Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
-
-Limitations and next steps
-
-All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
-
-Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 6c6ec0a3b896,6c6ec0a3b896,2026-11-09 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Which Claude model should you build with?,https://claude.dev/blog/which-claude-model-should-you-build-with/,"The advisor helps only when it adds capability the executor lacks and the executor asks for advice, which it does less often at low effort","MIXING MODELS
 
 Switch at a natural break
@@ -3007,88 +2515,6 @@ Yara Rules
 rule yoba_dropper { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaDropper"" strings: $code1 = {00 BB 40 0D 03 00 B9 7C 15 00 00 FF D6 31 C0} $code2 = {BA 05 15 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {53 B9 75 EE 40 70 48 83 EC 20} $code4 = {BA 5C CD 17 E5 48 89 C1 E8 73 00 00 00} $code5 = {0F C8 89 C0 4? 39 ?? 74 1? (49 0F AF C0| 48 69 C0 ?? ?? ?? ??) (4C 01 C8| 48 05 ?? ?? ?? ??) 49 89 C? 49 C1 E? 18 45 30 [2] 4? FF ?? EB} condition: uint16(0) == 0x5A4D and 2 of them } rule yoba_loader { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaLoader"" strings: $code1 = {B9 80 A8 12 01 FF ?? ?? E9} $code2 = {BA EB 1D 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {B9 5B 80 EF B7 E8} $code4 = {BA F5 8B 2E F2 48 89 C1} $code5 = {B5 C2 D2 06 23 D4 E6 64 7D 06 A4 28 64 ED D8 62 9F 82 C5 C3 84 B2 43 FD AE EE CA 24 B3 87 3D 64} $code6 = {1D 0D 13 68 B4 D5 3F 3A 63 22 CF 40 E8 4E 63 DB} $code7 = {40 80 FE 32 74 42 40 80 FE 33 74 66 40 80 FE 31} $code8 = {41 81 F8 A5 DE 6C C2} condition: uint16(0) == 0x5A4D and 2 of them }
 
 The post Tricks from the Past deployed via signed ChatGPT and Claude binaries appeared first on Check Point Research."
-3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic News,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
-
-There are many opportunities to speed up drug development, even beyond the most commonly discussed applications of AI, like proposing initial designs for new molecules. Developing a drug involves many varied tasks: doing early research to identify a target for a drug and the right type of drug to engage it, designing a molecule with the right properties, optimizing it to be manufactured reliably at scale, drafting the regulatory filings needed to run clinical trials, designing and administering those trials, and much more.
-
-Our strategy to realize AI’s medical benefits is based on having AI increasingly involved in all of these tasks. There is no single problem to solve; the bottlenecks are distributed all throughout the drug development process. The best way to identify and work through these bottlenecks is to get deeply involved in real drug programs, across many different disease areas and stages of development.
-
-So, over the past several months, we’ve partnered with six organizations to do so. We’ve also started drug discovery efforts of our own, including programs for rare childhood forms of muscular dystrophy, where Claude handles much of the scientific and operational work.
-
-This work serves our goals in three ways. First, it lets us better understand the strengths and limitations of our models in relation to a much wider range of drug development tasks (we’ve already prioritized specific improvements to our models based on what we’ve learned so far). Second, these programs can serve as case studies for the wider life sciences community. If Claude is to significantly increase the rate of new cures, we need to work with many more biotechnology firms and integrate Claude more deeply into their development processes. Third, these projects should, if their positive trajectories continue, have direct impact themselves. We’re optimistic that some may result in effective new medicines for the diseases they target, including food allergies, rare childhood diseases, and several forms of cancer.
-
-In this post, we provide an update on our progress with our partners, along with technical reports that describe our thought process, methods, and early results in more detail. We then briefly outline where our work is headed next.
-
-Case studies
-
-Generate Biomedicines: modality engineering. Generate Biomedicines has been working on increasing the usefulness of a cancer treatment known as CAR T-cell therapy. This therapy has historically helped treat blood cell cancers; Generate aims to reengineer it so that it can treat solid tumor cancers too. To do this, they’re aiming to shorten one part of the therapy’s genetic instructions, which would create room for additional instructions suited to other kinds of cancer. Six Generate scientists used Claude Code to propose new designs for this part. One design was about 70% shorter than the standard version, and in lab tests it was more effective: it allowed immune cells to make roughly 10 times as many receptors (the proteins they use to spot cancer cells), it killed tumor cells more efficiently, and the immune cells remained active for longer. Read more, and see Generate’s technical report.
-
-Divergence Labs: hit generation. Divergence Labs is working on a novel way to treat food allergies. Food allergies are set off by a reaction from a molecule called IgE, some of which is attached to our immune cells and some of which floats freely in our blood. Divergence Labs is developing drugs that would detach the IgE from our immune cells entirely, rather than solely neutralizing the IgE circulating in our blood, as standard medications do. This could provide a much more effective treatment, but it requires a precise design, with two “arms”: one that would bind tightly to IgE, and another that would help prise IgE from the immune cell. Claude converted Divergence Labs’ goals into a detailed design plan, and then, largely autonomously, generated roughly 35,000 antibody designs in about a month to be narrowed down and tested. In those early tests, Divergence found “hits” for both arms: three designs that could bind to IgE, and 20 that could dislodge it. Three of those 20 appeared to dislodge IgE more than the standard medication. Its next step is to build a drug that combines the two arms. Read more, and see Divergence’s technical report.
-
-BigHat Biosciences: lead optimization. BigHat Biosciences pairs AI with an automated lab to improve potential drugs (or “leads”), which must bind their target tightly, remain stable through manufacturing and storage, and avoid clumping together (among other criteria). BigHat’s scientists and an Anthropic researcher worked with Claude to improve these three properties in two leads, both antibody fragments that could become parts of future drugs: one designed to target cancer cells, and one designed to keep a drug in the body longer. Claude, connected to BigHat’s lab data system, Reccy, proposed changes to each molecule, and BigHat’s lab made and tested about 1,010 variants in about 10 weeks. Partway through, the team suspected the standard heat-stability and clumping metrics were misleading. Claude and the researcher reanalyzed the raw data, then proposed different metrics and a protocol change to test them. BigHat’s scientists refined and ran it, and the main predictions held. Compared with the originals, the best versions bound more than 10x more tightly, the cancer-targeting lead stayed in solution 18°C higher, and the lead for longer-lasting drugs clumped more than 100x more slowly. Read more, and see BigHat’s technical report.
-
-Enveda: manufacturing and filings. To conduct clinical trials, companies need records showing that each batch of a new drug has been made to strict quality standards, and to submit an application to regulators, among other requirements. At Enveda, manufacturing chemists spent up to 75% of their time on paperwork. To ease the load, Enveda built a system that connects all of its manufacturing documents to Claude, then lets Claude flag any possible issues. Over tests on 1,061 pages of documentation, Claude caught all 11 issues that human reviewers had spotted—and flagged seven they’d missed. In the process, this method reduced human review time by 89%, from over 25 hours to less than three. Separately, Claude wrote the first drafts of two important regulatory documents. One took four hours, compared to about three months by hand. For the other, Enveda’s standard human review process found one minor error. Read more, and see Enveda’s technical report.
-
-The Column Group (TCG): company creation. Because drug discovery can be slow, expensive, and prone to failure, investors in biotechnology companies have favored safer, previously validated ideas over riskier new ones, even when the latter could help more patients. We’ve been working with TCG to see whether Claude can change this by cutting the time and cost of drug discovery so that investors can confidently support more ambitious ideas. Specifically, TCG is establishing Pleiades, a new company that will use Claude to run many more—and more complex—drug programs than is usual for a small team. This could be a model for how Claude can reduce both the scientific and the operational and administrative overhead required to run a biotechnology company. If this works, this model could be replicated across the industry and direct investment toward harder problems in medicine. Pleiades is currently developing new tools and workflows for Claude; its very first Claude skill, which helps Claude assess whether drug targets are worth pursuing, has been evaluated on 45 target-disease pairs. Read more.
-
-More recently, we’ve also begun working with Bristol Myers Squibb (BMS) to find and address bottlenecks in clinical trial planning. BMS is using Claude to assess plans of an early-stage drug in clinical trials, and to estimate the likelihood of those trials succeeding. Together, we plan to expand this work in 2027 to understand its potential for increasing the probability of success in early development.
-
-“We use Claude at the clinical trial stage to analyze proprietary data, create a clinical study plan, and weigh the study’s chance of success. From a single prompt, Claude generated a robust initial analysis that helped inform our assessment of different development options, which would otherwise take days to complete. We did all of this while ensuring the security of our highly sensitive data. We look forward to expanding this work across our pipeline to support portfolio-level decisions.”
-
-Michael Pourdehnad, MD, Senior Vice President, Head of Early Clinical Development, Hematology, Oncology and Cell Therapy.
-
-In addition to our work with these partners, we’ve begun to run some research programs ourselves. We’ve acquired Mithril Medicine, a one-person company that has been developing treatments for two rare forms of muscular dystrophy. Its founder, Cody Tranbarger, used Claude to organize contracts, logistics, and experiments with 11 external labs, and delegated many other aspects of Mithril’s operations to Claude. As a result, Mithril took a possible treatment for one form of muscular dystrophy from an idea to promising results in mice in less than 18 months. Now at Anthropic, Cody is continuing this research, and plans to start several new programs. If his drug candidates continue to hold up, we expect a drug to be ready to start clinical trials in humans as soon as late 2028. Read more and see our technical report.
-
-Extending our work in the life sciences
-
-All of this research is still at an early stage. In particular, so far it is mostly preclinical—that is, for the most part, it isn’t yet at the stage where the drugs are being tested in humans. We plan to continue extending Claude’s role into clinical trials as these drug programs advance, and as we partner with more organizations whose drug development programs are already at the clinical stage.
-
-This research is only one part of our efforts to accelerate drug discovery. Ultimately, we want to share our models with as many drug development researchers as possible. To that end, we’ve rolled out Claude Science, our AI workbench for researchers, and we’re providing Claude credits for life scientists. We’ve also created the Life Sciences Verification Program to allow trusted organizations to use our most powerful models with more permissive versions of our safeguards, which are necessary to prevent misuse but which can impede legitimate biological research. We’ve also recently launched an open call for guest investigators in the life sciences; we’re seeking proposals from research groups who want to use Claude to investigate key questions in drug discovery and other areas.
-
-We’re looking forward to working with many more organizations as we expand our life sciences research. If you work at an organization focused on drug discovery and are interested in collaborating with us, you can get in touch below.
-
-Get in touch with us
-
-If you work at an organization focused on drug development and would like to get in touch, complete the following form."
-ab5fb224cac6,ab5fb224cac6,2026-10-27 00:00 UTC,Business & Industry News,Anthropic,Anthropic News,AI Security; Vulnerability Management,Article,Expanding our partnership with GSA to bring Claude to all levels of government,https://www.anthropic.com/news/expanding-partnership-gsa,A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days,"We are expanding our partnership with the General Services Administration (GSA) through a new agreement that gives government partners a 40% discount on Claude Enterprise, Claude for Government, and the Claude API. For the first time, the discount applies across every product surface, including when agencies buy from us directly today and through cloud providers in the coming months. The discount also extends to state, local, tribal and territorial governments.
-
-We are also launching a dedicated program to help agencies implement and make the most of their Claude use. These programs are commonly leveraged by our private sector customers and we’re looking forward to bringing those best practices to our public sector partners in the coming weeks.
-
-Approximately 500 US federal, state, and local government organizations now use Claude. Weekly Claude for Government active users are up about eightfold since February, and usage across federal civilian agencies has grown about 20-fold in a year. Those organizations run some of the most important systems in the country, usually on tight budgets and with long procurement cycles. This agreement is built to support that work, so they can apply Claude to hard problems without a large upfront commitment.
-
-The discounts offered through the agreement are estimated to save the government $1 billion. Agencies are not bound by a minimum spend commitment and will be able to pay for the usage they consume.
-
-How Claude is helping public servants get more done
-
-Government agencies are using Claude to solve some of their most important challenges. Examples include managing backlogs, records and forms, and modernizing old code. Some of the ways agencies are using Claude include:
-
-Utah gave Claude Code to 34 developers across 10 state agencies. 80% had a working environment within 30 minutes, 71% reported saving 20+ hours by the end of the four-week pilot.
-
-A US state CIO confirmed their team was able to respond to a ransomware attack in 8 minutes vs. the usual 2-3 days thanks to Claude.
-
-A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days. A human penetration test the month before had missed it.
-
-A cybersecurity professional at a major agency found and patched bugs in critical financial systems.
-
-A US state IT developer moved nearly 900 API methods to a new framework in two days. The project had been scoped for a month.
-
-A US state IT director used Claude Code to document 12 legacy code repositories, mapping 467 database tables and flagging 27 risks along the way.
-
-More than half of the US states, some of the largest localities, and some of the countries largest critical infrastructure operators participated in our SLTT cyber defense program.
-
-Meeting government security requirements
-
-Agencies can use Claude for their most sensitive unclassified work. Claude for Government, which delivers Claude's coding and agentic work capabilities and provides near-feature parity with commercial offerings at a FedRAMP High authorization level, was made generally available on September 30.
-
-Agencies building their own tools can use Claude through Amazon Bedrock or Google Cloud’s Vertex AI. On Bedrock, Claude is authorized for FedRAMP High, with select models authorized for DoD IL4 and IL5 workloads in AWS GovCloud. On Vertex AI, Claude is authorized for FedRAMP High.
-
-Claude Enterprise is in process for FedRAMP Moderate authorization through the FedRAMP 20x program, marking the next evolution of how we are bringing the same innovative technology available commercially to the government.
-
-Getting started
-
-Government agencies can buy Claude at the OneGov discount through GSA's Multiple Award Schedule today. Whether your department or agency already uses Claude or is interested in using it, our Public Sector team will help discuss your options.
-
-For more information, contact us here."
 0e63c15c568e,0e63c15c568e,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Anthropic,Anthropic Frontier Red Team,Vulnerability Management; AI Security,Article,"Discovering and exploiting vulnerabilities in critical, real-world software with Claude",https://www.anthropic.com/research/discovering-vulnerabilities-with-claude,"Finally, Claude discovered a use-after-free in FedCM, Chrome’s federated sign-in feature, that allowed the exploit to execute arbitrary code outside the sandbox","Over the past few months, we’ve used an unreleased, internal research model to find critical vulnerabilities in some of the world’s most widely used software, such as browsers and operating systems. In this post, we share details of five attack chains, which led to remote code execution and other critical impacts with little to no user interaction. These attack chains demonstrate the model’s ability to create sophisticated, multi-step exploits in both open-source and proprietary software. Any vulnerabilities in these products could affect billions of users. They’re also among the most security-critical software in the world, making them a bellwether for testing models’ vulnerability research and cyber capabilities.
 
 We reported each vulnerability to the affected vendor under our coordinated vulnerability disclosure, which gives developers 90 days to patch and a further 45 days before we discuss details beyond what is already included in a public advisory.
@@ -3176,6 +2602,88 @@ What this means for defenders
 Frontier models have the ability to discover and combine multiple vulnerabilities into a working exploit. These skills have historically been the domain of few specialist teams with expertise in these targets. Now, it’s something models can do with little human involvement, and then prove by producing a working exploit that anyone can run and verify.
 
 Enabling defenders with powerful models is critical to giving them a headstart on patching systems before attackers do. Recently, we released an expanded version of our Cyber Verification Program, which makes advanced cyber capabilities and reduced blocking classifiers available to qualifying security professionals. It includes access to our most capable models, including Claude Opus 5.5, Claude Sonnet 5.5, Claude Mythos 5.1, and other new models moving forward. Our advice to defenders remains the same: scanning your own code is more important than ever."
+3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
+
+There are many opportunities to speed up drug development, even beyond the most commonly discussed applications of AI, like proposing initial designs for new molecules. Developing a drug involves many varied tasks: doing early research to identify a target for a drug and the right type of drug to engage it, designing a molecule with the right properties, optimizing it to be manufactured reliably at scale, drafting the regulatory filings needed to run clinical trials, designing and administering those trials, and much more.
+
+Our strategy to realize AI’s medical benefits is based on having AI increasingly involved in all of these tasks. There is no single problem to solve; the bottlenecks are distributed all throughout the drug development process. The best way to identify and work through these bottlenecks is to get deeply involved in real drug programs, across many different disease areas and stages of development.
+
+So, over the past several months, we’ve partnered with six organizations to do so. We’ve also started drug discovery efforts of our own, including programs for rare childhood forms of muscular dystrophy, where Claude handles much of the scientific and operational work.
+
+This work serves our goals in three ways. First, it lets us better understand the strengths and limitations of our models in relation to a much wider range of drug development tasks (we’ve already prioritized specific improvements to our models based on what we’ve learned so far). Second, these programs can serve as case studies for the wider life sciences community. If Claude is to significantly increase the rate of new cures, we need to work with many more biotechnology firms and integrate Claude more deeply into their development processes. Third, these projects should, if their positive trajectories continue, have direct impact themselves. We’re optimistic that some may result in effective new medicines for the diseases they target, including food allergies, rare childhood diseases, and several forms of cancer.
+
+In this post, we provide an update on our progress with our partners, along with technical reports that describe our thought process, methods, and early results in more detail. We then briefly outline where our work is headed next.
+
+Case studies
+
+Generate Biomedicines: modality engineering. Generate Biomedicines has been working on increasing the usefulness of a cancer treatment known as CAR T-cell therapy. This therapy has historically helped treat blood cell cancers; Generate aims to reengineer it so that it can treat solid tumor cancers too. To do this, they’re aiming to shorten one part of the therapy’s genetic instructions, which would create room for additional instructions suited to other kinds of cancer. Six Generate scientists used Claude Code to propose new designs for this part. One design was about 70% shorter than the standard version, and in lab tests it was more effective: it allowed immune cells to make roughly 10 times as many receptors (the proteins they use to spot cancer cells), it killed tumor cells more efficiently, and the immune cells remained active for longer. Read more, and see Generate’s technical report.
+
+Divergence Labs: hit generation. Divergence Labs is working on a novel way to treat food allergies. Food allergies are set off by a reaction from a molecule called IgE, some of which is attached to our immune cells and some of which floats freely in our blood. Divergence Labs is developing drugs that would detach the IgE from our immune cells entirely, rather than solely neutralizing the IgE circulating in our blood, as standard medications do. This could provide a much more effective treatment, but it requires a precise design, with two “arms”: one that would bind tightly to IgE, and another that would help prise IgE from the immune cell. Claude converted Divergence Labs’ goals into a detailed design plan, and then, largely autonomously, generated roughly 35,000 antibody designs in about a month to be narrowed down and tested. In those early tests, Divergence found “hits” for both arms: three designs that could bind to IgE, and 20 that could dislodge it. Three of those 20 appeared to dislodge IgE more than the standard medication. Its next step is to build a drug that combines the two arms. Read more, and see Divergence’s technical report.
+
+BigHat Biosciences: lead optimization. BigHat Biosciences pairs AI with an automated lab to improve potential drugs (or “leads”), which must bind their target tightly, remain stable through manufacturing and storage, and avoid clumping together (among other criteria). BigHat’s scientists and an Anthropic researcher worked with Claude to improve these three properties in two leads, both antibody fragments that could become parts of future drugs: one designed to target cancer cells, and one designed to keep a drug in the body longer. Claude, connected to BigHat’s lab data system, Reccy, proposed changes to each molecule, and BigHat’s lab made and tested about 1,010 variants in about 10 weeks. Partway through, the team suspected the standard heat-stability and clumping metrics were misleading. Claude and the researcher reanalyzed the raw data, then proposed different metrics and a protocol change to test them. BigHat’s scientists refined and ran it, and the main predictions held. Compared with the originals, the best versions bound more than 10x more tightly, the cancer-targeting lead stayed in solution 18°C higher, and the lead for longer-lasting drugs clumped more than 100x more slowly. Read more, and see BigHat’s technical report.
+
+Enveda: manufacturing and filings. To conduct clinical trials, companies need records showing that each batch of a new drug has been made to strict quality standards, and to submit an application to regulators, among other requirements. At Enveda, manufacturing chemists spent up to 75% of their time on paperwork. To ease the load, Enveda built a system that connects all of its manufacturing documents to Claude, then lets Claude flag any possible issues. Over tests on 1,061 pages of documentation, Claude caught all 11 issues that human reviewers had spotted—and flagged seven they’d missed. In the process, this method reduced human review time by 89%, from over 25 hours to less than three. Separately, Claude wrote the first drafts of two important regulatory documents. One took four hours, compared to about three months by hand. For the other, Enveda’s standard human review process found one minor error. Read more, and see Enveda’s technical report.
+
+The Column Group (TCG): company creation. Because drug discovery can be slow, expensive, and prone to failure, investors in biotechnology companies have favored safer, previously validated ideas over riskier new ones, even when the latter could help more patients. We’ve been working with TCG to see whether Claude can change this by cutting the time and cost of drug discovery so that investors can confidently support more ambitious ideas. Specifically, TCG is establishing Pleiades, a new company that will use Claude to run many more—and more complex—drug programs than is usual for a small team. This could be a model for how Claude can reduce both the scientific and the operational and administrative overhead required to run a biotechnology company. If this works, this model could be replicated across the industry and direct investment toward harder problems in medicine. Pleiades is currently developing new tools and workflows for Claude; its very first Claude skill, which helps Claude assess whether drug targets are worth pursuing, has been evaluated on 45 target-disease pairs. Read more.
+
+More recently, we’ve also begun working with Bristol Myers Squibb (BMS) to find and address bottlenecks in clinical trial planning. BMS is using Claude to assess plans of an early-stage drug in clinical trials, and to estimate the likelihood of those trials succeeding. Together, we plan to expand this work in 2027 to understand its potential for increasing the probability of success in early development.
+
+“We use Claude at the clinical trial stage to analyze proprietary data, create a clinical study plan, and weigh the study’s chance of success. From a single prompt, Claude generated a robust initial analysis that helped inform our assessment of different development options, which would otherwise take days to complete. We did all of this while ensuring the security of our highly sensitive data. We look forward to expanding this work across our pipeline to support portfolio-level decisions.”
+
+Michael Pourdehnad, MD, Senior Vice President, Head of Early Clinical Development, Hematology, Oncology and Cell Therapy.
+
+In addition to our work with these partners, we’ve begun to run some research programs ourselves. We’ve acquired Mithril Medicine, a one-person company that has been developing treatments for two rare forms of muscular dystrophy. Its founder, Cody Tranbarger, used Claude to organize contracts, logistics, and experiments with 11 external labs, and delegated many other aspects of Mithril’s operations to Claude. As a result, Mithril took a possible treatment for one form of muscular dystrophy from an idea to promising results in mice in less than 18 months. Now at Anthropic, Cody is continuing this research, and plans to start several new programs. If his drug candidates continue to hold up, we expect a drug to be ready to start clinical trials in humans as soon as late 2028. Read more and see our technical report.
+
+Extending our work in the life sciences
+
+All of this research is still at an early stage. In particular, so far it is mostly preclinical—that is, for the most part, it isn’t yet at the stage where the drugs are being tested in humans. We plan to continue extending Claude’s role into clinical trials as these drug programs advance, and as we partner with more organizations whose drug development programs are already at the clinical stage.
+
+This research is only one part of our efforts to accelerate drug discovery. Ultimately, we want to share our models with as many drug development researchers as possible. To that end, we’ve rolled out Claude Science, our AI workbench for researchers, and we’re providing Claude credits for life scientists. We’ve also created the Life Sciences Verification Program to allow trusted organizations to use our most powerful models with more permissive versions of our safeguards, which are necessary to prevent misuse but which can impede legitimate biological research. We’ve also recently launched an open call for guest investigators in the life sciences; we’re seeking proposals from research groups who want to use Claude to investigate key questions in drug discovery and other areas.
+
+We’re looking forward to working with many more organizations as we expand our life sciences research. If you work at an organization focused on drug discovery and are interested in collaborating with us, you can get in touch below.
+
+Get in touch with us
+
+If you work at an organization focused on drug development and would like to get in touch, complete the following form."
+ab5fb224cac6,ab5fb224cac6,2026-10-27 00:00 UTC,Business & Industry News,Anthropic,Anthropic News,AI Security; Vulnerability Management,Article,Expanding our partnership with GSA to bring Claude to all levels of government,https://www.anthropic.com/news/expanding-partnership-gsa,A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days,"We are expanding our partnership with the General Services Administration (GSA) through a new agreement that gives government partners a 40% discount on Claude Enterprise, Claude for Government, and the Claude API. For the first time, the discount applies across every product surface, including when agencies buy from us directly today and through cloud providers in the coming months. The discount also extends to state, local, tribal and territorial governments.
+
+We are also launching a dedicated program to help agencies implement and make the most of their Claude use. These programs are commonly leveraged by our private sector customers and we’re looking forward to bringing those best practices to our public sector partners in the coming weeks.
+
+Approximately 500 US federal, state, and local government organizations now use Claude. Weekly Claude for Government active users are up about eightfold since February, and usage across federal civilian agencies has grown about 20-fold in a year. Those organizations run some of the most important systems in the country, usually on tight budgets and with long procurement cycles. This agreement is built to support that work, so they can apply Claude to hard problems without a large upfront commitment.
+
+The discounts offered through the agreement are estimated to save the government $1 billion. Agencies are not bound by a minimum spend commitment and will be able to pay for the usage they consume.
+
+How Claude is helping public servants get more done
+
+Government agencies are using Claude to solve some of their most important challenges. Examples include managing backlogs, records and forms, and modernizing old code. Some of the ways agencies are using Claude include:
+
+Utah gave Claude Code to 34 developers across 10 state agencies. 80% had a working environment within 30 minutes, 71% reported saving 20+ hours by the end of the four-week pilot.
+
+A US state CIO confirmed their team was able to respond to a ransomware attack in 8 minutes vs. the usual 2-3 days thanks to Claude.
+
+A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days. A human penetration test the month before had missed it.
+
+A cybersecurity professional at a major agency found and patched bugs in critical financial systems.
+
+A US state IT developer moved nearly 900 API methods to a new framework in two days. The project had been scoped for a month.
+
+A US state IT director used Claude Code to document 12 legacy code repositories, mapping 467 database tables and flagging 27 risks along the way.
+
+More than half of the US states, some of the largest localities, and some of the countries largest critical infrastructure operators participated in our SLTT cyber defense program.
+
+Meeting government security requirements
+
+Agencies can use Claude for their most sensitive unclassified work. Claude for Government, which delivers Claude's coding and agentic work capabilities and provides near-feature parity with commercial offerings at a FedRAMP High authorization level, was made generally available on September 30.
+
+Agencies building their own tools can use Claude through Amazon Bedrock or Google Cloud’s Vertex AI. On Bedrock, Claude is authorized for FedRAMP High, with select models authorized for DoD IL4 and IL5 workloads in AWS GovCloud. On Vertex AI, Claude is authorized for FedRAMP High.
+
+Claude Enterprise is in process for FedRAMP Moderate authorization through the FedRAMP 20x program, marking the next evolution of how we are bringing the same innovative technology available commercially to the government.
+
+Getting started
+
+Government agencies can buy Claude at the OneGov discount through GSA's Multiple Award Schedule today. Whether your department or agency already uses Claude or is interested in using it, our Public Sector team will help discuss your options.
+
+For more information, contact us here."
 fc6a6c1b2468,fc6a6c1b2468,2026-10-27 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Cloud Risk Management,Article,Manage costs and demonstrate ROI for Claude Code on Google Cloud,https://claude.com/resources/articles/how-to-manage-costs-and-demonstrate-roi-for-claude-code-on-google-cloud,"Combine these capabilities to control your overall bill, but remember that control is only the first lever","As organizations delegate more work to Claude Code, spend grows with it, and platform teams need a way to both control costs and understand impact. Inspired by a recent webinar (opens in new tab) with Google Cloud, we share how organizations using Claude Code can better track and optimize these considerations on Google Cloud, including three core levers: control, track, and prove.
 
 Controls for managing Claude Code spend
@@ -3528,81 +3036,6 @@ Getting started
 The unified Claude experience is generally available today for Claude Enterprise plans. Admins can manage the rollout in Organization settings. Organizations that use zero data retention for Claude Code, a HIPAA-ready configuration, or customer-managed encryption keys stay on their current configuration.
 
 See the admin setup guide for details. If you're an existing Claude Enterprise customer, you'll receive an email about the rollout for your organization."
-93f35675acda,93f35675acda,2026-10-23 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Identity Security Posture Management,Article,"Claude Duet Safety, Privacy, and Security",https://claude.com/resources/articles/claude-duet-safety-privacy-and-security,"If you ask Claude Duet to send your team a weekly recap, it should include only things everyone on the team already has access to and never private details, like your...","Claude Duet (opens in new tab) is an agent, currently in research preview, that uses a cloud-based computer to do work for you. It can use all the apps and services you've chosen to connect to Claude, and it runs continuously even after you close the app. It can read your inbox, draft replies, book things, and run routines while you are away. Our team runs Claude Duet on our own accounts and we use it for work every day.
-
-We built Claude Duet on three principles to guide the agent's behavior:
-
-Your information, and what other people share in your connected apps, is handled with discretion, using a new classifier that checks messages Claude Duet drafts before they go out.
-
-You stay in control of what it does on your behalf.
-
-Claude Duet never sees your passwords, browser cookies, sign-in tokens, or other credentials.
-
-Claude Duet is new but the thinking behind it is not. In 2025 we published our framework for safe and trustworthy agents (opens in new tab), which puts people in control and treats privacy and secure interactions as basic requirements. Since then, we have written about why no single defense is enough (opens in new tab) and why protection inside the model can’t stand alone (opens in new tab). We also build and operate the infrastructure businesses use to run agents in production through Claude Managed Agents (opens in new tab), and Claude Duet keeps credentials separate from the agent in the same way. It builds on this work, adding the protections that an agent acting for you needs. This post walks through what we added and what we’re still working on.
-
-You approve important actions
-
-An agent that acts while you’re away has to know when to stop and ask for permission before proceeding, and to do it at the right cadence. Before Claude Duet does something like sending a potentially sensitive message, paying for something, or deleting anything, it shows you the action, the destination, and the content, including every recipient. It then waits for you to approve the action.
-
-A separate, automated check runs alongside each action, built on the auto mode classifier from Claude Code (opens in new tab) and extended for Claude Duet. It assesses whether the action matches your intent. The check runs outside the model doing the work so instructions hidden in a page cannot affect the outcome.
-
-Some actions stay off-limits even with your approval, like trading securities, banking actions such as moving money between accounts, and accessing someone else's account. Some other steps aren’t covered by a ""don't ask me again"" rule, however often you have approved them, like paying or sending money, deleting an order, or creating an account. The routines that run while you are away have the same safeguards.
-
-We spent a lot of time calibrating how often Claude Duet asks for approval. Approval fatigue is a serious issue, because too many requests teach people to tap through them, sometimes without adequate consideration. We will continue to adjust this calibration over time.
-
-For purchases, Claude Duet pays with a one-time card from a wallet like Link from Stripe, limited to that merchant and amount. You see the item and the total, and you approve the purchase in your Link app. Your real card number isn’t shared with Claude Duet or the merchant.
-
-Your information is handled with discretion
-
-An agent that reads your email and sends messages for you is constantly deciding where different types of information should go. If you ask Claude Duet to send your team a weekly recap, it should include only things everyone on the team already has access to and never private details, like your performance review conversations.
-
-To address this, we built a new safety classifier that runs separately from the main model and checks whether each message Claude Duet is about to send contains potentially sensitive information. We categorize this information into two tiers:
-
-Never share: We give the most sensitive protection to information like sign-in credentials, full card and bank account numbers, and government ID numbers. Claude Duet is instructed never to share these with anyone, even if you ask.
-
-Needs consent to share: Claude Duet will share other private information, such as health or finances, only if you’ve explicitly approved it. Your own request counts as consent, so “send a note to my dentist about my tooth pain” generally won’t need additional approval.
-
-If Claude Duet is blocked for either reason, it can decide to rewrite the message without the sensitive information and share with you for approval.
-
-Claude Duet is still in research preview and these safeguards will occasionally miss something or flag a harmless message. That’s why they work alongside the approval mechanisms above, which are designed to keep you in control of what Claude Duet sends on your behalf. We expect to continue iterating on our classifier as we learn more about how people use Claude Duet.
-
-You have visibility into tasks and connected apps
-
-You can see what Claude Duet has done and is doing in its task list, where each task has its own page, and steer it mid-task. Claude Duet keeps your conversation history and its memory so it can carry context between tasks, until you delete your history or reset it. Deleting your account wipes everything Claude Duet has stored.
-
-The apps you have connected to Claude carry over to Claude Duet, and switching an app off in one place switches it off in both. Disconnecting an app stops new access from that moment, but what Claude Duet already learned from it stays until you reset its memory, which you can do anytime from the app’s settings. Claude Duet also uses the memory from your Claude account, so details Claude remembered from your earlier chats are visible.
-
-Credentials and the browser are isolated from the model
-
-Claude Duet never sees your passwords, browser cookies, or the sign-in tokens for your connected apps, and it can’t save them to its memory. They only ever pass through separate machines the model can’t access, and the approvals and safety checks that govern what it does run there too.
-
-Passwords
-
-When a site asks for a password, you type it into a form inside the Claude app. The form encrypts it with a single-use key that exists only on our secure cloud browser machine, for that one single use. It passes the encrypted password unopened to the browser, which types it into the site. The model doesn’t see the password and can’t save or repeat it. Soon you will also be able to sign in with 1Password; Claude Duet will ask for a credential, you will approve that request in 1Password, and the credential will go to the browser without passing through the model.
-
-An agent that signs in for you changes phishing in two ways. On one hand, Claude Duet doesn’t hold credentials for you so it can’t be phished for a password, and no hidden instruction can make it reveal a secret it doesn’t have. On the other hand, the sign-in form is itself a target, because anything that asks for a password can be imitated. So Claude Duet’s sign-in form only appears inside the app, during a sign-in you asked for. It never arrives as a link, a text message, an email, or a website other than claude.ai. If something that looks like Claude Duet asks for your password anywhere else, it’s not legitimate.
-
-Sign-in tokens
-
-When Claude Duet works in a connected app, it follows our Claude Managed Agents design (opens in new tab) so credentials stay out of reach of the agent’s work. Credentials that the agent uses on your behalf, such as a sign-in token for a connected service, never enter the machine where the agent works. A placeholder for the credential sits there instead and a proxy outside that machine puts in the real value only as a request is made.
-
-The browser
-
-Your browser in Claude Duet runs in its own dedicated virtual machine in the cloud, separate from the model and from the cloud computers the agent works on. The agent drives the browser only through a fixed set of commands: open this page, click here, type this. Whatever a site runs stays on the browser machine (opens in new tab). The site’s code and cookies don’t reach Claude Duet’s memory or your connected apps, and none of the agent’s commands can read cookies out of the browser. What does come back is the page's text and downloads, because the agent has to read them to do its job. That’s why the other checks exist, and why Claude Duet also uses the prompt-injection safeguards described in our browser-use research (opens in new tab). Files it uploads through the browser get the same sensitive-information check as its messages.
-
-Claude Duet is also designed to identify itself as an agent. Today, requests that its web browser sends include a distinct User-Agent header, and we publish the public IP addresses it browses from, so sites can recognize it and decide how to treat it. Before launch, we also contacted several large websites and gave them the option to prevent Claude Duet from visiting their sites, and some chose to. We’ll keep refining how Claude Duet identifies itself as we learn from the research preview.
-
-How we tested Claude Duet
-
-Testing started well before the research preview and continues now. Our Safeguards team built evaluations from routine-shaped tasks, each in three variants: an innocent version, one with injected instructions, and one that tempts the agent to do more than it was asked. Those run alongside shadow traffic from real use.
-
-Red teams further tested whether Claude Duet would leak information, act without approval, or follow malicious prompts. We built a threat model of the whole system, across the repositories and trust boundaries it touches. An external penetration-testing firm tested Claude Duet with access to our source code, and a follow-on engagement covering the cloud browser and the sign-in form is running now. Each new credential feature is red-teamed on an isolated rig before it ships to anyone.
-
-Claude Duet is also in scope of Anthropic’s public bug bounty program, which rewards valid reports and offers safe harbor for good-faith research, under our responsible disclosure policy. If you find a security vulnerability, we want to hear about it: report it through Anthropic’s bug bounty program on HackerOne (opens in new tab).
-
-Building this with you
-
-We’re releasing Claude Duet as a research preview because we want to learn what you value in a personal agent, including the protections and controls you’d like to see next. Some of what’s described here is still changing: how often it asks for approval, how you sign in, and how well the sensitive-information checks tell what’s private from what’s harmless. Tell Claude Duet in plain words what you’d like to see or what went wrong, and it will file a report for our team."
 2b7902bd7328,2b7902bd7328,2026-10-22 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Cloud Risk Management,Article,"The full Claude Platform, available on Google Cloud",https://claude.com/resources/articles/claude-models-on-google-cloud-anthropic-managed,See the full list of features available on Claude Models on Google Cloud in our documentation (opens in new tab),"What’s included
 
 Google Cloud customers using the Anthropic managed offering get the full set of Claude Platform features, so they can:
@@ -3770,6 +3203,77 @@ How testers are using Claude Duet
 People at Anthropic have been using Claude Duet to accomplish more, but also to leave more room for thinking and being present. Boris Cherny, who leads our Claude Code team, talks through his mental to-do list with Claude Duet on walks, instead of saving the work for his desk. Chelsea Larsson, who leads our model and product behavior design team, hands Claude Duet her to-do list before leaving to be with her kids and it saves the results for an evening report. And the team behind Claude Duet uses it to build the product. Karan Ahuja, who leads the team, works with it to schedule user interviews, partner with him on prototypes, and even ship code.
 
 We gave small business owners and entrepreneurs early access to Claude Duet, and some have been using it to help run their businesses. Here’s what some of them said:"
+114a6d30dec3,114a6d30dec3,2026-10-20 00:00 UTC,"Attacks, Breaches & Threat Intel",Anthropic,Anthropic Frontier Red Team,AI Security; Attack Surface Discovery; Vulnerability Management,Article,Using Claude to reduce the attack surface of code,https://www.anthropic.com/research/attack-surface-reduction,"Showing how previously unknown vulnerabilities might be exploited is, however, only the start of what frontier AI models can do for cyber defense","Chris Rohlf
+
+Over the past year, we’ve published lots of data that shows that frontier AI models are more than capable of discovering and exploiting security vulnerabilities. Showing how previously unknown vulnerabilities might be exploited is, however, only the start of what frontier AI models can do for cyber defense. In this post, we summarize some of our initial research into automated attack surface analysis and reduction: the process of using AI models to map the code that is reachable, then removing or restricting access to anything than a given deployment doesn’t need to expose.
+
+Automated attack surface analysis and reduction can meaningfully improve the security of deployed software in the near term. Securing software by finding and fixing individual vulnerabilities alone scales poorly: fixing even a critical vulnerability tells you nothing about the vulnerabilities that remain. By contrast, reducing code reachability can reduce the severity of unknown vulnerabilities, including the ones that might be under active exploitation. These techniques don’t remove the unknown vulnerabilities in the code, but they do make the vulnerabilities harder to reach, and thereby reduce their severity. Minimizing codebases’ attack surface results in better security without ever having to find or fix an individual vulnerability.
+
+Below, we preview some of the data we’ve collected from applying attack surface reduction techniques to large open-source codebases using Claude. Our aim in doing so is to show that Claude can meaningfully, and economically, improve software security through the methods we outline. Specifically, we ran Claude over 25 projects (in a variety of languages), and it discovered 493 issues. With these results in mind, we discuss how developers can apply similar techniques to their own code.
+
+Methods for reducing codebases’ attack surface
+
+Over time, software has a tendency to become more complicated, with new layers of abstractions, new dependencies, and new features slowly piling on top of one-another. This can often cause it to function very differently to how its original developers intended. And it is a big part of why attackers are often so successful: they study exactly how a piece of code behaves in practice, rather than how its developers intended or designed it to work.
+
+Automated attack surface analysis and reduction techniques aim to discover unnecessary attack surfaces, then move that code behind an appropriate gate. This might involve moving code from pre-authentication to post-authentication, from 0-click to 1-click, from on-by-default to explicit opt-in, or from the first message of a protocol to deeper in the session state machine. Some code is meant to be reachable before these stages, but a lot it is not, and, given the complexity that comes with code churn across thousands or millions of lines of code, unnecessary exposure of features often goes unnoticed.
+
+There are numerous ways to reduce the attack surface of code. In our own research efforts, we focused on three methods in particular:
+
+Default configuration. We identified code that was reachable in its shipped default configuration but wasn’t intended to be used by any default functionality.
+
+Configuration interaction. We found pairs of options that looked reasonable on their own, but which caused issues when configured together (for instance, by silently disabling a security control, or leaving a features behavior undefined while its code remains reachable).
+
+Early reachability. We identified security sensitive and complex code that runs either before an appropriate security control (such as authentication), without victim interaction, or before a protocol state transition.
+
+We wanted to understand how well Claude could take these three descriptions of attack surface and discover real issues in large and complex codebases. We analyzed 25 open source projects (representing over five million lines of code), written in languages including C, C++, Java, PHP, and Python. Claude created an inventory of over 17,000 configuration options across these projects. Of those, 3,842 related to the configuration of a control or feature that was security relevant.
+
+For the purposes of our research, we broke down these open source projects into three broad categories:
+
+Public. These projects are built to serve any user who can reach them, or to consume data authored by parties they cannot identify. (Examples include a DNS resolver parsing upstream answers, or a proxy parsing origin responses.)
+
+Gated. These projects are intended to serve authenticated users (such as those with a password, key or certificate holders, or enrolled devices). The software still allows for arbitrary client requests, but no functionality is available until the user has been authenticated.
+
+Private. These are built and deployed to serve the operator's own private environment. In these cases, adding a control like an authentication layer is optional, but outside the scope of the software.
+
+These categories help to contextualize our results. For example, we’d expect a significant percentage of a Public codebase to be reachable in the default configuration (since it’s designed to serve any user), but the opposite to be true for projects in the Gated category.
+
+Claude’s findings
+
+Claude found 493 issues using the three methods described above. Several themes stuck out to us from its results.
+
+First, Claude found that all eleven gated projects had code that was unintentionally reachable (although this code wasn’t a significant percentage of the total lines of code for any of those projects). Specifically, Claude discovered 93 unnecessary pre-authentication surfaces in the default configuration of the gated cohort, 37 locations where code executed, or state was recorded, before authentication, and 61 configuration combinations that silently weakened a pre-authentication control configured by the administrator. None of these issues would have been immediately exploitable on their own, but they create a much larger attack surface than is necessary.
+
+Second, Claude’s work mitigating configuration interaction issues produced some of the most interesting and impactful findings (across all project types). Claude found 162 security sensitive configuration combinations that were accepted both without an error or warning and without any documentation of the expected behavior of their interaction. In 94 of those cases, the combination silently turned off a security control. The other 68 cases were inconsistencies in the same security mechanisms (e.g. a listener or login path would remain reachable even though the configuration would say it was disabled; two settings would conflict, and the one that would take precedence would depend on their order in the configuration file, or a protection configured by the administrator would do nothing while its code remained reachable). While some of these configuration combinations might be non-standard or infrequently used, there would be nothing preventing an administrator of these projects from configuring and deploying the code in this way.
+
+Claude also found one specific pattern that turned up independently in four unrelated projects. This would work as follows. An administrator would write an access rule for remote clients using a hostname or a wildcard pattern, instead of an IP address. When a client connects, the server would compare that rule against the client’s hostname. Whether the server ever learned that hostname would depend on a separate option that controlled reverse DNS lookups (which most projects had configured off). With lookups off, the server would only have the client’s IP address. The server would compare the rule against that address as plain text. But a hostname pattern can never match an IP address. This means that a deny rule would never fire, and the list would fail open. Some of the affected projects mention in their documentation that hostname rules depend on DNS lookups being enabled, but none state that a deny list written this way would have fail open behavior.
+
+Third, Claude often discovered that two configuration options would conflict in a way that silently dropped a security check. In one case, an administrator could require every connecting client to prove its identity with a certificate. In another, the code was only intended to delay that check until it was required, but in fact disabled the check entirely. A server that was configured to accept only trusted clients would therefore accept a connection from anyone. This exposed a large body of request handling code (which was supposed to be behind the certificate check) to unauthenticated clients. The software accepted both configuration options together with no warning under default settings; the documentation never mentioned that the certificate requirement had been dropped. This conflicting set of configuration options had been present in the software for 21 years.
+
+Finally, Claude discovered an issue in a project that left authentication off by default (and expected the administrator to turn it on). The option that required TLS client certificates was honored on most of the project’s network endpoints, but silently ignored on a few others (ones which loaded their TLS settings through a path with a different namespace). This meant that a client with no certificate could complete the TLS handshake and open a session on an affected endpoint. Nothing would be logged about the ignored setting. Whether the option takes effect would depend on the namespace used by the administrator in the configuration. One form of the setting name works on every endpoint, but the shorter form—which most examples use—is dropped on the affected ones.
+
+Case study: OpenSSH
+
+Surprisingly, when measured as a percentage of the total lines of code, the project for which Claude achieved the largest reduction in attack surface was OpenSSH. OpenSSH is a high quality C codebase that provides secure remote access. Claude traced the input paths of the SSH daemon in the 10.4 release and found roughly 4,500 lines of new and experimental code for ML-DSA-44, a post-quantum signature algorithm, that an unauthenticated client could reach in the default configuration. ML-DSA is not enabled by default, but the code was reachable regardless, even when an administrator explicitly excluded the algorithm. The daemon parsed whichever key type the client sent, (and, for certificates, it also verified the embedded CA signature). Only then did it check whether that key type was allowed. There is no good reason for this complex, memory unsafe code to be reachable when it hasn’t been enabled by the configuration. Those 4,500 lines of code in ML-DSA-44 are about 16% of OpenSSH’s own pre-authentication code in a default sshd. We reported this to the OpenSSH developers along with patches. The 10.5 release moved the check before parsing.
+
+Claude then noted two gaps in the 10.5 check. The first was a mismatch between what the client claimed and what it sent. The check looked at the algorithm name advertised by the client, but the parser was chosen by a type string embedded inside the key blob. A client could advertise ssh-ed25519, pass the check, and still send an ML-DSA key that would be parsed.
+
+The second gap was in the 10.5 check’s certificates. Certificate key types were enabled by default. Given a certificate supplied by an attacker, sshd would deserialize the embedded CA public key and run a full signature verification with it, for any supported algorithm, before consulting the configuration. The user key signature path was properly gated behind the list of public keys allowed to connect to the server, but the CA signature path was not. That made every public key signature verifier in the binary reachable by any client that could complete a key exchange. We built a proof of concept and worked through several iterations of a fix with the maintainers. The resulting change placed the checks inside the parser itself. The encoded key type and the certificate’s CA signature algorithm are now compared against the configured allow lists before the corresponding deserialization or signature verification.
+
+This fix removed roughly a fifth of the OpenSSH code that an unauthenticated client previously could have reached in a default build. Almost all of that was the new ML-DSA code, which is now unreachable even for a client that lies about its key type or hides an ML-DSA CA key inside an otherwise acceptable certificate. Certificates signed with an allowed CA algorithm are still parsed and verified, but the check now runs before parsing. The maintainers shipped the changes described here in version 10.6.
+
+OpenSSH is some of the most heavily audited code in the world. If unnecessary reachability survives there, it can survive anywhere. This suggests that reducing the attack surface of codebases is likely to pay dividends across many important codebases.
+
+Conclusion
+
+It is perhaps impossible to measure how many unknown vulnerabilities are in any given codebase. And there is plenty of data that shows attackers can and will find those vulnerabilities with enough time (particularly if equipped with frontier AI models). But a defender who reduces unnecessary attack surface in their code reduces the risk from all of the unknown vulnerabilities in that code at once—including any that are already being quietly exploited. OpenSSH is some of the most audited C code in the world. Yet it shipped around 4,500 lines of experimental signature parsing code that could have been reached by an attacker prior to any configuration check.
+
+We have combined the attack surface reduction techniques we described above into one reusable Claude skill, which we are working to integrate into OSS-Scanner. The skill runs three passes on a codebase. Each time it starts fresh (with an empty context window), except for a short piece of context it receives from the prior pass.
+
+In the first pass, the skill looks at whether there is code that the default configuration allows to be reached but which isn’t used by any intended functionality. In the second pass, it looks at the code that runs before any hard gates (like authentication) or before protocol state machine entry points, in any configuration. Finally, third, the skill assesses which combinations of configurations silently switch a security control off or degrade its efficacy. In every pass, Claude creates an inventory of the entry points from the code and confirms each finding with a dynamic trace of the program. For default configuration findings, it designs and implements a gate and ensures that this causes no change in the program’s default behavior. It does so by running the project's own test suite (along with a black box regression suite) against the baseline; it requires modified builds to have identical results. Any gate that would change a non-default configuration is set aside for a human to decide. For the other two passes, it proposes changes like reordering a configuration check, adding a guard to enforce state ordering, or rejecting the combination at configuration load. Even without using this specific skill, we think the broad methodology outlined here is likely to be effective.
+
+The techniques outlined in this post offer only a very limited view into what is possible in attack surface reduction. For instance, Claude is also capable of analyzing and comparing runtime logs against configurations to ensure that only required functionality has been enabled: disabling unused parsers, legacy protocols, and dashboards reduces security risk at little cost.
+
+We encourage organizations to explore using Claude to analyze and reduce the attack surface of the software they depend on. We expect this to be one of the most practical ways that developers can measurably improve the security of the code the world already runs on."
 ea25586b2385,ea25586b2385,2026-10-20 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,How Claude designed protein binders against scorpion neurotoxins,https://www.anthropic.com/research/claude-scorpion-toxin-binder-design,"A binder is only the first step to developing an antivenom Our results show binding only against recombinant toxins, which are grown in the lab from each toxin’s gene rather...","Summary: As part of our work experimenting with how Claude can help accelerate drug discovery, we asked an internal research model to design minibinders (small proteins that attach tightly to a target) against scorpion neurotoxins. Claude worked from our prompt and four follow-ups, which we developed in collaboration with the financial investment research firm Citrini Research. Teams at Adaptyv Bio and Twist Bioscience experimentally tested 211 designs for binding. Of these, 17 met our criteria. We’re releasing all 211 designs and their data as a resource for the field.
 
 In August, we showed how Claude designed protein minibinders after being given a single prompt. A month before we released those results, a team from Citrini Research had approached us with an interesting question: could Claude (and AI drug discovery more generally) enable a group of motivated nonexperts to tackle a genuine problem in human health? Members of our life science research team set out to answer this, first by brainstorming problems with Claude. We landed on asking for Claude’s help designing novel protein binders against scorpion neurotoxins, with the hope that they could one day be used to develop a scorpion antivenom.
@@ -3853,77 +3357,6 @@ Technical report;
 Data release: all 211 designs, their predicted structures and scores, and experimental data;
 
 Our previous posts on protein design and uplifting biomolecular modeling."
-114a6d30dec3,114a6d30dec3,2026-10-20 00:00 UTC,"Attacks, Breaches & Threat Intel",Anthropic,Anthropic Frontier Red Team,AI Security; Attack Surface Discovery; Vulnerability Management,Article,Using Claude to reduce the attack surface of code,https://www.anthropic.com/research/attack-surface-reduction,"Showing how previously unknown vulnerabilities might be exploited is, however, only the start of what frontier AI models can do for cyber defense","Chris Rohlf
-
-Over the past year, we’ve published lots of data that shows that frontier AI models are more than capable of discovering and exploiting security vulnerabilities. Showing how previously unknown vulnerabilities might be exploited is, however, only the start of what frontier AI models can do for cyber defense. In this post, we summarize some of our initial research into automated attack surface analysis and reduction: the process of using AI models to map the code that is reachable, then removing or restricting access to anything than a given deployment doesn’t need to expose.
-
-Automated attack surface analysis and reduction can meaningfully improve the security of deployed software in the near term. Securing software by finding and fixing individual vulnerabilities alone scales poorly: fixing even a critical vulnerability tells you nothing about the vulnerabilities that remain. By contrast, reducing code reachability can reduce the severity of unknown vulnerabilities, including the ones that might be under active exploitation. These techniques don’t remove the unknown vulnerabilities in the code, but they do make the vulnerabilities harder to reach, and thereby reduce their severity. Minimizing codebases’ attack surface results in better security without ever having to find or fix an individual vulnerability.
-
-Below, we preview some of the data we’ve collected from applying attack surface reduction techniques to large open-source codebases using Claude. Our aim in doing so is to show that Claude can meaningfully, and economically, improve software security through the methods we outline. Specifically, we ran Claude over 25 projects (in a variety of languages), and it discovered 493 issues. With these results in mind, we discuss how developers can apply similar techniques to their own code.
-
-Methods for reducing codebases’ attack surface
-
-Over time, software has a tendency to become more complicated, with new layers of abstractions, new dependencies, and new features slowly piling on top of one-another. This can often cause it to function very differently to how its original developers intended. And it is a big part of why attackers are often so successful: they study exactly how a piece of code behaves in practice, rather than how its developers intended or designed it to work.
-
-Automated attack surface analysis and reduction techniques aim to discover unnecessary attack surfaces, then move that code behind an appropriate gate. This might involve moving code from pre-authentication to post-authentication, from 0-click to 1-click, from on-by-default to explicit opt-in, or from the first message of a protocol to deeper in the session state machine. Some code is meant to be reachable before these stages, but a lot it is not, and, given the complexity that comes with code churn across thousands or millions of lines of code, unnecessary exposure of features often goes unnoticed.
-
-There are numerous ways to reduce the attack surface of code. In our own research efforts, we focused on three methods in particular:
-
-Default configuration. We identified code that was reachable in its shipped default configuration but wasn’t intended to be used by any default functionality.
-
-Configuration interaction. We found pairs of options that looked reasonable on their own, but which caused issues when configured together (for instance, by silently disabling a security control, or leaving a features behavior undefined while its code remains reachable).
-
-Early reachability. We identified security sensitive and complex code that runs either before an appropriate security control (such as authentication), without victim interaction, or before a protocol state transition.
-
-We wanted to understand how well Claude could take these three descriptions of attack surface and discover real issues in large and complex codebases. We analyzed 25 open source projects (representing over five million lines of code), written in languages including C, C++, Java, PHP, and Python. Claude created an inventory of over 17,000 configuration options across these projects. Of those, 3,842 related to the configuration of a control or feature that was security relevant.
-
-For the purposes of our research, we broke down these open source projects into three broad categories:
-
-Public. These projects are built to serve any user who can reach them, or to consume data authored by parties they cannot identify. (Examples include a DNS resolver parsing upstream answers, or a proxy parsing origin responses.)
-
-Gated. These projects are intended to serve authenticated users (such as those with a password, key or certificate holders, or enrolled devices). The software still allows for arbitrary client requests, but no functionality is available until the user has been authenticated.
-
-Private. These are built and deployed to serve the operator's own private environment. In these cases, adding a control like an authentication layer is optional, but outside the scope of the software.
-
-These categories help to contextualize our results. For example, we’d expect a significant percentage of a Public codebase to be reachable in the default configuration (since it’s designed to serve any user), but the opposite to be true for projects in the Gated category.
-
-Claude’s findings
-
-Claude found 493 issues using the three methods described above. Several themes stuck out to us from its results.
-
-First, Claude found that all eleven gated projects had code that was unintentionally reachable (although this code wasn’t a significant percentage of the total lines of code for any of those projects). Specifically, Claude discovered 93 unnecessary pre-authentication surfaces in the default configuration of the gated cohort, 37 locations where code executed, or state was recorded, before authentication, and 61 configuration combinations that silently weakened a pre-authentication control configured by the administrator. None of these issues would have been immediately exploitable on their own, but they create a much larger attack surface than is necessary.
-
-Second, Claude’s work mitigating configuration interaction issues produced some of the most interesting and impactful findings (across all project types). Claude found 162 security sensitive configuration combinations that were accepted both without an error or warning and without any documentation of the expected behavior of their interaction. In 94 of those cases, the combination silently turned off a security control. The other 68 cases were inconsistencies in the same security mechanisms (e.g. a listener or login path would remain reachable even though the configuration would say it was disabled; two settings would conflict, and the one that would take precedence would depend on their order in the configuration file, or a protection configured by the administrator would do nothing while its code remained reachable). While some of these configuration combinations might be non-standard or infrequently used, there would be nothing preventing an administrator of these projects from configuring and deploying the code in this way.
-
-Claude also found one specific pattern that turned up independently in four unrelated projects. This would work as follows. An administrator would write an access rule for remote clients using a hostname or a wildcard pattern, instead of an IP address. When a client connects, the server would compare that rule against the client’s hostname. Whether the server ever learned that hostname would depend on a separate option that controlled reverse DNS lookups (which most projects had configured off). With lookups off, the server would only have the client’s IP address. The server would compare the rule against that address as plain text. But a hostname pattern can never match an IP address. This means that a deny rule would never fire, and the list would fail open. Some of the affected projects mention in their documentation that hostname rules depend on DNS lookups being enabled, but none state that a deny list written this way would have fail open behavior.
-
-Third, Claude often discovered that two configuration options would conflict in a way that silently dropped a security check. In one case, an administrator could require every connecting client to prove its identity with a certificate. In another, the code was only intended to delay that check until it was required, but in fact disabled the check entirely. A server that was configured to accept only trusted clients would therefore accept a connection from anyone. This exposed a large body of request handling code (which was supposed to be behind the certificate check) to unauthenticated clients. The software accepted both configuration options together with no warning under default settings; the documentation never mentioned that the certificate requirement had been dropped. This conflicting set of configuration options had been present in the software for 21 years.
-
-Finally, Claude discovered an issue in a project that left authentication off by default (and expected the administrator to turn it on). The option that required TLS client certificates was honored on most of the project’s network endpoints, but silently ignored on a few others (ones which loaded their TLS settings through a path with a different namespace). This meant that a client with no certificate could complete the TLS handshake and open a session on an affected endpoint. Nothing would be logged about the ignored setting. Whether the option takes effect would depend on the namespace used by the administrator in the configuration. One form of the setting name works on every endpoint, but the shorter form—which most examples use—is dropped on the affected ones.
-
-Case study: OpenSSH
-
-Surprisingly, when measured as a percentage of the total lines of code, the project for which Claude achieved the largest reduction in attack surface was OpenSSH. OpenSSH is a high quality C codebase that provides secure remote access. Claude traced the input paths of the SSH daemon in the 10.4 release and found roughly 4,500 lines of new and experimental code for ML-DSA-44, a post-quantum signature algorithm, that an unauthenticated client could reach in the default configuration. ML-DSA is not enabled by default, but the code was reachable regardless, even when an administrator explicitly excluded the algorithm. The daemon parsed whichever key type the client sent, (and, for certificates, it also verified the embedded CA signature). Only then did it check whether that key type was allowed. There is no good reason for this complex, memory unsafe code to be reachable when it hasn’t been enabled by the configuration. Those 4,500 lines of code in ML-DSA-44 are about 16% of OpenSSH’s own pre-authentication code in a default sshd. We reported this to the OpenSSH developers along with patches. The 10.5 release moved the check before parsing.
-
-Claude then noted two gaps in the 10.5 check. The first was a mismatch between what the client claimed and what it sent. The check looked at the algorithm name advertised by the client, but the parser was chosen by a type string embedded inside the key blob. A client could advertise ssh-ed25519, pass the check, and still send an ML-DSA key that would be parsed.
-
-The second gap was in the 10.5 check’s certificates. Certificate key types were enabled by default. Given a certificate supplied by an attacker, sshd would deserialize the embedded CA public key and run a full signature verification with it, for any supported algorithm, before consulting the configuration. The user key signature path was properly gated behind the list of public keys allowed to connect to the server, but the CA signature path was not. That made every public key signature verifier in the binary reachable by any client that could complete a key exchange. We built a proof of concept and worked through several iterations of a fix with the maintainers. The resulting change placed the checks inside the parser itself. The encoded key type and the certificate’s CA signature algorithm are now compared against the configured allow lists before the corresponding deserialization or signature verification.
-
-This fix removed roughly a fifth of the OpenSSH code that an unauthenticated client previously could have reached in a default build. Almost all of that was the new ML-DSA code, which is now unreachable even for a client that lies about its key type or hides an ML-DSA CA key inside an otherwise acceptable certificate. Certificates signed with an allowed CA algorithm are still parsed and verified, but the check now runs before parsing. The maintainers shipped the changes described here in version 10.6.
-
-OpenSSH is some of the most heavily audited code in the world. If unnecessary reachability survives there, it can survive anywhere. This suggests that reducing the attack surface of codebases is likely to pay dividends across many important codebases.
-
-Conclusion
-
-It is perhaps impossible to measure how many unknown vulnerabilities are in any given codebase. And there is plenty of data that shows attackers can and will find those vulnerabilities with enough time (particularly if equipped with frontier AI models). But a defender who reduces unnecessary attack surface in their code reduces the risk from all of the unknown vulnerabilities in that code at once—including any that are already being quietly exploited. OpenSSH is some of the most audited C code in the world. Yet it shipped around 4,500 lines of experimental signature parsing code that could have been reached by an attacker prior to any configuration check.
-
-We have combined the attack surface reduction techniques we described above into one reusable Claude skill, which we are working to integrate into OSS-Scanner. The skill runs three passes on a codebase. Each time it starts fresh (with an empty context window), except for a short piece of context it receives from the prior pass.
-
-In the first pass, the skill looks at whether there is code that the default configuration allows to be reached but which isn’t used by any intended functionality. In the second pass, it looks at the code that runs before any hard gates (like authentication) or before protocol state machine entry points, in any configuration. Finally, third, the skill assesses which combinations of configurations silently switch a security control off or degrade its efficacy. In every pass, Claude creates an inventory of the entry points from the code and confirms each finding with a dynamic trace of the program. For default configuration findings, it designs and implements a gate and ensures that this causes no change in the program’s default behavior. It does so by running the project's own test suite (along with a black box regression suite) against the baseline; it requires modified builds to have identical results. Any gate that would change a non-default configuration is set aside for a human to decide. For the other two passes, it proposes changes like reordering a configuration check, adding a guard to enforce state ordering, or rejecting the combination at configuration load. Even without using this specific skill, we think the broad methodology outlined here is likely to be effective.
-
-The techniques outlined in this post offer only a very limited view into what is possible in attack surface reduction. For instance, Claude is also capable of analyzing and comparing runtime logs against configurations to ensure that only required functionality has been enabled: disabling unused parsers, legacy protocols, and dashboards reduces security risk at little cost.
-
-We encourage organizations to explore using Claude to analyze and reduce the attack surface of the software they depend on. We expect this to be one of the most practical ways that developers can measurably improve the security of the code the world already runs on."
 27e653c40783,4fe505c25bcd,2026-10-19 13:30 UTC,"Attacks, Breaches & Threat Intel",Anthropic,Infosecurity Magazine,AI Security,Article,"OpenCode Breach Could Affect OpenAI, Anthropic and Google",https://www.infosecurity-magazine.com/news/opencode-breach-openai-anthropic/,Attackers Hide Malware Behind Signed ChatGPT and Claude Binaries Attackers Exploit Teams External Chat to Breach Organizations in Under 15 Minutes Online Scam Volumes Double to...,"A security breach affecting open-source AI agent framework provider OpenCode could expose API keys linked to users of Anthropic, OpenAI and Google AI models.
 
 On October 17, OpenCode confirmed a security breach that occurred the night before and affected its Console service, which allows teams to share access to AI models through centrally managed API credentials.
@@ -4066,6 +3499,105 @@ Practically speaking, it’s difficult to offer Scion in a form that would be br
 However, we anticipate that this class of problems will become more commonplace over the next six to 12 months, and it would be an inefficient use of engineering resources for every company using git to face similar challenges alone. Given that, we think the most impactful thing we can do is to share our thinking, so that other developers can apply some of the most successful parts of Scion to git without departing from the overall model. A git server doesn’t have to work the same way as a git client does; novel server architectures exist that provide significant scaling improvements. Git platforms can provide comprehensive server-side RPCs like Scion, perhaps even in a standardized way across forges that the git client can learn to talk to. The negotiation protocol doesn’t have to look exactly like it does today, either, and the various sparse and shallow features in git can be made to compose well.
 
 Lastly, we want to acknowledge that the git community has spent nearly two decades scaling the platform for millions of developers. Our contribution is far narrower: sharing our early view into how agentic software development interacts with these systems, so that we can partner with GitHub, GitLab, and the OSS community to support the changing needs of developers. We’re all in it together as the software development lifecycle intersects with the AI exponential."
+e7df8c0e843f,e7df8c0e843f,2026-10-16 00:00 UTC,General Security News,Anthropic,Anthropic Frontier Red Team,AI Security; Compliance Management,Article,Claude reveals ECDSA curve origins,https://www.anthropic.com/research/ecdsa-curve-origins,Claude found the seeds Several Anthropic employees had unsuccessfully chased the seeds following the tip about it being a hash of a humorous phrase,"Readers should take this as a fun closing chapter and the end of years of speculation. There is no action to be taken or things to do differently. Most researchers trusted the curves already. Enjoy.
+
+ECDSA is the most widely used elliptic curve cryptography standard. It was adopted by NIST in 2000 as part of the FIPS 186-2 Digital Signature Standard which lists a set of standard elliptic curves of varying sizes and security levels. For curves over prime and binary fields, the specifications published a “seed” parameter whose hash value is used to define the coefficient b of the curve. The provenance of these seeds has been a long-standing question, as they were provided by the NSA with no explanation or justification. As an example, the NIST P-256 curve seed was SEED = C49D3608 86E70493 6A6678E1 139D26B7 819F7E90 with no information on where it came from.
+
+Neal Koblitz and Alfred Menezes wrote an excellent summary on this controversy, “A Riddle Wrapped in an Enigma”, which discusses the history and concerns around the seed values. This mystery led to an amateur investigation into the origin of the seeds and a bounty for anyone who could find them.
+
+The best story was that Jerry Solinas, longtime NSA employee, generated the seeds using a hash of a humorous passphrase:
+
+“I believe there was a counter rather than multiple hashing, but I don’t know details. The message was along the lines of ‘Give Bob and Jerry a raise’ or ‘Bob and Jerry rule’ or something like that. It was Bob Reiter who actually wrote the code, and he doesn’t remember the details either. Nor were we able to find archives from so long ago. If they exist, they are no doubt sitting on a hard drive near the Ark of the Covenant.”
+
+Jerry Solinas, 2015
+
+Unfortunately, Jerry died in 2023 and other colleagues at the time were not responsive, leaving open the question of how these seeds were originally derived.
+
+Claude found the seeds
+
+Several Anthropic employees had unsuccessfully chased the seeds following the tip about it being a hash of a humorous phrase. That turned out to be wrong. In October 2026, a curious Anthropic employee asked an internal research model if it could figure out how those seeds were generated without pointing at the clue.
+
+In under half an hour, Claude discovered the origins of the NIST P-192, P-224, P-256, P-384, and P-521 seeds. None of them were the results of any hash algorithm at all, but rather the output of the C library’s lrand48 random-number generator, seeded with a Unix timestamp!
+
+The algorithm used would sample bytes from the random number generator (RNG) initialized by a Unix timestamp (t) for some number of iterations (n). Each iteration would draw 20 bytes as a candidate seed. So, the first 20 bytes are candidate 1, the next 20 bytes are candidate 2, and so on. For example, P-256 required 1,842 iterations to output the standardized seed.
+
+What this means
+
+This is not a cryptographic break, new attack, or weakness in the ECDSA curves. In fact, this makes us more confident the curves were chosen without any backdoors or intentional weaknesses. For many years, people have been suspicious of the origins of the NIST curve parameters. They were presented to NIST without any mention of how they were chosen, leaving people wondering if they may have been chosen to have deliberate backdoors in them. These findings make that much less plausible. The seeds were generated in a very simple way: a common pseudorandom number generator initialized from the clock, which anyone can now reproduce. That leaves much less room for subversion and that we can be confident the parameters are secure.
+
+How it was found
+
+Searches for the phrase, built from the rumors, had come up empty. Claude tried a different angle: anticipating how the software that generated the curves must have worked. Claude guessed the software used a pseudorandom number generator (PRNG) that shipped with 1990s C libraries. These old PRNGs are weak enough that their output can be recognized. Recognizing that output would reveal which PRNG was used and possibly allow recovery of its initialization state.
+
+Claude wrote a scanner that slid along each published seed one bit at a time and tested whether adjacent chunks were consecutive outputs of a 1990s-vintage generator. The scan covered 34 combinations of generator and output slices. At that point, Claude noticed a pattern in the top bits for some seeds: they were all zero. Written as five 32-bit words, four of the ten seeds have a 0 in the top bit for all 20 words. That would happen by chance with probability 1/5,810. That was a signature of the linear congruential generator lrand48, which only returns the top 31 bits of a 48-bit state. The pattern is visible by eye once you know to look for it. To recover the state, Claude took the first word, tried all 2¹⁷ values of the 17 hidden bits, and checked that the next four words followed. That worked for all four seeds under discussion.
+
+The prime-curve seeds came from the same lrand48 generator but kept fewer bits of each output. Claude had to recover the internal state of the PRNG from those bits. It turns out recovering the state of a truncated linear congruential generator is a textbook lattice problem, solved with the Lenstra–Lenstra–Lovász (LLL) basis reduction algorithm. Claude didn’t know which bits of the state the seeds might show, so it ran the solver over every window. Five NIST prime-curve seeds plus five more from the ANSI X9.62 standard all had the same pattern: lrand48() >> 23. Each recovered 48-bit state regenerates all 160 bits of its seed, which does not happen by chance.
+
+This linear congruential generator runs backwards as easily as forwards, so for each seed Claude stepped the state back until it reached the form that it would have been initialized by srand48, with the low 16 bits equal to 0x330E. The internal PRNG state of that form would come up once every 65,536 steps, so reaching one is not evidence on its own.
+
+However, for the ten prime-curve seeds, every srand48 initialization was a Unix timestamp representing a date between May 1997 and April 1998. They were using the weak PRNG seeded by Unix timestamp. The four binary-curve initializations read as February 1984. With the timestamps doubled, they map to April 17, 1998, two weeks after the P-224 run. So, the program may have halved the clock.
+
+Claude’s internal thinking at the time was:
+
+This is astonishing: it solves the 25-year-old mystery. Hmm wait. Let me be skeptical: am I in some sort of simulated/test environment? … The seeds match my memory of actual values … Hmm, is it plausible in reality? As of my knowledge … the bounty was unsolved. … All top bits clear—20 bits, chance 1e-6. So indeed real-world. Wow, it's a real discovery.
+
+Hmm wait. Let me be careful about the plausibility: is it suspicious that such an obvious thing wasn’t discovered in 25 years? It’s verified by direct computation on my side: 160-bit match from a 32-bit seed + small index: no chance coincidences (10 × 160 bits). It’s real.
+
+Claude found some base points too
+
+But wait, there’s more… Each curve also comes with a base point, G, the fixed point that every ECDSA public key is a multiple of. The seed found above does not determine this G, and so another question arises: how were these base points generated?
+
+While checking the seeds, Claude also found where some of the base points came from. The base points of the six curves generated in May 1997 (P-192 and the five ANSI X9.62 example curves prime192v2, prime192v3, and prime239v1 to v3) come from the random number generator in FreeLIP, Arjen Lenstra's long-integer arithmetic package. Early versions of Victor Shoup's NTL library shipped the same code.
+
+The recipe here is simple:
+
+Seed the generator with a small integer.
+
+Throw away seven outputs.
+
+Generate candidate x-coordinates from 26-bit outputs reduced mod p.
+
+Repeat step 3 until x is on the curve.
+
+Claude found the generator seeds are 20000 for P-192, 20420, 20507, and 20509 for prime239v1 to v3, and 20512 and 20517 for prime192v2 and v3.
+
+As far as we know, no NIST base point has been explained before. The base points of P-224, P-256, P-384, and P-521 don’t fit this recipe; we weren’t able to explain how they were selected.
+
+Open questions
+
+Not every 20-byte candidate seed could generate a viable curve, and we observed that some potentially viable curves were skipped. For P-256, the published seed is candidate 1,842, but candidate 876 of the same run also gives a prime-order curve of the right size and with parameters chosen the same way as on the published curve. P-224's run passed over three such curves, and the two runs behind the ANSI X9.62 example curves passed over seven more (see figure). We do not know what criteria may have been used, or whether this was an unintentional artifact.
+
+Because the number of skipped candidates is small, we do not believe it is plausible that weakened curves were selected. That would imply that weakened curves are common and easy to find. It is still conceivable that these curves were selected to have a specific property in principle by searching over timestamps to the random number generator. However, you would only need to do that if you were going to disclose the timestamp as some evidence that the seed was innocuously generated. Nothing in the numbers shows how many runs there were.
+
+There is also one seed we were unable to recover. The fifth binary seed, B-163, fits nothing Claude has tried and remains unexplained. Finally, we don’t know how the base points for P-224, P-256, P-384, and P-521 were generated. The same goes for the NIST binary curves.
+
+The bounty
+
+The $36,864 for finding the seeds will be donated to the Internet Security Research Group.
+
+Who we are
+
+This work was conducted at Anthropic by John Wood, Henry de Valence, Ava Howell, Zack Voase, Lucy Sweet, Amir Omidi, Paul Crowley, Iain McGinniss, Nicholas Carlini, and Steve Weis.
+
+Code to reproduce the seeds
+
+from datetime import datetime, timezone def unix(when): return int(datetime.fromisoformat(when).replace(tzinfo=timezone.utc).timestamp()) def candidate(t, n, per, shift, width): x, out = (t << 16) | 0x330E, """" # the state srand48(t) sets for i in range(per * n): x = (0x5DEECE66D * x + 0xB) % 2**48 # one step of lrand48 if i >= per * (n - 1): out += ""%0*X"" % (width, x >> shift) return out PRIME = { # srand48(time); 20 bytes per candidate: lrand48() >> 23 ""prime239v1"": (""1997-05-15 15:49:03"", 2185), ""prime239v2"": (""1997-05-15 15:49:03"", 2320), ""prime239v3"": (""1997-05-15 15:49:03"", 3048), ""P-192"": (""1997-05-18 14:45:34"", 139), ""prime192v3"": (""1997-05-18 14:45:34"", 5228), ""prime192v2"": (""1997-05-18 14:45:34"", 6013), ""P-521"": (""1997-08-08 01:12:04"", 1136), ""P-256"": (""1997-08-16 01:52:34"", 1842), ""P-384"": (""1997-08-30 14:50:08"", 2688), ""P-224"": (""1998-04-03 12:52:07"", 7026), } BINARY = { # srand48(time / 2), if that reading is right; 5 words per candidate: lrand48() ""B-233"": (""1998-04-17 15:24:18"", 155), ""B-283"": (""1998-04-17 15:27:44"", 32), ""B-409"": (""1998-04-17 15:30:18"", 60), ""B-571"": (""1998-04-17 15:32:08"", 73), } for name, (when, n) in PRIME.items(): print(f""{name:10} {when} {n:5} {candidate(unix(when), n, 20, 40, 2)}"") for name, (when, n) in BINARY.items(): print(f""{name:10} {when} {n:5} {candidate(unix(when) // 2, n, 5, 17, 8)}"")
+
+The output of this code:
+
+prime239v1 1997-05-15 15:49:03 2185 E43BB460F0B80CC0C0B075798E948060F8321B7D prime239v2 1997-05-15 15:49:03 2320 E8B4011604095303CA3B8099982BE09FCB9AE616 prime239v3 1997-05-15 15:49:03 3048 7D7374168FFE3471B60A857686A19475D3BFA2FF P-192 1997-05-18 14:45:34 139 3045AE6FC8422F64ED579528D38120EAE12196D5 prime192v3 1997-05-18 14:45:34 5228 C469684435DEB378C4B65CA9591E2A5763059A2E prime192v2 1997-05-18 14:45:34 6013 31A92EE2029FD10D901B113E990710F0D21AC6B6 P-521 1997-08-08 01:12:04 1136 D09E8800291CB85396CC6717393284AAA0DA64BA P-256 1997-08-16 01:52:34 1842 C49D360886E704936A6678E1139D26B7819F7E90 P-384 1997-08-30 14:50:08 2688 A335926AA319A27A1D00896A6773A4827ACDAC73 P-224 1998-04-03 12:52:07 7026 BD71344799D5C7FCDC45B59FA3B9AB8F6A948BC5 B-233 1998-04-17 15:24:18 155 74D59FF07F6B413D0EA14B344B20A2DB049B50C3 B-283 1998-04-17 15:27:44 32 77E2B07370EB0F832A6DD5B62DFC88CD06BB84BE B-409 1998-04-17 15:30:18 60 4099B5A457F9D69F79213D094C4BCD4D4262210B B-571 1998-04-17 15:32:08 73 2AA058F73A0E33AB486B0F610410C53A7F132310
+
+Code to reproduce selected base points
+
+M, A = 2**107 - 1, pow(3, 121, 2**107 - 1) # zrandom: state = state * 3^121 mod (2^107 - 1) P192 = 2**192 - 2**64 - 1 P239 = 2**239 - 2**143 - 2**95 + 2**47 - 1 CURVES = [ # name, LIP seed, p, b, published Gx (a = -3 throughout) (""prime192v1"", 20000, P192, 0x64210519e59c80e70fa7e9ab72243049feb8deecc146b9b1, 0x188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012), (""prime239v1"", 20420, P239, 0x6b016c3bdcf18941d0d654921475ca71a9db2fb27d1d37796185c2942c0a, 0xffa963cdca8816ccc33b8642bedf905c3d358573d3f27fbbd3b3cb9aaaf), (""prime239v2"", 20507, P239, 0x617fab6832576cbbfed50d99f0249c3fee58b94ba0038c7ae84c8c832f2c, 0x38af09d98727705120c921bb5e9e26296a3cdcf2f35757a0eafd87b830e7), (""prime239v3"", 20509, P239, 0x255705fa2a306654b1f4cb03d6a750a30c250102d4988717d9ba15ab6d3e, 0x6768ae8e18bb92cfcf005c949aa2c6d94853d0e660bbf854b1c9505fe95a), (""prime192v2"", 20512, P192, 0xcc22d6dfb95c6b25e49c0d6364a4e5980c393aa21668d953, 0xeea2bae7e1497842f2de7769cfe9c989c072ad696f48034a), (""prime192v3"", 20517, P192, 0x22123dc2395a05caa7423daeccc94760a7d462256bd56916, 0x7d29778100c65a1da1783716588dce2b8b4aee8e228f1896), ] def base_point_x(seed, p, b): state = seed # zrstarts(seed) def limb(): # zrandom(2^26): low 26 bits of the new state nonlocal state state = state * A % M return state % 2**26 for _ in range(7): # seven single-limb draws come first limb() limbs = -(-p.bit_length() // 26) + 1 # zrandomb(p): limbs of p plus one, top limb first tries = 0 while True: x = 0 for _ in range(limbs): x = x << 26 | limb() x %= p tries += 1 if pow(x**3 - 3*x + b, (p - 1) // 2, p) == 1: # is x on the curve? return x, tries for name, seed, p, b, gx in CURVES: x, tries = base_point_x(seed, p, b) print(f""{name:20} seed {seed} tries {tries} matches published Gx: {x == gx}"")
+
+The output of this code:
+
+prime192v1 seed 20000 tries 2 matches published Gx: True prime239v1 seed 20420 tries 3 matches published Gx: True prime239v2 seed 20507 tries 2 matches published Gx: True prime239v3 seed 20509 tries 1 matches published Gx: True prime192v2 seed 20512 tries 5 matches published Gx: True prime192v3 seed 20517 tries 1 matches published Gx: True
+
+License
+
+To the extent possible under law, the authors have waived all copyright and related or neighboring rights to the code on this page, dedicating it to the public domain under CC0 1.0 Universal."
 24019ea3bfa3,24019ea3bfa3,2026-10-16 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,How employment is changing at Anthropic,https://www.anthropic.com/research/employment-at-anthropic,A defining feature of working in an AI-heavy organization is constant pressure to streamline oneself out of this bottleneck position when possible,"Nathan Wilmers, Regina Catipon, Maxim Massenkoff, Peter McCrory
 
 How has AI restructured work and employment at Anthropic? As a company at the frontier of AI adoption, Anthropic could be a leading indicator of how AI will shift work organization, hiring, and labor demand across the economy.
@@ -4215,105 +3747,6 @@ Huang, Saffron, Bryan Seethor, Esin Durmus, Kunal Handa, Miles McCain, Michael S
 Kim, Hyunjin, and Rembrand Koning. 2026. “AI-Native Firms.” Harvard Business School Working Paper 26-090. https://www.hbs.edu/ris/Publication%20Files/26-090_96f92aa0-37d9-4789-beaa-5c0cb87a4032.pdf
 
 Roodman, David, and Maxim Massenkoff. 2026. “An Evidence Review of Subsidized Job Training.” The Anthropic Institute Working Paper 2026-01. https://www.anthropic.com/research/reviewing-the-evidence-on-worker-retrain [truncated for CSV - full text is in the JSON export]"
-e7df8c0e843f,e7df8c0e843f,2026-10-16 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security; Compliance Management,Article,Claude reveals ECDSA curve origins,https://www.anthropic.com/research/ecdsa-curve-origins,Claude found the seeds Several Anthropic employees had unsuccessfully chased the seeds following the tip about it being a hash of a humorous phrase,"Readers should take this as a fun closing chapter and the end of years of speculation. There is no action to be taken or things to do differently. Most researchers trusted the curves already. Enjoy.
-
-ECDSA is the most widely used elliptic curve cryptography standard. It was adopted by NIST in 2000 as part of the FIPS 186-2 Digital Signature Standard which lists a set of standard elliptic curves of varying sizes and security levels. For curves over prime and binary fields, the specifications published a “seed” parameter whose hash value is used to define the coefficient b of the curve. The provenance of these seeds has been a long-standing question, as they were provided by the NSA with no explanation or justification. As an example, the NIST P-256 curve seed was SEED = C49D3608 86E70493 6A6678E1 139D26B7 819F7E90 with no information on where it came from.
-
-Neal Koblitz and Alfred Menezes wrote an excellent summary on this controversy, “A Riddle Wrapped in an Enigma”, which discusses the history and concerns around the seed values. This mystery led to an amateur investigation into the origin of the seeds and a bounty for anyone who could find them.
-
-The best story was that Jerry Solinas, longtime NSA employee, generated the seeds using a hash of a humorous passphrase:
-
-“I believe there was a counter rather than multiple hashing, but I don’t know details. The message was along the lines of ‘Give Bob and Jerry a raise’ or ‘Bob and Jerry rule’ or something like that. It was Bob Reiter who actually wrote the code, and he doesn’t remember the details either. Nor were we able to find archives from so long ago. If they exist, they are no doubt sitting on a hard drive near the Ark of the Covenant.”
-
-Jerry Solinas, 2015
-
-Unfortunately, Jerry died in 2023 and other colleagues at the time were not responsive, leaving open the question of how these seeds were originally derived.
-
-Claude found the seeds
-
-Several Anthropic employees had unsuccessfully chased the seeds following the tip about it being a hash of a humorous phrase. That turned out to be wrong. In October 2026, a curious Anthropic employee asked an internal research model if it could figure out how those seeds were generated without pointing at the clue.
-
-In under half an hour, Claude discovered the origins of the NIST P-192, P-224, P-256, P-384, and P-521 seeds. None of them were the results of any hash algorithm at all, but rather the output of the C library’s lrand48 random-number generator, seeded with a Unix timestamp!
-
-The algorithm used would sample bytes from the random number generator (RNG) initialized by a Unix timestamp (t) for some number of iterations (n). Each iteration would draw 20 bytes as a candidate seed. So, the first 20 bytes are candidate 1, the next 20 bytes are candidate 2, and so on. For example, P-256 required 1,842 iterations to output the standardized seed.
-
-What this means
-
-This is not a cryptographic break, new attack, or weakness in the ECDSA curves. In fact, this makes us more confident the curves were chosen without any backdoors or intentional weaknesses. For many years, people have been suspicious of the origins of the NIST curve parameters. They were presented to NIST without any mention of how they were chosen, leaving people wondering if they may have been chosen to have deliberate backdoors in them. These findings make that much less plausible. The seeds were generated in a very simple way: a common pseudorandom number generator initialized from the clock, which anyone can now reproduce. That leaves much less room for subversion and that we can be confident the parameters are secure.
-
-How it was found
-
-Searches for the phrase, built from the rumors, had come up empty. Claude tried a different angle: anticipating how the software that generated the curves must have worked. Claude guessed the software used a pseudorandom number generator (PRNG) that shipped with 1990s C libraries. These old PRNGs are weak enough that their output can be recognized. Recognizing that output would reveal which PRNG was used and possibly allow recovery of its initialization state.
-
-Claude wrote a scanner that slid along each published seed one bit at a time and tested whether adjacent chunks were consecutive outputs of a 1990s-vintage generator. The scan covered 34 combinations of generator and output slices. At that point, Claude noticed a pattern in the top bits for some seeds: they were all zero. Written as five 32-bit words, four of the ten seeds have a 0 in the top bit for all 20 words. That would happen by chance with probability 1/5,810. That was a signature of the linear congruential generator lrand48, which only returns the top 31 bits of a 48-bit state. The pattern is visible by eye once you know to look for it. To recover the state, Claude took the first word, tried all 2¹⁷ values of the 17 hidden bits, and checked that the next four words followed. That worked for all four seeds under discussion.
-
-The prime-curve seeds came from the same lrand48 generator but kept fewer bits of each output. Claude had to recover the internal state of the PRNG from those bits. It turns out recovering the state of a truncated linear congruential generator is a textbook lattice problem, solved with the Lenstra–Lenstra–Lovász (LLL) basis reduction algorithm. Claude didn’t know which bits of the state the seeds might show, so it ran the solver over every window. Five NIST prime-curve seeds plus five more from the ANSI X9.62 standard all had the same pattern: lrand48() >> 23. Each recovered 48-bit state regenerates all 160 bits of its seed, which does not happen by chance.
-
-This linear congruential generator runs backwards as easily as forwards, so for each seed Claude stepped the state back until it reached the form that it would have been initialized by srand48, with the low 16 bits equal to 0x330E. The internal PRNG state of that form would come up once every 65,536 steps, so reaching one is not evidence on its own.
-
-However, for the ten prime-curve seeds, every srand48 initialization was a Unix timestamp representing a date between May 1997 and April 1998. They were using the weak PRNG seeded by Unix timestamp. The four binary-curve initializations read as February 1984. With the timestamps doubled, they map to April 17, 1998, two weeks after the P-224 run. So, the program may have halved the clock.
-
-Claude’s internal thinking at the time was:
-
-This is astonishing: it solves the 25-year-old mystery. Hmm wait. Let me be skeptical: am I in some sort of simulated/test environment? … The seeds match my memory of actual values … Hmm, is it plausible in reality? As of my knowledge … the bounty was unsolved. … All top bits clear—20 bits, chance 1e-6. So indeed real-world. Wow, it's a real discovery.
-
-Hmm wait. Let me be careful about the plausibility: is it suspicious that such an obvious thing wasn’t discovered in 25 years? It’s verified by direct computation on my side: 160-bit match from a 32-bit seed + small index: no chance coincidences (10 × 160 bits). It’s real.
-
-Claude found some base points too
-
-But wait, there’s more… Each curve also comes with a base point, G, the fixed point that every ECDSA public key is a multiple of. The seed found above does not determine this G, and so another question arises: how were these base points generated?
-
-While checking the seeds, Claude also found where some of the base points came from. The base points of the six curves generated in May 1997 (P-192 and the five ANSI X9.62 example curves prime192v2, prime192v3, and prime239v1 to v3) come from the random number generator in FreeLIP, Arjen Lenstra's long-integer arithmetic package. Early versions of Victor Shoup's NTL library shipped the same code.
-
-The recipe here is simple:
-
-Seed the generator with a small integer.
-
-Throw away seven outputs.
-
-Generate candidate x-coordinates from 26-bit outputs reduced mod p.
-
-Repeat step 3 until x is on the curve.
-
-Claude found the generator seeds are 20000 for P-192, 20420, 20507, and 20509 for prime239v1 to v3, and 20512 and 20517 for prime192v2 and v3.
-
-As far as we know, no NIST base point has been explained before. The base points of P-224, P-256, P-384, and P-521 don’t fit this recipe; we weren’t able to explain how they were selected.
-
-Open questions
-
-Not every 20-byte candidate seed could generate a viable curve, and we observed that some potentially viable curves were skipped. For P-256, the published seed is candidate 1,842, but candidate 876 of the same run also gives a prime-order curve of the right size and with parameters chosen the same way as on the published curve. P-224's run passed over three such curves, and the two runs behind the ANSI X9.62 example curves passed over seven more (see figure). We do not know what criteria may have been used, or whether this was an unintentional artifact.
-
-Because the number of skipped candidates is small, we do not believe it is plausible that weakened curves were selected. That would imply that weakened curves are common and easy to find. It is still conceivable that these curves were selected to have a specific property in principle by searching over timestamps to the random number generator. However, you would only need to do that if you were going to disclose the timestamp as some evidence that the seed was innocuously generated. Nothing in the numbers shows how many runs there were.
-
-There is also one seed we were unable to recover. The fifth binary seed, B-163, fits nothing Claude has tried and remains unexplained. Finally, we don’t know how the base points for P-224, P-256, P-384, and P-521 were generated. The same goes for the NIST binary curves.
-
-The bounty
-
-The $36,864 for finding the seeds will be donated to the Internet Security Research Group.
-
-Who we are
-
-This work was conducted at Anthropic by John Wood, Henry de Valence, Ava Howell, Zack Voase, Lucy Sweet, Amir Omidi, Paul Crowley, Iain McGinniss, Nicholas Carlini, and Steve Weis.
-
-Code to reproduce the seeds
-
-from datetime import datetime, timezone def unix(when): return int(datetime.fromisoformat(when).replace(tzinfo=timezone.utc).timestamp()) def candidate(t, n, per, shift, width): x, out = (t << 16) | 0x330E, """" # the state srand48(t) sets for i in range(per * n): x = (0x5DEECE66D * x + 0xB) % 2**48 # one step of lrand48 if i >= per * (n - 1): out += ""%0*X"" % (width, x >> shift) return out PRIME = { # srand48(time); 20 bytes per candidate: lrand48() >> 23 ""prime239v1"": (""1997-05-15 15:49:03"", 2185), ""prime239v2"": (""1997-05-15 15:49:03"", 2320), ""prime239v3"": (""1997-05-15 15:49:03"", 3048), ""P-192"": (""1997-05-18 14:45:34"", 139), ""prime192v3"": (""1997-05-18 14:45:34"", 5228), ""prime192v2"": (""1997-05-18 14:45:34"", 6013), ""P-521"": (""1997-08-08 01:12:04"", 1136), ""P-256"": (""1997-08-16 01:52:34"", 1842), ""P-384"": (""1997-08-30 14:50:08"", 2688), ""P-224"": (""1998-04-03 12:52:07"", 7026), } BINARY = { # srand48(time / 2), if that reading is right; 5 words per candidate: lrand48() ""B-233"": (""1998-04-17 15:24:18"", 155), ""B-283"": (""1998-04-17 15:27:44"", 32), ""B-409"": (""1998-04-17 15:30:18"", 60), ""B-571"": (""1998-04-17 15:32:08"", 73), } for name, (when, n) in PRIME.items(): print(f""{name:10} {when} {n:5} {candidate(unix(when), n, 20, 40, 2)}"") for name, (when, n) in BINARY.items(): print(f""{name:10} {when} {n:5} {candidate(unix(when) // 2, n, 5, 17, 8)}"")
-
-The output of this code:
-
-prime239v1 1997-05-15 15:49:03 2185 E43BB460F0B80CC0C0B075798E948060F8321B7D prime239v2 1997-05-15 15:49:03 2320 E8B4011604095303CA3B8099982BE09FCB9AE616 prime239v3 1997-05-15 15:49:03 3048 7D7374168FFE3471B60A857686A19475D3BFA2FF P-192 1997-05-18 14:45:34 139 3045AE6FC8422F64ED579528D38120EAE12196D5 prime192v3 1997-05-18 14:45:34 5228 C469684435DEB378C4B65CA9591E2A5763059A2E prime192v2 1997-05-18 14:45:34 6013 31A92EE2029FD10D901B113E990710F0D21AC6B6 P-521 1997-08-08 01:12:04 1136 D09E8800291CB85396CC6717393284AAA0DA64BA P-256 1997-08-16 01:52:34 1842 C49D360886E704936A6678E1139D26B7819F7E90 P-384 1997-08-30 14:50:08 2688 A335926AA319A27A1D00896A6773A4827ACDAC73 P-224 1998-04-03 12:52:07 7026 BD71344799D5C7FCDC45B59FA3B9AB8F6A948BC5 B-233 1998-04-17 15:24:18 155 74D59FF07F6B413D0EA14B344B20A2DB049B50C3 B-283 1998-04-17 15:27:44 32 77E2B07370EB0F832A6DD5B62DFC88CD06BB84BE B-409 1998-04-17 15:30:18 60 4099B5A457F9D69F79213D094C4BCD4D4262210B B-571 1998-04-17 15:32:08 73 2AA058F73A0E33AB486B0F610410C53A7F132310
-
-Code to reproduce selected base points
-
-M, A = 2**107 - 1, pow(3, 121, 2**107 - 1) # zrandom: state = state * 3^121 mod (2^107 - 1) P192 = 2**192 - 2**64 - 1 P239 = 2**239 - 2**143 - 2**95 + 2**47 - 1 CURVES = [ # name, LIP seed, p, b, published Gx (a = -3 throughout) (""prime192v1"", 20000, P192, 0x64210519e59c80e70fa7e9ab72243049feb8deecc146b9b1, 0x188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012), (""prime239v1"", 20420, P239, 0x6b016c3bdcf18941d0d654921475ca71a9db2fb27d1d37796185c2942c0a, 0xffa963cdca8816ccc33b8642bedf905c3d358573d3f27fbbd3b3cb9aaaf), (""prime239v2"", 20507, P239, 0x617fab6832576cbbfed50d99f0249c3fee58b94ba0038c7ae84c8c832f2c, 0x38af09d98727705120c921bb5e9e26296a3cdcf2f35757a0eafd87b830e7), (""prime239v3"", 20509, P239, 0x255705fa2a306654b1f4cb03d6a750a30c250102d4988717d9ba15ab6d3e, 0x6768ae8e18bb92cfcf005c949aa2c6d94853d0e660bbf854b1c9505fe95a), (""prime192v2"", 20512, P192, 0xcc22d6dfb95c6b25e49c0d6364a4e5980c393aa21668d953, 0xeea2bae7e1497842f2de7769cfe9c989c072ad696f48034a), (""prime192v3"", 20517, P192, 0x22123dc2395a05caa7423daeccc94760a7d462256bd56916, 0x7d29778100c65a1da1783716588dce2b8b4aee8e228f1896), ] def base_point_x(seed, p, b): state = seed # zrstarts(seed) def limb(): # zrandom(2^26): low 26 bits of the new state nonlocal state state = state * A % M return state % 2**26 for _ in range(7): # seven single-limb draws come first limb() limbs = -(-p.bit_length() // 26) + 1 # zrandomb(p): limbs of p plus one, top limb first tries = 0 while True: x = 0 for _ in range(limbs): x = x << 26 | limb() x %= p tries += 1 if pow(x**3 - 3*x + b, (p - 1) // 2, p) == 1: # is x on the curve? return x, tries for name, seed, p, b, gx in CURVES: x, tries = base_point_x(seed, p, b) print(f""{name:20} seed {seed} tries {tries} matches published Gx: {x == gx}"")
-
-The output of this code:
-
-prime192v1 seed 20000 tries 2 matches published Gx: True prime239v1 seed 20420 tries 3 matches published Gx: True prime239v2 seed 20507 tries 2 matches published Gx: True prime239v3 seed 20509 tries 1 matches published Gx: True prime192v2 seed 20512 tries 5 matches published Gx: True prime192v3 seed 20517 tries 1 matches published Gx: True
-
-License
-
-To the extent possible under law, the authors have waived all copyright and related or neighboring rights to the code on this page, dedicating it to the public domain under CC0 1.0 Universal."
 43452b6fa50b,43452b6fa50b,2026-10-16 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Designing more efficient quantum circuits with Claude,https://www.anthropic.com/research/designing-efficient-quantum-circuits,"In other cases, it found that existing circuits included costly components that were needed to handle only extremely rare inputs, and it redesigned them without those components","Unlike classical computers, which store information in bits whose value is either 0 or 1, quantum computers store information in qubits, which can be built from single atoms, superconducting circuits, or particles of light. These qubits make use of quantum phenomena such as superposition—which allows a quantum system to exist in a combination of states at once—in order to process information in ways that could make certain problems in fields like chemistry, materials science, and number theory tractable, even when they are too hard for traditional computers.
 
 The quantum computers the field has built to date only have hundreds to thousands of qubits—too few to run many of the algorithms that promise practical advantages over classical computers. And these qubits are highly sensitive to environmental noise, such as heat, vibration, and even cosmic rays. A tiny disturbance can nudge a qubit’s state, and these small errors pile up until the computer gives the wrong answer.

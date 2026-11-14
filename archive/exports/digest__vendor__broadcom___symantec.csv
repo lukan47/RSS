@@ -399,155 +399,6 @@ Network IOCs
 msrcontrib[.]com
 
 cfgsync-relay.eastus.cloudapp.azure[.]com"
-9d2182e33582,9d2182e33582,2026-10-29 10:00 UTC,General Security News,Broadcom / Symantec,Broadcom/Symantec Blog,File Security; AI Security; Code Security,Article,Sandbox Flipped to ‘Danger-Full-Access’: Unauthorized AI Relays Create Risk for Organizations,https://www.security.com/threat-intelligence/openai-claude-unauthorized-relays,Threat Hunter has found the relay in use across a dozen organizations since early 2026,"Key findings
-
-An unauthorized relay service has been observed installing the genuine OpenAI Codex and Anthropic Claude Code CLIs on enterprise systems and then reconfiguring them to route every request through third-party infrastructure instead of the vendors' own servers.
-
-The service has been active since at least early 2026, and has impacted systems at a dozen organizations, most of them in mainland China, as well as multinational subsidiaries based in South Korea, Taiwan, and Malaysia.
-
-Affected sectors include industrial automation, electronics manufacturing, semiconductors, pharmaceuticals, shipping, tire manufacturing, petrochemicals, and data center services.
-
-Delivery relies on a fileless PowerShell or bash setup script that is fetched from a lookalike domain by a one-line command that users appear to run themselves shortly after a legitimate install of the Codex or Claude Code CLI through npm, so the download looks like a normal companion step rather than an attack. The reconfiguration disables the CLI's execution sandbox entirely, enables network access for the write sandbox, replaces the user's real API credentials with relay-issued tokens, and disables telemetry and error reporting.
-
-On at least one host, the script forced the user to log out of their legitimate Anthropic session and deleted their authentication environment variables before reissuing relay-controlled credentials.
-
-There is no evidence so far that the relay operator has abused this level of access, but a potential risk is that the configuration it installs would let it read every prompt, file, and secret passed through the agent and run commands with the user's full privileges.
-
-The relay's backend infrastructure has rotated across at least eight domains over the observation period, all impersonating OpenAI- or Anthropic-branded chat services.
-
-Overview
-
-AI coding agents such as OpenAI's Codex and Claude Code read files, write code, and run commands on the machines where they are installed. One of the safeguards they employ is a sandbox that is meant to limit what they can do. However, Symantec's Threat Hunter Team has identified an unauthorized relay service that provides access to OpenAI's Codex and Anthropic's Claude Code command-line coding agents, mainly in markets where the vendors do not officially operate, primarily mainland China. Rather than building its own client software, the service repurposes the genuine CLI tools. It installs them normally, then rewrites their configuration to switch sandboxing off, in Codex's case by setting it to “danger-full-access,” and routes every request through its own servers instead of OpenAI's or Anthropic's.
-
-This is not a vulnerability in Codex or Claude Code. The tools are behaving as designed once their configuration has been changed.
-
-Threat Hunter has found the relay in use across a dozen organizations since early 2026. There is no evidence the operator is currently abusing its position, but the configuration changes it makes strip out the safeguards that are meant to contain an AI coding agent, potentially exposing any organization whose employees use it to security risks.
-
-Usage
-
-The organizations where this relay has been observed span industrial automation, electronics manufacturing, semiconductors, pharmaceuticals, shipping, tire manufacturing, petrochemicals, and data center services. Most are based in mainland China, though the list also includes the Chinese operations, and in some cases the home-market operations, of multinational electronics and petrochemical firms based in South Korea, Taiwan, and Malaysia.
-
-Most instances appear to be a workplace where an employee or the organization itself wanted to use a Western AI coding assistant that is not officially sold in their market and so turned to an unauthorized reseller to get it.
-
-Tooling
-
-Installation and delivery
-
-The service does not distribute a modified or trojanized client. Users run a legitimate npm install
-
--g @openai/codex, npm install -g codex-cli, or npm install -g @anthropic-ai/claude-code
-
-shortly before the override occurs, within minutes to roughly half an hour.
-
-A fileless PowerShell or bash setup script, fetched with a one-line iwr -useb <url> | iex or curl | bash from a lookalike domain such as vibe.aiok[.]me, checks whether Node.js and the target CLI are already installed, installs them silently if not, and only then applies its own configuration. Because the script performs a real, working installation of the genuine tool, the installation looks routine to the user and to most monitoring tools.
-
-We did not observe any automated or exploit-based delivery. The one-line command embeds a relay-issued API key and the relay's own endpoint, and the script is written for interactive use (it prints progress messages in Chinese and tells the user to re-run it in an elevated PowerShell session if it lacks administrator rights), which indicates that users copy a ready-made command from the relay or its reseller and run it themselves, although we have not seen the page or message it was copied from.
-
-Configuration override
-
-The script's actual purpose is to rewrite each tool's configuration file: ~/.codex/config.toml for Codex, or ~/.claude/settings.json for Claude Code. It replaces the base_url (or ANTHROPIC_BASE_URL) with a domain the relay controls, swaps in a relay-issued API key formatted to match what the CLI expects, and establishes both as user-scope environment variables so the change survives a reboot without further action from the operator. It also sets the CLI's sandbox mode to full access and enables network access for the write sandbox, disabling the isolation that is meant to limit what an AI agent can do on the host. Telemetry and error reporting are disabled at the same time, which would also suppress any usage signal that might otherwise reach OpenAI or Anthropic.
-
-sandbox_mode = ""danger-full-access"" network_access = ""true"" DISABLE_TELEMETRY=1 DISABLE_ERROR_REPORTING=1
-
-Credential replacement
-
-On one host, the script went further before applying its own configuration. It ran claude /logout, deleted the ANTHROPIC_AUTH_TOKEN and ANTHROPIC_API_KEY environment variables, and then ran claude /login. That sequence clears out a legitimate, already-authenticated session so it cannot override the credentials the script is about to install. Whether this step runs in every deployment of the script or was specific to that host was not established.
-
-claude /logout Remove-Item Env:ANTHROPIC_AUTH_TOKEN, Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue claude /login
-
-Geolocation check
-
-Several hosts show the script querying the Windows locale setting immediately after installation. This is consistent with a service confirming it is running on a system in the region it serves before completing setup.
-
-reg.exe QUERY ""HKCU\Control Panel\International\Geo"" /v Nation /reg:64
-
-Possible business model
-
-Why an operator would want this degree of control over a client-side relay is unclear. Bypassing the regional restrictions that keep Western AI vendors from selling directly into certain markets is the simplest explanation, but it does not require disabling a CLI's sandbox or establishing persistent credentials that survive a reboot. Reselling capacity below market rates is another possibility: the Claude Code keys issued by the relay were formatted sk-ant-oat01-, the prefix Anthropic uses for subscription-based OAuth tokens rather than sk-ant-api03- pay-per-use API keys, which is consistent with, though not proof of, a relay pooling flat-rate subscriptions and splitting the capacity across many customers. Fraud involving stolen credentials or payment cards, and resale of the prompts and files that pass through the relay, are also plausible and cannot be ruled out with the evidence available.
-
-Significance
-
-To be clear about what we have and haven't observed: the configuration changes described above were observed; the risks that follow from them are potential.
-
-The geography of this activity tracks the practical reality that OpenAI and Anthropic do not officially sell their coding agents into mainland China, which creates demand for unauthorized resellers regardless of who ultimately operates them. The organizations affected here look less like chosen targets and more like workplaces where individual employees found and used such a service to get access to tools they wanted.
-
-That demand does not make the risk any smaller. A relay in this position sees every prompt, file, and secret an employee sends to the agent, and can alter or fabricate every response it returns. With the sandbox disabled and network access enabled, a malicious or compromised response could execute with the full privileges of the user's account. None of the evidence reviewed here shows the operator exploiting that position, but the architecture would support it if the operator's intentions or security changed.
-
-The credentials this service issues do not stay confined to the AI agent, either. Because they are established as user-scope environment variables, any other tool on the same machine that reads those variables can pick them up, extending the exposure well beyond the coding assistant that first prompted an employee to install the service.
-
-Protection
-
-For the latest protection updates, please visit the Symantec Protection Bulletin.
-
-If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
-
-Organizations concerned about unauthorized AI relay use should also watch endpoints running Codex or Claude Code for the following:
-
-Changes to base_url or ANTHROPIC_BASE_URL in a CLI's configuration file.
-
-sandbox_mode set to ""danger-full-access"" in ~/.codex/config.toml.
-
-OPENAI_BASE_URL, CODEX_API_KEY, or ANTHROPIC_AUTH_TOKEN set as user-scope environment variables outside an approved deployment process.
-
-A PowerShell iwr | iex or bash curl | bash invocation run shortly after, or in place of, npm install -g @openai/codex or @anthropic-ai/claude-code.
-
-Traffic from AI CLI tools to destinations outside an allow-list of approved AI service endpoints.
-
-Indicators of Compromise
-
-File indicators
-
-2a76a28639d896bb41576d0e32d155b78f38b034e052dfe3a7b7e1a478fc0e24 – setup-codex.ps1 – Fileless PowerShell downloader impersonating an OpenAI Codex CLI setup script
-
-4bfe5ca73a4b0988586a46f789aeedba5db575257b58291934cddb9faa606fdb – setup-claudecode.ps1 – Fileless PowerShell/bash downloader impersonating an Anthropic Claude Code CLI setup script
-
-Network IOCs
-
-vibe[.]aiok[.]me
-
-aiok[.]me
-
-sorryios[.]io
-
-nuoda[.]vip
-
-chat[.]nuoda[.]vip
-
-rawchat[.]cn
-
-sharedchat[.]cc
-
-mirbuds[.]com
-
-claudechn[.]com
-
-vibe[.]skk[.]moe
-
-hxxps://vibe[.]aiok[.]me
-
-hxxps://vibe[.]aiok[.]me/setup-codex.ps1
-
-hxxps://vibe[.]aiok[.]me/setup-claudecode.ps1
-
-hxxps://chat1[.]sorryios[.]io
-
-hxxps://chat1[.]sorryios[.]io/codex
-
-hxxps://chat1[.]sorryios[.]chat/claudecode
-
-hxxps://chat[.]nuoda[.]vip
-
-hxxps://chat[.]nuoda[.]vip/codex
-
-hxxps://chat[.]nuoda[.]vip/claudecode
-
-hxxps://rawchat[.]cn/codex
-
-hxxps://chat[.]rawchat[.]cn/codex
-
-hxxps://new[.]sharedchat[.]cc/codex
-
-hxxps://gpt4[.]mirbuds[.]com/codex"
 f22d17f5123b,2b62329cc6f4,2026-10-22 09:11 UTC,Vulnerabilities & Patching,Broadcom / Symantec,Broadcom/Symantec Blog,Vulnerability Management; Server & Workload Protection,Article,PHP2Shell: Two Critical PHP Flaws Allow Unauthenticated Remote Code Execution,https://www.security.com/threat-intelligence/php2shell-critical-vulns-cve-2026-109618-109619,"These steps do not fully address either vulnerability, so they should be used only until the upgrade is complete, and each one should be tested first","Exploitation status
 
 The U.S. Cybersecurity and Infrastructure Security Agency (CISA) said it had not observed exploitation as of publication, and the Canadian Centre for Cyber Security said a proof of concept was public with no active exploitation identified. The European Union's CERT-EU said technical details and proofs of concept were circulating, which raised the likelihood of exploitation, but did not confirm attacks. The BSI reported no confirmed exploitation but unconfirmed reports of existing exploits, and expected broad exploitation within hours of the patches because public details make exploit development fast. Each agency urged immediate patching.
@@ -631,6 +482,39 @@ File-based protection
 Symantec file-based protection detects related tooling as Hacktool.Php2shell.
 
 The full list of SONAR signature names, the complete App Control rule definitions and the exact Carbon Black query syntax are in the Protection Bulletin."
+4fbb38710e02,4fbb38710e02,2026-10-21 14:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Infosecurity Magazine,AI Security; Endpoint Security,Article,Symantec Uncovers AI Agent Hijacking Models for Autonomous Cyber-Attacks,https://www.infosecurity-magazine.com/news/symantec-ai-agent-llmjacking/,"Researchers from the Symantec Threat Hunter Team found the malicious agent using an AI honeypot – a system that impersonates an unprotected, internet-facing AI service in order...","A new AI agent developed to run a full cyber-attack without human intervention has been uncovered by security researchers.
+
+The agent was designed to use hijacked AI models to autonomously run up to 100,000 malicious actions without human approval, including scanning for targets, exploiting vulnerabilities, stealing credentials, deploying cryptocurrency miners and reinfecting compromised systems.
+
+Researchers from the Symantec Threat Hunter Team found the malicious agent using an AI honeypot – a system that impersonates an unprotected, internet-facing AI service in order to attract and study attacks against AI infrastructure.
+
+They captured the agent's full instruction set in the summer of 2026, revealing how it was designed to operate autonomously, although the honeypot did not execute the attacker's tools. They described it in more details in a report published on October 21.
+
+AI Honeypot Exposes LLMjacking
+
+The AI honeypot recorded over 127,000 external requests from tens of thousands of unique addresses between its setup and the publication of the report.
+
+Upon analyzing this activity, Symantec researchers discovered that the agent searches for exposed endpoints linked to large language models (LLMs), including self-hosted models, AI gateways and model context protocol (MCP) servers, to use their computing power without paying for it. This technique is sometimes called ‘LLMjacking.’
+
+“Running a model always costs someone money, either in processing time for a self-hosted model or in per-token fees for a commercial one. By routing its work through a stranger's endpoint or a stolen key, the operators shift that cost onto the victim,” Symantec researchers noted.
+
+With this technique, the attackers also gain anonymity and avoid potential account bans the AI model provider would issue for abuse.
+
+The captured instructions included about 74 tools for internet-wide reconnaissance, exploiting common web frameworks, stealing databases, harvesting credentials and managing botnets.
+
+Notably, the attackers used layered instructions designed to override commercial AI models' safety controls, disguising credential theft as legitimate development work.
+
+A separate request also contained an obfuscated script designed to install Monero-mining software, conceal its presence and erase logs.
+
+Self-Directed AI Agent Lowers Barrier to Cybercrime
+
+While Symantec researchers said none of the techniques used by the attackers in this campaign are novel, their combination into a single, self-directed agent lowers the skill required for other attackers to run a broad exploitation campaign.
+
+“An operator can hand the model a goal and let it work,” they added.
+
+They concluded that the activity “marks a shift in how attackers are using AI,” explaining that operators have embedded AI into offensive tools rather than trying to trick public chatbots into misbehaving.
+
+They described the model as “a reasoning engine that plans and drives the attack,” while the tool’s own modules carry out scanning, exploitation and mining against separate victims."
 f1bf92373d3f,f1bf92373d3f,2026-10-21 10:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,AI Security; Identity Security Posture Management,Article,Autonomous LLMjacking: ‘Skynet’ Agent Hijacks Exposed AI Models to Run Attacks,https://www.security.com/threat-intelligence/ai-llmjacking-skynet,"</CRITICAL_INJECTION_DETECTION> An injected toolkit for scanning and exploitation A closer reading of the request's full tool definitions, which numbered around 74 rather than...","Key findings
 
 Attackers have built an autonomous offensive agent that searches the internet for exposed large language model (LLM) endpoints and hijacks them to run its own attacks.

@@ -1,85 +1,64 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-a87e6fb78ef5,a87e6fb78ef5,2026-11-10 09:26 UTC,General Security News,Bitdefender,Bitdefender Business Insights,Data Security Posture Management; Server & Workload Protection; Threat Intelligence; AI Security,Article,Bitdefender Threat Debrief | November 2026,https://businessinsights.bitdefender.com/bitdefender-threat-debrief-november-2026,Threat actors may also launch strategic attacks during geopolitical conflicts or periods of social unrest,"N0n Ransomware Uses AI and Victim Inflation to Rise to the Top
+9988a1c45724,8c94f14028a7,2026-11-10 21:30 UTC,Vulnerabilities & Patching,Bitdefender,The Hacker News,File Security; Endpoint Security; Threat Intelligence; Vulnerability Management,Article,Attackers Exploit AhsayCBS Flaws to Deploy Sandbox-Evading Python Backdoor,https://thehackernews.com/2026/11/attackers-exploit-ahsaycbs-flaws-to.html,"The two vulnerabilities are assessed to have been weaponized as zero-days, with the managed security platform first observing threat actors employing a smash-and-grab approach...","Cybersecurity researchers have disclosed details of an attack that exploited two now-patched vulnerabilities in AhsayCBS to deliver a Python-based implant.
 
-This edition of the Bitdefender Threat Debrief covers the latest events in the ransomware threat landscape, including the claims surrounding the rise of the new ransomware group N0n, a former affiliate that turns on The Gentlemen, and news concerning BYOD ransomware.
+The activity, observed by Huntress in early October 2026, involves the exploitation of a chain comprising CVE-2026-105133 and CVE-2026-105134 to bypass authentication and execute arbitrary commands on affected systems. Patches for the two vulnerabilities were released by Ahsay Backup in mid-October 2026.
 
-As ransomware continues to evolve, our goal with this monthly Bitdefender Threat Debrief is to help you stay ahead of the curve. To do this, we combine information from openly available sources (OSINT) - things like news reports and research – with data we gather by analyzing Data Leak Sites (DLSs), websites where ransomware groups post details about their victims. It is important to remember that we can't independently verify all of these claims but are confident in the trends we see over time.
+The two vulnerabilities are assessed to have been weaponized as zero-days, with the managed security platform first observing threat actors employing a smash-and-grab approach to deploy web shells and XMRig cryptocurrency miners on compromised systems.
 
-For this month's report, we analyzed data from October 1 to October 31, 2026, and recorded 1,072 claimed ransomware victims. Note that when excluding some of N0n’s victim dataset (126 victims) from October’s total victims, the actual number of victims reported is actually 946.
+""However, this incident reflects a much larger intrusion with more patience; the operator planted shells in several places, ran two different miners, staged tunneling tools, and installed a custom implant, all on servers whose job is to hold backups,"" Huntress researcher Jonathan Semon said.
 
-Featured Story: N0n Ransomware Uses AI and Victim Inflation to Rise to the Top
+Specifically, the unknown threat actor is said to have left five families of Jakarta Server Pages (JSP, formerly JavaServer Pages) web shells -
 
-What Happened?
+nsmind.jsp, a signed API with command execution and file transfer capabilities using exec, cd, upload, and download parameters
 
-In mid-September, the ransomware group N0n emerged. The group hosted a data leak site with more than 100 victims, divided into categories including pending, exposed, leaked, and honors (where NOn claims to have honored the promise to destroy victim data in exchange for a ransom payment).
+AhsayCBS.jsp, a loader that hides encrypted payloads in the pixel data of PNG images and runs them from memory
 
-Several weeks later, information about N0n’s operations became plainly visible due to N0n’s failures to maintain strict operational security measures. N0n’s Python file server was left accessible on the open Internet. This presented visitors with the opportunity to go to the web address and navigate through directory structures to view contents of the server. This exposure allowed cyber defense and research teams to determine with greater confidence that N0n’s image as a potentially significant threat is just that: a false depiction. N0n is a newcomer to the ransomware landscape, relying on AI tools for foundational hacking tasks.
+Keyed command shell, which compares a hard-coded key against its own copy and, if it matches, runs the command via ""cmd.exe""
 
-What Information was Disclosed in N0n’s Exposure?
+Keyed shell with file write, which expands on the keyed command web shell with the ability to write Base64-decoded bytes to any path the service account can reach and deploy more tools
 
-N0n’s file server address is associated with a location in Sweden. Several types of information were disclosed in the aftermath of N0n’s exposure. All information types revealed make it highly unlikely that N0n is a ransomware group capable of competing with other leading threats. N0n;s actual victim count (rather than their published/perceived victim population) and their use of open-source AI dismantles their apparent trend of continuous growth. According to the data obtained from N0n’s file server, the group targeted just over 20 victims. Duplicate or false entries may have emerged due to weaknesses in maintaining the site and polling potential targets.
+status_<six_random_letters>.jsp or st_<six_random_letters>.jsp (e.g., st_jgaejj.jsp), which are used to run commands, recursively delete any path provided as input, and delete themselves using cmd, del, and rm parameters.
 
-N0n also uses an open-source AI platform, OpenCode, to manage different AI models and write scripts. N0n invested more than $7000 in Generative AI to assist them in building common scripts that are maintained to perform actions necessary for scanning and reconnaissance activities. While an encryptor was also identified, debate remains over whether N0n consistently uses ransomware. Their reuse of encryption keys and weaknesses in OPSEC may point towards hesitancy for the group to execute ransomware code more frequently.
+""[AhsayCBS.jsp's] disguise as an internal image preview service even extended down to a comment block describing a watermark endpoint,"" Huntress explained. ""The web shell used only JSP implicit objects and fully qualified class names, meaning it would compile on any servlet container and on Java Development Kit (JDK) 6 and later.""
 
-The exposure of N0n’s server also revealed that N0n references the same encryption keys that are used across different victim campaigns. This means that the group was leveraging the exact same ransomware code and keys to lockdown systems for different targets. Cybersecurity teams supporting victims with access to those hardcoded encryption keys can then analyze them and identify patterns needed for decryption.
+The attack, besides deploying an XMRig miner masquerading as Microsoft Edge, has been found to deliver a second XMRig miner (""kvm-agent.exe"") that restarts every minute through a SYSTEM scheduled task, while using a different wallet and mining pool.
 
-What Actions are Recommended for Organizations?
+The most notable aspect of the intrusion revolves around the Python backdoor (""main.py""), which is designed to run only on the host it's staged on and prevent it from executing within a sandbox or an analyst's machine.
 
-As opportunistic ransomware groups continue to adopt AI into their operations, it is important for organizations to remember the following:
+It achieves this by computing the SHA-256 cryptographic hash of the host's MachineGuid and looks for a marker file with the same name in the same directory housing the Python implant, and then runs an embedded x64 DLL in memory that contacts a command-and-control (C2) server (""creepexplosiondarknight[.]com"").
 
-Data theft claims often initially lack any validity. Keep an inventory of your assets, including critical data that may be found in open repositories. Do not assume that any data stolen is from a current dataset or usable by the threat actor without supporting evidence.
+In an attempt to fly under the radar, the attack chain also configures Microsoft Defender exclusions, while serving tunneling tools (GOST and Chisel) and legitimate remote access software (AnyDesk, Atera, and Splashtop) to establish persistent access.
 
-Harden remote access controls to secure systems. This includes enforcing VPN access, restricting access via RDP and also requiring MFA authentication.
+Evidence indicates that the threat actor may have targeted servers holding or managing backups.
 
-Enforce a strong password policy and regularly rotate credentials.
+""On a related Veeam server in the same environment, we also saw a command consistent with NetExec's Veeam credential-theft module: a PowerShell script, apparently launched remotely through WMI, that queried the VeeamBackup PostgreSQL database for stored credentials and decrypted them with DPAPI,"" Semon said.
 
-Regularly document breach cases predating current operations and check for additional exposures.
+""Backup software holds credentials for hypervisors, repositories and domain accounts. We cannot say how many of those credentials were retrieved, but the pairing of an Ahsay foothold with a Veeam credential query suggested the operator was interested in backup infrastructure on purpose, not by accident."""
+131061c2cdfd,131061c2cdfd,2026-11-10 17:45 UTC,Vulnerabilities & Patching,Bitdefender,The Hacker News,Mobile Security; File Security; Vulnerability Management,Article,"Binance Warns of iOS Sandbox Escape That Could Expose Crypto Wallet Keys, No Fix Confirmed",https://thehackernews.com/2026/11/binance-warns-of-ios-sandbox-escape.html,"Apple's updates for iOS 26 and 27, released yesterday, do not list a fix","An iOS sandbox escape published on GitHub lets an app read other apps' files on iPhones running iOS 26 and 27. That puts seed phrases, private keys, and login credentials at risk of exposure to malicious apps, Binance warned today. Apple's updates for iOS 26 and 27, released yesterday, do not list a fix.
 
-Maintain backups in a location separate from critical infrastructure and test them regularly to ensure backup data can be restored.
+A researcher who goes by forcequit released the escape, called worse_query, on Sunday, a day before those updates came out. Neither the exchange nor the researcher reported any attacks or thefts involving it.
 
-Request and review intelligence on an ongoing basis to evaluate the threat actor’s behavior and current indicators of compromise
+The exchange told users to delete apps installed from untrusted sources, such as sideloaded or manually signed apps, and to update iOS and all their apps. No fix for the escape has been confirmed.
 
-Other Notable Ransomware News
+For anyone who suspects a breach, the exchange's security warning advises moving funds to a new wallet created on a clean device and resetting all active login sessions.
 
-Now, let’s explore the notable news and findings since the last Threat Debrief.
+The researcher's proof-of-concept code can reach every app's data container on an iPhone, and some system folders on iOS 27. To use it, an app has to set up an App Group container.
 
-Azazel, an affiliate of The Gentlemen, turns on their operator: Azazel has accumulated more than 6 terabytes of stolen data. Despite their affiliation with The Gentlemen, the group broke away from them after stealing data in an RaaS campaign and keeping the profits for themselves. Azazel published the stolen data on a data leak site under the name Leakned. Notably, Azazel has leveraged a technique that differs from other ransomware groups. They used the Model Context Protocol (MCP) to establish a connection between an AI coding assistant and a reverse shell. This connection allows Azazel to use the AI assistant as a command and control channel, executing commands on compromised machines. Azazel has engaged in primarily in data theft and credential theft, extracting credentials from GitLab and other pipelines.
+He says the code is for developers and ""isn't useful by itself."" Other developers have built apps on it that people can install.
 
-BYOD ransomware claims university that provides healthcare services: BYOD, a ransomware group that emerged in September, has claimed enterprise organizations across both North America and Southeast Asia. The group recently claimed a university clinic that provides healthcare services to patients. Within 24 hours of their claim, BYOD expressed that they did not realize the systems they targeted were used specifically to support direct patient care. BYOD announced they would make decryptors available to the victim organization for free; and, the affected victims are encouraged to reach them and submit a payment of $2,500 to ensure their data is destroyed. These claims are identified as potential ploys to extend the compromise and/or collect additional payment.
+One of them is WQ Files, a file manager that developer Christoph Kolbicz built on worse_query. It reaches other apps' data without a jailbreak or a kernel exploit, and it can edit, delete and clear that data.
 
-Booba Team claims more victims and hits government organizations: Booba Team has claimed more than 9 government organizations at the time of this release. According to Booba Team’s data leak site, this accounts for more than 800 GB of stolen data. Booba Team’s total victims claimed in the government sector in October surpasses the totals in the same period for both Qilin (who claimed 6 victims) and The Gentlemen (who claimed 3 victims). Unlike Qilin and The Gentlemen, who have broadened their victim populations to include government victims in Western Europe and Southeast Asia, Booba Team has continued to claim victims in a limited number of regions, including North America (specifically the US) and South America. The group has been known to deploy ransomware and conduct data theft.
+WQ Files installs via sideloading tools such as AltStore and SideStore, which automatically create the App Group it needs when used with an Apple ID. No one involved has said whether an app from the App Store could use worse_query.
 
-New brands continue to make their entry into the ransomware ecosystem: More than 17 ransomware groups have emerged in the last two months. Several newcomers were identified in October, including but not limited to: aoqin, everstake, shiba, whitearmor, hyflock, umbra, vypr, and scarlettgroup. While some groups emerge out of a necessity to commit acts of organized crime, with limited influence from other threat groups. However, the largest variables that contribute to new ransomware groups include law enforcement takedowns, feuds and factions among ransomware groups and affiliates, and operational failures. Bitdefender will continue to track further developments in ransomware takedowns, rebrands, and evolutions.
+The three versions in the exchange's warning are the ones listed as tested in the WQ Files release notes. The researcher gives a wider range.
 
-Top 10 Ransomware Families
+Of these sources, only Erosion's developers list iOS 27.2.1, which came out yesterday, and none lists iOS 26.7.3. They added 27.2.1 this week in a README change with the note ""pretty sure 27.2.1 is supported"".
 
-Bitdefender's Threat Debrief analyzes data from ransomware data leak sites, where groups publicize their claimed number of compromised organizations. This approach provides valuable insights into overall RaaS market activity. However, it comes with a trade-off: while it reflects attackers' self-proclaimed success, the information comes directly from criminals and may be unreliable. Additionally, this method captures the number of victims claimed, not the actual financial impact of these attacks.
+Yesterday's updates, iOS 27.2.1 and iOS 26.7.3, fixed two iMessage flaws and several Bluetooth bugs. The security notes for iOS 27.2.1 do not mention worse_query or any sandbox issues, nor do the iOS 26.7.3 notes. Apple does not disclose, discuss, or confirm security issues until it has investigated and a patch or release is available, the notes say.
 
-The Top 10 ransomware groups in October include N0n, The Gentlemen, Qilin, Akira, and Booba Team. Note that due to several indicators of N0n misrepresenting their operations and victims, Bitdefender has high confidence that N0n is not in actuality a group that has the means to maintain a ranking in the Top 10 Groups.
+In a reply on X, the researcher wrote that he had not planned to release worse_query early. He added that ""Apple was stalling on responding to me and people started larping with it on here.""
 
-Top 10 Most Attacked Regions
-
-Ransomware gangs prioritize targets where they can squeeze the most money from victims. In many cases, this means focusing on developed countries with higher projected growth rates. Threat actors may also launch strategic attacks during geopolitical conflicts or periods of social unrest.
-
-Taiwan rejoins the Top 10 Regions: Taiwan ranked 10th in October; most of the region’s industries affected by ransomware attacks are in manufacturing, healthcare, and technology.
-
-Victims based in South Korea rise due to N0n’s claims: The number of ransomware victims based in South Korea rose to 18 in October. N0n claimed 11 victims based in South Korea; all of these victims are organizations in the transportation industry. However, due to the high level of scrutiny cast on the validity of N0n’s claims, this increase should not be viewed as an accurate pattern of behavior. Ransomware groups have not claimed a total number of victims based in South Korea surpassing 10 per month since September 2025 when Qilin executed the Korean Leaks campaign.
-
-Top 10 Most Attacked Industries
-
-Ransomware gangs may target organizations in critical infrastructure sectors, select other organizations that offer services tailored to consumers, or attack organizations that fall into both categories. Understanding the trends and ramifications associated with specific industries, and how specialized services and clientele are impacted is crucial for assessing risk. Here are the Top 10 industries affected by ransomware attacks.
-
-Healthcare rises to second place in the Top Industries
-
-In October, there was an increase in the number of victim organizations represented in the manufacturing and healthcare industries. Healthcare rose to the second rank. And, the transportation industry moved from the 10th rank to the 6th rank in the Top Industries with N0n claiming a total of 20 transportation victims.
-
-About Bitdefender Threat Debrief
-
-The Bitdefender Threat Debrief (BDTD) is a monthly series analyzing threat news, trends, and research from the previous month. Don’t miss the next BDTD release, subscribe to the Business Insights blog, and follow us on Twitter. You can find all previous debriefs here.
-
-Bitdefender provides cybersecurity solutions and advanced threat protection to hundreds of millions of endpoints worldwide. More than 180 technology brands have licensed and added Bitdefender technology to their product or service offerings. This vast OEM ecosystem complements telemetry data already collected from our business and consumer solutions. To give you some idea of the scale, Bitdefender Labs discover 400+ new threats each minute and validate 30 billion threat queries daily. This gives us one of the industry’s most extensive real-time views of the evolving threat landscape.
-
-We would like to thank Bitdefenders Stefan Hanu, Mihai Leonte, Gabriel Macovei, and Andrei Mogage for their help with putting this report together."
+The exchange did not name any wallet app as exposed, and neither did the researcher nor the developers of the apps built on worse_query."
 270218546a01,270218546a01,2026-11-09 05:15 UTC,General Security News,Bitdefender,Bitdefender Business Insights,AI Security; Data Security Posture Management; Attack Surface Discovery,Article,Your Employees Are Using AI. Do You Know How Much?,https://businessinsights.bitdefender.com/how-to-see-and-control-ai-tools,” They ranked the second highest priority as “AI attack surface management for shadow AI” and the third highest priority as “Continuous monitoring of LLMs to prevent data leaks,"How many AI tools are running across your environment right now? If you are guessing at this number, and that worries you, you are in good company.
 
 Figuring out how to gain AI visibility, and then control related risk, is arguably the number one priority in security right now. In fact, it’s the number one, two, and three priorities for organizations according to data from our 2026 Cybersecurity Assessment. Have a look for yourself:
@@ -161,6 +140,27 @@ See AI. Understand Risk. Take Control.
 AI is everywhere but now you can see it, understand the related risk, and take control, even if you are part of a lean or overstretched security team.
 
 Discover how easily and quickly Bitdefender GravityZone AI Visibility and Control can help."
+72b912fef5fc,72b912fef5fc,2026-11-06 00:00 UTC,Vulnerabilities & Patching,Bitdefender,ZDI Published Advisories,Vulnerability Management; File Security; Container Security,Article,ZDI-26-894: Docker Sandboxes Inclusion of Functionality from Untrusted Control Sphere Remote Code Execution Vulnerability,http://www.zerodayinitiative.com/advisories/ZDI-26-894/,Vulnerability Details This vulnerability allows local attackers to execute arbitrary code on affected installations of Docker Sandboxes,"Vulnerability Details
+
+This vulnerability allows local attackers to execute arbitrary code on affected installations of Docker Sandboxes. User interaction is required to exploit this vulnerability in that the target must visit a malicious page or open a malicious file.
+
+The specific flaw exists within the creation of sandboxes using the clone mode. The issue results from launching an executable from an untrusted location. An attacker can leverage this vulnerability to execute code in the context of the current user.
+
+Additional Details
+
+Docker has issued an update to correct this vulnerability. More details can be found at: https://www.cve.org/CVERecord?id=CVE-2026-121614
+
+Disclosure Timeline
+
+2026-08-28 - Vulnerability reported to vendor
+
+2026-11-06 - Coordinated public release of advisory
+
+2026-11-06 - Advisory Updated
+
+Credit
+
+Nitesh Surana (niteshsurana.com) of TrendAI Research"
 df00686766b4,df00686766b4,2026-11-06 03:48 UTC,General Security News,Bitdefender,Bitdefender Business Insights,Endpoint Security; Email and Collaboration Security; Identity Security Posture Management; AI Security,Article,Beyond the Endpoint: Rethinking Security for the Modern Workspace,https://businessinsights.bitdefender.com/beyond-endpoint-workspace-security,"Endpoint security, identity protection, email security, vulnerability management, data protection, and detection and response have each become important parts of the security stack","The way we work has changed significantly, and now the way we secure that work is changing with it. Again.
 
 For years, organizations have added security technologies to address new risk categories as they emerged. Endpoint security, identity protection, email security, vulnerability management, data protection, and detection and response have each become important parts of the security stack.
@@ -236,6 +236,17 @@ For resource-constrained IT and security teams, in particular, the opportunity i
 Ready to take a more unified approach to workspace security? Explore the Bitdefender GravityZone Platform to learn how you can protect users, data, and applications across the modern workspace. The future of Workspace Security is about protecting how work happens.
 
 Gartner, Market Overview for Workspace Cybersecurity Platforms, Evgeny Mirolyubov, Peter Firstbrook, 20 July 20226. GARTNER is a trademark of Gartner, Inc. and/or its affiliates."
+e7d2e221d248,e7d2e221d248,2026-11-03 17:08 UTC,"Policy, Legal & Compliance",Bitdefender,Ars Technica Security,Mobile Security; Endpoint Security,Article,Google dismantles botnet secretly running on 1.3 million Android TV boxes,https://arstechnica.com/google/2026/11/google-dismantles-botnet-secretly-running-on-1-3-million-android-tv-boxes/,Google says it has taken legal action to shut down the domains and servers Videostrong used to operate and install its malware,"Smashing the botnet
+
+Google worked with several other organizations to disrupt the x.cpe network, including Japan’s National Police Agency, Synthient, and Trend Micro. Google says it has taken legal action to shut down the domains and servers Videostrong used to operate and install its malware. It also went after command-and-control servers operated by Videostrong that were connected to other malware campaigns. Google estimates Videostrong has been cut off from about 10 million compromised devices.
+
+This action should make the affected devices safe to use, but probably not as safe as they should be. Play Protect is still disabled, and the inert malware modules are still installed. Since they are loaded as system apps, users cannot easily remove them.
+
+Synthient has published a list of 182 device model names known to be included in the botnet. Anyone who has purchased a MECOOL or white label Android TV box of unknown origin should check it. Trend Micro counted a total of 1,472,554 infected devices, somewhat higher than Google’s estimate. The overwhelming majority were in Brazil, Malaysia, Iraq, Mexico, and Taiwan, but tens of thousands were also online in the US, Germany, the UK, Australia, and Canada.
+
+Google determined the operation was not the work of a rogue actor, so it has ended its relationship with Videostrong. The company, as well as any subsidiaries, will not be permitted to use Google’s Android apps and services.
+
+Google also notes that it is updating its certification process to close the loophole that allowed Videostrong to operate its botnet on certified devices. Android is open source, though, and there are countless uncertified Android-based TV boxes out there. Videostrong could continue to sell malicious hardware under other brands without Google apps. But it would still have to rebuild its malware operation from scratch."
 14c1b47f587e,14c1b47f587e,2026-11-03 13:56 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Bitdefender Business Insights,AI Security; Endpoint Security,Article,"3AM Hits European Schools: A Hybrid AI Ransomware Attack, Part Human, Part Agentic Loop",https://businessinsights.bitdefender.com/3am-ransomware-hybrid-ai-attack,"In an AI-generated attack, a model writes the malware itself, often in bulk; our APT36 research described this as “vibeware” (Bitdefender research, March 2026)","I’d like to thank my colleagues, Adrian Schipor and Martin Zugec, for their invaluable contributions to this research.
 
 TL;DR: It is the first case of this kind we have investigated, a hybrid operation in which some parts show a human operator at the keyboard while others behave like an agentic loop, a language model reading each result and retrying with different commands. In this case, a 3AM (ThreeAM) ransomware affiliate breached a European school estate in the UK, then used ordinary Windows tools to build domain trusts and reach other schools.
@@ -395,73 +406,257 @@ Bash-style \$ escape sequences appeared inside Windows double-quoted PowerShell 
 Unix Habits in Windows Commands
 
 Three commands used 2>/dev/null, the Unix way of discarding error output, inside Windows command lines. All three fell in one 51-minute window on 13 September and the idiom never recurs. On its own it would be weak. Alongside the escape errors, it is consistent with a writer whos [truncated for CSV - full text is in the JSON export]"
-c724e4237f65,c724e4237f65,2026-10-29 06:42 UTC,Business & Industry News,Bitdefender,Bitdefender Business Insights,Threat Intelligence; Threat and Exposure Management,Article,Bitdefender Named a Representative Vendor in the 2026 Gartner® Market Guide for Managed Detection and Response,https://businessinsights.bitdefender.com/bitdefender-named-representative-vendor-2026-gartner-market-guide-mdr,"As AI-enabled attacks become faster and more frequent, exposure reduction is a critical addition to detection and response","For the fifth consecutive year, Bitdefender is included as a Representative Vendor in the 2026 Gartner® Market Guide for Managed Detection and Response.
+7a9cf8c66ce4,7a9cf8c66ce4,2026-11-03 02:24 UTC,"Policy, Legal & Compliance",Bitdefender,Krebs on Security,Endpoint Security; Threat Intelligence; Mobile Security,Article,Tech Firms Dismantle Botnet That Turned 1.3M TV Boxes Into Proxies,https://krebsonsecurity.com/2026/11/tech-firms-dismantle-botnet-that-turned-1-3m-tv-boxes-into-proxies/,A report from the Google Threat Intelligence Group (GTIG) said Google has severed ties with Videostrong Technology Co,"Google said today it worked with industry partners to dismantle a botnet made up of more than 1.3 million Android TV set-top boxes that ship with malicious software which secretly rents the user’s Internet connection out to strangers and conducts advertising fraud. Experts involved in the takedown say the action is likely to sever the botnet’s access to more than 10 million additional compromised systems, including other Internet of Things (IoT) products such as Android-based healthcare devices and karaoke machines.
 
-The Market Guide offers a timely opportunity to look beyond the table stakes of 24x7 alert monitoring and understand how modern MDR should leverage AI, how providers should help contain attacks, and the importance of MDR in reducing risk exposure.
+A report from the Google Threat Intelligence Group (GTIG) said Google has severed ties with Videostrong Technology Co., a TV box manufacturer in China that GTIG and other industry experts concluded was responsible for including malware that enrolled more than 1.3 million set-top boxes in a botnet dubbed “XCPE” (named after one of the malware’s core code components).
 
-As AI-enabled attacks become faster and more frequent, exposure reduction is a critical addition to detection and response.
+The global distribution of XCPE botnet infections. Image: Google Threat Intelligence Group.
 
-What Do We Feel Inclusion In the 2026 Gartner® Market Guide for Managed Detection and Response Means?
+The report said the XCPE botnet loaded the user’s device with software that makes their Internet address available for resale by multiple “residential proxy” services, which allow customers to rent Internet addresses as a way to anonymize their web traffic or spoof their true location. As detailed in several stories here over the past year, residential proxy services are a major source of unwanted and often malicious traffic, including account takeover activity, advertising fraud, and mass content scraping for AI projects.
 
-Gartner says that more than 600 providers offer MDR services. The 30 vendors listed in the Market Guide meet the Gartner combined criteria for inclusion. Representative vendors:
+“Videostrong monetized the backdoor by selling access to criminal affiliates and loading those affiliates’ malware modules onto infected devices,” the GTIG post reads, noting that Google took legal action to take down the domains and servers Videostrong used to control the botnet and install additional malware. “A device manufacturer intentionally infecting their users with malware is an unacceptable breach of trust, and represents a serious risk to those users. Without users’ knowledge or consent, infected devices were offered as a distribution mechanism for a wide array of criminal actors.”
 
-Are consistently visible to Gartner clients (based on inquiries in the prior 18 months and through Gartner Peer Insights reviews from the prior 12 months)
+The report notes that while TV boxes made up the the majority of the botnet, the same XCPE malware was found in other Android-based IoT products, including telehealth devices, karaoke machines, and even digital signage systems.
 
-Are variable in size and distribution to reflect the buying population
+Google said it requires all Android device makers to pass compatibility and security tests to ensure their products don’t harm users, but that Videostrong nevertheless found a way to load their malicious software immediately after a user boots up one of these devices for the first time (Google says it has since addressed that weakness).
 
-Have a clear end-user and outcome-focused offering distinct from pure technology-driven offerings
+The GTIG report calls out a number of residential proxy providers whose software development kits were routinely downloaded by devices infected by the XCPE botnet. Those include AppSalt, also known as Honeygain, which is owned by the Vilnius, Lithuania-based Oxylabs. In October 2026, Oxylabs was relaunched under a new brand called Source, after receiving $130 million in funding from private equity firm Warburg Pincus that reportedly valued the business at $3.6 billion. Oxylabs did not respond to a request for comment.
 
-What Are Top Questions to Ask an MDR Vendor?
+Another provider linked to the botnet was NetNut, a once sprawling residential proxy company operated by the publicly-traded Israeli company Alarum Technologies. In July 2026, the FBI worked with industry partners to seize hundreds of domains associated with NetNut, saying the company was responsible for operating a separate botnet called Popa that enslaved TV boxes as residential proxies. Other proxy providers named in the GTIG report include EarnFM, Traffmonetizer, Jaguar, LINKFOG, BMW/IPWeb and GaGaNode.
 
-We believe three practical questions can help uncover whether a service is built around meaningful results.
+Google’s announcement credits a number of industry partners, including Synthient, a startup that tracks proxy providers. In January 2026, Synthient published research into the rapid spread of the Kimwolf botnet, which at the time was hammering networks worldwide with record-smashing DDoS attacks. Synthient documented how Kimwolf infected millions of Android set-top boxes virtually overnight, using a widespread vulnerability in these residential proxy services to compromise other Android-based devices inside the local networks of unsuspecting TV box users.
 
-How does the MDR vendor combine AI with human expertise to investigate threats and guide response decisions?
+Synthient’s research caused dozens of residential proxy providers to patch their networks, which helped to fragment the Kimwolf botnet into much smaller pieces that made its incessant and disruptive DDoS attacks far easier for network operators to manage. It also attracted the attention of the Motion Picture Association (MPA), a trade group representing the major Hollywood studios, which partnered with Synthient to purchase and tear apart a number of popular Android TV set-top boxes — including some that were being infected by Kimwolf and other IoT botnets.
 
-What actions will the MDR provider take automatically to contain an attack?
+In a report published today, Synthient examined a popular, pre-infected TV box sold under the brand MECOOL by a publicly traded company in China called Skyworth Technology, concluding that MECOOL also bundled the malware from Videostrong Technology Co. and likewise installed AppSalt/Honeygain and other proxy components.
 
-How will the MDR team help to identify weaknesses and reduce future risk?
+The MECOOL storefront and marketing. Image: Synthient.com.
 
-We’ll look at these questions in detail below. They clarify whether a provider can help contain threats, reduce exposure, and support informed response decisions or if they primarily collect and escalate alerts.
+Synthient founder Ben Brundage told KrebsOnSecurity that Videostrong’s malware also distributed software for the proxy service Grass. In our November 2025 story, “Is Your Android TV Streaming Box Part of a Botnet?” we quoted a researcher from Censys who found the popular Superbox TV streaming device bundled Grass’s residential proxy software. We also quoted the Grass founder, who denied any affiliation with the TV box maker.
 
-MDR marketing claims can be challenging to sort out. According to Gartner: “Buyers continue to face challenges with service naming and marketing language that has often overpromised and underdelivered, adding confusion rather than clarity.”
+That November 2025 story noted that Superbox and similar Android TV set-top boxes gain new customers primarily by engaging influencers on Tiktok and other social networks who praise the product’s ability to offer hundreds of (pirated) pay TV streaming services for a one-time fee.
 
-What Is AI’s Optimal Role in MDR?
+Likewise, Synthient’s report observes that the MECOOL set-top boxes exploded in popularity after the product was endorsed in 2023 by the Youtube channel Linux Tech Tips, which has an audience of nearly 17 million subscribers.
 
-We believe AI should help security teams move faster, while people and threat intelligence guide investigations and response. According to Gartner:
+The popular Youtube channel Linus Tech Tips discussing MECOOL TV streaming boxes.
 
-“MDR must be people-focused, human-led, AI-augmented and anchored in the evidence of the successes and outcomes it delivers.”
+The GTIG report estimates the XCPE botnet takedown should sever access to at least 10 million additional compromised devices, noting that the various proxy and ad fraud affiliates of Videostrong “each have diversified distribution channels for their modules beyond XCPE.”
 
-Gartner also explains the value of this approach:
+Synthient’s Brundage echoed that conclusion, calling the 1.3 million number “highly conservative.”
 
-“But those services that combine automation with dynamic detection engineering and threat intelligence teams will continue to outpace an ‘automation-only’ mindset, identifying actionable countermeasures that combat the latest and most innovative threat actors.”
+“The scale of affected devices is likely way higher,” he said. “This is probably the largest operation against backdoored TV boxes that we’ve seen.”
 
-We believe Bitdefender MDR combines an AI-enabled SOC with round-the-clock human expertise. AI accelerates analysis and investigation, while security experts validate findings and oversee response decisions.
+Further reading: Plume Security Labs white paper on the XCPE botnet (PDF) Black Lotus Labs writeup on LinkedIn TrendAI’s analysis Synthient’s list of affected devices, broken down by model number"
+adda542727cc,adda542727cc,2026-11-02 08:01 UTC,"Policy, Legal & Compliance",Bitdefender,Trend Micro Newsroom,Endpoint Security; Threat Intelligence,Article,Industry Takedown of Botnet Hidden in More Than 1.3 Million TV Set-Top Boxes across 200 Countries,https://newsroom.trendmicro.com/2026-11-02-Industry-Takedown-of-Botnet-Hidden-in-More-Than-1-3-Million-TV-Set-Top-Boxes-across-200-Countries,It's proof that collaboration is one of the most powerful tools we have against threats that cross borders and industries,"Google, Plume, TrendAI™, Lumen, HUMAN Security, Synthient and Japan's National Police Agency form coordinated effort combining security research, threat intelligence and network expertise to identify and disrupt X.CPE botnet
 
-What Should MDR Do to Contain a Threat?
+MOUNTAIN VIEW, Calif., Nov. 2, 2026 /PRNewswire/ -- Today, a group of private and public sector partners announced a coordinated takedown of X.CPE, a global botnet hidden in more than 1.3 million set-top boxes across more than 200 countries. Hidden on devices before they were ever sold, the botnet used subscribers' devices and home internet connections without their knowledge or consent. This takedown was led by Google, Plume, TrendAI™, Lumen, HUMAN Security and Synthient, along with Japan's National Police Agency.
 
-We believe an MDR provider should be ready to take agreed-upon action quickly, with clear authority and a plan to limit an attack’s spread. Alignment with your goals in this area is a key consideration for choosing the right vendor.
+""Operations like this raise the cost for criminals and show that the infrastructure they rely on isn't out of reach,"" said Charley Snyder, Head of Disruption Operations at Google Threat Intelligence Group. ""Disrupting X.CPE took partners across industry working together. It's proof that collaboration is one of the most powerful tools we have against threats that cross borders and industries.""
 
-Gartner notes: “Assess how the MDR provider’s containment approach and incident reporting integrate with your organization. Also decide what type of actions will be performed on your behalf to align with business and compliance requirements, legal policies, and government regulations.""
+A familiar device hiding an unfamiliar threat
 
-In our opinion, Bitdefender MDR uses pre-approved response actions to help contain threats, limit their spread, and minimize business disruption.
+X.CPE was embedded in firmware, the software that controls a device's basic operations, before set-top boxes reached subscribers' homes. X.CPE was built to evade pre-release security checks, and Google has since updated its review process in response, as well as banned the responsible OEM and any future subsidiaries or affiliates from making devices with preloaded Google apps. Unlike infections that depend on a user opening a suspicious attachment or installing an application, this threat arrived as part of the device itself. Subscribers received no consent request, notification or opt-out options.
 
-How Can MDR Help Reduce the Risk of an Incident?
+Google, Plume, TrendAI™, Lumen, HUMAN Security, Synthient, working with Japan's National Police Agency, carried out a coordinated disruption campaign against X.CPE. Each organization contributed in its own way, applying its expertise in connected-device security, malware analysis, network visibility and digital fraud to analyze the botnet and disrupt its operations.
 
-MDR can support proactive risk and exposure reduction through threat hunting and prioritized guidance for addressing security weaknesses.
+Together they dismantled a threat hiding behind seemingly routine device activity: software embedded in TV set-top boxes that gave botnet controllers remote access and allowed them to exploit home broadband connections without subscriber consent. The takedown also disrupted the command-and-control domains that operate the criminal affiliates' malware modules. Because these affiliates distribute their modules through channels beyond X.CPE, Google assesses that taking down these domains will sever access to at least 10 million additional compromised devices.
 
-Notes Gartner: “Established MDR buyers routinely ask providers to extend their requirements beyond TDIR (threat detection and incident response) to include the proactive identification and mitigation of threat exposures.”
+The effort demonstrates the importance of connecting intelligence across organizations to confront threats that cross technology and network boundaries. By bringing together distinct perspectives on compromised devices, malicious software and internet traffic, the partners supported a coordinated takedown aimed at disrupting unauthorized access and monetization and addressing risks to subscriber privacy, broadband resources and trust in connected devices.
 
-Bitdefender MDR leverages hundreds of millions of total covered endpoints to compile a massive amount of threat intelligence, attacker research, and threat analysis to continuously support threat hunts and update and protect customers. Our team of security experts also provides exposure insights that can help teams tackle underlying issues that might otherwise contribute to recurring risk.
+Turning home broadband into a business without permission
 
-Where Can You Learn More About Choosing an MDR Service?
+The botnet generated revenue from compromised devices in a variety of ways, including: reselling bandwidth, delivering video content, ad fraud, loading additional backdoors and, in earlier versions, installing apps for payment.
 
-The 2026 Gartner® Market Guide for Managed Detection and Response can help security and IT leaders assess the market against their organization’s needs.
+Residential proxy software allowed third-party traffic to pass through subscribers' internet connections, using their home internet addresses and bandwidth without permission. Researchers also found collection of device, network and account information, alongside persistent remote access capabilities.
 
-Get complimentary access to the report to inform your next MDR decision. Then explore Bitdefender MDR to learn how we believe its AI-enabled SOC and security experts can help reduce exposure, contain attacks, and extend your team’s capabilities.
+For service providers, the findings highlight a supply chain risk that may not be apparent from a device's everyday performance. A functioning streaming box can still generate unexplained traffic and undermine trust in the broadband service.
 
-Gartner, Market Guide for Managed Detection and Response, Andrew Davies, Angel Berrios, Eric Ahlm, Darren Livingstone, Craig Lawson, 9 September 2026. GARTNER is a trademark of Gartner, Inc. and/or its affiliates.
+""Protecting the connected home requires visibility into threats that subscribers cannot see and should not be expected to detect,"" said Chris Griffiths, Chief Technology Officer at Plume. ""By contributing broadband intelligence to this joint effort, we helped expose hidden supply chain risks and support coordinated action to make networks safer for service providers and their subscribers.""
 
-Gartner does not endorse any company, vendor, product, or service depicted in its publications, and does not advise technology users to select only those vendors with the highest ratings or other designation. Gartner publications consist of the opinions of Gartner’s business and technology insights organization and should not be construed as statements of fact. Gartner disclaims all warranties, expressed or implied, with respect to this publication, including any warranties of merchantability or fitness for a particular purpose."
+Complementary expertise, coordinated action
+
+The partners contributed to the Google-led effort to disrupt X.CPE:
+
+TrendAI™ Robert McArdle, Director of Cybercrime Research at TrendAI™ ""We applaud Google's decisive action in removing this threat. Our research identified over 1.3 million devices affected by this campaign. That's millions of households and businesses completely unaware that their equipment was being used as an accessory in active criminality - whether defrauding advertisers or piggybacking on their connections to carry out other attacks via residential proxies - which would commonly include identity theft impersonating people in their region. This action by Google and research partners significantly sets back these attackers, and TrendAI research will be watching them closely if they attempt to rebuild.""
+
+HUMAN Gavin Reid, CISO at HUMAN ""Compromised-device networks are sustained by profit: operators take control of devices and household connections without consent, then monetise that access through proxy services and various fraud activities. Group action, as exemplified in this operation, interrupts the infrastructure needed for monetisation, raising the cost of operating these networks and weakening the incentives that sustain them. ""
+
+SYNTHIENT Benjamin Brundage, CEO at Synthient. ""Illicit pay-per-install networks provide a significant backbone to the larger fraud ecosystem, powering everything from direct ad fraud to unregulated proxy networks that push credential stuffing and DDoS botnets. The takedown of X.Cpe helps protect this space as a whole, as well as the unsuspecting consumers victimized by this scheme."" - Benjamin Brundage
+
+Research and resources:
+
+Google: https://cloud.google.com/blog/topics/threat-intelligence/shutting-the-door-on-the-xcpe-botnet Plume: http://www.plume.com/xcpe-botnet-whitepaper-pdf TrendAI™: https://www.trendaisecurity.com/en-us/resources-insights/trendai-security-blog/trendaitm-research-helps-disrupt-android-tv-botnet-of-more-than-13-million-pre-infected-devices
+
+About Plume
+
+Plume provides an AI-powered platform that enables internet service providers improve connectivity, security and the subscriber experience. Combining cloud-managed Wi-Fi, network intelligence and customer care orchestration, Plume helps service providers across more than 60 countries build subscriber confidence and operate more efficiently. More details about Plume.
+
+About TrendAI™
+
+TrendAI™, the global AI security leader and enterprise business unit of Trend Micro, empowers organizations with full AI visibility, governance, and consolidated security that inspires confidence, drive innovation, and eliminate risk. Trusted by the largest enterprises and governments across 185 countries, TrendAI™ secures the entire organization, from identities to infrastructure to data. Global Fortune 500 companies rely on TrendAI™ to stop threats up to 115 days earlier, powered by world-leading threat and attack intelligence. More details about trendaisecurity.com.
+
+About Lumen
+
+Lumen Technologies connects people, data and applications through its network and technology services. Its Black Lotus Labs threat research and operations team uses global network visibility to identify malicious activity, generate threat intelligence and help protect businesses and the internet. More details about Lumen Technologies.
+
+About HUMAN Security
+
+HUMAN Security helps organizations protect digital experiences by detecting and disrupting automated threats, fraud and abuse. Its technology and threat intelligence help enterprises and platforms verify digital interactions and establish trust across the customer journey. More details about humansecurity.com.
+
+About Synthient
+
+Synthient provides intelligence to identify residential proxies, VPNs and bot infrastructure, helping organizations assess traffic risk and investigate abuse. Its researchers analyze proxy networks, botnets and adversary infrastructure to expose emerging threats. More details about Synthient.
+
+SOURCE Plume Design, Inc."
+9d2182e33582,9d2182e33582,2026-10-29 10:00 UTC,General Security News,Bitdefender,Broadcom/Symantec Blog,File Security; AI Security; Code Security,Article,Sandbox Flipped to ‘Danger-Full-Access’: Unauthorized AI Relays Create Risk for Organizations,https://www.security.com/threat-intelligence/openai-claude-unauthorized-relays,Threat Hunter has found the relay in use across a dozen organizations since early 2026,"Key findings
+
+An unauthorized relay service has been observed installing the genuine OpenAI Codex and Anthropic Claude Code CLIs on enterprise systems and then reconfiguring them to route every request through third-party infrastructure instead of the vendors' own servers.
+
+The service has been active since at least early 2026, and has impacted systems at a dozen organizations, most of them in mainland China, as well as multinational subsidiaries based in South Korea, Taiwan, and Malaysia.
+
+Affected sectors include industrial automation, electronics manufacturing, semiconductors, pharmaceuticals, shipping, tire manufacturing, petrochemicals, and data center services.
+
+Delivery relies on a fileless PowerShell or bash setup script that is fetched from a lookalike domain by a one-line command that users appear to run themselves shortly after a legitimate install of the Codex or Claude Code CLI through npm, so the download looks like a normal companion step rather than an attack. The reconfiguration disables the CLI's execution sandbox entirely, enables network access for the write sandbox, replaces the user's real API credentials with relay-issued tokens, and disables telemetry and error reporting.
+
+On at least one host, the script forced the user to log out of their legitimate Anthropic session and deleted their authentication environment variables before reissuing relay-controlled credentials.
+
+There is no evidence so far that the relay operator has abused this level of access, but a potential risk is that the configuration it installs would let it read every prompt, file, and secret passed through the agent and run commands with the user's full privileges.
+
+The relay's backend infrastructure has rotated across at least eight domains over the observation period, all impersonating OpenAI- or Anthropic-branded chat services.
+
+Overview
+
+AI coding agents such as OpenAI's Codex and Claude Code read files, write code, and run commands on the machines where they are installed. One of the safeguards they employ is a sandbox that is meant to limit what they can do. However, Symantec's Threat Hunter Team has identified an unauthorized relay service that provides access to OpenAI's Codex and Anthropic's Claude Code command-line coding agents, mainly in markets where the vendors do not officially operate, primarily mainland China. Rather than building its own client software, the service repurposes the genuine CLI tools. It installs them normally, then rewrites their configuration to switch sandboxing off, in Codex's case by setting it to “danger-full-access,” and routes every request through its own servers instead of OpenAI's or Anthropic's.
+
+This is not a vulnerability in Codex or Claude Code. The tools are behaving as designed once their configuration has been changed.
+
+Threat Hunter has found the relay in use across a dozen organizations since early 2026. There is no evidence the operator is currently abusing its position, but the configuration changes it makes strip out the safeguards that are meant to contain an AI coding agent, potentially exposing any organization whose employees use it to security risks.
+
+Usage
+
+The organizations where this relay has been observed span industrial automation, electronics manufacturing, semiconductors, pharmaceuticals, shipping, tire manufacturing, petrochemicals, and data center services. Most are based in mainland China, though the list also includes the Chinese operations, and in some cases the home-market operations, of multinational electronics and petrochemical firms based in South Korea, Taiwan, and Malaysia.
+
+Most instances appear to be a workplace where an employee or the organization itself wanted to use a Western AI coding assistant that is not officially sold in their market and so turned to an unauthorized reseller to get it.
+
+Tooling
+
+Installation and delivery
+
+The service does not distribute a modified or trojanized client. Users run a legitimate npm install
+
+-g @openai/codex, npm install -g codex-cli, or npm install -g @anthropic-ai/claude-code
+
+shortly before the override occurs, within minutes to roughly half an hour.
+
+A fileless PowerShell or bash setup script, fetched with a one-line iwr -useb <url> | iex or curl | bash from a lookalike domain such as vibe.aiok[.]me, checks whether Node.js and the target CLI are already installed, installs them silently if not, and only then applies its own configuration. Because the script performs a real, working installation of the genuine tool, the installation looks routine to the user and to most monitoring tools.
+
+We did not observe any automated or exploit-based delivery. The one-line command embeds a relay-issued API key and the relay's own endpoint, and the script is written for interactive use (it prints progress messages in Chinese and tells the user to re-run it in an elevated PowerShell session if it lacks administrator rights), which indicates that users copy a ready-made command from the relay or its reseller and run it themselves, although we have not seen the page or message it was copied from.
+
+Configuration override
+
+The script's actual purpose is to rewrite each tool's configuration file: ~/.codex/config.toml for Codex, or ~/.claude/settings.json for Claude Code. It replaces the base_url (or ANTHROPIC_BASE_URL) with a domain the relay controls, swaps in a relay-issued API key formatted to match what the CLI expects, and establishes both as user-scope environment variables so the change survives a reboot without further action from the operator. It also sets the CLI's sandbox mode to full access and enables network access for the write sandbox, disabling the isolation that is meant to limit what an AI agent can do on the host. Telemetry and error reporting are disabled at the same time, which would also suppress any usage signal that might otherwise reach OpenAI or Anthropic.
+
+sandbox_mode = ""danger-full-access"" network_access = ""true"" DISABLE_TELEMETRY=1 DISABLE_ERROR_REPORTING=1
+
+Credential replacement
+
+On one host, the script went further before applying its own configuration. It ran claude /logout, deleted the ANTHROPIC_AUTH_TOKEN and ANTHROPIC_API_KEY environment variables, and then ran claude /login. That sequence clears out a legitimate, already-authenticated session so it cannot override the credentials the script is about to install. Whether this step runs in every deployment of the script or was specific to that host was not established.
+
+claude /logout Remove-Item Env:ANTHROPIC_AUTH_TOKEN, Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue claude /login
+
+Geolocation check
+
+Several hosts show the script querying the Windows locale setting immediately after installation. This is consistent with a service confirming it is running on a system in the region it serves before completing setup.
+
+reg.exe QUERY ""HKCU\Control Panel\International\Geo"" /v Nation /reg:64
+
+Possible business model
+
+Why an operator would want this degree of control over a client-side relay is unclear. Bypassing the regional restrictions that keep Western AI vendors from selling directly into certain markets is the simplest explanation, but it does not require disabling a CLI's sandbox or establishing persistent credentials that survive a reboot. Reselling capacity below market rates is another possibility: the Claude Code keys issued by the relay were formatted sk-ant-oat01-, the prefix Anthropic uses for subscription-based OAuth tokens rather than sk-ant-api03- pay-per-use API keys, which is consistent with, though not proof of, a relay pooling flat-rate subscriptions and splitting the capacity across many customers. Fraud involving stolen credentials or payment cards, and resale of the prompts and files that pass through the relay, are also plausible and cannot be ruled out with the evidence available.
+
+Significance
+
+To be clear about what we have and haven't observed: the configuration changes described above were observed; the risks that follow from them are potential.
+
+The geography of this activity tracks the practical reality that OpenAI and Anthropic do not officially sell their coding agents into mainland China, which creates demand for unauthorized resellers regardless of who ultimately operates them. The organizations affected here look less like chosen targets and more like workplaces where individual employees found and used such a service to get access to tools they wanted.
+
+That demand does not make the risk any smaller. A relay in this position sees every prompt, file, and secret an employee sends to the agent, and can alter or fabricate every response it returns. With the sandbox disabled and network access enabled, a malicious or compromised response could execute with the full privileges of the user's account. None of the evidence reviewed here shows the operator exploiting that position, but the architecture would support it if the operator's intentions or security changed.
+
+The credentials this service issues do not stay confined to the AI agent, either. Because they are established as user-scope environment variables, any other tool on the same machine that reads those variables can pick them up, extending the exposure well beyond the coding assistant that first prompted an employee to install the service.
+
+Protection
+
+For the latest protection updates, please visit the Symantec Protection Bulletin.
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Organizations concerned about unauthorized AI relay use should also watch endpoints running Codex or Claude Code for the following:
+
+Changes to base_url or ANTHROPIC_BASE_URL in a CLI's configuration file.
+
+sandbox_mode set to ""danger-full-access"" in ~/.codex/config.toml.
+
+OPENAI_BASE_URL, CODEX_API_KEY, or ANTHROPIC_AUTH_TOKEN set as user-scope environment variables outside an approved deployment process.
+
+A PowerShell iwr | iex or bash curl | bash invocation run shortly after, or in place of, npm install -g @openai/codex or @anthropic-ai/claude-code.
+
+Traffic from AI CLI tools to destinations outside an allow-list of approved AI service endpoints.
+
+Indicators of Compromise
+
+File indicators
+
+2a76a28639d896bb41576d0e32d155b78f38b034e052dfe3a7b7e1a478fc0e24 – setup-codex.ps1 – Fileless PowerShell downloader impersonating an OpenAI Codex CLI setup script
+
+4bfe5ca73a4b0988586a46f789aeedba5db575257b58291934cddb9faa606fdb – setup-claudecode.ps1 – Fileless PowerShell/bash downloader impersonating an Anthropic Claude Code CLI setup script
+
+Network IOCs
+
+vibe[.]aiok[.]me
+
+aiok[.]me
+
+sorryios[.]io
+
+nuoda[.]vip
+
+chat[.]nuoda[.]vip
+
+rawchat[.]cn
+
+sharedchat[.]cc
+
+mirbuds[.]com
+
+claudechn[.]com
+
+vibe[.]skk[.]moe
+
+hxxps://vibe[.]aiok[.]me
+
+hxxps://vibe[.]aiok[.]me/setup-codex.ps1
+
+hxxps://vibe[.]aiok[.]me/setup-claudecode.ps1
+
+hxxps://chat1[.]sorryios[.]io
+
+hxxps://chat1[.]sorryios[.]io/codex
+
+hxxps://chat1[.]sorryios[.]chat/claudecode
+
+hxxps://chat[.]nuoda[.]vip
+
+hxxps://chat[.]nuoda[.]vip/codex
+
+hxxps://chat[.]nuoda[.]vip/claudecode
+
+hxxps://rawchat[.]cn/codex
+
+hxxps://chat[.]rawchat[.]cn/codex
+
+hxxps://new[.]sharedchat[.]cc/codex
+
+hxxps://gpt4[.]mirbuds[.]com/codex"
 b370489fe212,b370489fe212,2026-10-27 09:00 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Bitdefender Business Insights,Attack Surface Discovery; Threat and Exposure Management; Vulnerability Management,Article,Your Attack Surface Is Growing Faster Than Your Team Can Respond,https://businessinsights.bitdefender.com/attack-surface-exposure-management,"As AI helps attackers accelerate reconnaissance and exploitation, organizations need to reduce the opportunities that make attacks possible in the first place","Security teams cannot keep responding faster forever. As AI helps attackers accelerate reconnaissance and exploitation, organizations need to reduce the opportunities that make attacks possible in the first place.
 
 That requires a pivot toward prevention and a broader view of exposure. An unpatched application matters, but so do unnecessary administrative privileges, forgotten internet-facing services, or legitimate tools available to someone who never needs them. Individually, these weaknesses may attract little attention. Connected, they can create an attacker pathway to the systems and data the business depends on.
@@ -529,6 +724,387 @@ GravityZone Exposure Management supports and simplifies this approach within Gra
 The strategic goal is to make prevention, through continuous risk reduction, part of everyday security operations. This helps close attack opportunities before they become an incident.
 
 Explore Bitdefender GravityZone Exposure Management"
+257572f9eb42,257572f9eb42,2026-10-26 12:57 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Arctic Wolf Blog,Email and Collaboration Security; Threat Intelligence,Article,Beyond the Inbox: How Threat Actors Abuse Microsoft Teams External Chat for Initial Access,https://arcticwolf.com/resources/blog/threat-actors-abuse-microsoft-teams-external-chat-for-initial-access/,"This activity does not exploit any known Teams vulnerability; it abuses a legitimate, default-on collaboration capability","Summary
+
+Arctic Wolf Labs has observed a recurring social engineering pattern in hundreds of cases where threat actors have used Microsoft Teams’ external chat creation feature for impersonation scams, or to deliver malicious files. A consistent pattern of attacker behavior has emerged across these incidents: the use of the same throwaway tenants, the same “IT Support (Internal)” display names, the same remote-access tools, and increasingly, the same payload domains.
+
+In this report, we’ll explore our findings, examine how attackers weaponize the external access / federation feature in Teams to reach employees, reveal the infrastructure identified through Arctic Wolf’s telemetry, and discuss the defensive measures organizations can take to disrupt this attack chain.
+
+Key Findings
+
+Arctic Wolf analyzed more than 400 incidents involving abuse of the Microsoft Teams external chat functionality for social engineering activity and initial access.
+
+Threat actors repeatedly used highly consistent IT-support impersonation tactics, including IT-themed display names, friendly-sounding first names, and “(Internal)” labels designed to undermine external-user warnings in Teams.
+
+We observed a measured infrastructure shift, from disposable .onmicrosoft[.]com tenants toward attacker-controlled domains, with .top domains accounting for roughly half of observed paid-domain cases.
+
+Arctic Wolf detects this activity at the ChatCreated stage, creating a window of opportunity to identify and disrupt attacks before a victim engages with the threat actor.
+
+Context
+
+Microsoft Teams ships with external access (federation) turned on by default, meaning any Teams user in another Microsoft 365 tenant can find, chat with, and call an organization’s employees, provided both tenants allow external access. This is the feature attackers most frequently abuse. This activity does not exploit any known Teams vulnerability; it abuses a legitimate, default-on collaboration capability.
+
+How Threat Actors Establish Teams Identities
+
+Threat actors commonly establish external Teams identities through newly created or acquired Microsoft 365 tenants. Between 30 to 40 percent of the cases we analyzed involved default *.onmicrosoft[.]com tenant domains. This default domain requires no verification and can be provisioned within minutes, giving attackers a functioning Teams identity with minimal setup.
+
+Arctic Wolf observed that, even when using this default domain, attackers engineer the tenant’s sender name to read as IT infrastructure. We have supplied a list of the default *.onmicrosoft[.]com tenant names observed in use across multiple customers in the Appendix at the end of this report [1].
+
+Arctic Wolf assesses that threat actors typically select a support-, IT-, admin-, network-, or helpdesk-themed word as the tenant name, optionally suffixed with the number 365, or the words online, portal, or a random number, to obtain a free tenant name. In a smaller number of cases, Arctic Wolf observed threat actors using legitimate company names in the sender’s tenant name to increase their credibility.
+
+How the Attack Unfolds
+
+In a significant number of cases, customers reported that the malicious Teams contact was preceded or accompanied by “mail bombing”, the flooding of a victim’s inbox with hundreds of newsletter or subscription confirmations within minutes. The email storm is intended to manufacture urgency and bury legitimate emails such as security alerts, with the Teams “IT support” message arriving moments later to offer to resolve the very same problem the attacker just created.
+
+This reflects an abuse of trust: employees are generally trained to treat email with suspicion, but a message delivered from inside their Teams instance bypasses that learned caution.
+
+Beyond email masquerading, Arctic Wolf identified a range of consistent naming techniques used by threat actors across customer alerts. The attacker’s Teams display name is central to the deception. Arctic Wolf observed the following impersonation display names most frequently, meaning the pattern occurs across multiple cases: [2]
+
+Attackers append “(Internal)” to the display name so the recipient perceives the message as coming from an internal IT sender, even though Teams simultaneously labels the sender as External.
+
+Reoccurring usage of friendly-sounding names, such as “IT Service Desk – Liam , IT Support (Scott McGhee)”, or “IT Service Desk (Matthew)”. Here, adding a first name makes the Teams message appear to come from a real member of their organization’s Service Desk.
+
+In several cases, attackers used region-specific naming conventions tailored to the target’s locale: for example, “Supporte TI,” the French/Spanish variant of “IT Support.”
+
+We observed roughly 100+ emoji markers ( 🛡 shield, 🛠️/🔧 tools, ✅ check) used in attacker display names: e.g., “IT Support 🛡| Corporate IT Service 🛠 (Internal).” This may be evidence of the use of AI such as ChatGPT and AI-related automation to create content and identities in support of this campaign.
+
+Most recently, we observed the attacker/external Teams user adding the target organization’s domain or company name in their own display name to make the message appear more legitimate.
+
+We also observed a recent shift toward paid top-level domains (TLDs) for tenant creation. Of the paid domains we identified in these types of scams over the past few months, approximately 50 percent of fake identities used the .top TLD, around 40 percent used a standard .com domain, and just over five percent used multi-level domains such as .com.pl, .com.vn, and .com.br.
+
+This aligns with Sophos’s reporting on the STAC4749 / Chaos ransomware campaign, which found that attackers have moved away from onmicrosoft[.]com throwaway tenants and toward IT-themed .top domains for payload staging and command-and-control (C2), as the low cost of .top registrations allows for convincing “update/ security/support” hostnames. Arctic Wolf also observed repeated use of other common TLDs, including .com.br and .com.vn in activity reported during July and August.
+
+In a subset of these custom domains, attackers deliberately configured DNS records to redirect web requests to the legitimate Microsoft or victim organization site to appear authentic.
+
+Attack Chain for Teams Chat Creation
+
+Attackers target organizations where external access is enabled. Chat creation itself is only the entry point. Arctic Wolf assesses that, once trust is established, the attacker’s immediate goal in most cases is to obtain hands-on-keyboard access through a legitimate remote monitoring and management (RMM) tool.
+
+We also frequently observed attackers using vishing (a direct voice call to the victim from within Teams) to secure RMM installation. In cases where attackers target multiple victims simultaneously, typically via automation, the initial contact begins with a Teams chat message instead of a call. The most commonly observed RMM tools used in relation to this scam were Quick Assist (QuickAssist.exe / msra.exe), AnyDesk, ScreenConnect (ConnectWise), TeamViewer, Atera, Zoho Assist, NetSupport, and LogMeIn.
+
+Of these, Quick Assist is the most frequently used. This may be because it is built into Windows, signed by Microsoft, requires no installation, and only requires the victim to read back a six-digit code. When attackers seek persistence beyond the initial call, they pivot to a commercial RMM tool (AnyDesk, Atera, ScreenConnect, or a second platform such as Level, installed via msiexec), which provides an independent control channel that survives remediation of the original implant.
+
+Arctic Wolf identified a consistent attack chain across successful exploitation cases and correlated it with chains previously documented by security vendors such as Microsoft and Zscaler:
+
+Attackers commonly target multiple users within short windows of time (approximately five minutes) to increase the likelihood of success, most likely performed through automation. Once a victim engages, the attack chain reported by customers shows threat actors reaching payload execution in under 15 minutes. Arctic Wolf observed similar compression in its own data: several cases recorded concurrent credential-access detections (Kerberoasting, GoldenPAC-related) firing alongside the initial Teams alert, indicating the endpoint was already compromised by the time the chat alert was triaged.
+
+In a subset of cases, attackers leveraged Microsoft’s notes. Attackers generally avoid pasting a URL directly into Teams, which would trigger Safe Links / ZAP scanning, and instead navigate to the payload themselves during the remote session. Consequently, endpoint and identity telemetry are essential monitoring surfaces alongside message scanning.
+
+How Teams Chat Abuse Works
+
+Threat actors using external Teams chat as an initial-access vector is not new. The practice was first documented by Microsoft in the Black Basta (Storm-1811) campaign in mid-2024, which used the now-familiar chain of email bombing → external Teams “help desk” → Quick Assist → QakBot/DarkGate/Cobalt Strike → ransomware.
+
+The technique was later observed in the Cactus campaign and in 3AM and Chaos. Earlier this year, Zscaler reported on the GoGRPC campaign, in which Teams vishing and Quick Assist were used to deploy the GoGRPC backdoor.
+
+Example Attack Observed by Arctic Wolf
+
+Arctic Wolf recently identified a potentially novel infection chain leveraging external Microsoft Teams chat messages, in which the threat actor posed as an IT helpdesk employee to initiate the attack. In the case we observed, the attacker instructed the user to run a PowerShell command and launch the downloaded file. The initial payload retrieval was performed via PowerShell, and both actions executed under the victim’s account with a parent process of explorer.exe, reminiscent of ClickFix, though not disguised as a CAPTCHA.
+
+Next, the PowerShell command downloads an MSI from Azure Blob Storage, which bundles a PowerShell script and a ZIP archive (archive6.zip). Approximately 30 seconds after the MSI is launched by the user, the bundled PowerShell script (cleaner.ps1) is dropped into the users’ AppData folder (AppData\Local\PowershellCleaner\scripts) and executed. The script cleaner.ps1 contains a large array of hexadecimal characters, preceded by an IEX instruction to execute the joined and decoded array; the resulting plain code is a loader that reads a block of AES-encrypted data, decrypts it using hard-coded key/IV and computes its hash. If the hash matches a hard-coded value, the resulting PowerShell is executed via ScriptBlock.
+
+Ultimately, this is an obfuscated decryption and execution stub to build and run an additional PowerShell payload. The purpose of this final payload is to extract the pythonw interpreter and implant (ss.py), both from the bundled archive6.zip. After sleeping for five seconds, the implant is executed via pythonw.exe.
+
+The implant then starts another MSI transaction that issues LDAP queries to Active Directory for all computer and user objects (filtering for both Category and Class) using the System.DirectoryServices.DirectorySearcher PowerShell shortcut adsisearcher, formatting the attribute output as [sAMAccountName] – [description]. This information is then transmitted to C2 server endpoints that are randomly selected from a list of domains and URIs laid out in the implant’s code.
+
+How Arctic Wolf Protects its Customers
+
+From the newly created tenant, the attacker initiates a one-on-one chat, which avoids the visibility associated with group conversations. Microsoft records this first contact as a ChatCreated event, which Arctic Wolf assesses to be the primary detection opportunity for defenders. Our alerts most frequently fire exactly here, before the user has done anything.
+
+Arctic Wolf combines multiple detection engines to identify suspicious external Teams chats. Drawing on observations from thousands of customer environments, Arctic Wolf maintains indicators of compromise (IOCs) associated with these campaigns, including impersonation-focused display names such as IT Helpdesk and Helpdesk Support as well as attacker-controlled tenant and domain patterns.
+
+Arctic Wolf’s behavioral engine also monitors Microsoft tenants that initiate conversations with multiple Arctic Wolf customers. When activity from a tenant, account, or domain appears anomalous, particularly when combined with other signals such as email bombing or suspicious follow-on activity, Arctic Wolf flags it for investigation.
+
+Arctic Wolf also tracks top-level domains that threat actors commonly use to create tenants, host payloads, or support command-and-control infrastructure.
+
+Beyond monitoring the initial Teams-based social engineering lure, Arctic Wolf maintains detections for the remote monitoring and management (RMM) tools that attackers frequently push during these engagements. Arctic Wolf alerts on the execution of RMM tools that are not sanctioned or expected within a given environment, since the unauthorized installation of legitimate remote access software is a common technique used to establish persistence once a victim has been convinced to grant access.
+
+Arctic Wolf also correlates behavior over time, flagging cases where an RMM tool installation is followed by reconnaissance commands, such as enumerating users, groups, or network configuration, and prioritizing these for investigation.
+
+Conclusion
+
+External Microsoft Teams chat has become an effective initial-access vector because it exploits trust rather than a software vulnerability.
+
+Arctic Wolf has been able to monitor and protect our customers from these attacks with proactive defenses. Across the activity examined, attackers combined email bombing, convincing IT-support impersonation, newly created tenants and domains, and rapid social engineering to move victims from a seemingly routine chat to remote access, payload execution, and, in some cases, broader compromise.
+
+The recurring patterns provide defenders with valuable opportunities to interrupt the attack chain. An unexpected chat from an external tenant, particularly one that follows an inbox flood or uses an IT-themed display name, should be treated as suspicious. Correlating ChatCreated events with endpoint, identity, email, domain, and remote-access telemetry can reveal the progression even when the initial interaction appears benign.
+
+Defensive Countermeasures for Organizations
+
+Most organizations have no legitimate need for open, any-tenant external chat. Per Microsoft’s guidance in Manage external meetings and chat with people and organizations using Microsoft identities, move from “allow all” to an allow-list of trusted organizations. Organizations can take the following proactive steps:
+
+In Teams admin center → Users → External access, select “Allow only specific external domains” and add only the partner domains the organization actively collaborates with. Once an allow-list is configured, all other domains are blocked by default.
+
+Block chat with unmanaged / Teams-consumer accounts, and disable the option that lets unmanaged users start conversations with your users.
+
+Block federation with trial-only tenants, as attackers commonly prefer free or trial tenants for their minimal setup requirements:
+
+Set-CsTenantFederationConfiguration -ExternalAccessWithTrialTenants ""Blocked""
+
+Enable “Allow my security team to manage blocked domains” so the security team can push blocks (e.g., the .top indicators listed in this report) through the Microsoft Defender Tenant Allow/Block List → Teams domains tab.
+
+Harden the remote-access path: block or restrict Quick Assist to authorized IT roles (or remove it where unused), and block or uninstall unsanctioned RMM tools (AnyDesk, TeamViewer, ScreenConnect, Atera, Level, Splashtop) via Defender for Endpoint or application control. Alert on any RMM tool not deployed through the Arctic Wolf agent.
+
+Because this attack vector relies on social engineering rather than technical exploitation, people and process controls are critical to closing the gap:
+
+Out-of-band verification for all remote-access requests. Mandate a callback to the user’s registered number or an approval flow in a separate trusted app. An impersonator controlling the Teams channel can’t complete a verification that lives outside it.
+
+Tell staff exactly how real IT reaches out (which channels, which domains, which named contacts), and that unsolicited external “IT support” is inherently suspicious (especially if it appears right after an inbox spam flood).
+
+Train users to read the External tag and the real sender domain, and to never dismiss the Accept/Block, Safe Links, or first-contact warnings. Provide side-by-side examples of the organization’s real help desk communications versus an impersonator’s.
+
+Conduct targeted training for personnel regarding the specific social engineering tactics used in this campaign. For those without the time to devote to creating security training resources from scratch, the Arctic Wolf Aurora® Managed Security Awareness and Training solution delivers easily digestible security lessons for employees, including regular phishing simulations and a “Report Phish” button.
+
+Microsoft is also clearly taking this threat seriously too. They’ve now built end-user reporting for security directly into Teams, letting employees report a suspicious message or an external user with a couple of clicks.
+
+MITRE ATT&CK® Mapping
+
+Tactic
+
+Technique (ID)
+
+Observed
+
+Resource Development
+
+Acquire Infrastructure: Domains (T1583.001)
+
+Cheap disposable .top domains dominate (getitconnect[.]top, get-help-systems[.]top, helpdesk-sys[.]top, help-desk-get[.]top, fix-it[.]top), plus lure domains on .icu, .online, .report, .zip.
+
+Resource Development
+
+Establish Accounts: Cloud Accounts (T1585.003)
+
+Throwaway *.onmicrosoft[.]com tenants with IT-themed names (helpdeskteam365, itcoreportal, supportedge33, networkadmin916).
+
+Resource Development
+
+Establish Accounts: Email Accounts (T1585.002)
+
+Attacker-created sender mailboxes used to initiate contact.
+
+Initial Access
+
+Phishing: Spearphishing via Service (T1566.003)
+
+External Microsoft Teams 1:1 chat from an unknown/external tenant (ChatCreated).
+
+Initial Access
+
+Phishing: Spearphishing Voice / Vishing (T1566.004)
+
+Voice/phone social engineering accompanying the Teams contact (help desk callback pretext).
+
+Initial Access
+
+Phishing (T1566) — email-bombing (T1667) precursor
+
+Mail-bomb / spam flood immediately preceding the “help desk” outreach to manufacture urgency.
+
+Initial Access
+
+Trusted Relationship (T1199)
+
+Abuse of default-on Teams external access / cross-tenant federation to reach internal users.
+
+Initial Access
+
+Impersonation (T1656)
+
+Sender display names impersonating internal IT (“Help Desk”, “IT Support”, “IT-Representative”, “Help Desk Manager”).
+
+Execution
+
+User Execution: Malicious File (T1204.002)
+
+.msi / .exe staging bundles or scripts delivered via Teams chat files; hands-on execution confirmed only in the few events where the user engaged.
+
+Execution
+
+Command and Scripting Interpreter: PowerShell (T1059.001)
+
+PowerShell payload download/staging described as the expected post-access step
+
+Defense Evasion
+
+Masquerading (T1036)
+
+Lure files/domains styled as legitimate IT/support assets.
+
+Command and Control
+
+Remote Access Software (T1219)
+
+Quick Assist, AnyDesk, TeamViewer, ScreenConnect/ConnectWise remote-access tooling observed across these cases
+
+Command and Control
+
+Ingress Tool Transfer (T1105)
+
+Download/staging of follow-on tools once remote access is granted.
+
+Appendix [1]
+
+NOTE: Arctic Wolf assesses that the following domains seen in relation to these attacks are all fake and are not real Microsoft domains.
+
+Attacker Tenant (Default *.onmicrosoft[.]com tenant names observed by Arctic Wolf across multiple intrusions)
+
+supportedge33[.]onmicrosoft[.]com / supportedge39[.]onmicrosoft[.]com
+
+helpdeskteam365[.]onmicrosoft[.]com
+
+itendpoint365[.]onmicrosoft[.]com
+
+itcoreportal[.]onmicrosoft[.]com
+
+networkadmin797[.]onmicrosoft[.]com / networkadmin916[.]onmicrosoft[.]com
+
+itadmin922[.]onmicrosoft[.]com
+
+supportagentonline[.]onmicrosoft[.]com
+
+threatpro[.]onmicrosoft[.]com
+
+ithelpplus42[.]onmicrosoft[.]com
+
+corporateitservicellc[.]onmicrosoft[.]com
+
+techsupport2337[.]onmicrosoft[.]com
+
+Appendix [2]
+
+Display Name/ Pattern Used by Threat Actors
+
+Help Desk
+
+IT Support
+
+HelpDesk Manager
+
+IT Service Desk – Liam / IT Service Desk (Liam)
+
+IT Service Desk – Matt / IT Service Desk – Scott
+
+IT Support – Christopher Thomas
+
+HelpDesk Supervisor
+
+Enterprise IT & Security (Internal)
+
+IT Tech Support Internal
+
+Business IT Solutions & Support (Internal)
+
+Maintenance Service
+
+IT-Representative
+
+IT/Help Desk
+
+IT/”update”-Themed .top Payload and C2 Infrastructure
+
+update-software[.]top
+
+infoupdate-it[.]top
+
+soft-program[.]top
+
+getsysmonitor[.]top
+
+programupdate-assis[.]top
+
+expertassist[.]top
+
+sec-check-it[.]top
+
+upd-check-soft[.]top
+
+assis-programupdate[.]top
+
+get-info-check[.]top
+
+updsysseq[.]top
+
+techrelay[.]top
+
+verifsec-update[.]top
+
+sys-update-check[.]top
+
+get-help[.]top
+
+it-assistant[.]top
+
+ms-system-check[.]top
+
+scan-updseq[.]top
+
+it-seccontrol[.]top
+
+verifcontrol-update[.]top
+
+get-upd-sys[.]top
+
+get-sys-info[.]top
+
+getsystembridge[.]top
+
+data-sys-seq[.]top
+
+soft-network[.]top
+
+Help-Desk Lookalike .com Domains (Classic Impersonation Infra)
+
+helpdesk-support-us-ny[.]com
+
+helpdesk-support-office-3[.]com
+
+helpdesk-support-office-4[.]com
+
+helpdesk-support-us3[.]com
+
+helpdesk-call[.]com
+
+helpdesk-s1x[.]com
+
+itdeskassist[.]com
+
+Notable Payload/Credential-Phish Domains Seen Repeatedly
+
+kilan[.]com[.]pl
+
+saludcentro[.]gov[.]co
+
+ggc[.]com[.]ph
+
+scapini[.]com[.]br
+
+References:
+
+Microsoft: Cross-tenant helpdesk impersonation to data exfiltration
+
+Microsoft Teams admin: Manage external meetings and chat (trusted organizations)
+
+Zscaler ThreatLabz: Helpdesk Hijackers: Teams Vishing, Quick Assist, and GoGRPC
+
+Sophos: Chaos in Teams vishing (STAC4749)
+
+ReliaQuest: Former Black Basta affiliates automating executive targeting
+
+BleepingComputer: Teams tactics connect Black Basta and Cactus ransomware
+
+UNC6692: How UNC6692 Employed Social Engineering to Deploy a Custom Malware Suite | Google Cloud Blog
+
+Additional Arctic Wolf Resources:
+
+Read related blog: Black Basta Ransomware Group Affiliates Leveraging Windows Quick Assist for Initial Access
+
+Subscribe to Arctic Wolf’s Threat Intelligence newsletter: ThreatPulse Community Edition
+
+Arctic Wolf Tech Den
+
+Arctic Wolf Blog
+
+Legal disclaimer: Attribution reflects Arctic Wolf Labs’ assessment as of the report period and may evolve with new evidence. References to threat actor identity, nexus, and intent are analytical judgments, not statements of legal fact. This alert is provided for informational purposes only and does not constitute a guarantee of detection or prevention. Defensive effectiveness varies by environment, configuration, and available telemetry."
 0dfacbdda8f5,2b62329cc6f4,2026-10-22 16:11 UTC,Vulnerabilities & Patching,Bitdefender,Bitdefender Business Insights,Vulnerability Management,Article,"Technical Advisory: PHP2Shell Pre-Auth RCE (CVE-2026-109618, CVE-2026-109619)",https://businessinsights.bitdefender.com/technical-advisory-php2shell-pre-auth-rce,"Bitdefender has not observed exploitation and Bitdefender Labs and the MDR team are monitoring; to use the access the flaws give them, attackers must act on the server, and...","[CRITICAL] | CVSS v4.0 9.2 | No exploitation observed by Bitdefender | Patch immediately
 
 TL;DR
@@ -718,6 +1294,105 @@ Hands-on activity: Anomaly.Process.NewSubprocessesStarted, EDR.HiddenFileExecuti
 Persistence: EDR.SuspiciousCrontabModification, PHASR.Crontab.InstallOtherUser (blocking)
 
 Want to keep up with threats like this one? Subscribe to our Ctrl-Alt-DECODE newsletter"
+52f6c04078fa,52f6c04078fa,2026-10-22 15:00 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Huntress Blog,Email and Collaboration Security; Identity Security Posture Management; Threat Intelligence,Article,Unboxing Phishing Kits: Huntress Examines 3 Real Kits,https://www.huntress.com/blog/unboxing-phishing-kits,"More advanced kits feature admin dashboards from where attackers can track their victims, modify phishing page content, and relay credentials in real-time","Teach a noob to phish and they'll be scamming for a lifetime. It has never been easier to steal credentials, thanks to a growing number of phishing kits that give aspiring attackers everything they need in one convenient interface.
+
+Huntress Staff Threat Intelligence Analyst Andrea Hatcher and Staff Product Manager Rich Mozeleski stopped by our monthly Tradecraft Tuesday series in October to unpack some recently staged phishing kits and walk through what the resulting malicious activity looks like from the defenders' point of view.
+
+Watch the full video below, and keep reading for clips and other highlights.
+
+Example phishing kits
+
+A phishing kit is a pre-packaged resource with code, templates, and instructions for how to launch a phishing campaign and use the stolen credentials for further malicious activity. Basic kits are often made up of simple HTML and script files that can spin up a single fake login page.
+
+More advanced kits feature admin dashboards from where attackers can track their victims, modify phishing page content, and relay credentials in real-time.
+
+Here are three of the many phishing kits that Huntress has analyzed in the last few months, all targeting Microsoft 365 tokens:
+
+EvilTokens
+
+Knight Office
+
+Kali365
+
+EvilTokens hops off the Railway
+
+Just a few weeks before this broadcast, a collaboration between Microsoft's Digital Crimes Unit and the FBI led to the arrest of one of the alleged operators of EvilTokens, a device-code phishing campaign that abused the Railway PaaS as a token-harvesting and token-replay engine.
+
+For more on the EvilTokens takedown, watch Rich's conversation with Microsoft's Principal Corporate Counsel Carlton Gammons and Huntress' Chief Legal Officer Lauren Zajac on-demand.
+
+As Rich put it, discovering the EvilTokens campaign in February ""opened the dam"" for our researchers diving into phishing kits. He noted the kit's professional aesthetic and 24/7 support as akin to a software-as-a-service (SaaS) operation.
+
+Moving beyond passwords
+
+Andrea walked through how the Kali365 control panel is an entire criminal ecosystem in a box, including AI features: ""It's not just someone standing up a convincing login page, it's a whole ecosystem that helps an operator acquire infrastructure, collect authentication material, retain access, and even scale it up.""
+
+>
+
+With these additional capabilities, phishing kits can help attackers get their hands on a lot more than usernames and passwords. We asked the audience what they thought attackers found most desirable these days, and most of those polled answered an authenticated session token or a persistent foothold.
+
+Modern phishing kids can provide low-skilled attackers with a usable authenticated session with any of the following tactics:
+
+Device-code phishing
+
+Adversary-in-the-middle (AitM) phishing
+
+Token theft and replay
+
+Device-code phishing
+
+Device-code phishing refers to when the user authenticates directly with the identity provider, but the attacker captures the resulting authorization. Device-code flows can reduce friction for attackers because they do not require the victim to surrender a password directly.
+
+Rich shared that an estimated one in six incidents investigated by Huntress' ITDR team involved a rogue device being registered, and 36 percent of the audience members polled had seen device-code phishing in the wild. He points to Conditional Access Policies as a key prevention measure: ""The vast majority of Microsoft environments do not need device code flow.""
+
+Adversary-in-the-middle attacks
+
+AitM attacks reveal the limitations of MFA; the threat actor relays the authentication flow in real time, either with a fake login page or by intercepting an exchange within the legitimate app. The victim completes the MFA prompt while the attacker captures the resulting session information. This is why successfully completed MFA does not make the session trustworthy on its own.
+
+Token theft and replay
+
+As Andrea put it, ""the session can be way more powerful than the password."" After an attacker gets their hands on a sign-in token, a phishing kit can help them ""replay"" it into an active session, where they can access cloud resources and victim email accounts.
+
+If you suspect token replay in your environment, your investigation should move beyond the original phishing page and examine how the token was used. Polled audience members voted sign-in address and new device registration as the top two signals to investigate first if token theft is suspected.
+
+What defenders see, and what to do about it
+
+Andrea emphasized the importance of detecting signals across the chain. One signal is weak; the sequence is strong. Correlate the progression of lure, authentication, token issuance or theft, device registration, mailbox activity.
+
+Andrea drove the point home: ""Join the telemetry across the identity provider, the endpoint, the browser context, the network, and the mailbox. We shouldn't just be looking at one signal in the network or one signal in the mailbox. We really need to have that holistic view.""
+
+Detection opportunities
+
+Investigate successful sign-ins from unfamiliar cloud infrastructure.
+
+Hunt for device-code authentication and automated token refresh.
+
+Review new devices, authentication methods, and mailbox activity.
+
+Response priorities
+
+Containment must address identity artifacts, not just the original lure.
+
+Revoke refresh tokens.
+
+Remove unauthorized devices and Windows Hello credentials.
+
+Restrict or block device-code authentication where possible.
+
+Investigate mailbox access, forwarding rules, and outbound phishing.
+
+Continue hunting after the original phishing domain disappears.
+
+Continuous response loop
+
+Detect correlated identity and endpoint activity.
+
+Revoke or remove persistence mechanisms.
+
+Investigate downstream mailbox and outbound-phishing activity.
+
+Continue monitoring for replay or re-entry after containment.
+
+Like what you just read? Join us every month for Tradecraft Tuesday, our live webinar where we expose hacker techniques and talk nerdy with live demos. Snag your spot now!"
 84b7ab2194f6,84b7ab2194f6,2026-10-21 15:59 UTC,General Security News,Bitdefender,Bitdefender Business Insights,Threat and Exposure Management; AI Security; Attack Path Prediction; Cloud Security Posture Management,Article,What’s New in GravityZone October 2026 (v 6.78),https://businessinsights.bitdefender.com/whats-new-in-gravityzone-october-2026,"This section describes new functionality designed to elevate analysts' capabilities, offering enhanced tools for threat detection, investigation, and response","Bitdefender rolled out new functionality in Bitdefender GravityZone, a unified cybersecurity platform that provides prevention, protection, detection, and response capabilities for organizations of all sizes. These features, aligned with our multi-layered security strategy, are designed to reduce the workload for security analysts, administrators, and users.
 
 What’s new for Security Analysts
@@ -937,6 +1612,194 @@ Where Can I Learn More About Bitdefender GravityZone?
 To learn more about the Bitdefender GravityZone platform, contact us or a Bitdefender partner for more information. You can also start a free trial by requesting a demo here.
 
 The Bitdefender GravityZone unified security platform offers a one-stop solution for all your organization's security needs. As the digital landscape evolves, Bitdefender stays ahead, providing prevention, protection, detection, and response capabilities to help keep organizations of all sizes worldwide safe."
+1d1c3bddace4,1d1c3bddace4,2026-10-19 20:30 UTC,General Security News,Bitdefender,CyberWire Daily,AI Security; Data Security Posture Management; Email and Collaboration Security; Identity Security Posture Management,Podcast,The ballot box meets the bot.,https://www.thecyberwire.com/podcasts/daily-podcast/2659/notes,"Ben Yelin, sits down with Kevin Tian, CEO and Co-Founder of Doppel, to share how AI is changing the threat landscape for sports organizations. Meanwhile, the FBI and CISA released a joint warning that AI-generated phishing attacks could threaten November’s midterm elections.","State election officials question CISA’s commitment to election security. Stolen credentials force ConnectWise to suspend cloud services. Fake calendar invites steal Microsoft logins. Temu settles Texas privacy allegations. Toronto police arrest seven in a cryptocurrency kidnapping case. The G7 sounds the alarm on quantum threats. Monday business briefing. Ben Yelin, sits down with Kevin Tian, CEO and Co-Founder of Doppel, to share how AI is changing the threat landscape for sports organizations. MapQuest puts surveillance on the map.
+
+Today is Monday October 19th 2026. I’m Dave Bittner. And this is your CyberWire Intel Briefing.
+
+State election officials question CISA’s commitment to election security.
+
+According to ProPublica, political appointees at the Department of Homeland Security asked CISA to secretly acquire and hack a voting machine, then report its findings to the White House. Career employees resisted, concerned the results could be used to challenge election outcomes. The request was eventually dropped.
+
+The revelation comes amid a dramatic retreat from CISA’s election security mission. Since President Trump returned to office, the agency has lost more than a thousand employees, roughly a third of its workforce, while cutting critical monitoring and support services.
+
+State election officials say CISA was largely absent during preparations for November’s midterms. Meanwhile, the administration’s release of previously confidential election security information has damaged relationships built over years of cooperation.
+
+CISA finally released an election security plan in late September, but state officials say it arrived too late to make much difference. Several now question whether they can trust the agency with sensitive information.
+
+Meanwhile, the FBI and CISA released a joint warning that AI-generated phishing attacks could threaten November’s midterm elections. Election officials, candidates, and political organizations are attractive targets because of their access to sensitive voter and campaign information.
+
+Attackers are using AI to produce convincing emails, text messages, and deepfake audio and video, eliminating traditional warning signs like poor grammar.
+
+The agencies recommend phishing-resistant multifactor authentication, stronger email filtering, and independent verification of suspicious requests.
+
+The alert describes an emerging threat rather than a specific ongoing attack.
+
+ConnectWise suspends its Cloud Backup service following stolen credentials.
+
+ConnectWise has suspended its Cloud Backup service and taken two other cloud services offline after attackers stole credentials associated with seven application identities, potentially exposing customer Microsoft 365 environments.
+
+The stolen credentials allowed attackers to impersonate trusted ConnectWise applications without needing customer passwords.
+
+Security firm Huntress identified suspicious sign-ins across roughly a thousand Microsoft tenants, including approximately 300 successful authentications. Researchers also observed a targeted campaign against 16 organizations in sensitive sectors, though those attempts failed.
+
+ConnectWise says it has disabled the compromised credentials and found no evidence that encrypted backup archives were accessed.
+
+However, backups and restoration services remain unavailable. Huntress warns that attackers may have established persistent access inside affected tenants before the credentials were revoked, making additional investigation essential.
+
+Calendar invites steal credentials.
+
+Cybercriminals are turning ordinary calendar invitations into credential-stealing traps. Researchers at Check Point identified more than 300,000 unique phishing emails targeting over 40,000 organizations, disguised as Microsoft Teams meetings and other workplace appointments.
+
+The invitations contain links to counterfeit Microsoft login pages designed to capture usernames and passwords. Some include legitimate calendar attachments, making the invitations appear more convincing.
+
+The campaign has accelerated dramatically, with Check Point recording more than 740,000 messages during the first two weeks of October alone.
+
+Researchers emphasize that attackers aren’t exploiting vulnerabilities in Microsoft products. Instead, they’re exploiting employees’ familiarity with routine meeting requests.
+
+Check Point recommends checking unexpected invitations carefully and using phishing-resistant authentication, such as passkeys or hardware security keys, to protect accounts against credential theft.
+
+Temu settles with Texas over privacy allegations.
+
+Chinese online retailer Temu has agreed to pay Texas three million dollars to settle allegations that it improperly collected user data potentially accessible to the Chinese government.
+
+The agreement requires Temu to store personal data on U.S. servers and restrict transfers to China. It also mandates independent product safety testing and stronger consumer protections.
+
+Violations of certain data security provisions could trigger annual penalties of eight million dollars.
+
+Temu denies wrongdoing. Several other states have filed similar lawsuits, making Texas the first to reach a settlement.
+
+Toronto police make arrests in connection with the alleged kidnapping of a cryptocurrency exchange owner.
+
+Toronto police have arrested seven men in connection with the alleged kidnapping of a cryptocurrency exchange owner, including three active members of the Canadian Armed Forces.
+
+Investigators say the victim was abducted at gunpoint in July, handcuffed, and assaulted as his captors attempted to access cryptocurrency holdings and business security systems. He was eventually released after being threatened not to contact police.
+
+The investigation uncovered an extensive collection of weapons, including firearms with 3D-printed receivers, silencers, and more than 2,700 rounds of ammunition. Approximately 2,500 rounds were allegedly stolen from the Canadian military.
+
+Police also seized substantial quantities of illicit drugs, GPS tracking devices, and other equipment.
+
+The seven suspects face a combined 82 charges. The investigation remains ongoing.
+
+The G7 urges post-quantum readiness.
+
+The G7 is urging governments and businesses to accelerate their transition to post-quantum cryptography, warning that quantum computing could eventually undermine widely used encryption systems.
+
+In a call to action led by France’s national cybersecurity agency, the group argues that quantum threats should be treated as a near-term concern, even though the timeline for developing cryptographically capable quantum computers remains uncertain.
+
+The recommendations include identifying critical systems, inventorying cryptographic assets, and developing phased migration plans. Organizations are encouraged to incorporate quantum-safe technologies into routine equipment upgrades to reduce costs.
+
+The G7 also calls for national strategies, additional research, public-private partnerships, and updated cybersecurity requirements.
+
+France plans to begin rejecting security products without quantum-safe encryption during certification reviews starting in 2027.
+
+Monday business briefing.
+
+Investment in AI-driven cybersecurity continues to attract substantial funding, with eight companies announcing rounds totaling nearly $143 million.
+
+San Francisco-based Harmonic Security leads the pack with a $50 million Series B, followed by Israeli startups Pluto Security, raising $42 million, and Rein Security, securing $25 million.
+
+Other recipients include France’s Netsec and Fleuret AI, Tennessee-based Hilt, London’s CodeWall, and Utah’s Guardrail Technologies. The funding will support product development, hiring, and international expansion.
+
+On the acquisition front, quantum computing company IonQ has agreed to purchase zero-trust security firm Elisity in an all-stock deal valued at up to $1.3 billion.
+
+CrowdStrike is reportedly negotiating a $500 million acquisition of Israeli data loss prevention startup Orion Security.
+
+Meanwhile, government contractor SAIC has acquired cryptographic software provider Information Security Corporation, and Singapore-based V-Key has announced a majority investment in AI security firm CloudsineAI.
+
+MapQuest puts surveillance on the map.
+
+MapQuest, the venerable mapping service that once helped drivers navigate the world with printed directions and a healthy supply of printer ink, has found a new way to stay relevant.
+
+Its latest mobile app update introduces a surveillance layer that shows users the locations and directions of known license plate readers and outdoor security cameras.
+
+The feature covers equipment from Flock Safety, Motorola Solutions, Axon, Verkada, and several other surveillance vendors.
+
+Flock alone reportedly operates at least 120,000 cameras across the United States, and independent projects have already been mapping their locations.
+
+Now MapQuest is bringing that information directly into its navigation app, helping users identify surveillance infrastructure along their routes.
+
+Apparently, the company that once helped you avoid getting lost can now help you see who’s watching you.
+
+And that’s the CyberWire.
+
+For links to all of today’s stories, check out our Daily Briefing at the cyberwire dot com.
+
+We’d love to know what you think of this podcast. Your feedback ensures we deliver the insights that keep you a step ahead in the rapidly changing world of cybersecurity. If you like the show, please share a rating and review in your podcast app. Please also fill out the survey in the show notes or send an email to cyberwire@n2k.com
+
+We’re proud that N2K CyberWire is part of the daily routine of the most influential leaders and operators in the public and private sector, from the Fortune 500 to many of the world’s preeminent intelligence and law enforcement agencies.
+
+N2K helps cybersecurity professionals and organizations grow, learn, and stay ahead. We’re the nexus for discovering the people, tech, and ideas shaping the industry. Learn how at n2k.com.
+
+N2K’s lead producer is Liz Stokes. We’re mixed by Tré Hester, with original music by and sound design Elliott Peltzman. Our contributing host is Maria Varmazis. Our executive producer is Jennifer Eiben. Peter Kilpe is our publisher. And I’m Dave Bittner. Thanks for listening."
+1dfda7a1b541,1dfda7a1b541,2026-10-16 09:00 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,ESET WeLiveSecurity,Email and Collaboration Security; Identity Security Posture Management; Data Security Posture Management,Article,Inbox flooded with sign-up messages? Email bombing explained,https://www.welivesecurity.com/en/cybersecurity/inbox-flooded-signup-messages-email-bombing/,"First, an attacker gets hold of your email address","In September, reports emerged that a Virginia woman had been submerged by a flood of emails. Hundreds of automated messages poured in over a 24-hour period, including newsletters and promotions she’d never signed up to. But this was no ordinary spam campaign. The real reason behind the inbox blitz was to bury a legitimate email from the victim’s bank warning her about a fraudulent laptop purchase.
+
+This is email bombing. And if it’s happened to you, it could be a warning sign that your identity or online accounts have been hijacked by fraudsters.
+
+What is email bombing?
+
+Sometimes called “form bombing,” “list bombing” or “subscription bombing,” email bombing attacks usually follow the same pattern. First, an attacker gets hold of your email address. They could do this from historic data breaches, marketing databases, online leaks, or even a prior phishing attack. Once they have it, they’ll use automated, bot-powered tools to sign up for hundreds or thousands of legitimate online services like newsletters, subscriptions, mailing lists, free trials, and competitions.
+
+These will each generate a welcome email or similar. And because they are usually legitimate services, they’re often not blocked by spam filters. The result is an inbox overflowing with messages.
+
+Why do they do it? Two reasons are behind most email bombing attempts:
+
+The scammer is trying to distract the victim so that they don’t see a genuine email among all of the artificially generated ones. They may have hijacked one of your accounts and reset the password, triggering a notification to your inbox. Or they may have made a fraudulent purchase in your name, with the invoice subsequently emailed to you. The main point is to create a smokescreen which prevents you from tackling the more serious fraud.
+
+The hacker may subsequently contact you pretending to be a tech support engineer. They’ll claim to be able to solve your email ‘problem’ and either request a fee to do so, or trick you into installing remote access software so they can take a look at your machine. That could enable them to steal sensitive information on your computer like passwords stored in the browser. Or even install additional malware.
+
+In a corporate scenario, the bomber is most likely trying to distract the cybersecurity team from a more serious attack, such as a data breach or a business email compromise or invoice fraud attempt. Alternatively, they may be trying to disrupt operations as leverage for extortion – ransomware affiliates have used email bombing as a precursor to a fake IT help desk contact in order to get remote access. Or it could even be a disgruntled employee or former worker.
+
+I’ve been email bombed: what next?
+
+If you’ve logged on to find your inbox overwhelmed, don’t panic. Rather than try to unsubscribe to all of the random services you’ve been signed up to, focus your energy on finding the threat that your attacker wanted to hide. Search for security alerts, new device sign-ins, email/phone number changes, password changes/resets, or purchases. Look through your spam folder as well as your inbox, in case the message has ended up there.
+
+If you don’t immediately see anything out of the blue, check your most sensitive accounts individually. These could include
+
+Bank/PayPal/credit card/crypto
+
+Apple/Google/Microsoft
+
+Social media accounts
+
+Look for any suspicious activity: new devices or payment methods added, passwords that may have been changed, and/or recovery details altered. It’s also worth checking your email forwarding rules and sent/deleted items folders for anything unusual.
+
+If you notice something unusual, try to lock the hacker out by changing the password to a unique, strong credential, and enable two-factor authentication (2FA) for extra login security. Ensure the correct recovery email address/phone number is listed (or they may be able to reset the account again). Contact the company itself if you’re concerned about fraud.
+
+Remember to preserve anything related to a possible account takeover or fraud attempt. Only purge when you’re confident it’s over. You can do this more quickly by trying to identify patterns in the messages (e.g., senders, date ranges, domains, etc.). Then you can bulk select and delete in batches.
+
+It goes without saying that you should put the phone down immediately if anyone calls you claiming to be a tech expert who can sort out your email problem.
+
+How to prevent email bombing
+
+Of course, prevention is usually better than cure. And while it’s not always possible to stop your email ending up in the wrong hands, you can limit the damage by ensuring that it’s not exposed on public-facing web pages like social media profiles. Also follow security best practices to stay safe from phishing attacks.
+
+Next, keep your most sensitive accounts as secure as possible. This includes your primary email address, which will be used to receive password reset messages from other online accounts. Use a password manager to ensure they all have strong, unique credentials. And 2FA for an extra layer of security (e.g., via an authenticator app or passkey).
+
+It may also be worth using a secondary email address for less important correspondence like shopping, travel and other leisure activities. This way, if this account is hit by an email bomb, at least your most important messages (bank, government, healthcare etc) are safe.
+
+There’s no silver bullet to prevent email bombing. But account security best practices will help to reduce the chances of an explosion of messages in your inbox.
+
+Frequently asked questions (FAQs)
+
+Why is my inbox full of hundreds of sign-up emails?
+
+You may be the victim of an email bomb (aka form bomb/list bomb/subscription bomb). A fraudster has used automated tools to sign your email address up to new services for one of two reasons. Either they’re hoping to bury a legitimate security or anti-fraud message, or they’re going to call you pretending to be a tech support engineer that can help.
+
+Has my email account been hacked if it’s full of sign-up emails?
+
+Probably not. Fraudsters may have scraped it off the public web, harvested it from a historic data breach, or even bought it from a marketing database. However, the security/fraud ‘event’ they’re trying to hide with the email bomb tactic may have involved account takeover.
+
+My inbox is full of new messages; what should I do?
+
+First, search for the notification they’re trying to hide in the spam and preserve it. Search for security alerts, new device sign-ins, email/phone number changes, password changes/resets, or purchases. Look through your spam folder as well as your inbox. If you don’t find the message, check your sensitive accounts (bank, social media, tech etc) for unusual activity. Change passwords to a unique, strong credential, and add enable two-factor authentication (2FA) for extra log-in security.
+
+I’ve been email bombed. Should I unsubscribe to all of the new emails?
+
+No, it’s important to find the security notification or fraud warning the attacker is trying to hide, and preserve it. Only purge once you’re confident the issue has been resolved. Consider speeding up the process by deleting in batches (search for common senders, date ranges, domains etc.).
+
+What if someone contacts me to fix the problem?
+
+They’re a fraudster who wants to charge you a fee or trick you into installing remote access software on your machine, which could lead to malware or data theft. Put the phone down on them."
 bbd0606d5546,bbd0606d5546,2026-10-15 19:55 UTC,Vulnerabilities & Patching,Bitdefender,Bitdefender Business Insights,Vulnerability Management,Article,"Technical Advisory: AhsayCBS Exploitation Chain (CVE-2026-105133, CVE-2026-105134)",https://businessinsights.bitdefender.com/technical-advisory-ahsaycbs-exploitation-chain-cve-2026-105133-cve-2026-105134,"Technical Advisory: AhsayCBS Exploitation Chain (CVE-2026-105133, CVE-2026-105134) #SMB Security #Enterprise Security #Ransomware #Threat Research By Martin Zugec / Oct 15, 2026...","[CRITICAL] | CVSS 10.0 (CVE-2026-105134, per VulDB) | Active exploitation confirmed, listed in CISA KEV | Patch immediately
 
 TL;DR
@@ -1130,80 +1993,3 @@ PowerShell staging URL
 URL
 
 hxxps://captcha-eyw[.]pages[.]dev/install.ps1"
-552336702b3c,552336702b3c,2026-10-15 04:30 UTC,General Security News,Bitdefender,Bitdefender Business Insights,AI Security; Attack Surface Discovery,Article,Who’s Watching AI? The Visibility Gap Security Teams Need to Close,https://businessinsights.bitdefender.com/ai-visibility-gap-security-teams-need-to-close,8% of IT and cybersecurity professionals have only partial visibility into employee AI use,"AI adoption isn't waiting for security teams.
-
-Employees are experimenting with new tools. Business leaders are pushing teams to use AI to work faster. Applications are adding AI functionality. AI agents are accessing files, connecting to tools, and taking action as if they were employees.
-
-This has tremendous potential.
-
-But there's also a fundamental cybersecurity problem: Do you know what AI is doing inside your organization, or is it a growing blind spot?
-
-That's the question at the center of a new episode of Cybercrime: From the Frontline, Who’s Watching AI? Managing Innovation Without Losing Control.
-
-Watch or listen to the full conversation to hear Bitdefender experts explore how organizations can embrace AI innovation while managing its risks.
-
-How Many Organizations Lack Full AI Visibility?
-
-The 2026 Bitdefender Cybersecurity Assessment reveals that 44.8% of IT and cybersecurity professionals have only partial visibility into employee AI use. Another roughly 3% report having no visibility at all.
-
-The independent research surveyed 1,200 IT and cybersecurity professionals across six countries and shows how widespread the lack of AI visibility and control has become. And the challenge is growing because employees have powerful incentives to experiment. AI can accelerate development, automate repetitive work, analyze information, and help meet increasingly aggressive productivity expectations.
-
-Has Shadow IT Become Shadow AI?
-
-Shadow AI introduces similar challenges to Shadow IT, but with potentially greater consequences.
-
-With Shadow IT, an employee installs an unauthorized application. A department adopts a cloud service without consulting IT. Someone stores corporate information in a personal file-sharing account.
-
-With Shadow AI, an employee might use a personal AI account instead of an approved enterprise platform. Someone could paste confidential information into a free AI service. An approved application might gain new AI capabilities through an update.
-
-In each case, sensitive information could move somewhere security teams didn't anticipate. That's particularly concerning given that data leakage into large language models ranks among the leading AI-related concerns identified in the 2026 Cybersecurity Assessment.
-
-According to experts on the podcast episode, AI adoption often happens without IT or security oversight, making visibility an enterprise-wide responsibility.
-
-Why Is AI Becoming an Identity Problem?
-
-Traditional generative AI responds to requests. Agentic AI can interact with tools, access files, connect to services, write code, and take actions. During the podcast, our experts suggest thinking about these agents as non-human identities operating inside the organization.
-
-That raises important questions:
-
-Which agents are operating in your environment?
-
-What data can they access?
-
-Which tools can they use?
-
-What actions are they permitted to take?
-
-And what happens if an agent is manipulated?
-
-The podcast also explores prompt injection, where malicious instructions embedded within content can influence an AI system into performing unintended actions. If an agent has access to corporate systems, the question isn't simply whether you trust the AI.
-
-What Does AI Visibility Look Like Today?
-
-A simple inventory isn't enough. To achieve AI visibility, organizations must be able to identify the AI services and agents operating across their environments. Security teams need context on those tools, including their capabilities, permissions, connections, potential risks, and the endpoints they affect.
-
-They also need to distinguish sanctioned AI use from unknown or potentially dangerous activity. Without that understanding, organizations risk applying blanket restrictions that frustrate employees or overlooking exposures that genuinely threaten the business.
-
-Visibility provides the foundation for prioritizing risk and applying appropriate controls.
-
-What Kinds of Tools Create AI Visibility and Control?
-
-Organizations increasingly need specialized capabilities that discover AI usage, assess exposure, and translate security policies into action. One example is Bitdefender GravityZone AI Visibility and Control, which helps security teams identify more than 700 AI tools, including chatbots, coding assistants, local LLMs, agents, MCP servers, and AI-enabled applications. It creates a centralized inventory and helps prioritize findings based on risk and business context.
-
-Importantly, GravityZone goes beyond discovery. Security teams can review and investigate findings, then use integrated controls to allow, restrict, or block AI activity. For existing GravityZone customers, these capabilities operate through the same agent and console, helping organizations manage AI exposure without adding another disconnected security tool.
-
-How Can AI Governance Keep Pace With AI Adoption?
-
-Technology is part of the answer, but AI governance must also become part of acceptable-use policies, employee education, procurement reviews, third-party risk assessments, and conversations between security and business leaders.
-
-Some organizations are establishing dedicated AI steering committees. Others are incorporating AI into existing security and risk governance. The structure matters less than the outcome: security needs to participate in AI adoption decisions before deploying new tools.
-
-Can Organizations Innovate Without Losing Control?
-
-According to the podcast episode's experts, organizations can continue AI innovation without losing control, but only with a sound strategy. Instead of putting the brakes on AI adoption, organizations should make approved AI easier to use safely, educate employees about the risks of unsanctioned tools, use technology to track where sensitive information moves, and establish controls based on actual usage.
-
-As AI agents become more capable, organizations must also understand and constrain agent permissions, just as they would for human identities.
-
-Together, these measures can help make AI innovation sustainable.
-
-For the complete discussion:Listen to Cybercrime: From the Frontline, Who’s Watching AI? Managing Innovation Without Losing Control.Or watch the full episode here:"

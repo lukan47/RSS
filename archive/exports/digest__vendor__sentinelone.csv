@@ -547,6 +547,445 @@ Between October 20 and October 21, the intrusion escalated into a 26-hour operat
 Forensic investigations revealed that the attackers specifically targeted environment variables containing API keys for major AI providers, likely seeking access for resale or model distillation. The breach potentially exposed credentials across at most 1.85% of workspaces, representing approximately 100,000 customer environments, alongside linked-account tokens for 1,852 users. However, forensic analysis showed no evidence that attackers accessed customer databases. The investigation also found no indication that attackers downloaded private Git repositories.
 
 Railway fully evicted the threat actors on October 21, isolated each build within dedicated ephemeral virtual machines, and rotated affected tokens. While the company is coordinating with AI providers to secure customer refunds, it pledged to cover any fraudulent charges that vendors decline to reimburse."
+0e01428e1307,0e01428e1307,2026-11-13 00:00 UTC,General Security News,SentinelOne,Claude Blog,AI Security; Email and Collaboration Security,Article,The Claude Tag guide for startups,https://claude.com/resources/articles/claude-tag-guide-for-startups,Start narrow: only what the first channel’s job needs,"Startups frequently work at a fast pace with lean teams wearing many hats. In many ways, Claude Tag (beta) is suited for how startups work. You @Claude to a Slack channel where your context lives, add connectors, and have your team assign and steer tasks together.
+
+For startup teams new to using Claude Tag, one of the most frequent questions is “which channels should I add Claude to first?” To help answer it, we spoke with eight high growth startups to see how Claude Tag works inside their teams.
+
+Featuring insights from
+
+We heard from leaders at companies with visions from reinventing law firms to building the next generation of resource planning software. Some had added Claude to nearly every channel while others had focused deeply on one or two specific use cases.
+
+Company
+
+On call
+
+Thread to PR
+
+Company brain
+
+Self-serve data
+
+Routine reporting
+
+Kikoff
+
+●
+
+NavigateAI
+
+●
+
+Campfire
+
+●
+
+Flagler Health
+
+●
+
+Moritz
+
+●
+
+Orderful
+
+●
+
+Valence
+
+●
+
+Descript
+
+●
+
+But everyone we spoke with shared an “aha!” moment where they realized a minutes-long Claude Tag conversation replaced days of work or uncovered insights that would otherwise have remained hidden.
+
+The most common are contained in this guide, each with practical implementation details designed to help founders find and deploy the use cases that will move the needle for their team. Here are some examples of how the needle moved for the startups we spoke with:
+
+21
+
+minutes from Slack mention to open PR
+
+134
+
+pull requests merged from Slack threads
+
+5
+
+minutes for the daily end-of-shift update, down from 1 hour
+
+<1
+
+hour from client ask to no-code solution
+
+2
+
+days from Slack question to production
+
+Days to hours
+
+of recurring reporting prep
+
+In this guide, we share the most common use cases, channels, and collective insights from leading startups for using Claude Tag.
+
+Top channels to tag Claude
+
+The eight startups we spoke with use Claude Tag across Slack, but a handful of channels came up again and again as the best places to start.
+
+01 Claude on call
+
+Example setups:
+
+Channels
+
+#on-call #alerts-ci #deploy-watch #support-escalations
+
+Connectors
+
+GitHub, GitLab, Sentry, dbt, PagerDuty, Linear, Datadog, Jira, Grafana, incident.io
+
+Threads and routines
+
+Incident response, morning incident digest, Monday on-call handoff, daily health summary, hourly incident recap
+
+Starter instruction
+
+@Claude remember for this channel: monitor alerts and immediately triage each one in its own thread. Check for an existing ticket. Query the data first, then theorize, and separate what you verified from what you inferred. If it's real, name the likely root cause with links, tag the owner, and open a draft PR only if the fix is contained. If no action is needed, say so. After each incident, add what you learned to [lessons file].
+
+Triage channels are notoriously noisy. There are constant interruptions from Sentry errors, Datadog alerts, customer bug reports, and support requests making it difficult to find the signal from noise. It's usually the first task teams hand to Claude.
+
+With Claude in the channel as a first responder, the first pass is often done before the on-call engineer opens their laptop. Claude reads each item as it lands, investigates the codebase and the tools it has access to, and shares what it found. If the fix is contained, it opens a draft PR; if not, it routes the issue to the right person with the investigation attached. In these setups, a person reviews each fix before it merges, and only genuinely new problems need someone to start the investigation themselves.
+
+At Campfire, which builds an AI-native ERP for finance teams, an engineer tagged Claude on a report that some of its AI agent’s finished answers weren’t reaching users. Claude had a PR open 21 minutes later, and it merged that afternoon.
+
+Kikoff: A first responder in every triage channel
+
+Kikoff is a fintech startup that helps consumers build credit, solve liquidity needs, and achieve financial security. Claude Tag is the first responder in triage channels across the company, including:
+
+#deploys: Claude decides what to watch after each release and flags anything it broke.
+
+#alerts-ci: When a build fails, Claude finds out why and proposes a fix as a draft PR.
+
+#alerts-sentry-backend: Claude takes the first pass on Sentry exceptions and crashes.
+
+#dog-fooding: Claude investigates what employees flag while dogfooding and tags the right owner.
+
+#support: Claude takes the first pass on support tickets.
+
+Kikoff started with Claude contributing to the conversation only when mentioned, and the biggest wins came once the team let it jump in on its own. When sign-up broke, Claude traced it to a backend change, sized the impact, named the team that owned the fix, and opened a draft PR so the app would fail softly in the meantime.
+
+“I’m always hyped when Claude catches an issue before a monitor or human does. One person can only personally manage so much context, Claude Tag helps us organize and own some context, and we manage the outcomes.”
+
+NavigateAI: Fixing bugs with fragmented context
+
+NavigateAI builds AI copilots for construction field teams. They run Claude Tag in about 90 channels for alert triage, bug bashes, quick feature building, and support escalations. Since June, Claude has opened about 223 PRs straight from Slack threads and 134 have merged with a median of two hours from open to merge.
+
+Triage has been a particularly valuable use case for NavigateAI. Because Claude has so much context, it can find unintuitive root causes to issues that may have been missed at first glance.
+
+“Our biggest ‘wow!’ moment with Claude Tag was when we were trying to debug a load issue, which seemed to be caused by a customer (since their calls were failing). A normal human response would be to continue chasing down that customer. But because Claude had access to so many other data sources, it actually found that it was from an uninstrumented internal cron job that was running during the same time.”
+
+With Claude, mean time to resolve issues has improved. In one case, Claude had the root cause eight minutes after a Sentry alert fired, and the fix was merged 93 minutes after the alert.
+
+“Fast-moving startups typically have to pick speed over structure. Claude Tag gives us both. It’s a brain that connects the dots across all our tools, so we get the structure without having to build it ourselves,” said Mike.
+
+02 Thread to PR
+
+Example setups:
+
+Channels
+
+#quick-wins #bug-bash #product-feedback #feature-requests #ux-papercuts #tech-debt #design-polish
+
+Connectors
+
+GitHub, GitLab, Linear, Jira, Confluence, Notion, Figma, Sentry
+
+Threads and routines
+
+One request per thread, weekly backlog sweep, daily PR roundup, weekly shipped recap
+
+Starter instruction
+
+@Claude remember for this channel: when someone describes a bug or small feature, work on it in its own thread. Check for an existing ticket and read the related code first. If details are missing, ask for them or for a real example instead of guessing. If the change is small and contained, open a draft PR with a short summary of what changed and how you tested it. Never merge; a person reviews and approves. If it's too big or risky, say why and suggest a ticket.
+
+Speed is one of a startup’s biggest advantages, but often small requests that delight users can get lost in the shuffle. The intelligence is often gathered by customer-facing teams, submitted in Slack, and, if it's not overlooked, eventually makes its way to Linear or Jira where it’s prioritized against hundreds of other tickets.
+
+With Claude Tag, anyone can draft the PR, technical or not. Surface an idea in a thread, get live feedback from product, engineering, and GTM in the same place, and Claude turns the thread into a draft PR that reflects everyone’s input.
+
+Many of the startups we spoke with used Claude Tag for the “light and delight” features or to remove papercuts that are quick to review but would otherwise not get prioritized.
+
+Orderful: From Slack exchange to production feature in two days
+
+Orderful is an EDI platform that connects companies with their trading partners, through an API or straight from the browser. Its customers trade standard documents with their partners through the platform.
+
+One document type, the 753, wasn’t supported in Orderful’s web app. The request had sat in the backlog, and shipments for one large retailer were delayed.
+
+When an account manager followed up in Slack, the PM tagged Claude in: “@Claude, you should build one.” Claude asked for real examples of the document so it could build to the actual format, then opened a draft PR adding 753 support.
+
+The next morning, Claude filed a ticket for the accompanying 754, the retailer’s response, and opened a second PR. Both were in production about two days after the Slack exchange.
+
+“Something that took weeks or months before just took a Slack conversation,” said Piers MacDonald, CTO at Orderful. “Light features with hard-to-prove value used to get stuck in the backlog. Now they have a way out.”
+
+Valence: From feature request to rollout
+
+Valence works with the world’s largest employers to connect enterprise talent and performance with Nadia, an AI coach. When a Valence engineer explained in Slack how to address an urgent product change requested by an important client, Claude didn’t just follow directions, it identified additional changes that needed to be made as the same configuration lived in two spots. Without Claude, the initial change would have been incomplete.
+
+“It didn’t just agree with the expert. It caught duplicated configuration, the kind of thing humans lose track of.”
+
+In another case, a client urgently asked for a customization. Claude checked the code and, working with an engineer, confirmed it could ship with no code change. In under an hour, a teammate had a solution ready for the client.
+
+03 Company brain
+
+Example setups:
+
+Channels
+
+#ask-anything #company-wiki #product-questions
+
+Connectors
+
+GitHub, Notion, Google Drive, Linear, Jira, Confluence, Granola, Metabase
+
+Threads and routines
+
+One question per thread, decision log updates, weekly stale doc check, repeat questions recap
+
+Starter instruction
+
+@Claude remember for this channel: answer questions from our code, docs and past threads, and link your sources. If sources disagree, check the code, give the current answer, and flag the stale doc. If you aren’t sure, say so and tag the owner. When a thread reaches a decision, record it in [docs location]. Anything going to a client needs a human check first.
+
+At a startup, institutional knowledge often lives in people's heads, from the intricacies of product billing codes to where the onboarding docs are hosted.
+
+For many of the startups we spoke with, Claude Tag has become the company brain. Claude answers with the source, and tags the owner when it isn't confident. It keeps that knowledge current too: when a thread reaches a decision, Claude can record it in your docs the same day and flag docs that have gone stale.
+
+Moritz: A live source of truth from intake to staffing
+
+Moritz is an AI-native law firm that promises a same-day turnaround on contracts, against what Moritz cites as an industry standard of at least three weeks. Everything around the legal work, from intake and quoting to staffing and follow-up, lives in Slack, with a thread per matter and a channel per client.
+
+Now everyone from the CEO to paralegals asks Claude first. Questions that took up to 30 minutes of searching in Slack get answered in under two. The end-of-shift update, now drafted from the day’s threads, went from about an hour of assembly to a five-minute edit.
+
+That time goes back to legal work. Claude Tag handles the administrative work around a case, like follow-up questions, reminders, and status updates. It can’t access client documents or privileged conversations with Moritz’s lawyers.
+
+“A firm working across 44 countries generates hundreds of one-off questions a month that no one will ever build a feature for. Claude Tag answers them from our own history in Slack. Every answer is a thread with links, so institutional memory compounds.”
+
+Campfire: Customer experience on demand
+
+One Slack channel in particular “exploded in popularity”: their CX (or customer experience) channel. Sales uses this channel “to validate certain functionality during prospect conversations,” rather than having to “ping 10 different people.”
+
+This type of channel is particularly effective because sales can answer in the moment, while the customer is paying attention, and can operate more independently and confidently in early customer conversations.
+
+“Claude Tag basically acts as our central knowledge base.”
+
+04 Self-serve data
+
+Example setups:
+
+Channels
+
+#data-requests #ask-revops #metric-definitions
+
+Connectors
+
+dbt, GitHub, Metabase, BigQuery, Snowflake, Databricks, Notion
+
+Threads and routines
+
+One question per thread, weekly pre-standup readout, launch and experiment readouts, pipeline failure triage, new question triage
+
+Starter instruction
+
+@Claude remember for this channel: answer from our governed models and the definitions in [data skills repo]. If the data isn’t covered there, say it’s unvalidated instead of guessing. Lead with the answer, then give the number, what’s driving it, and any caveat. Check recent incidents, releases, and Slack discussions before explaining a change. If a metric’s definition is unclear, ask which one we mean. For anything important, share your plan or SQL before you run it. Separate what you verified from what you assumed, and list any open data quality warnings at the end of your answer. If someone finds a mistake, draft a fix for a data team member to review. If a question comes up twice, suggest scheduling it.
+
+At a fast-growing startup every function wants numbers, and the data team has to decide whose request comes first. With Claude Tag connected to your data, anyone can ask in plain English without waiting in the data team’s queue.
+
+This is a use case we have adopted as well. In one of our data channels over a month, Claude Tag answered more than 75% of questions people posted, typically within a minute or two. It works from governed data and the same definitions analysts use, which live in a versioned repo that Claude re-reads in every conversation.
+
+Descript: Answering ad-hoc data requests
+
+Descript is an AI-powered video editing platform. Claude Tag is now the first line of support for data requests and initial analyses. Product, growth, RevOps, and finance ask questions in Slack and get answers grounded in Descript’s dbt models.
+
+“I used to write complicated SQL and refresh the numbers by hand every week or month. Now I’ve replaced several data-team dashboards with my own Claude artifacts, and I no longer refresh them by hand.”
+
+Daisy’s recurring reporting prep went from days to hours.
+
+The growth team, for example, asks why lifecycle subscriptions dropped, whether paid search is losing last-touch credit to other channels, or how long a self-serve account takes to become an enterprise opportunity. The data team tracks the artifacts Claude generates to see which data assets matter most across teams, and spends its own time on strategic questions and on building the context that makes self-serve work.
+
+“The promise of business intelligence has always been self-serve for business users. I’d never seen it actually realized until we had Claude Tag set up with immense context for our data.”
+
+Orderful: From question to dashboard
+
+At Orderful, self-serve analytics spans conversational analytics and full data builds: anyone can go from a question in Slack to a dashboard merged to production. The key is a semantic layer that encodes agreed definitions and metrics, so every answer and every build uses the same definitions.
+
+“We trust the output because a semantic layer constrains the SQL, CI gates the builds, and there’s a process for agreeing on definitions. Without those, you get confident-looking wrong answers. Once those guardrails were in place, connecting Claude Tag took under 30 minutes. Now teammates build together in shared Slack threads instead of solo sessions.”
+
+05 Reporting and handoffs
+
+Example setups:
+
+Channels
+
+#sales-pipeline #customer-handoffs #standup-summary #qbr-prep
+
+Connectors
+
+Notion, Google Drive, Gong, Salesforce, Gainsight
+
+Threads and routines
+
+End-of-day status draft, pre-QBR brief, deal handoff
+
+Starter instruction
+
+@Claude remember for this channel: draft each recurring report from our threads, docs, and data, and link your sources. Lead with what changed and what needs a decision. Separate what you verified from what you assumed, and flag anything missing instead of filling the gap. Post the draft in its own thread for [owner] to edit. Nothing goes out until a person approves it. If a report keeps getting the same edits, suggest updating these instructions.
+
+Many of the examples we’ve covered are reactive: something happens, Claude responds. Routine reporting is work Claude owns on a schedule, the way a teammate owns a recurring deliverable.
+
+You describe the outcome once; Claude runs it every time and posts the result where the team already works.
+
+Valence: Deal reviews and handoffs
+
+Valence is setting Claude up to brief the team before every quarterly business review, with customer health, open deals, blockers, and next steps. They are also working to make the handoff from sales to customer success when a deal closes more seamless. Claude saves the team time by helping to aggregate details across their engagement and often finds key items they may have missed.
+
+“When a deal closes, Tag builds the handoff from the deal history, calls and contract: who’s who, what was promised, what’s customized, and what’s still open. Customer success then reviews it before their kickoff,” said Sameer.
+
+06 Getting started checklist
+
+The checklist below pulls together these startup teams’ best practices so you can apply them to your own workflows.
+
+Before launch
+
+Check the prerequisites.
+
+Claude Tag is in public beta on Claude Team and Enterprise plans, and isn’t available on Free, Pro, or Max. You’ll need a Claude organization Owner and a Slack workspace admin to connect the two. An admin must also turn on Routines, and Team plans need usage credits before Claude responds.
+
+Set up Claude’s access with a bundle.
+
+In channels, Claude works under its own agent identity, with service accounts rather than anyone’s personal login. Group the connectors, repos, and instructions it needs in a bundle, and attach them org-wide, per workspace, or per channel. That sets what Claude can reach in each place, and everyone in a channel gets the same access. Start narrow: only what the first channel’s job needs.
+
+Experiment in a private channel.
+
+Nearly half the startups we spoke with started their Claude Tag journey by having a small cross-functional team experiment in a private channel. “Start private with a mix of roles, then move to a group channel,” said Sameer.
+
+Determine the boundaries.
+
+By default, anyone in your Slack workspace can use Claude, even without a Claude account. You can restrict access to your org and limit search to channels Claude is in. On Enterprise, you can also restrict access to specific roles or chosen channels.
+
+Set clear expectations for what Claude can do and can never do. Several teams we spoke with let Claude open draft PRs, but people review and merge. For Orderful, Claude Code, not Tag, handles “infrastructure changes, audits, sensitive data.” For a “hard call,” such as “a PR that touches more than one service,” Claude gets a second opinion. Moritz doesn’t give Claude Tag access to client documents or privileged conversations with its lawyers.
+
+Start your security review early.
+
+The usual questions are data retention and what Claude can reach, and the security and data lifecycle pages answer both. Claude Tag isn’t available to orgs with zero data retention turned on, a customer-managed encryption (CMEK) policy, or the HIPAA configuration, and it isn’t covered by our Business Associate Agreement, so check that before you plan a rollout.
+
+Set a budget and alerts.
+
+Claude Tag bills by usage, so an early conversation avoids surprises as adoption grows. You can set spend limits overall and per channel, choose the model per channel, and attribute costs by user using the Enterprise Analytics API. Orderful runs an org-wide cap with alerts at 75% and 90%. “We have extreme ownership on the channel costs. The owner justifies that ‘yes, this spend is reasonable for the output / outcomes,’” said Alex Dejeu, engineering manager at Kikoff. Use your first channel’s actual costs to size the next one.
+
+Deployment
+
+Pick one clear task in a channel your team already uses, like on-call alerts or bug triage.
+
+“We experiment on certain teams, see what works, then once confident we’ve worked out the kinks, we push the idea out to other teams to add to their own similar channels as well. We want to avoid trust breaking experiences with folks with lower tolerance to AI mistakes,” said Alex Dejeu, engineering manager at Kikoff.
+
+Prime your experts and culture bearers.
+
+Have the people your team already trusts use Claude first, and in the open.
+
+“Going back and forth with Claude in the open has been productive and fun. Several people in sales and customer success have watched experts [interact with Claude Tag], then started asking Claude themselves, and got value fast,” said Sameer Bansal, principal AI engineer at Valence.
+
+Tune the noise.
+
+Multiple startups told us they needed to adjust Claude’s chattiness. Too chatty is one risk.
+
+“Conversation in ad hoc requests can sometimes get noisy. We’ve been trying to tune down the responsiveness here and also be more principled on what we use Claude on ad hoc requests for,” said Mike Chen, head of engineering at NavigateAI.
+
+Too little chattiness is also a risk, however. In busy channels, “You either have to @ every time or it won’t do much,” said Will Hu, cofounder at Flagler Health. And “if no one is watching a channel closely or interacts with it, it will sit idle.”
+
+Have teammates connect their own accounts.
+
+The admin bundles from setup are what Claude can reach for everyone in a channel. Personal connectors work differently: Claude acts with the permissions of the person asking, so it can pull from their docs, inbox, or CRM once they approve it (an Owner adds the connector for the org first, and on Enterprise an admin manages personal connectors). The answer still posts in the channel, so choose “Allow with review” for anything sensitive.
+
+Write channel instructions like you’re onboarding a new hire:
+
+what to check first, when to open a PR, when to ask, and that “no action needed” is a valid answer.
+
+Give Claude feedback in the channel, not in DMs.
+
+Correct it in the thread. It remembers per channel, and teammates learn how to work with it by watching. For a lasting fix, ask Claude to update its memory for this channel.
+
+Not sure where to go next? Tag Claude and ask what it has learned about your org and which use cases it would expand to.
+
+Moritz’s co-founder and CTO, Stefan Mandaric, asked Claude to recommend use cases for each team. Fifteen minutes later, it had read the firm’s Slack channels, Linear issues, Notion SOPs, Drive, and Metabase dashboards, and published 25. “18 of 25 worked with no further setup. That became our rollout plan.”
+
+Last word: what we learned from the wow moments
+
+The wow moments weren’t always about speed. Often, Claude found something no one had asked it to look for. Sometimes the surprise was restraint. And sometimes the surprise was the unexpected exchanges. “Eventually you get used to Claude jumping in on jokes, and you soon appreciate that it’s an easy audience and the first one to laugh,” said Piers MacDonald, CTO at Orderful.
+
+We hope you found this guide useful. Special thanks to Campfire, Descript, Flagler Health, Kikoff, Moritz, NavigateAI, Orderful and Valence for sharing their experiences and insights.
+
+Additional resources
+
+Get started
+
+Claude Tag overview
+
+Claude Tag documentation
+
+Set up Claude Tag
+
+On-call guided setup
+
+Troubleshoot setup
+
+Connect your tools
+
+Add connections and bundles
+
+Configure GitHub access
+
+Personal connectors
+
+Network requirements
+
+Access, security and spend
+
+Restrict access
+
+How agent identity works
+
+Security and data
+
+Data lifecycle and deletion
+
+What the Claude Slack app can access
+
+Set spend limits
+
+Attribute costs to users
+
+Work with Claude in Slack
+
+Control when Claude responds
+
+Commands Claude Tag understands
+
+Channel memory
+
+Set up routines
+
+Use cases
+
+Use case library
+
+Fix bugs
+
+Answer data questions
+
+How Anthropic uses Claude Tag
+
+How Claude Tag serves as Anthropic’s first responder for CI/CD failures
+
+How Anthropic enables self-service data analytics with Claude"
 fb298703ac38,fb298703ac38,2026-11-12 14:00 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelLabs,AI Security; Mobile Security,Article,LABScon26 Replay | Let’s Get Physical: Why Cybersecurity Needs Hardware-Based Security to Survive AI,https://www.sentinelone.com/labs/labscon26-replay-let-s-get-physical-why-cybersecurity-needs-hardware-based-security-to-survive-ai/,"He is best known for winning the first Pwn2Own contest in 2007, co-authoring “The iOS Hacker’s Handbook” and “The Mac Hacker’s Handbook,” and co-founding Trail of Bits, Capsule8...","In his LABScon 26 keynote, Dino Dai Zovi, SVP and Head of Security at Adyen, argues that defenders can’t keep pace with AI-enabled attackers through software alone. He makes the case that the hardware-based security already protecting everyday payments can close that gap.
 
 Using tap-to-pay as an example, Dai Zovi notes how a secure element in a smartphone completes a transaction that malware on the device cannot touch. At the same time, data from the UK’s AI Security Institute on autonomous cyber capability shows end-to-end intrusions that once took days or months are now approaching minutes, with open-weight models only months behind frontier models.
@@ -566,6 +1005,37 @@ About LABScon
 This presentation was featured live at LABScon 2026, an immersive 3-day conference bringing together the world’s top cybersecurity minds, hosted by SentinelOne’s research arm, SentinelLABS.
 
 Keep up with all the latest on LABScon here."
+e495c89464b2,a67a7c8343b5,2026-11-10 12:15 UTC,General Security News,SentinelOne,Infosecurity Magazine,Identity Security Posture Management,Article,Default Admin Password Let Researchers Unlock and Start Cars,https://www.infosecurity-magazine.com/news/forgerock-openidm-default-password/,"Test Car Unlocked and Started From a Hijacked Account In early 2026, the researchers bypassed the web application firewall (WAF) in front of the login servers and found the...","Researchers been able to take over customer accounts at two car brands. They then demonstrated how they could remotely unlock and start a test car after finding an administration console on the brands' login servers still protected by its default password.
+
+Security researchers Shubham Shah and Sam Curry detailed the work in a write-up published November 7. Customer logins for both brands ran on OpenIDM, identity management software from ForgeRock, now part of Ping Identity. The brands were not named, at the automakers' request.
+
+The researchers reported the flaw to the two automakers and pointed to ForgeRock's hardening guidance to remove or protect the console before deployment.
+
+Test Car Unlocked and Started From a Hijacked Account
+
+In early 2026, the researchers bypassed the web application firewall (WAF) in front of the login servers and found the console still accepted its documented default credentials. From there they ran their own code on the identity servers and changed the email address and password on a test account.
+
+Logging in as that customer through the normal app, they unlocked and started the test car with its owner present. The session also exposed the vehicle's location and telemetry.
+
+The researchers wrote that they could have created a session for any customer account on the affected deployments. Changing an account's login details also left the owner's existing app session active, and the researchers could divert the app's notifications away from the owner's phone.
+
+Both automakers fixed the issue about two hours after the flaw was reported and rotated affected credentials, according to the write-up.
+
+Read more on default passwords in connected systems: CISA, FBI Urge Action to Protect Industrial Refrigeration Networks
+
+Australian Systems Exposed Through Hardcoded Credentials
+
+In a companion post, Shah described a separate chain against one of the automaker's Australian systems, researched in July 2026.
+
+The chain could start from a car's number plate. Hardcoded administrator credentials, a WAF bypass and a misconfigured multi-factor authentication (MFA) step then allowed account takeover and remote unlocking.
+
+The exposed data included customers' names, phone numbers and password hashes. Together, the write-ups covered vehicles in Australia, the US and Canada. The researchers wrote that they tested only on cars they owned or had permission to use.
+
+Shah's post does not say when the Australian findings were reported or whether they have been fixed. Neither post reports malicious use or says whether the researchers checked for it.
+
+Shah's post also does not mention when the Australian findings were reported or whether they have been fixed. Neither post reports malicious use or says whether the researchers checked for it.
+
+Ping Identity was contacted for comment but did not respond by the time of publication."
 fcf072f0b0bf,fcf072f0b0bf,2026-11-06 18:30 UTC,General Security News,SentinelOne,SentinelOne Blog,Endpoint Security; Identity Security Posture Management; Threat Intelligence; Email and Collaboration Security,Article,"The Good, the Bad and the Ugly in Cybersecurity - Week 45 (2026)",https://www.sentinelone.com/blog/the-good-the-bad-and-the-ugly-in-cybersecurity-week-45-8,"Once connected, attackers instructed victims to launch Quick Assist, a built-in Windows remote-help tool, and read back connection codes to grant full remote desktop control","The Good | Global Authorities Dismantle Investment Scams & VasyGrek Infrastructure, Indict University System Hackers
 
 Law enforcement in Europe, supported by Europol and Eurojust, arrested seven suspects and seized over 100 servers targeting a crime-as-a-service (CaaS) investment fraud infrastructure. Operating from Cyprus and Israel, an unnamed vendor supplied fraudulent trading websites to criminal call centers across Albania, Kosovo, North Macedonia, and more.
@@ -607,6 +1077,97 @@ At the time, ANSSI indicated that adversaries gained control by exploiting publi
 While Russian-aligned hacktivist collectives including CARR, NoName057(16), and Z-Pentest claimed responsibility for specific disruptions, law enforcement authorities have not formally confirmed attribution. Opportunistic scanning against unhardened building management systems allows multiple threat groups to execute similar disruptions.
 
 To mitigate ongoing operational risks, government advisories from CERT-FR instruct operators to immediately disconnect exposed control panels from the public internet, restrict remote maintenance access to secure virtual private networks, enforce strong authentication controls, and replace legacy end-of-life hardware."
+1bdb409da5b0,1bdb409da5b0,2026-11-05 16:00 UTC,General Security News,SentinelOne,Fortinet Blog,AI Security,Article,Cyber Resilience Starts with AI Governance,https://feeds.fortinet.com/~/972426716/0/fortinet/blogs~Cyber-Resilience-Starts-with-AI-Governance,It can improve operational efficiency and enable faster threat detection and response,"Today’s cybercriminals are increasingly using AI to scale, accelerate, and evolve their attacks. At the same time, organizations are recognizing that AI can be a powerful force for defense, using it to strengthen cybersecurity, improve security operations, and protect networks at machine speed.
+
+Data in the Fortinet 2026 Cybersecurity Skills Gap Report confirms the near-ubiquity of this response, with 91% of the IT leaders in the 2,700+ organizations surveyed stating they are using or exploring the use of AI-empowered cybersecurity solutions. Unfortunately, as we move higher up the corporate ladder, only 50% of respondents believe their boards of directors fully comprehend the cybersecurity vulnerabilities associated with AI. This disconnect highlights a governance gap, which creates risk for the organization.
+
+Why Boards of Directors Need to Fully Understand AI
+
+To defend against AI-powered criminals, organizations need to build cyber resilience, but they can’t do that if leadership doesn't understand AI and its potential risks. That gap becomes even more significant as AI-driven defenses become more embedded within organizations. As AI adoption accelerates, company-wide AI literacy and cybersecurity governance must evolve alongside it.
+
+According to the Fortinet 2026 Cybersecurity Skills Gap Report, although nearly three-quarters of respondents say their boards view cybersecurity as a business priority, only 59% say that priority is reflected in spending decisions. This discrepancy suggests many organizations recognize the importance of cybersecurity in principle but struggle to translate that awareness into sustained investment and governance.
+
+The report also highlights what's at stake for leadership. Half of organizations say board members or senior executives faced personal consequences following a cyberattack, including fines, loss of employment, or other penalties. As cyber risk increasingly becomes business risk, executive oversight has never been more important.
+
+AI-Informed Leadership Teams
+
+Board members don’t need to become AI engineers. But they do need enough understanding of AI to ask the right questions, evaluate risk, and provide effective oversight.
+
+AI literacy also shouldn’t stop with the boardroom or the security team. IT staff, software developers, and business leaders also need a foundational understanding of how AI systems work, the risks they pose, and how to mitigate those risks.
+
+For boards and C-suite leaders, education should focus on governance, risk oversight, executive accountability, policies, investment decisions, and regulatory implications. With a shared knowledge base across the organization, leaders can better balance the productivity and security benefits of AI with its potential risks.
+
+The goal is an AI-informed leadership team that can balance AI's potential with its risks and make informed decisions about adoption, investment, and governance.
+
+What Should Organizations Do Today to Build AI Literacy?
+
+Organizations should begin by assessing their current AI readiness and identifying knowledge gaps across leadership, security teams, IT, and the broader workforce.
+
+An organization’s board of directors must understand the benefits that come with AI adoption. First, AI can act as a force multiplier for short-handed IT security teams. It can improve operational efficiency and enable faster threat detection and response. But leadership must also recognize that realizing these benefits requires people with the skills to securely manage, oversee, and govern AI-enabled environments.
+
+Organizations can address these challenges through a combination of governance, workforce education, and structured skills development. Programs that provide AI education and cybersecurity certification can help employees build the knowledge needed to use, secure, and responsibly manage AI.
+
+The Fortinet Training Institute can help your organization acquire AI literacy and workforce education. Training programs are designed to support the acquisition of technical expertise across leadership, security teams, and the broader workforce.
+
+AI is already changing how organizations defend themselves. The next step is ensuring the people responsible for guiding that transformation understand both its opportunities and its risks.
+
+As organizations strengthen AI governance, another workforce challenge comes into focus: finding and developing professionals with the skills to secure, manage, and govern increasingly AI-enabled environments.
+
+Need more guidance on how to educate the board on AI? Explore Fortinet Training Institute programs and certification pathways to learn how Fortinet is helping close the cyber skills gap through accessible training, upskilling, reskilling, and workforce development."
+fce281b1bebc,fce281b1bebc,2026-11-05 15:01 UTC,General Security News,SentinelOne,Socket,Code Security; Vulnerability Management,Article,GitHub to Block pull_request_target Workflows by Default Starting December 2,https://socket.dev/blog/github-to-block-pull-request-target?utm_medium=feed,A malicious contributor can exploit those mistakes to execute commands with access to credentials and other resources intended only for trusted automation,"GitHub will begin blocking GitHub Actions workflows triggered by pull_request_target in public repositories on December 2, 2026, expanding its protections against a class of CI/CD vulnerabilities that has repeatedly enabled attackers to steal credentials and compromise open source software releases.
+
+The restriction, originally announced in September, will prevent affected workflows from running unless an applicable Actions event policy explicitly allows them. GitHub had initially scheduled enforcement for November 2 but confirmed the postponed December 2 deadline in a new update this week, giving maintainers additional time to review their automation and configure exceptions.
+
+The new restriction goes beyond protections introduced in June, when GitHub updated actions/checkout to prevent common attempts to check out untrusted pull request code inside privileged workflows. This time, GitHub is blocking the pull_request_target trigger itself by default, including for workflows that use it safely.
+
+pull_request_target Is Now a Common Attack Vector Vector #
+
+GitHub introduced pull_request_target in 2020 to help maintainers automate tasks involving pull requests from external contributors. Unlike the standard pull_request event, which restricts access to secrets and provides a read-only token for contributions from forks, pull_request_target runs in the context of the base repository with access to its configured secrets and token permissions.
+
+That elevated access makes the trigger useful for legitimate maintenance tasks such as assigning reviewers, labeling pull requests, and posting authenticated comments. The workflow definition runs from the repository's trusted default branch, rather than the contributor's proposed changes.
+
+The security risk emerges when that privileged workflow checks out and executes code from an untrusted fork or passes attacker-controlled pull request data into shell commands. A malicious contributor can exploit those mistakes to execute commands with access to credentials and other resources intended only for trusted automation.
+
+Researchers have warned about these vulnerabilities, commonly called ""pwn requests,"" since at least 2021. Variations of this attack pattern contributed to major supply chain incidents involving Nx, PostHog, and TanStack.
+
+GitHub's June changes addressed a common source of these vulnerabilities by making actions/checkout reject unsafe fork checkouts in privileged workflows unless explicitly overridden. The December policy takes a broader approach, preventing the event from triggering a workflow at all unless administrators have authorized it through an applicable policy.
+
+Two Test Windows Before December Enforcement #
+
+GitHub's default restriction currently operates in evaluation mode, allowing affected workflows to continue running before enforcement begins.
+
+The company has scheduled two temporary enforcement periods, known as brownouts, to expose configurations that will stop working under the new policy:
+
+November 9, 16:00–18:00 UTC
+
+November 16, 16:00–18:00 UTC
+
+During those windows, blocked pull_request_target attempts will generate failed workflow runs with an error annotation instead of executing. The default policy will return to evaluation mode after each test.
+
+On December 2, the restriction becomes permanent for affected public repositories without an applicable policy allowing the event. The change applies to public repositories on GitHub Free, Team, and Enterprise Cloud, but excludes private and internal repositories and GitHub Enterprise Server.
+
+Maintainers who still require pull_request_target can create an Actions event policy that explicitly permits it. GitHub supports targeting individual workflow files, allowing administrators to preserve specific automation without enabling the trigger across an entire repository. Existing applicable event policies are not replaced by the new default.
+
+Some Open Source Maintainers Face a Complicated Transition #
+
+The broader restriction introduces complications for open source projects that have relied on pull_request_target for legitimate automation, sometimes across dozens of repositories.
+
+A carefully configured workflow that only labels pull requests or manages project metadata may pose little of the risk GitHub is addressing, but it will still be subject to the new restriction. Maintainers must either allow these workflows explicitly or move them to another trigger where appropriate.
+
+There are also differences in the administrative tools available across GitHub's pricing tiers.
+
+GitHub's documentation for workflow execution protections describes policy configuration at the repository, organization, and enterprise levels for public repositories, including those on free plans. However, the ability to create policies in evaluation mode is reserved for Enterprise Cloud, where administrators can examine policy insights before turning on enforcement.
+
+That disparity had already prompted questions following GitHub's September announcement of the new defaults.
+
+In a GitHub Community discussion, open source maintainer George Joseph questioned how smaller organizations were expected to assess the impact without Enterprise policy insights.
+
+""How would us mere mortals who run open-source organizations see what workflows would be affected?"" he asked.
+
+A community response suggested manually searching repositories for workflows using pull_request_target, inspecting existing workflow runs, and testing explicit allowlisting policies. These approaches can identify affected configurations, but require additional work from maintainers managing multiple repositories.
+
+The December deadline gives projects several more weeks to prepare, while the scheduled brownouts offer a preview of what enforcement will look like. GitHub's decision also represents a significant shift for a feature originally created to make external contributions easier to manage: privileged pull request automation will now require an explicit exception to continue running under the new default."
+d3606d2bbe4c,d3606d2bbe4c,2026-11-04 22:49 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,The Register Security,Other/General,Article,"Apple turns iCloud into spy cloud, will start looking at public share links",https://www.theregister.com/security/2026/11/04/apple-turns-icloud-into-spy-cloud-will-start-looking-at-public-share-links/5307681,"The share-with-anyone option removes end-to-end encryption from the shared item, Apple said, even if Advanced Data Protection, Apple's optional end-to-end encryption feature for...","If you share content using public iCloud links, Apple could soon be looking over your shoulder and checking for ""harmful content."" The iBiz announced plans to moderate publicly accessible iCloud share links in version 27.3 of iOS, iPadOS, macOS, and visionOS on a support page published on Tuesday. To clarify, this applies only to iCloud content shared via links created to be accessible to anyone, as opposed to content shared directly with other people. “Items shared using Anyone with the Link will be checked by Apple for harmful content,” Apple explained on the new help page without bothering to define what harmful content means. Based on the wording, it appears those checks will apply to all iCloud items shared using ""Anyone with the Link,"" which Apple says it can also access. The company hasn't explained how the checks will work. The share-with-anyone option removes end-to-end encryption from the shared item, Apple said, even if Advanced Data Protection, Apple's optional end-to-end encryption feature for supported iCloud data, remains enabled for the account. “If you try to upload harmful content, Apple reserves the right to move, refuse, modify, remove, or delete the content at any time,” the help page continues, adding that the iMaker may also block or disable accounts associated with harmful content. The company also said it reserves the right to involve law enforcement when necessary, suggesting that its undefined ""harmful content"" category could include child sexual abuse material (CSAM), malware, and other potentially unlawful content. Without a proper definition of what it defines as harmful, however, iCloud users are essentially left at Apple’s mercy: If it chooses to continue to bend the knee to the Trump administration, for example, content deemed objectionable by the standards of political figures could end up wiped out. Apple also hasn't explained whether human moderators, automated systems, or both will be responsible for identifying and removing so-called harmful content, or whether any decisions will be left to AI, which can easily be fooled into making a bad moderation call. The scanning of such content, as mentioned above, begins with version 27.3 of Apple’s various OSes, which were released to developers in beta on Tuesday, with a general release expected in December. Apple didn’t respond to questions for this story. ®"
 b7bf3c7fc84f,b7bf3c7fc84f,2026-11-04 14:00 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelLabs,AI Security,Article,"VerifiedIDA | Making LLM-Driven Reverse Engineering Inspectable, Continuable and Reusable",https://www.sentinelone.com/labs/verifiedida-making-llm-driven-reverse-engineering-inspectable-continuable-and-reusable/,"In cybersecurity, for example, defenders can analyze larger volumes of malware in less time, while attackers can misuse the same capability to considerably accelerate and scale...","Executive Summary
 
 SentinelLABS evaluated how frontier models reverse engineer binaries and annotate disassembler databases, finding recurring problems with inaccurate labels and incomplete analysis.
@@ -909,6 +1470,119 @@ Attacks on retail and food-industry refrigeration predate the 2026 incidents, wi
 In the French cases, ANSSI’s assessment at the time pointed to exposed management interfaces and weak passwords, conditions that guidance from CERT-FR and the joint advisory addresses directly.
 
 The public record does not yet establish who was responsible for the European incidents or whether they form a single campaign. Further incidents are likely wherever the same access conditions remain."
+0145fe71369c,0145fe71369c,2026-11-03 13:00 UTC,General Security News,SentinelOne,Sonatype Blog,Vulnerability Management,Article,Stop Chasing CVEs: Start Governing Software Dependencies,https://www.sonatype.com/blog/stop-chasing-cves-start-governing-software-dependencies,"Sonatype's analysis of 1,552 open source CVEs found that 64% had no CVSS score, severity categories matched across sources only 19% of the time, and scoring delays averaged six...","A new vulnerability disclosure can set off a familiar chain of work. You check whether or not an application uses the affected component, determine whether the vulnerable code is reachable, find a fixed version, test the upgrade, and get it into production. Then the next advisory arrives.
+
+Known vulnerabilities need to be understood and remediated. But a process built around chasing CVEs one at a time can leave teams reacting to risk after a dependency has already entered their software.
+
+It also leaves important questions unanswered:
+
+Is the package malicious?
+
+Is its license acceptable?
+
+Is the project still maintained?
+
+Can its origin be verified?
+
+Does the dependency meet the organization's requirements?
+
+A CVE is a useful signal, but it is not a complete measure of component trust. Teams need to govern the software dependencies they use across the SDLC, from selection and approval through ongoing monitoring and remediation.
+
+CVE Remediation Is Necessary. It Is Not the Whole Strategy.
+
+The CVE system gives security teams, developers, vendors, and researchers a shared way to identify known vulnerabilities. But a CVE record or score does not show whether vulnerable code is reachable in an application, whether a dependency is direct or transitive, or whether a safe upgrade is available.
+
+Sonatype's analysis of 1,552 open source CVEs found that 64% had no CVSS score, severity categories matched across sources only 19% of the time, and scoring delays averaged six weeks. Those gaps can make it difficult to rank findings and decide where engineering time will reduce the most risk.
+
+Teams need to treat CVEs as one input and weigh them alongside component use, available fixes, and application context.
+
+Disclosure Starts the Remediation Cycle
+
+When vulnerability management centers on incoming CVEs, teams begin responding after disclosure: identifying affected versions, tracing dependencies, and coordinating upgrades. By then, a component may already appear across applications, build environments, and releases, adding to the remediation backlog.
+
+Component risks also extend beyond CVEs. A package may be malicious, poorly maintained, or incompatible with licensing requirements. Finding those issues earlier can help teams avoid broader changes, release delays, and retesting.
+
+AI Is Increasing the Pace of Discovery and Consumption
+
+AI is changing how quickly teams find and use software components. A developer might ask a coding assistant to add a feature, accept its suggestion to use a new library, and move on to the next task. The package can become part of the project before anyone has checked whether it is maintained, allowed by policy, or appropriate for that use. Consequently, teams must absorb a higher volume of vulnerability disclosures while simultaneously tracking which components enter their codebase and why.
+
+A large Spring security disclosure illustrates the downstream scale. In August 2026, Sonatype tracked 91 CVEs across Spring and related projects. At the time of publication, Sonatype Guide reported 148,608 affected components, including components that bundle vulnerable Spring code. The disclosure does not establish that AI caused those vulnerabilities, but it shows how broadly a vulnerability can affect software that depends on an ecosystem.
+
+Teams responding to disclosures at this scale need to determine:
+
+Which applications include the affected components, directly or transitively?
+
+Which vulnerable versions are present or deployed?
+
+Which components pose the greatest risk in their environment?
+
+Which upgrades will address the vulnerabilities without causing unnecessary disruption?
+
+Discovery can move faster than downstream teams can locate, assess, and upgrade affected components. As AI-assisted vulnerability research develops, vulnerability intelligence and remediation processes will need to keep pace.
+
+Teams also need visibility into what is in their software, where it came from, how it is used, and who owns decisions to keep, upgrade, replace, or accept it. That context helps turn a stream of findings into work that can be prioritized and acted on.
+
+Component Risk Goes Beyond Vulnerabilities
+
+A component can create risk even when it has no known CVE. A more complete assessment considers several dimensions:
+
+Malware: Has the package or release been compromised, or does it contain malicious behavior?
+
+Licensing: Is its license compatible with the project's obligations and intended use?
+
+Maintenance: Is the project maintained, and can the team rely on its release and support practices?
+
+Provenance: Can the component's source and history be verified?
+
+Policy: Does it meet the organization's requirements for approved sources, versions, and use cases?
+
+Each scenario demands distinct evidence and action: fixing vulnerable releases, instantly blocking malicious packages, scheduling replacements for unmaintained libraries, legally reviewing licenses, or verifying provenance prior to approval.
+
+Treating every issue as another scanner finding can obscure those differences. Component governance gives teams a way to define which qualities matter, set expectations before adoption, and assign an appropriate response when a component falls outside them.
+
+Govern Dependencies Before and After Adoption
+
+Governance works best when it is part of normal development, rather than a review that begins after a release is ready.
+
+Teams can make it practical by connecting policy to the component lifecycle:
+
+Define acceptable use. Establish requirements for sources, licenses, maintenance, provenance, and known security risks. Set policies that reflect how components will be used and the impact of a failure.
+
+Evaluate before adoption. Check candidate components against those requirements before they become dependencies. Give developers and AI tools clear, approved choices where possible, so the compliant path is also the easy path.
+
+Maintain a record of use. Track component identity and version, origin, dependency relationships, and the applications or releases that include it. This context helps teams understand the reach of a new advisory or policy change.
+
+Monitor for change. A component's status can change after adoption. New vulnerability information may emerge; a project may become inactive; a release may be compromised; or an organization's policy may change. Reassess components as new evidence arrives.
+
+Route decisions to owners. Define who handles upgrades, replacement, license review, and exceptions. Record the reason for an exception and when it should be reviewed again.
+
+Scanning and patching remain essential, but connecting them to a broader decision framework lets teams weigh vulnerabilities against exposure, exploitability, available fixes, and business context. Meanwhile, malware alerts, licensing issues, and maintenance risks can be routed directly to the appropriate decision-makers.
+
+Effective open source policy enforcement aligns with risk severity. Known malware warrants immediate blocking, licensing queries require review before distribution, and unmaintained low-risk components may receive temporary exceptions. Explicit thresholds, designated owners, and time-bound exceptions enable consistent standard application without unnecessary escalations or blanket bans.
+
+Timing is critical. Providing developers and AI tools with trusted, policy-approved component options during dependency selection allows teams to address risk before it is built in. Identifying flagged components later in release pipelines forces teams to reverse decisions already embedded across repositories and applications.
+
+Move From a Findings Queue to Better Decisions
+
+Software teams will continue to receive CVEs, and they should continue to remediate vulnerabilities that put their applications at risk. But a growing list of CVEs is not, by itself, a strategy for choosing and managing software components.
+
+A stronger approach starts earlier and continues after adoption. It helps teams select components that meet their needs, understand where those components are used, detect changes in their risk, and respond according to clear policies. That can reduce avoidable surprises and help engineering teams spend less time reconstructing dependency context during an incident.
+
+The goal is not to eliminate vulnerability work. It is to make that work part of a more complete way to govern software components — one that accounts for security, licensing, maintenance, provenance, and policy throughout the software lifecycle.
+
+Sonatype Nexus One platform helps put that strategy into practice and gives teams the data to assess open source dependencies. With trusted component intelligence and policies built into development workflows, teams can make better decisions about what they use and respond more effectively when the evidence changes. Contact us to learn more about how you can improve your open source governance strategy.
+
+Written by Aaron Linskens
+
+Aaron is a technical writer at Sonatype. He works at a crossroads of technical writing, developer advocacy, and information design. He aims to get developers and non-technical collaborators to work better together in solving problems and building software.
+
+Explore All Posts by Aaron Linskens
+
+Tags
+
+vulnerability governance vulnerabilities open source governance risk management dependencies CVE remediation open source risk management artificial intelligence AI"
+4d2ba2450cf6,4d2ba2450cf6,2026-11-02 16:34 UTC,General Security News,SentinelOne,Google News: WWT,N/A,Article,2026 World Wide Technology Championship: Rising stars lead betting favorites,https://news.google.com/rss/articles/CBMigwFBVV95cUxQbVlwNlhYdy16ci1nNkJ2YzNwbndEQ0dEQ0FkdENubXg4NXhCblBqSS1fR2xONDVCaHdwS0tFcjZGclRyZFNZc25xNEVOMUl5dGtsdXU2REtuZUhGb09vY3BTNFNiRDZ5U1Q5bGJka0xpRmR5LUdtQXJtNzZ1VVZYUEF3cw?oc=5,,
+e53d48dbb927,e53d48dbb927,2026-10-30 21:08 UTC,Business & Industry News,SentinelOne,Dark Reading,N/A,Article,Investors Dish on New Startups & What They'd Back Next,https://www.darkreading.com/cybersecurity-operations/investors-dish-new-startsup-what-back-next,,
 8201b8bf9263,8201b8bf9263,2026-10-30 17:29 UTC,General Security News,SentinelOne,SentinelOne Blog,Vulnerability Management; Threat Intelligence; Endpoint Security; Network Security,Article,"The Good, the Bad and the Ugly in Cybersecurity - Week 44 (2026)",https://www.sentinelone.com/blog/the-good-the-bad-and-the-ugly-in-cybersecurity-week-44-8/,"Public proof-of-concept exploits allow local attackers to execute arbitrary code with root permissions on major Linux distributions running kernels released before May 13, 2026","The Good | Global Response Continues for PHP2SHELL Exploit Attempts & Defenders Dismantle Global Cybercrime Rings
 
 This past week, cyber defenders responded to a cluster of vulnerability disclosures and security incidents collectively dubbed “Black October,” spanning flaws in PHP2SHELL, Node.js, GitLab, and Brotli, a software supply chain attack in LiteLLM, and compromised certificate authority keys at eMudhra.
@@ -1254,6 +1928,75 @@ James Mickens is a Gordon McKay Professor of Computer Science at Harvard Univers
 About LABScon
 
 This presentation was featured live at LABScon 2026, an immersive 3-day conference bringing together the world’s top cybersecurity minds, hosted by SentinelOne’s research arm, SentinelLABS."
+59b65bdf3cd1,59b65bdf3cd1,2026-10-28 10:35 UTC,General Security News,SentinelOne,Cato Networks Blog,AI Security; Data Security Posture Management,Article,Why so many AI security programs start with the OWASP Top 10,https://www.catonetworks.com/blog/why-so-many-ai-security-programs-start-with-the-owasp-top-10/,What OWASP is The Open Worldwide Application Security Project (OWASP) is a nonprofit foundation with a global community of security practitioners,"When an auditor or an RFP asks how your organization handles AI risk, the OWASP Top 10 lists are often a core part of the checklist behind the question. Cato AI Security is built to address the risks on two lists.
+
+What OWASP is
+
+The Open Worldwide Application Security Project (OWASP) is a nonprofit foundation with a global community of security practitioners. It publishes free security guidance, and volunteers lead its projects and local chapters worldwide.
+
+Its GenAI Security Project publishes several lists. Two of the most widely used are the OWASP Top 10 for LLM Applications (2026) and the OWASP Top 10 for Agentic Applications (2026). Each list ranks the 10 most critical risks that an AI security program should cover. Many security teams treat the lists as an industry standard and plan their AI security work around them.
+
+The LLM list covers applications with a model embedded inside them, where risks include prompt injection and sensitive data leaking in a response. The agentic list covers what changes once agents plan tasks and call tools on their own.
+
+The OWASP lists give each AI Security team the same set of risks to work from:
+
+App developers use them as a guide to the risks their applications should avoid.
+
+Security vendors build their products around them.
+
+Auditors use them to assess the risk in an AI platform.
+
+Buyers use them to evaluate AI security platforms.
+
+Mitigating those risks is a responsibility shared by the security vendor and the teams that build and run your AI apps and agents. A security platform can stop some risks on its own. Others also need work in the app, the data pipeline or the agent platform.
+
+How Cato AI Security maps to OWASP
+
+Cato AI Security covers the risks on both lists in three ways:
+
+Direct protection: Cato stops the risk in line, before the AI application or agent acts.
+
+Shared protection: Cato reduces the risk and works with your app developers on the rest.
+
+Platform evidence: Cato logs every AI interaction in an audit-ready format, so your team can investigate and show auditors what happened.
+
+Cato AI security runs AI Security for Users, Applications, and Agents with unified visibility, context, and control, so the same inspection and policy applies to every risk below. The OWASP risks fall into three groups.
+
+Supply chain risks
+
+AI apps and agents rely on models, MCP servers and skills that someone else built. If one of them is compromised, every agent that uses it inherits the problem. OWASP lists this as Supply Chain (LLM04) and Agentic Supply Chain Vulnerabilities (ASI04).
+
+A security team can’t set a policy for tools it can’t see. Cato protects against supply chain risk by discovering MCP servers and skills connected to agents and coding tools, including ones IT never approved, and applying policy to each one.
+
+Prompt injection and sensitive data exposure
+
+Attackers can hide instructions in content a model or agent reads and make it act against your policy. Employees can also paste API keys or personal data into an AI app. OWASP lists these as Prompt Injection (LLM01), Agent Goal Hijack (ASI01) and Sensitive Information Disclosure (LLM02).
+
+Cato AI Security protects against prompt injection and data exposure through runtime guardrails on AI agents and the custom applications your teams build. It inspects each prompt and response in line, along with the results tools send back to an agent. Cato blocks prompt injection and jailbreak attempts before the model or agent acts.
+
+The same inspection finds sensitive data in prompts and responses and in files attached to AI apps.
+
+Tool misuse and excessive agent access
+
+An agent with access to tools can change records and run commands. If it has more access than it needs, one bad instruction can cause serious damage. OWASP lists these as Excessive Agency (LLM03), Tool Misuse and Exploitation (ASI02) and Unbounded Consumption (LLM06).
+
+Cato AI Security lets your security team name the tools, MCP servers and skills an agent may use, and block or monitor each one. Your security team can also set limits on how much apps and agents spend on model usage.
+
+Where your team’s work starts
+
+Some risks sit partly outside the traffic path. For these types of risks, Cato AI Security works alongside your team or provides platform evidence:
+
+Data and model poisoning (LLM05): Cato AI Security detects manipulated context in live interactions, while your data pipeline owners protect training and fine-tuning data.
+
+Rogue agents (ASI10): Cato AI Security keeps an inventory of agent activity and applies policy to each agent in line, while your agent platform owns the kill switch.
+
+Cato’s AI interaction logs sit beside network, cloud access security broker (CASB) and endpoint data on one platform, so an analyst doesn’t have to pull logs from separate tools to investigate.
+
+Get the full mapping from your Cato representative
+
+Talk to your Cato representative to receive the complete map of how Cato covers the OWASP Top 10 for LLM Applications and the OWASP Top 10 for Agentic Applications. We’ll go through the OWASP lists with you and map them against the apps and agents you run today, one use case at a time. You’ll see our coverage for each risk and how we work with your team to mitigate each one.
+
+The post Why so many AI security programs start with the OWASP Top 10 appeared first on Cato Networks."
 c8148a7aaa01,c8148a7aaa01,2026-10-23 17:18 UTC,General Security News,SentinelOne,SentinelOne Blog,AI Security; Identity Security Posture Management; Threat Intelligence; Email and Collaboration Security,Article,"The Good, the Bad and the Ugly in Cybersecurity - Week 43 (2026)",https://www.sentinelone.com/blog/the-good-the-bad-and-the-ugly-in-cybersecurity-week-43-8/,The early probe activity indicates that threat actors acquired vulnerability details while the security flaws remained under embargo,"The Good | Courts Sentence Tax Fraudster, Interpol Disrupts African Cybercrime, and Ex-AI Engineer Faces Wiretapping Charges
 
 A U.S. district court has sentenced Nigerian national Chukwuemeka Victor Amachukwu to eight years in prison for conducting spearphishing attacks against tax preparation firms. Following his extradition, Amachukwu has pleaded guilty to computer intrusion and wire fraud charges.
@@ -1296,6 +2039,7 @@ PHP states that applying runtime updates is the only complete fix. Interim confi
 
 While patching remains the primary control, SentinelOne Singularity agents detect post-exploitation behavior at the operating system level, identifying when web worker processes spawn system shells, write web shells into document roots, or initiate unauthorized outbound network connections."
 ba0d7eb62725,ba0d7eb62725,2026-10-22 07:00 UTC,Product & Roadmap,SentinelOne,Google News: WWT,AI Security,Article,SentinelOne unveils AI security partner certifications,https://news.google.com/rss/articles/CBMimwFBVV95cUxQNWZPckE0cGpNY0lFVnFYaDkySG41OGhQWUhYQ05PcEdLcE00cHFLbTMzaWdndHZFVEJLWmRBcG5aRVlnVUQ1SHVqVHA3V2M1MjNQZXBTRUVROFVIT2dwZDJJLWpRV2tJNFlydUZlRjdzZTFwRUswUURrZ2hUMkttbWhQczBKNGFWcHI3QWNqS0ttZ3ZmVlljMkxLUQ?oc=5,,
+b49794bbd76b,b49794bbd76b,2026-10-22 07:00 UTC,Business & Industry News,SentinelOne,Google News: WWT,N/A,Article,"World Wide Technology Partners With Polarise to Accelerate Europe's Sovereign AI Buildout, Starting in Oslo",https://news.google.com/rss/articles/CBMipgFBVV95cUxQZklhMzlGYWNCR09QZU1ZLV9lLUxwdy1aY2swd2tScG16OFQ2enY0ek1XM1BQUS1DTEhYQWQ3REtFTzF1STAxVXJfVkV3MjcyTW1WcmpHMURXWUxzQ1RReFJsTlpiSGdxb3VxUmdabmRQSUw0cjNSbURqZERLcVNYeWJGVFlqSndqdk1WVWlrczRNX1NFa3ktS3ZReEM5UmlzRTdGM2VR?oc=5,,
 396eb9e0fdc7,2b62329cc6f4,2026-10-21 19:21 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelOne Blog,Server & Workload Protection; Vulnerability Management; Identity Security Posture Management; AI Security,Article,Stopping PHP2SHELL: How SentinelOne Protects Customers From This Attack Technique,https://www.sentinelone.com/blog/stopping-php2shell-how-sentinelone-protects-customers-from-this-attack-technique/,"The detection by the agent is agnostic to the vulnerability and exploit chain and focuses on attackers activity following the exploit, including but not limited to, installation...","Executive Summary
 
 On October 21, 2026, the PHP project released versions 8.5.12, 8.4.27, 8.3.36, and 8.2.35 to fix two critical vulnerabilities, CVE-2026-109618 and CVE-2026-109619, both rated CVSS v4.0 9.2. The two flaws are known together as PHP2Shell. They were disclosed by the security firms Calif and Wiz and by OpenAI, working with the PHP security team, after AI-assisted auditing turned an out-of-memory weakness that a 2024 audit had flagged but could not prove exploitable into working remote code execution.
@@ -1730,173 +2474,7 @@ As Sundhar Annamalai, LevelBlue’s Chief Strategy Officer, put it: “Being nam
 The threats are moving faster, and so are we. Pairing AI with experienced people at global scale is how we help more organizations investigate threats, contain incidents and recover with confidence.
 
 Learn more about LevelBlue and SentinelOne, and read the full announcement here."
-4528ae3fa873,4528ae3fa873,2026-10-19 13:00 UTC,Vulnerabilities & Patching,SentinelOne,SentinelOne Blog,Endpoint Security,Article,Bring Your Own Vulnerable Driver: What Detection Teams Should Actually Hunt,https://www.sentinelone.com/blog/bring-your-own-vulnerable-driver-what-detection-teams-should-actually-hunt/,"""EDR killer,"" a tool built to shut down endpoint detection and response (EDR), is one phrase doing the work of four different attacks","Bring your own vulnerable driver (BYOVD) is having a moment in endpoint security. Some of the buzz is earned. Some of it is overblown. This series unpacks both and shows the evidence for each. This piece turns the noise into specific behavior a detection team can hunt.
-
-""EDR killer,"" a tool built to shut down endpoint detection and response (EDR), is one phrase doing the work of four different attacks. Detection teams treat it as a single thing and write one rule that catches one technique and misses the other three. The fix is to split the category and hunt each one on its own telemetry.
-
-The four techniques share a goal and little else. Bring-your-own-vulnerable-driver loads a signed but flawed driver and drives kernel termination through it. Bring-your-own-installer abuses a trusted installer or upgrade path to swap the agent out. Admin-to-kernel walks an already-elevated session into Ring 0 through a documented gap. Driverless suspension never touches the kernel and freezes or filters the agent from user space. One detection cannot see all four.
-
-The cost of conflating them is a coverage gap you cannot see. A single driver-load rule looks like coverage for ""EDR killers,"" but the bring-your-own-installer and driverless paths leave no driver-load event at all, so that rule is silent while the agent dies.
-
-Four Techniques, Four Hunts
-
-Each leaves a distinct footprint. Below is the taxonomy and the observable to hunt for each.
-
-Technique
-
-What the attacker does
-
-Primary observable
-
-Telemetry source
-
-Bring-your-own-vulnerable-driver
-
-Loads a signed, flawed driver and issues kernel termination through it
-
-Driver load with untrusted or first-seen signature, then a service create
-
-Sysmon Event ID 6, System Event 7045
-
-Bring-your-own-installer
-
-Abuses a trusted installer or upgrade path to replace the agent
-
-Unexpected agent upgrade or reinstall outside change windows
-
-Install or upgrade events against a change-window baseline
-
-Admin-to-kernel
-
-Walks an elevated session into the kernel through a known gap
-
-Kernel-callback removal, loss of expected kernel telemetry
-
-EDR kernel-callback integrity reporting
-
-Driverless suspension
-
-Freezes or filters the agent from user space, no driver
-
-Process suspension or telemetry-egress blocking with no driver load
-
-Process-state events, WFP filter changes, agent heartbeat
-
-Each hunt gets the same treatment: the observable, the telemetry source and event ID, the rule logic in plain terms, and the false-positive consideration. A detection engineer can ship the first one this week, and the rest follow as the baselines clean up.
-
-Hunt One: Bring-your-own-vulnerable-driver
-
-Bring-your-own-vulnerable-driver is the loudest of the four and the first one to instrument. The live LOLDrivers project tracks thousands of vulnerable signed drivers, most reachable without admin rights, a deep supply of signed-but-flawed kernel access with mature, copyable detection logic already in the public domain.
-
-The primary observable is a driver load that does not match a trusted, previously-seen signature. Sysmon Event ID 6 is the core signal, logging each driver load with ImageLoaded, Hashes, Signed, Signature, and SignatureStatus. Any SignatureStatus other than Valid warrants investigation.
-
-Two signature-based detections are worth building directly. The first keys on the driver-load signature status itself: alert on any driver load whose signature status is not Valid, which catches the signature-enforcement bypass and the BYOVD loader chain. The second is a first-seen detection: alert on a driver whose hash, signer, or version has never been seen on the host before, so anomalous drivers surface on first load instead of after the kill.
-
-The false-positive consideration is real. Patch cycles introduce new signers and hashes constantly, and a first-seen rule will flare on legitimate new software. Published detection content that joins Event ID 6 driver loads against a known-bad driver table ships with an explicit false-positive warning. Plan for a tuning period and an allowlist before this rule goes to a 24/7 queue.
-
-The SentinelOne® Annual Threat Report reaches the same conclusion for hunting at scale, urging teams to chase suspicious behavior rather than specific hashes or file names. It names kernel-mode drivers derived from POORTRY used to kill EDR and delete security files, the posture every hunt below adopts.
-
-POORTRY is the canonical signed-driver kill primitive defenders hunt. SentinelLABS traced the STONESTOP loader and the POORTRY kernel driver, which received a process-kill IOCTL to terminate security tools. The driver carried valid WHQL signatures, later revoked under advisory ADV220005. A signed kernel driver issuing process-termination IOCTLs is the behavior this hunt exists to catch.
-
-Know your coverage baseline before you trust prevention to backstop this hunt. The attack surface reduction (ASR) rule blocks a vulnerable signed driver from being written to disk. It does not block a driver already present from loading, so a driver the blocklist policy would block keeps running until reboot and an in-progress kill chain survives policy activation. The CodeIntegrity Operational log Event ID 3099 confirms when the blocklist policy is applied on a host. It does not catch an attack. It tells you whether your driver-blocking policy is live.
-
-Hunt Two: The Kill Chain As a Correlation Target
-
-The strongest version of the loud hunt is the ordered sequence, because a single event tells you far less than the chain it belongs to. Public research documents the full bring-your-own-vulnerable-driver chain and its detection points. It runs as sc.exe service create (Sysmon Event ID 1) plus a service install (System Event 7045), then a driver load at Event ID 6, then a DeviceIoControl device-control call (IOCTL), then callback removal and security-process termination.
-
-Correlating that ordered sequence is far stronger than alerting on any single step. A service create alone is common, and a driver load alone is common. The same two within seconds, followed by an IOCTL to the freshly-loaded driver, is a fingerprint ordinary administration does not produce. Build a windowed sequence rule keyed on the service name to the image path to the device handle.
-
-This chain shows up in real intrusions. Public threat research documents the pattern across named campaigns including Kasseika, BlackByte, and RansomHub. Attackers register a vulnerable driver as a kernel service via sc.exe, name that service to mimic a Windows update, then abuse IOCTLs for kernel primitives. The service-name masquerade is itself a tell. A ""KB"" service name attached to an unsigned or first-seen driver image is a high-confidence pair, so watch the join between the 7045 service-install name and the Event ID 6 image it loads.
-
-The false-positive profile for the correlation beats the single events by design, because the conjunction is rare even when each part is common. The cost moves from alert volume to engineering effort: you need reliable event ordering and a join key, which means Sysmon tuned to capture both the service and the driver-load fields. Ship this second, after the single Event ID 6 rule is stable.
-
-Hunt Three: Kernel-callback Removal and The Kernel-Originated Kill Loop
-
-Admin-to-kernel needs a different lens, because the kill itself can happen entirely below the EDR's user-mode vantage point. Independent security research argues that admin-to-kernel falls short of a real security boundary and that the driver blocklist is an incomplete defense against it. Once code reaches Ring 0, it can remove the hooks the EDR relies on before it issues a kill.
-
-Callback removal is its own observable, distinct from a process kill, and it deserves its own hunt. SOC Prime documented Qilin loading rwdrv.sys for raw memory read and write alongside a malicious hlpdrv.sys for kernel-callback manipulation, removing EDR kernel callbacks across more than 300 products. The same rwdrv.sys plus hlpdrv.sys pairing appears in Akira and other crews. The observable to instrument is the silent disappearance of kernel callbacks, a loss of expected callback telemetry from the EDR's own integrity reporting.
-
-The termination that follows can run as a kernel-mode loop. The user-mode component enumerates running processes on a repeating, fixed-interval loop and sends the target PIDs to a masquerading kernel-service driver via IOCTL. The driver then calls ZwTerminateProcess in kernel mode, bypassing protected-process light entirely.
-
-The fixed-interval rekill cadence is itself a signature. A user-mode agent that respawns and dies again on a repeating, fixed interval is being killed from below, not crashing on its own. That behavioral fingerprint is what you hunt when the callbacks are already gone.
-
-The false-positive consideration is that this hunt depends on telemetry the attacker is actively trying to remove. Treat callback-integrity loss and the rekill cadence as corroborating signals rather than standalone alerts, paired with the cross-domain witnesses below.
-
-Hunt Four: Bring-your-own-installer and Driverless Suspension
-
-Bring-your-own-installer is the quietest of the four, and it leaves no driver-load event at all. SentinelOne documented this tamper bypass, where an attacker abuses a trusted installer or upgrade path to swap the agent out. SentinelOne shipped Local Upgrade Authorization, default-on for new customers, plus a detection rule and a hunting query against the bypass.
-
-The hunt is an unexpected agent upgrade or reinstall outside a sanctioned change window. Your driver-load rule will never fire, because no vulnerable driver was ever loaded. The rule logic compares each event against a baseline of approved change, so you need a clean inventory of sanctioned upgrade windows and the package signers you deploy. Any agent install, uninstall, or version change outside that window is the finding. This is the hardest false-positive profile of the four, because without that inventory, normal patching drowns the queue. Build the baseline first.
-
-Driverless suspension is the fourth class, and it abuses user-mode tricks that never touch the kernel. EDR-Freeze suspends the EDR process by racing the WerFaultSecure crash handler, entirely in user mode. EDRSilencer uses Windows Filtering Platform (WFP) filters to block EDR telemetry across roughly 16 products. These two leave different observables, so hunt them separately.
-
-For the suspend path, watch for process-suspension state changes against the agent process that no maintenance action requested. For the filter path, watch for new WFP filters that match the agent's known egress destinations and silently drop its outbound telemetry, the EDRSilencer pattern. Legitimate updates and some VPN software touch process state and WFP filters, so scope the rules to the agent's own process and endpoints.
-
-Why These Hunts Must Keep Pace
-
-This work is urgent because the tooling has industrialized. SentinelLABS traced AvNeutralizer, also called AuKill, to the cybercrime gang FIN7, sold on Russian-language forums for $4,000 to $15,000 and adopted by Black Basta, AvosLocker, MedusaLocker, BlackCat, Trigona, and LockBit. That commoditization is the theme of SentinelOne's latest Annual Threat Report, which describes the industrialization of the modern cyber breach with mature automation accelerating intrusions. Public reporting tracked EDRKillShifter, a driver-based killer the RansomHub crew added to its arsenal and offered through an affiliate program, turning a hard kernel technique into a checkbox. Defenders face a market, not a single actor, so the hunts have to generalize across tools.
-
-The Kill Is a Detection Gift
-
-Here is the reframe most teams miss. They read the kill attempt as a defense failure and stop there. Read it instead as a high-confidence signal that ransomware is about to fire.
-
-The Cyber Security Agency of Singapore documents the EDR-killer-then-ransomware sequence across multiple gangs, with the killer firing shortly before the ransomware. The minutes between the kill and the encryption are minutes you can act in. A correlated chain alert or a fixed-interval rekill detection that fires in that window is a live intervention point, not a post-incident artifact. The same advisory frames the whole category this way. EDR-killer activity is detectable via driver-load monitoring, suspicious process-termination patterns, and attempts to disable telemetry, three observables that map cleanly to the four hunts above.
-
-There is a rarer, cleaner signal worth a dedicated rule. Independent researcher Peter M. flagged Windows Event ID 7031, a service that terminated unexpectedly. Scoped to security services, it is an ideal detection candidate, and quiet enough to alert on directly. A forced kernel termination often leaves a crash trail the service control manager records anyway. The kill leaves a fingerprint even when it succeeds.
-
-When the Kill Succeeds nyway
-
-Assume the kill works. You still are not blind. A successful kill produces an absence-of-signal you can alert on directly: agent-health drop, heartbeat loss, and the absence of expected telemetry, all findings alongside your suspicious-event rules. The SentinelOne Annual Threat Report describes one SaaS compromise that ran for 71 days until an automated detection correlated activity a manual review of sign-in logs had missed. Absence-of-signal correlation is exactly the kind of work a human queue rarely sustains alone.
-
-Cross-domain telemetry survives the kill. Once the endpoint sensor is silenced, logging that operates independently of the agent remains as a witness, including network-based detection and cloud-based security monitoring. The attacker can kill the agent on one host. They cannot kill the firewall logs, the identity provider, and the cloud control plane at the same instant, and those sensors still record the lateral movement, credential use, and command-and-control that precede ransomware. Route them into the same hunt so the endpoint blind spot does not become total.
-
-The false-positive consideration for the absence case is the most demanding of all. Absence-of-signal detection requires a reliable baseline of expected heartbeat, or a maintenance reboot looks like an attack. Tie the heartbeat-loss rule to the change-window inventory you built for bring-your-own-installer. A silent agent on a host with no scheduled maintenance, correlated with network or identity activity, is the alert.
-
-Honest Tuning Notes
-
-The order you ship it in decides whether analysts trust it, so sequence the rollout by signal quality. Start with the loud bring-your-own-vulnerable-driver hunt, because Sysmon Event ID 6 is low-volume and the rules already exist. Add the chain correlation next, since correlated sequences cut the false positives single events generate. Save the absence-of-signal and unexpected-upgrade hunts for last, after the baselines clean up. Shipping them out of order floods analysts and teaches them to ignore the alerts.
-
-Retire the Wrong Scoreboard
-
-Stop scoring on ""did the kill succeed."" Score on ""did we catch the kill."" Catching it early gives the response team the minutes that decide whether files get encrypted.
-
-Deploy this on Monday. Turn on Sysmon Event ID 6 logging and the untrusted-driver and first-seen rules for the loud class. Build the service-create-to-driver-load-to-termination correlation for the chain. Add a dedicated Event ID 7031 rule and an agent-health heartbeat monitor for the absence case. Wire network, identity, and cloud telemetry into the same view so a silenced sensor is not a silenced investigation.
-
-The shift is from waiting for a verdict to running a hunt. That posture depends on an agent that keeps running and keeps telemetry flowing under attack, so demand the survivability test data before trusting any vendor's claim, ours included.
-
-Why This Is the Work SentinelOne Exists to Do
-
-Running these hunts in the minutes before encryption is where the contest is won, and that window is exactly what SentinelOne built Purple AI® to operate inside. Its Agentic Investigation capability runs the kind of zero-click investigation these hunts describe. It correlates the driver load, the service install, the callback removal, and the silence that follows, then renders a verdict and a response at machine speed. The kill attempt becomes the trigger, and the investigation is already running while the attacker still believes the sensor is blind.
-
-Most security teams cannot run four hunts around the clock, and the attacker knows which hours are thin. Wayfinder, SentinelOne's managed detection and response practice, runs them for you, putting human hunters and autonomous investigation on the same telemetry every hour of every day. The kill is the middle of the story, and the platform is built to catch it there.
-
-Step back across the whole series. It traced the EDR killer through four moves. A market with a price list. An industry with suppliers and resale. The trust gap it operates inside. And the hunts that catch it. One idea held the whole way through. A defender who watches behavior beats one who chases the binary of the week. Attackers turned the kill into a product. The answer is the one move a supplier cannot re-skin. It is the reach into the kernel to terminate what defends the host. Defenders are the protagonists of that story, and the platform exists to keep them there. A safer future for humanity is built by the people who refuse to look away when the kernel turns hostile.
-
-External References
-
-""LOLDrivers: Living Off The Land Drivers."" loldrivers.io, retrieved 2026-06-26.
-
-""Sysmon Community Guide: Driver Loading."" TrustedSec, n.d.
-
-""Qilin EDR Killer: Driver Abuse to Terminate 300+ Tools."" SOC Prime, 2026-04-07.
-
-""GRITREP: Observed Malicious Driver Use Associated with Akira SonicWall Campaign."" GuidePoint Security (GRIT), 2025-08-05.
-
-""EDR-killer driven by a decade-old vulnerable forensic driver."" Help Net Security, 2026-02-05.
-
-""New EDR-Freeze tool uses Windows WER to suspend security software."" BleepingComputer, 2025-09-22.
-
-""EDRSilencer."" netero1010, GitHub repository, retrieved 2026-06-26.
-
-""EDRSilencer red team tool used in attacks to bypass security."" BleepingComputer, 2024-10-15.
-
-""EDR-killing malware is the latest trend in ransomware."" The Register, 2025-08-14.
-
-""RansomHub gang developed a tool to kill EDR software."" Security Affairs, 2024-08-15.
-
-""Advisory on New Endpoint Detection and Response (EDR) Killer Tool Used by Multiple Ransomware Groups."" Cyber Security Agency of Singapore, 2025-08-16.
-
-""Investigating & Detecting EDR Killer."" Peter M., Medium, 2025-11-19."
+fa1446196787,fa1446196787,2026-10-19 07:00 UTC,General Security News,SentinelOne,Google News: BCG Platinion,N/A,Article,"Robots, startups and new connections at Data Science Day 2026",https://news.google.com/rss/articles/CBMiiwFBVV95cUxNRW4xWS1HVnFneF9SR0xkS1VYWUZtdzZaOW40dWtlTEx5eVN4QVprRm9iT2ZMSmViZmo0bDhHNzRGV2ItSTdvTE84dFRKTWlGcWMxb3kwVVdNWmFzanVKZGJjeGZtd0dzYktIYUhaV2JoM09LRVJ2eFFqNjNWZXZzLWp2NVN3cHRjZnRN?oc=5,,
 b7f8dc44c134,b7f8dc44c134,2026-10-16 18:01 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelOne Blog,Threat Intelligence; Network Security; Endpoint Security,Article,How SentinelOne Blocked APT29's CaptiveCrunch Campaign,https://www.sentinelone.com/blog/how-sentinelone-blocked-apt29-s-captivecrunch-campaign/,Run these steps as a scheduled threat hunt rather than as a detection rule,"Once the corporate network stopped being defensible, the control had to move to the device, as SentinelOne® has long argued.
 
 That move carried one assumption with it. Wherever the laptop sits, name resolution tells it the truth and the agent can reach its own cloud. Almost nothing in the stack checks either half.
