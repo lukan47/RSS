@@ -1,4 +1,431 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+e274b19d46b0,11a9e447f3a8,2026-11-13 00:00 UTC,Vulnerabilities & Patching,Falco / Sysdig,Falco / Sysdig Blog,Server & Workload Protection; Vulnerability Management,Article,HTTPd (CVE-2026-119618): Detecting heap corruption and RCE in Apache HTTP Server mod_http2,https://webflow.sysdig.com/blog/httpd-cve-2026-119618-detecting-heap-corruption-and-rce-in-apache-http-server-mod-http2,"Threat Intelligence entries show where affected Apache hosts are running, Vulnerability Management maps to each distribution’s vendor advisory, and Runtime Detections catch what...","On November 11, 2026, Apache released HTTP Server 2.4.71 to fix CVE-2026-119618, a critical severity heap corruption flaw in mod_http2 that Apache’s security advisory said can lead to remote code execution (RCE). The flaw sits in assign_headers(), affects versions 2.4.55 through 2.4.70, and can be triggered over HTTP/2 with no authentication. Red Hat and Amazon have scored the vulnerability 9.8 on CVSS v3.1, though CISA rates it at 8.1.
+
+Two teams found the bug independently, eight days apart. Anthropic's OSS Scanner is an opt-in, model-driven scanner for open-source projects. It reported the bug on October 26, 2026. Anthony Weems and Simon Scannell of Google Cloud Vulnerability Research reported it eight days later on November 3, according to the CVE record.
+
+The day after Apache disclosed it on oss-security, a public proof-of-concept (PoC) was published on GitHub showing the heap corruption, though no PoC has been released for the RCE as of the publication of this blog. Additionally, no confirmed in-the-wild exploitation has been reported, and the CVE does not appear in CISA's KEV catalog.
+
+The bug lives in Apache's own HTTP/2 implementation, not in any application the server hosts. Only servers that enable HTTP/2 are exposed. Affected organizations are encouraged to upgrade to version 2.4.71 or turn off HTTP/2 if patching is delayed.
+
+The Sysdig Threat Research Team (TRT) analyzed the publicly available research and simulated a successful exploit to help defenders understand four key details: who is affected, what has been demonstrated versus claimed, what runtime visibility can detect, and what mitigation steps should be taken until a patch can be applied. They also tested and found that Sysdig’s existing runtime detections caught every post-exploitation step.
+
+Timeline
+
+Date
+
+Event
+
+Oct. 26, 2026, 12:00 UTC
+
+Anthropic's OSS Scanner reports the flaw as ANT-2026-MAPKT6MZ
+
+Oct. 30, 2026
+
+CVE ID reserved
+
+Nov. 3, 2026, 15:50 UTC
+
+Google Cloud Vulnerability Research reports the flaw
+
+Nov. 9, 2026, 02:54 UTC
+
+Fix committed to the 2.4.x branch as 824beab
+
+Nov. 11, 2026, 12:19 UTC
+
+Public disclosure on oss-security
+
+Nov. 11, 2026, 12:52 UTC
+
+Red Hat publishes its assessment and RHEL 9 and 10 fixes
+
+Nov. 11, 2026, 14:54 UTC
+
+CVE record published
+
+Nov. 12, 2026, 09:54 UTC
+
+Debian DSA-6620-1 fixes trixie
+
+Nov. 12, 2026
+
+A public PoC is posted on GitHub showing heap corruption
+
+Affected Apache HTTP Server versions
+
+The flaw is in mod_http2, the HTTP/2 module of Apache HTTP Server. The same module is released separately as mod_h2 on GitHub and also affected.
+
+While the Apache advisory rates the vulnerability as critical. The CVE record, which Apache maintains as the CVE Numbering Authority (CNA), doesn’t actually carry an associated CVSS score. However, Red Hat and Amazon both rate the vulnerability as critical and score it at 9.8 on CVSS v3.1 and CISA rates it as a high severity vulnerability at 8.1 on CVSS v3.1.
+
+Red Hat rates its own RHEL 9 and 10 builds Important rather than Critical. Those builds allocate each HTTP/2 stream from ""a separate allocator, which substantially increases the complexity of exploiting the flaw.""
+
+The severity and prioritization of this vulnerability in an organization’s environment depends first on whether HTTP/2 is on.
+
+Version
+
+Status
+
+Fixed version / What to do
+
+httpd versions 2.4.55 – 2.4.70
+
+Affected
+
+Upgrade to 2.4.71.
+
+httpd versions prior to 2.4.55
+
+Not listed as affected by Apache
+
+No action for this CVE.
+
+Standalone mod_h2 2.0.8 – 2.0.42
+
+Affected. The repository has been archived since June 9, 2026.
+
+No fixed release; 2.0.42 is the latest. Move to httpd 2.4.71's bundled module, or disable HTTP/2.
+
+RHEL 9
+
+Affected (Important)
+
+mod_http2-2.0.26-7.el9_9.1, RHSA-2026:98981
+
+RHEL 9.4 SAP / 9.6 EUS / 9.8 EUS
+
+Affected (Important)
+
+RHSA-2026:98968 / :98954 / :98982
+
+RHEL 10
+
+Affected (Important)
+
+mod_http2-2.0.29-5.el10_3.1, RHSA-2026:98978
+
+RHEL 10.0 EUS / 10.2 EUS
+
+Affected (Important)
+
+RHSA-2026:98953 / :98979
+
+RHEL 6, 7, 8
+
+Not affected
+
+No action for this CVE.
+
+The version number alone won’t confirm exposure, check these additional factors:
+
+Distribution packages: Vendors often backport fixes without changing the upstream version, so check your vendor's advisory and not only httpd -v or apache2 -v.
+
+As of November 13, fixes are out for Debian 12 and 13 (2.4.71-1~deb12u1 and 2.4.71-1~deb13u1), Ubuntu 22.04 through 26.10, Alpine, Fedora, Amazon Linux 2 and 2023, and Wolfi and Chainguard.
+
+SUSE, openSUSE, Photon OS, and several RHEL rebuilds were still waiting on vendor fixes.
+
+Downstream products: Vendors that repackage httpd, such as Red Hat JBoss Core Services (jbcs-httpd24-mod_http2) and Red Hat Hardened Images, may be listed as affected on version number alone. Whether you are exposed depends on what the product ships. Check that mod_http2 is actually present and loaded. For example, Sysdig’s scan of the Red Hat Hardened Images httpd image shows it listed as affected, but the image has no mod_http2, so the risk can be accepted. Check the vendor’s advisory for fix status.
+
+Recent upgrades: Servers upgraded to 2.4.67 for the HTTP/2 flaw in May, CVE-2026-23918, are still inside this CVE's affected range.
+
+How the HTTPd RCE flaw works
+
+HTTP/2 carries many requests over one connection as parallel streams and that concurrency is where this flaw lies.
+
+The Apache advisory calls the flaw ""Concurrent Execution using Shared Resource with Improper Synchronization"" in assign_headers(), and the CVE record lists CWE-362. Red Hat lists CWE-20 instead. Red Hat describes the root cause as ""a worker thread writes into memory owned by the connection thread through a shared, lock-free allocator."" In practice, two threads can corrupt the same heap.
+
+The fix is a one-line change in assign_headers(). Before the fix, a request with a content type that had already ended had its zero Content-Length header written into the HTTP/2 request's own header table (req->headers). The fix writes it into the per-request table (r->headers_in) instead. The commit message gives no explanation. Red Hat's statement supplies the threading context.
+
+What is reachable
+
+Exposure depends on configuration. Red Hat states that only servers with HTTP/2 enabled through the Protocols directive are affected:
+
+Path
+
+Does it reach the vulnerable code?
+
+Details
+
+Protocols includes h2
+
+Yes
+
+HTTP/2 over TLS.
+
+Protocols includes h2c
+
+Yes
+
+HTTP/2 over cleartext TCP. The public PoC targets this.
+
+Protocols set in a virtual host
+
+Yes, for that virtual host
+
+Check vhost blocks as well as the server-wide setting.
+
+HTTP/1.1 only
+
+No
+
+According to RedHat, servers serving only HTTP/1.1 are not affected.
+
+Red Hat's Bugzilla entry says an unauthenticated attacker triggers the flaw ""by sending specially crafted HTTP/2 frames."" That puts internet-facing, HTTP/2-enabled httpd in the first patch tier. This table does not cover reverse proxies in front of httpd.
+
+HTTPd RCE exploitation: What's been demonstrated vs. claimed
+
+According to Red Hat’s CVE page, public research has shown ""a reliable exploit against a default-configured server."" However, without a researcher name or links to details, this can’t be verified. As of the publishing of this blog, no other security researchers or vendors have confirmed exploitation.
+
+As of about 16:00 UTC on November 12, a GitHub search for the CVE returned four repositories: a proof of concept, a patch-status tracker, and two detection or assessment tools.
+
+The PoC reports heap corruption, not code execution. Its README describes the impact as ""Heap corruption in an httpd child process; potential remote code execution.""
+
+Its evidence comes from a lab build:
+
+Setup: httpd 2.4.70 built from upstream source on a debian:bookworm container, running the prefork MPM with Protocols h2c http/1.1.
+
+Results: The PoC sent 6,080 requests. AddressSanitizer reported five crashes, including a heap use-after-free allocated in assign_headers(). ThreadSanitizer reported 31 allocator races.
+
+Fixed build: A 2.4.71 build showed none.
+
+Trigger: A request that ends without a body and carries a Content-Type but no Content-Length triggers the bug. The fix commit changes exactly that code path.
+
+The README doesn't show control of the corrupted memory, and the author has published no exploit.
+
+The bottom line is that unauthenticated HTTP/2 traffic can crash and corrupt the heap of a vulnerable httpd. Remote code execution is possible, but nobody has publicly demonstrated it yet. Treat the crash as likely wherever HTTP/2 is on, and code execution as a credible risk.
+
+HTTPd RCE impact
+
+Nothing publicly disclosed as of November 13, 2026, shows in-the-wild exploitation, a mass-scanning campaign, or a public RCE exploit. The primary sources do establish the following:
+
+Risk of unauthenticated RCE: Red Hat says a remote attacker who can reach the server could execute arbitrary commands with no authentication. Bugzilla adds that commands run as the httpd process.
+
+Worker crashes: The public PoC crashes httpd child processes on a vulnerable build.
+
+Long-lived exposure: The affected range starts at 2.4.55, so servers patched for earlier HTTP/2 bugs can still be exposed.
+
+Paths with no fix yet: Standalone mod_h2 has no fixed release. Several distributions, including SUSE, openSUSE, Photon OS, and CentOS Stream 10, were still waiting on vendor fixes as of November 13.
+
+Detecting HTTPd RCE with Sysdig Secure
+
+Sysdig Secure customers have three layers of coverage for CVE-2026-119618. Threat Intelligence entries show where affected Apache hosts are running, Vulnerability Management maps to each distribution’s vendor advisory, and Runtime Detections catch what a successful exploit does once an attacker enters a vulnerable environment.
+
+Threat intelligence
+
+Sysdig Secure customers have two entries for CVE-2026-119618 in the Threat Intelligence feed. Each entry lists the affected hosts and running Kubernetes workloads. One entry uses the SBOM to find affected versions of Apache HTTP Server, mod_http2, and the vendor packages that contain the module. The other entry lists the assets where Sysdig Vulnerability Management reports the CVE.
+
+Vulnerability management
+
+Sysdig vulnerability management detects CVE-2026-119618 across your environment. To prioritize remediation, start with internet-facing workloads and packages in use at runtime.
+
+Sysdig vulnerability scanning reports this CVE by distribution and release, and each status follows the vendor's own advisory. Rows move from ""Waiting on vendor fix"" to ""Reported"" as vendors publish fixes and the feed picks them up. The table reflects status as of November 13, 2026. On SaaS, vulnerability database updates reach scanners automatically, so new advisories need no scanner upgrade.
+
+Distribution
+
+Releases
+
+Vulnerability findings
+
+Red Hat Enterprise Linux
+
+9, 9.6 EUS, 9.8 EUS
+
+Reported, fixed in mod_http2 2.0.26-7.el9_9.1
+
+Red Hat Enterprise Linux
+
+10, 10.0 EUS, 10.2 EUS, 9.4 E4S
+
+Vendor fix published (10: mod_http2 2.0.29-5.el10_3.1), being added
+
+Red Hat Enterprise Linux
+
+6, 7, 8
+
+Not affected
+
+CentOS Stream
+
+9
+
+Reported, no vendor fix yet
+
+CentOS Stream
+
+10
+
+Waiting on vendor fix
+
+AlmaLinux, Rocky Linux, Oracle Linux
+
+9, 10
+
+Waiting on vendor fix
+
+AlmaLinux, Rocky Linux, Oracle Linux
+
+8
+
+Not affected
+
+Debian
+
+12, 13
+
+Reported, fixed in 2.4.71-1~deb12u1 and 2.4.71-1~deb13u1
+
+Debian
+
+11 (ELTS), 14 (testing)
+
+Waiting on vendor fix
+
+Ubuntu
+
+22.04, 24.04, 26.04, 26.10
+
+Reported, fixed in the 12 November security updates
+
+Ubuntu
+
+20.04 (ESM)
+
+Waiting on vendor fix
+
+Ubuntu
+
+16.04, 18.04 (ESM)
+
+Not affected
+
+Alpine
+
+3.21, 3.22, 3.23, 3.24
+
+Reported, fixed in 2.4.71-r0
+
+Wolfi and Chainguard
+
+Rolling
+
+Reported, fixed in 2.4.71-r0
+
+Fedora
+
+43, 44
+
+Reported, fixed in mod_http2 2.0.42-3.fc43 and 2.0.42-2.fc44
+
+Amazon Linux
+
+2, 2023
+
+Reported, fixed in 2.4.71-1.amzn2.0.1 and 2.4.71-1.amzn2023.0.1
+
+Azure Linux
+
+3.0
+
+Vendor fix published (2.4.71-1.azl3), being added
+
+SUSE Linux Enterprise Server
+
+15 SP7, 16.0
+
+Waiting on vendor fix
+
+openSUSE
+
+Leap 16.0, Tumbleweed
+
+Waiting on vendor fix
+
+Photon OS
+
+4.0, 5.0
+
+Waiting on vendor fix
+
+Alibaba Cloud Linux
+
+3
+
+Not affected
+
+Apache built from source
+
+Official httpd images, Bitnami, copied binaries
+
+Reported through standalone binary scanning, fixed in 2.4.71
+
+Red Hat Hardened Images
+
+httpd
+
+Shown as affected because Red Hat lists it so. The image has no mod_http2, so accept the risk
+
+Runtime detection
+
+The Sysdig TRT simulated a successful exploit inside a vulnerable Apache server, both inside a container and as a host service. Existing runtime threat detections caught every step without rule modifications, including:
+
+Failed exploit attempts that crash web server workers
+
+Commands or a shell started by the web server, including reverse shells
+
+Tools downloaded and run by the web server
+
+The web server process replaced by attacker code
+
+A successful attack would give the attacker code execution as the httpd worker. From there, attackers do what they do after any web server RCE: open a reverse shell, download and run a tool, start a miner, steal cloud credentials, or try a kernel local privilege escalation.
+
+Detecting HTTPd RCE with open source Falco
+
+Falco sees syscalls, not HTTP/2 frames. It cannot see the malicious request itself, but it can see what the request causes on the host. That includes a shell or unexpected binary spawned by an httpd process, an unexpected outbound connection, or a write to a sensitive path.
+
+Web servers fork helpers legitimately, so rules scoped to httpd need tuning to stay quiet. The post-exploitation strategies above apply.
+
+Recommendations
+
+Patch
+
+Update httpd on every server: Move to 2.4.71, or to your vendor's patched package. On RHEL 9 that is mod_http2-2.0.26-7.el9_9.1, on RHEL 10 mod_http2-2.0.29-5.el10_3.1, and on Debian trixie apache2 2.4.71-1~deb13u1. Patching is the only complete fix.
+
+Restart httpd and rebuild images after you patch: A running server keeps the old module loaded. Verify the package version inside the running workload.
+
+Replace standalone mod_h2: The project is archived, and its latest release, 2.0.42, is affected.
+
+Interim mitigations if you cannot patch today
+
+Disable HTTP/2: Apache's advisory and oss-security notice give no workaround. Wiz recommends removing h2 and h2c so the setting reads Protocols http/1.1. That is Wiz's guidance, not Apache's. It matches Red Hat's statement that HTTP/1.1-only servers are not affected.
+
+Apply the change server-wide and in every virtual host.
+
+Restart or reload httpd so the change takes effect.
+
+Test latency-sensitive services first. Clients fall back to HTTP/1.1, which can slow multiplexed workloads.
+
+Contain the blast radius
+
+Run httpd workers as an unprivileged user: Limit what a compromised worker can read and write.
+
+Keep secrets out of the server's reach: Use a secrets manager, not environment variables or files the worker can read.
+
+Investigate and audit
+
+Audit your environment: Find every host and workload running httpd 2.4.55–2.4.70 or mod_h2 2.0.8–2.0.42 with HTTP/2 enabled, internet-facing first. Sysdig Secure customers can use the Threat Intelligence entry and Vulnerability Management findings.
+
+Watch for crashing httpd children: Repeated child-process segfaults on an HTTP/2-enabled server match what the public PoC produces.
+
+Review httpd process activity: Look for shells, downloads or outbound connections from httpd workers since public disclosure on November 11.
+
+Enable default runtime policies: Sysdig’s runtime detections will catch exploitation, even when a vulnerability scan has no findings yet.
+
+Conclusion
+
+CVE-2026-119618 is a threading bug in httpd's HTTP/2 module, not a flaw in the applications httpd serves. Heap corruption and crashes are public. Code execution is claimed but not yet publicly shown, but that gap is why reachability should drive patch prioritization. Defenders should start with HTTP/2-enabled, public-facing servers.
+
+The timelines are still important to note for security teams. Two teams reported the bug independently, eight days apart. One “team"" was an automated, model-driven scanner, while the other was a human team. By November 12, a day after disclosure, a public PoC that corrupts the heap was on GitHub. The window between “advisory published” and “working exploit” is small, and organizations need to be prepared to respond quickly to these notifications.
+
+In this case, the best course of action is to patch first. Until every server is patched and restarted, disable HTTP/2 where you can and use runtime detection to close the gap. A runtime sensor will not see the heap corruption, but it will catch what a successful exploit does next."
 446fa3f7d804,446fa3f7d804,2026-11-05 00:00 UTC,General Security News,Falco / Sysdig,Falco / Sysdig Blog,AI Security; Cloud Risk Management; Threat Intelligence; Container Security,Article,Refreshing the 555 Benchmark for Cloud Detection and Response in the AI era,https://webflow.sysdig.com/blog/refreshing-the-555-benchmark-for-cloud-detection-and-response-in-the-ai-era,"It used to take attackers days to conduct reconnaissance, lateral movement, and exploitation, but now it only requires a few minutes","How long does it take your security teams to detect a threat, correlate and contextualize relevant data, and take action? For most organizations, the honest answer is still measured in hours or days. Mature organizations are actively working toward reducing that time to minutes, and the most innovative teams are moving to sub-minute timescales using agentic AI.
 
 The reality is that attackers don’t wait. Researchers across the industry, like the Sysdig Threat Research Team, have continuously shown that cloud attacks unfold in 10 minutes or less, and with AI and agentic workflows, the window for defense continues to shrink.
