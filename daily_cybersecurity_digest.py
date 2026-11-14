@@ -325,163 +325,217 @@ NO_VENDOR = "No Specific Vendor"
 # fall back to that vendor through SOURCE_VENDOR below.
 VENDORS = {
     "TrendAI": [
-        "trend micro", "trendmicro", "trendai", "trend ai",
+         "trend micro", "trendai", "vision one", "cybertron", "zero day initiative",
+         "tippingpoint", "deep security", "apex one", "cloud one",
+         "worry-free", "trendlife", "eva chen", "kevin simzer", "rachel jin",
     ],
     "CrowdStrike": [
-        "crowdstrike", "falcon sensor", "falcon platform", "falcon next-gen",
+        "crowdstrike", "falcon", "charlotte ai", "humio", "logscale",
+        "project quiltworks", "cyber si lab", "fal.con", "george kurtz", "michael sentonas",
+        "adam meyers", "alex ionescu", "shawn henry",
     ],
     "Palo Alto Networks": [
-        "palo alto", "palo alto networks", "unit 42", "cortex xdr",
-        "cortex xsiam", "prisma cloud", "prisma access",
+        "palo alto networks", "strata", "prisma", "cortex", "pan-os",
+        "unit 42", "precision ai", "globalprotect", "wildfire", "panorama",
+        "xsiam", "xsoar", "xpanse", "nikesh arora", "lee klarich",
     ],
     "Fortinet": [
         "fortinet", "fortigate", "fortios", "forticlient",
-        "fortisiem", "fortiedr", "fortisoar",
+        "fortisiem", "fortiedr", "fortisoar","forti", 
+        "security fabric", "lacework", "ken xie",
+        "michael xie", "john whittle", "keith jensen",
     ],
     "SentinelOne": [
-        "sentinelone", "sentinel one", "singularity platform", "sentinellabs", "sentinel labs",
+        "sentinelone", "singularity", "purple ai", "vigilance", "pinnacleone",
+        "ranger", "storyline", "star", "tomer weingarten", "energy muller",
+        "ricardo irvine", "creed barrett",
     ],
     "Microsoft Security": [
-        "microsoft security", "microsoft defender", "azure security",
-        "microsoft entra", "microsoft sentinel", "defender for endpoint",
-        "defender for cloud",
+        "microsoft security", "azure security", "defender", "sentinel", "entra",
+        "purview", "intune", "security copilot", "copilot for security", "mstic",
+        "dart", "priva", "secure score", "charlie bell", "vasu jakkal",
+        "ann johnson",
     ],
     "Mandiant": [
         "mandiant", "google threat intelligence",
     ],
     "Sophos": [
-        "sophos", "naked security",
+        "sophos", "intercept x", "secureworks", "taegis", "hitmanpro",
+        "x-ops", "phish threat", "cloud optix", "synchronized security", "xgs",
+        "naked security", "joe levy", "raja patel", "simon reed",
     ],
     "ESET": [
-        "~eset", "welivesecurity", "we live security", "nod32",
+        "eset", "welivesecurity", "we live security", "nod32", "livegrid",
+        "liveguard", "neocortex", "sysinspector", "richard marko", "juraj malcho",
+        "tony anscombe",
     ],
     "Bitdefender": [
-        "bitdefender", "gravityzone",
+        "bitdefender", "gravityzone", "phasr", "box", "total security",
+        "mxdr", "bitdefender labs", "hotforsecurity", "florin talpes", "rares stefan",
+        "bogdan irina", "sorin mustaca",
     ],
     "Check Point": [
-        "check point", "~checkpoint", "harmony endpoint",
+        "check point", "checkpoint", "harmony", "cloudguard", "quantum force",
+        "infinity platform", "threatcloud", "playblocks", "zonealarm", "perimeter 81",
+        "avanan", "lakera", "cyberint", "veriti", "cyata",
+        "nadav zafrir", "gil shwed", "nataly kremer", "adam ely",
     ],
     "Recorded Future": [
-        "recorded future",
+        "recorded future", "insikt group", "intelligence graph", "securitytrails", "hatching triage",
+        "gemini advisory", "christopher ahlberg", "staffan truve", "colin mahony",
     ],
     "Cisco Security": [
-        "cisco talos", "cisco security", "cisco umbrella",
-        "cisco secure", "cisco xdr",
+        "cisco security", "cisco secure", "cisco xdr", "cisco ai defense", "cisco identity",
+        "talos", "umbrella", "hypershield", "splunk", "duo security",
+        "firepower", "anyconnect", "isovalent", "lightspin", "jeetu patel",
+        "tom gillis", "dj sampath", "peter bailey",
     ],
     "Wiz": [
-        "wiz.io", "wiz security", "wiz cloud",
+        "wiz.io", "wiz security", "wiz cloud", "wiz code", "wiz defend",
+        "wiz sensor", "wiz one", "wiz research", "wiz security graph", "project atlas",
+        "dazz", "gem security", "raftt", "assaf rappaport", "ami luttwak",
+        "yinon costica", "roy reznik",
     ],
     "Orca Security": [
-        "orca security", "orca.security",
+        "orca security", "orca.security", "orca sidescanning", "sidescanning", "orca sensor",
+        "ai appgen security", "orca cloud", "gil geron", "avi shua", "yoav alon",
     ],
     "Trellix": [
-        "trellix", "fireeye", "mcafee enterprise",
+        "trellix", "fireeye", "mcafee enterprise", "helix", "epolicy orchestrator",
+        "vishal rao", "david pieterse", "james denena", "sean morton",
     ],
     "Darktrace": [
-        "darktrace", "autonomous response",
+        "darktrace", "autonomous response", "antigena", "cyber ai analyst", "enterprise immune system",
+        "self-learning ai", "behavioral defense platform", "ed jennings", "jill popelka", "tim bazalgette",
+        "mike beck", "stephen pickman", "poppy gustafsson",
     ],
     "ExtraHop": [
-        "extrahop", "extra hop", "reveal(x)",
+        "extrahop", "extra hop", "revealx", "reveal(x)", "agentic soc alliance",
+        "greg clark", "raja mukerji", "kanaiya vasani", "nick noviello", "kevin carney",
+        "jesse rothstein",
     ],
     "Vectra AI": [
-        "vectra ai", "vectra.ai", "vectra attack",
+        "vectra ai", "vectra.ai", "vectra attack", "vectra platform", "vectra mdr",
+        "vectra networks", "attack signal intelligence", "cognito detect", "cognito recall", "hitesh sheth",
+        "oliver tavakoli", "kevin kennedy", "mark wojtasiak",
     ],
     "Proofpoint": [
-        "proofpoint", "proofpoint threat",
+        "proofpoint", "targeted attack protection", "tessian", "normalyze", "illusive",
+        "observeit", "wombat security", "sumit dhawan", "ryan kalember", "tom corn",
+        "satyam sinha", "daniel rapp", "kevin epstein",
     ],
     "Broadcom / Symantec": [
-        "broadcom security", "symantec enterprise", "symantec endpoint",
-        "carbon black",
+        "carbon black","broadcom security", "symantec", "carbon black", "blue coat", "proxysg",
+        "messagelabs", "cloudsoc", "webpulse", "vip access", "rob krug",
+        "vikram thakur",
     ],
     "Kaspersky": [
-        "kaspersky", "securelist", "kaspersky lab",
+        "kaspersky", "securelist", "global research and analysis team", "kasperskyos", "opentip",
+        "igor kuznetsov",
     ],
     "Cybereason": [
-        "cybereason", "malicious life",
+        "cybereason", "malicious life", "nocturnus", "levelblue", "manish narula",
+        "lior div", "yonatan striem-amit", "yossi na'ar", "israel barak", "sam curry",
     ],
     "Barracuda": [
-        "barracuda", "barracuda networks",
+        "barracuda", "cloudgen", "evo security", "skout cybersecurity", "intronis",
+        "sonian", "rohit ghai", "neal bradbury", "geoff waters", "siroui mushegian",
+        "peter alexander",
     ],
     "Falco / Sysdig": [
-        "~falco", "sysdig", "falcosecurity",
+        "falco", "sysdig", "falcosecurity", "stratoshark", "loris degioanni",
+        "hatem naguib", "conor sherman",
     ],
     "Okta": [
-        "okta", "okta identity", "okta workforce",
+        "okta", "auth0", "oktane", "fastpass", "spera security",
+        "scaleft", "todd mckinnon", "frederic kerrest", "eugenio pace", "david bradbury",
     ],
     "CyberArk": [
-        "cyberark", "~privileged access", "conjur",
+        "cyberark", "conjur", "venafi", "idaptive", "zilla security",
+        "matt cohen", "udi mokady", "peretz shoval", "clarence hinton",
     ],
     "IBM Security": [
-        "ibm security", "qradar", "ibm x-force", "security intelligence", "ibm consulting",
+        "ibm security", "qradar", "ibm x-force", "guardium", "ibm verify",
+        "maas360", "trusteer", "randori", "ibm quantum safe", "mark hughes",
+        "mary o'brien", "chris mccurdy", "charles henderson",
     ],
     "Elastic Security": [
-        "elastic security", "elastic siem", "elastic endpoint",
+        "elastic security", "elastic siem", "elastic endpoint", "elastic defend", "alertzero",
+        "attack discovery", "es|ql", "endgame", "ashutosh kulkarni", "mike nichols",
+        "devon kerr", "andrew pease",
     ],
     "Rubrik": [
-        "rubrik", "rubrik security cloud",
+        "rubrik", "predibase", "strata.io", "strata identity", "laminar",
+        "bipul sinha", "arvind nithrakashyap", "anneka gupta", "michael mestrovich",
     ],
     "Arctic Wolf": [
-        "arctic wolf", "arcticwolf",
+        "arctic wolf", "arcticwolf", "cylance", "revelstoke", "aurora platform",
+        "nick schneider", "brian nesmith", "kim tremblay", "dan schiappa", "ismael valenzuela",
     ],
     "Abnormal Security": [
-        "abnormal security", "abnormalsecurity",
+        "abnormal security", "abnormalsecurity", "evan reiser", "sanjay jeyakumar",
+    "mike britton", "anand krishnan",
     ],
     "Huntress": [
-        "huntress",
+        "huntress", "perch security", "kyle hanslovan", "chris bisnett",
+        "gavin reid", "joe malenfant",
     ],
     "Lacework": [
-        "lacework",
+        "lacework", "polygraph", "forticnapp", "dan hubbard", "sanjay beri",
+        "vikram kapoor",
     ],
     "Aqua Security": [
-        "aqua security", "aquasec", "trivy",
+        "aqua security", "aquasec", "trivy", "nautilus", "dror davidoff",
+        "amir jerbi", "meir wahnon", "ofir nachmani",
     ],
     "Snyk": [
-        "snyk",
+        "snyk", "deepcode", "peter mckay", "guy podjarny",
+        "shaun connelly", "manny rivelo",
     ],
     "Rapid7": [
-        "rapid7", "insightvm", "metasploit", "nexpose",
-        "insight platform", "rapid 7",
+        "rapid7", "insightvm", "metasploit", "nexpose", "divvycloud",
+        "threat command", "corey thomas", "andy ellis", "christie terrill",
     ],
     "Tenable": [
-        "tenable", "nessus", "tenable.io", "tenable.sc",
-        "tenable one", "~lumin",
+        "tenable", "nessus", "tenable one", "expanse", "bitdiscovery",
+        "amit yoran", "mark thurmond", "stephen ridd", "branden spikes",
     ],
     "Qualys": [
-        "qualys", "qualysguard", "vmdr", "qualys cloud",
+        "qualys", "sumedh thakar", "kiranprabhu bhaskar", "anand medepalli", "jodie kautt",  
     ],
     "Zscaler": [
-        "zscaler", "zpa", "zia", "zero trust exchange",
-        "zscaler internet access", "zscaler private access",
+        "zscaler", "zia", "zpa", "risk360", "avalor",
+        "jay chaudhry", "dhagash patel", "paddy srinivas", "nathan howe",
     ],
     "WithSecure": [
-        "withsecure", "with secure", "f-secure", "fsecure",
+        "withsecure", "with secure", "f-secure", "fsecure", "elements", "countercept",
+        "juhani hintikka", "mikko hyppönen", "timo laaninen", "pauli aaltonen",
     ],
     "Secureworks": [
-        "secureworks", "secureworks taegis", "counter threat unit", "ctu threat",
+        "secureworks", "counter threat unit", "ctu", "taegis",
+        "wendy thomas", "kyle wilhoit", "rafe pilling",
     ],
     "Blackberry / Cylance": [
-        "blackberry cylance", "cylanceprotect", "cylance", "blackberry security",
-        "blackberry threat",
+        "blackberry cylance", "cylanceprotect", "blackberry security", "blackberry threat",
     ],
     "BeyondTrust": [
-        "beyondtrust", "beyond trust", "privileged remote access",
+        "beyondtrust", "privileged remote access",
     ],
     "Delinea": [
         "delinea", "thycotic", "centrify",
     ],
     "Netskope": [
-        "netskope", "netskope threat",
+        "netskope",
     ],
     "Cato Networks": [
         "cato networks", "cato sase", "cato cloud",
     ],
     "Dragos": [
-        "dragos", "dragos ics", "dragos ot",
+        "dragos",
     ],
     "Claroty": [
-        "claroty", "team82", "claroty research",
+        "claroty", "team82",
     ],
-    # A keyword starting with "~" must match as a whole word ("~armis" does not match "alarmist").
     "1Password": [
         "1password",
     ],
@@ -507,7 +561,7 @@ VENDORS = {
         "cohesity",
     ],
     "F5": [
-        "~f5", "big-ip", "f5 networks", "f5 distributed cloud",
+        "~f5", "big-ip", "f5 distributed cloud",
     ],
     "Flashpoint": [
         "~flashpoint",
@@ -589,8 +643,11 @@ VENDORS = {
         "macnica",
     ],
     "Anthropic": [
-        "anthropic", "claude", "opus", "sonnet", "haiku", "fable", "mythos", "model context protocol", "constitutional ai", "responsible scaling policy", "ai safety level", "asl-3", "asl-4", "project glasswing", "dario amodei", "daniela amodei", "mike krieger", "chris olah",
-    ],
+        "anthropic", "claude", "opus", "sonnet", "haiku", "fable", "mythos",
+        "model context protocol", "constitutional ai", "responsible scaling policy",
+        "ai safety level", "asl-3", "asl-4", "project glasswing", "dario amodei",
+        "daniela amodei", "mike krieger", "chris olah",
+    ]
 }
 
 # Every company on the Professional Services watch list. An article that names one of them and uses a
@@ -1880,7 +1937,7 @@ _KEYWORD_GUARDS = [(set(ACQUISITION_KEYWORDS), _ACQ_EXCLUSIONS), (set(PRODUCT_VE
 # An article from a vendor's own blog or news feed that names no vendor in its title is filed under that vendor
 # (vendor posts rarely name themselves in their titles).
 SOURCE_VENDOR = {
-    "Trend Micro Research": "Trend Micro", "Trend Micro SimplySecurity": "Trend Micro", "Trend Micro Newsroom": "Trend Micro",
+    "Trend Micro Research": "TrendAI", "Trend Micro SimplySecurity": "TrendAI", "Trend Micro Newsroom": "TrendAI",
     "CrowdStrike Blog": "CrowdStrike", "CrowdStrike IR News": "CrowdStrike",
     "Palo Alto Unit 42": "Palo Alto Networks", "Palo Alto IR News": "Palo Alto Networks",
     "Fortinet Threat Research": "Fortinet", "Fortinet IR News": "Fortinet",
@@ -1891,7 +1948,7 @@ SOURCE_VENDOR = {
     "Kaspersky Blog": "Kaspersky", "Securelist (Kaspersky)": "Kaspersky",
     "Sophos Blogs": "Sophos", "Fortinet Blog": "Fortinet", "Cisco Newsroom": "Cisco Security", "Cloudflare Blog": "Cloudflare",
     "Tenable Cyber Exposure Alerts": "Tenable", "Tenable in the News": "Tenable", "Tenable Product Security Advisories": "Tenable",
-    "Trend Micro Media Coverage": "Trend Micro",
+    "Trend Micro Media Coverage": "TrendAI",
     "LevelBlue Blog": "LevelBlue", "GuidePoint Security Blog": "GuidePoint Security", "GuidePoint Security Newsroom": "GuidePoint Security",
     "IBM Newsroom": "IBM Security", "McKinsey Insights": "McKinsey", "Macnica Security Research Blog": "Macnica",
     "Secureworks Taegis Release Notes": "Secureworks",
@@ -2163,7 +2220,7 @@ CATEGORY_COLORS = {
 }
 
 VENDOR_COLORS = {
-    "Trend Micro":                         "#DA291C",  # Trend red
+    "TrendAI":                             "#DA291C",  # Trend red
     "CrowdStrike":                         "#e67e22",  # orange
     "Palo Alto Networks":                  "#00b4d8",  # cyan
     "Fortinet":                            "#c0392b",  # dark red
@@ -3969,7 +4026,7 @@ def main() -> None:
     # Find top vendor announcements (for GitHub Actions notifications): vendor news that is not an acquisition or a vulnerability
     vendor_buckets = bucket_articles([a for a in recent if not is_acquisition(a) and categorize(a) != "Vulnerabilities & Patching"], "vendor")
     top_announcements = []
-    for vendor in ["CrowdStrike", "Palo Alto Networks", "Microsoft Security", "Fortinet", "SentinelOne", "Trend Micro"]:
+    for vendor in ["CrowdStrike", "Palo Alto Networks", "Microsoft Security", "Fortinet", "SentinelOne", "TrendAI"]:
         if vendor_buckets.get(vendor):
             top_announcements.append(vendor_buckets[vendor][0])
 
