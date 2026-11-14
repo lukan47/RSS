@@ -1479,7 +1479,7 @@ MODULE_TYPES = [
     "Compliance Management", "Container Security", "Cyber Risk Quantification",
     "Data Security Posture Management", "Email and Collaboration Security", "Endpoint Security",
     "File Security", "Identity Security Posture Management", "Mobile Security", "Network Security",
-    "Phishing Simulations", "Professional Services (PS)", "Server & Workload Protection", "Threat Intelligence",
+    "Phishing Simulations", "Professional Services", "Server & Workload Protection", "Threat Intelligence",
     "Threat and Exposure Management", "Vulnerability Management", "Zero Trust Secure Access",
     MODULE_OTHER, MODULE_NA,
 ]
@@ -1586,14 +1586,14 @@ _MODULE_RULES = {
         r"conditional access|remote access (security|solution)",
         r"remote access|\bvpn\b|access control"),
     # Keywords from PS_Vendors_To_Monitor.xlsx. "Pair with company name": the weak terms only count for the PS_VENDORS.
-    "Professional Services (PS)": (
+    "Professional Services": (
         r"professional services|partner delivery program|services partner program|services? retainers?|incident response retainers?|"
         r"\bir retainers?\b|service units?|services? credits?|post-incident recovery",
         r"partner[- ]led|guided onboarding|quick[- ]?start|health[- ]?checks?"),
 }
 _MODULE_RX = {n: (re.compile(sr, re.I), re.compile(wk, re.I)) for n, (sr, wk) in _MODULE_RULES.items()}
 # Module -> vendors whose own mentions of a (weak or strong) term are enough to tag it
-_MODULE_VENDOR_BOOST = {"Professional Services (PS)": PS_VENDORS}
+_MODULE_VENDOR_BOOST = {"Professional Services": PS_VENDORS}
 
 
 def classify_modules(article: dict) -> list[str]:
@@ -2304,7 +2304,7 @@ VENDOR_COLORS = {
     "Kudelski Security":                   "#005baa",
     "Echelon Cyber":                       "#3f8f9a",
     "Macnica":                             "#e60012",
-    NO_VENDOR:                            "#95a5a6",  # grey
+    NO_VENDOR:                             "#95a5a6",  # grey
 }
 
 # Every list shows vendors alphabetically, with "No Specific Vendor" first.
