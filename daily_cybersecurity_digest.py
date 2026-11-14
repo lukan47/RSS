@@ -324,7 +324,7 @@ NO_VENDOR = "No Specific Vendor"
 # Vendors answer "who is this article about?" (first match wins, matched on the title). Articles from a vendor's own feed
 # fall back to that vendor through SOURCE_VENDOR below.
 VENDORS = {
-    "Trend Micro": [
+    "TrendAI": [
         "trend micro", "trendmicro", "trendai", "trend ai",
     ],
     "CrowdStrike": [
