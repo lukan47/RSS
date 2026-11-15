@@ -345,7 +345,7 @@ VENDORS = {
     "Fortinet": [
         "fortinet", "fortigate", "fortios", "forticlient",
         "fortisiem", "fortiedr", "fortisoar","forti", 
-        "security fabric", "lacework", "ken xie",
+        "security fabric", "ken xie",
         "michael xie", "john whittle", "keith jensen",
     ],
     "SentinelOne": [
@@ -363,7 +363,7 @@ VENDORS = {
         "mandiant", "google threat intelligence",
     ],
     "Sophos": [
-        "sophos", "intercept x", "secureworks", "taegis", "hitmanpro",
+        "sophos", "intercept x", "hitmanpro",
         "x-ops", "phish threat", "cloud optix", "synchronized security", "xgs",
         "naked security", "joe levy", "raja patel", "simon reed",
     ],
@@ -389,7 +389,7 @@ VENDORS = {
     ],
     "Cisco Security": [
         "cisco security", "cisco secure", "cisco xdr", "cisco ai defense", "cisco identity",
-        "talos", "umbrella", "hypershield", "splunk", "duo security",
+        "talos", "umbrella", "hypershield", "duo security",
         "firepower", "anyconnect", "isovalent", "lightspin", "jeetu patel",
         "tom gillis", "dj sampath", "peter bailey",
     ],
@@ -428,7 +428,7 @@ VENDORS = {
         "satyam sinha", "daniel rapp", "kevin epstein",
     ],
     "Broadcom / Symantec": [
-        "carbon black","broadcom security", "symantec", "carbon black", "blue coat", "proxysg",
+        "carbon black","broadcom security", "symantec", "blue coat", "proxysg",
         "messagelabs", "cloudsoc", "webpulse", "vip access", "rob krug",
         "vikram thakur",
     ],
@@ -437,7 +437,7 @@ VENDORS = {
         "igor kuznetsov",
     ],
     "Cybereason": [
-        "cybereason", "malicious life", "nocturnus", "levelblue", "manish narula",
+        "cybereason", "malicious life", "nocturnus", "manish narula",
         "lior div", "yonatan striem-amit", "yossi na'ar", "israel barak", "sam curry",
     ],
     "Barracuda": [
