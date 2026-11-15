@@ -524,55 +524,6 @@ Defending the inbox against prompt injection attacks | Microsoft Defender for Of
 Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
 
 The post SCKit abuses ScreenConnect to deploy remote access and target technician sessions appeared first on Microsoft Security Blog."
-ed1027be1ee2,eb7ca01bbbbe,2026-11-13 09:02 UTC,Vulnerabilities & Patching,Microsoft Security,Security Affairs,Endpoint Security; Vulnerability Management,Article,New SignDrop Exploit Can Abuse Windows Defender to Bypass Security Protections,https://securityaffairs.com/202968/hacking/new-signdrop-exploit-can-abuse-windows-defender-to-bypass-security-protections.html,"Chaotic Eclipse is a researcher known for publicly releasing PoC exploits for zero-day vulnerabilities, often after criticizing vendors’ handling of vulnerability reports","SignDrop is a Windows zero-day that abuses CLFS security protections to let local attackers gain SYSTEM privileges and bypass defenses.
-
-The researcher Chaotic Eclipse, also known as INFINITE NIGHTMARE, MSNightmare, Nightmare-Eclipse, and MSNightmare, published a proof-of-concept for a new Windows local privilege escalation zero-day, naming it SignDrop. The flaw sits inside the mitigation Microsoft rolled out specifically to stop attacks on the Common Log File System (CLFS), and the researcher published the code and a technical breakdown on GitHub.
-
-“This vulnerability won’t affect all windows machines but I guess estimate 80% of the world’s windows installations are vulnerable to this. To check, you need to run the proof of concept or check your registry configuration, if it spawns a SYSTEM shell, you’re vulnerable.” the expert wrote on GitHub. “And you’re generally vulnerable if your windows installation is older than 90 days so it’s safe to assume that everyone reading this is definitely vulnerable.”
-
-CLFS parses complex log files in kernel mode, which made it an easy target for memory corruption bugs over the years. To curb that, Microsoft introduced a Common Log FileSystem (CLFS) authentication mitigation, rolled out to the public release channel starting October 28, 2025. The mitigation is introduced in two stages. For the first 90 days, the system runs in learning mode. After that, full protection is enabled, and CLFS requires every log file to have a valid authentication code.
-
-The researcher says the vulnerability is caused by this staged rollout. The advisory estimates that about 80% of Windows installations worldwide may be affected because systems still in the 90-day learning period, or with the mitigation only partially enabled, remain vulnerable. Users can check their systems by looking at the HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\CLFS\Authentication\Mode registry key. A value of 0 or 1 means the system is vulnerable, while 2 or 3 means it is protected.
-
-The bug lives in clfs.sys, specifically in how the driver creates the “.cnpf” authentication file tied to a new log container. CLFS does enforce access checks properly when a process creates its own log files, since it specifies OBJ_FORCE_ACCESS_CHECK so new objects stay under the calling process’s own context. The twist is what happens when a log file has an associated container: opening the original file also opens the one linked to it, and if that associated file is empty, CLFS will try to sign it whether or not a signature file already exists.
-
-That behavior becomes dangerous the moment a different, more privileged process opens the file instead of the original caller. An attacker does not need special permissions to open a CLFS log file, only the correct file path. This allows a standard user to prepare a file and trick a process running with higher privileges into opening it. In this case, the researcher tricks Windows Defender into doing so by calling ServerMpUpdateEngineSignature and changing symbolic links in the Windows Object Manager. This makes Defender open the CLFS container from within its own antimalware engine.
-
-Defender then follows the path stored in the original container to find the associated file. If the file has no signature, Defender creates one using SYSTEM privileges. CLFS then creates the new authentication file using the original file’s DACL, which defines who is allowed to access it.
-
-“If everything is chained correctly, funnily this legit security mitigation can be used against itself and allow an elevation if privileges. Everything is done properly by Microsoft here but the logic allows abuse.” the researcher continues. “What makes it funnier is the fact that it can be used against any antimalware engine to bypass their self defense (or tamper protection) mechanism as you can trigger arbitrary file creation in the context of their own antimalware process so from the perspective of their kernel drivers, the file creation request is coming from their own legit process so it passes, this makes this vulnerability unique as it can be used to turn off any antivirus/EDR.”
-
-The consequences reach beyond a single elevation of privilege trick because the same coercion can be pointed at any antimalware engine, not just Defender. The researcher pointed out that the driver’s file creation request appears to come from the antivirus’s own legitimate process, so it passes every check. That makes SignDrop usable to defeat self-defense and tamper-protection features across different security products, turning a shield into a door.
-
-The researcher tested the proof-of-concept on Windows 11 26H2, Windows 11 26H2 Experimental, and Windows Server 2025 Experimental. There’s no workaround that doesn’t cost something: disabling the CLFS authentication mitigation removes the SignDrop path but brings back exposure to the memory corruption bugs the mitigation was built to stop in the first place.
-
-“Unfortunately for now, disabling the mitigation will expose your machine to memory corruption vulnerabilities as CLFS still does not handle log files well, that’s why the mitigation exists in the first file so for now there is no solution to this except waiting for a patch to be released by Microsoft.” conclude the expert.
-
-Chaotic Eclipse is a researcher known for publicly releasing PoC exploits for zero-day vulnerabilities, often after criticizing vendors’ handling of vulnerability reports. His releases have mainly targeted Microsoft products, including Windows and Microsoft Defender, with some later exploited in the wild. Among the most notable are the Undefend and RedSun Defender zero-days.
-
-His work has fueled debate over responsible disclosure and the risks of publishing working exploits.
-
-Recently, Chaotic Eclipse revealed that he is Abdelhamid Naceri, a security researcher. Naceri previously worked with Microsoft in the UK and Germany. In a now-deleted X post, he described his departure from the company, claiming Microsoft terminated his employment without giving him a clear reason. He said Microsoft offered several financial settlements, but he rejected them because he wanted a formal explanation and help staying in Germany.
-
-Naceri also said he challenged the dismissal in a German labor court. According to his account, Microsoft changed its arguments during the case, but the court ultimately upheld the termination. He said the long legal dispute left him with almost no compensation and caused serious financial and emotional problems, including treatment in a psychiatric hospital.
-
-The researcher also admitted that an earlier claim that Microsoft had taken legal action against him was fabricated. The claim came during the controversy over Microsoft’s threats of legal action against security researchers who disclosed zero-day vulnerabilities.
-
-In September, Chaotic Eclipse released a zero-day exploit targeting Microsoft Defender. The researcher named the exploit BigDiskBuster, it triggers a Denial of Service Vulnerability in Windows Defender Update.
-
-In September, Chaotic Eclipse also released multiple zero-day exploits targeting Nvidia (GreenSection) and Microsoft Defender (ShieldCrash).
-
-The expert also released exploits targeting other anti-malware and defense solutions. He released a zero-day exploit targeting Kaspersky Endpoint Security he named HardBreacher, which triggers a privilege escalation flaw. The researcher pointed out that the PoC is unstable and may require repeated attempts, but when successful, it creates a DLL in System32 with full user permissions. The researcher also claims taking control of Kaspersky’s UI process can disrupt the antivirus and interfere with file-access controls, potentially leaving the system in an unstable state.
-
-The researcher also released a zero-day exploit named PrettyPrague targeting GenDigital Avast Antivirus. The exploit triggers a privilege escalation flaw.
-
-Finally, Chaotic Eclipse released a new zero-day exploit targeting Crowdstrike Falcon cybersecurity platform. The researcher named the exploit FalconFlank, it triggers a privilege escalation flaw.
-
-Follow me on Twitter: @securityaffairs and Facebook and Mastodon
-
-Pierluigi Paganini
-
-(SecurityAffairs – SignDrop, Chaotic Eclipse)"
 776fcf5d3e8f,dada4dec2bd0,2026-11-13 11:13 UTC,Vulnerabilities & Patching,Microsoft Security,The Hacker News,Server & Workload Protection; Vulnerability Management; Threat Intelligence,Article,"Hackers Exploit N-central Flaws to Infect 21 Servers, Including 19 Running Hotfix 2",https://thehackernews.com/2026/11/hackers-exploit-n-central-flaws-to.html,"The attacks have been found to string together a critical Apache Axis vulnerability, tracked as CVE-2026-90436 (CVSS score: 9","N-able on Thursday said it's taking additional precautions in the wake of public disclosure of a new set of flaws tracked as 4EverAble2Shell and Agent2Shell.
 
 ""We are restricting certain N-central features and integrations,"" the company said in a Thursday update. ""These measures may affect some functionality, but we believe taking additional precautions while remediation is completed is the right action to protect our partners and their customers.""
@@ -2756,7 +2707,7 @@ To get notified about new publications and to join discussions on social media, 
 To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
 
 The post ARTEX abuse expands as cybercriminals target financial sector appeared first on Microsoft Security Blog."
-4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Security,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
+4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Blog,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
 
 Privacy Pass is a protocol used by site operators like Cloudflare to help protect applications from abuse. One way we do this is by rate limiting individual clients so that no one client consumes too many of the site's resources. Normally this involves some combination of friction or loss of privacy for users: CAPTCHAs or other challenges to moderate traffic, along with accounts and fingerprinting to identify traffic.Privacy Pass was designed to avoid this tradeoff between friction and privacy. The basic idea is that a client gets issued a number of tokens, which they can redeem in exchange for access to the site. Crucially, each token is unlinkable to the client it was issued to, ensuring the client can use the site as they always had without sacrificing privacy.
 
