@@ -1,4 +1,483 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+225c72cc513c,225c72cc513c,2026-11-16 23:00 UTC,"Attacks, Breaches & Threat Intel",Palo Alto Networks,Palo Alto Unit 42,Threat Intelligence; Data Security Posture Management; Endpoint Security; Network Security,Article,QUIC and Covert: Novel HTTP/3-Powered RATs Target Southeast Asian Governments,https://unit42.paloaltonetworks.com/custom-rats-target-southeast-asia-governments/,"The defining signature of the threat actor behind the activity is the targeting of government entities, combined with the use of advanced custom payloads that are designed for...","Executive Summary
+
+Unit 42 has uncovered a multi-stage cyberespionage campaign that has been targeting Southeast Asian government entities since at least July 2025. We track this activity as TGR-STA-0049 (also tracked as REF7707, Earth Alux, Ink Dragon). The defining signature of the threat actor behind the activity is the targeting of government entities, combined with the use of advanced custom payloads that are designed for high-stealth intelligence collection operations, with an emphasis on evading security detection tools.
+
+The campaign we investigated demonstrates high operational stealth and novel tool sets.
+
+Activity associated with this group previously included deploying Squidoor (AKA FINALDRAFT) – an advanced backdoor used against high-value global targets since 2023.
+
+Recently, activity associated with this group has included expanded tradecraft. Associated activity that we observed included deploying two previously undocumented custom remote access Trojans (RATs): PerfectPioneer RAT (spotted in July 2025) and its modular successor, KUKURAT (deployed in March 2026).
+
+Over a nine-month period, we observed the attackers behind the activity consistently refining their capabilities to meet evolving operational needs. This campaign’s tradecraft features three particularly advanced capabilities:
+
+Covert HTTP/3 (QUIC) C2 communications: An early adoption of HTTP/3 over UDP, providing a highly efficient command and control channel that may bypass traditional TCP-optimized deep packet inspection.
+
+An operational safety switch: PerfectPioneer RAT features a built-in validation engine that actively blocks remote operators from executing noisy or destructive commands that could trigger environment security alerts.
+
+Multi-vector heuristic camouflage: KUKURAT employs a custom spoofing engine that generates synthetic, benign-looking network, registry and file activity. By manipulating the behavioral baseline of the endpoint, it can successfully obscure indicators of compromise within a vast volume of artificial noise.
+
+We provide a comprehensive technical breakdown of these unique malware families, the group’s evolving techniques, tactics and procedures (TTPs) and the highly targeted data exfiltration observed in this campaign.
+
+Cortex AgentiX Agentic Assistant streamlined our investigation.
+
+Palo Alto Networks customers are better protected from the threats described in this article through the following products and services:
+
+Advanced WildFire
+
+Advanced URL Filtering, Advanced DNS Security and Advanced IP Defense
+
+Cortex XDR and XSIAM
+
+Idira Endpoint Privilege Manager (EPM)
+
+Idira Privileged Access Management (PAM)
+
+Idira Secure Infrastructure Access (SIA)
+
+Organizations can access tailored adversary intelligence, direct analyst consultations, and specialized exposure tracking through Unit 42 Threat Intel Services and its Deep and Dark Web Service.
+
+If you think you might have been compromised or have an urgent matter, contact the Unit 42 Incident Response team.
+
+Related Unit 42 Topics
+
+Remote Access Trojan (RAT), Cyberespionage, Command and Control (C2)
+
+Background on TGR-STA-0049
+
+TGR-STA-0049 has been active since at least March 2023. It primarily targets high-value sectors, including government organizations across Southeast Asia, South America and Europe. The targeting of strategic entities for data collection and exfiltration, combined with advanced stealth practices and long-term persistence, are characteristic of cyberespionage operations.
+
+In previous campaigns, this group deployed Squidoor, a backdoor targeting Windows and Linux systems. As the group expanded its operations, it continued to integrate new tools and malware variants into its tool set. In their most recent campaign, dating back to mid-2025, the attackers introduced two previously undocumented, advanced malware families designed for stealth, data collection and exfiltration: PerfectPioneer RAT and KUKURAT. As this campaign progressed into early 2026, the threat actor began transitioning their infrastructure from PerfectPioneer to the new KUKURAT, which has been observed in the wild since March 2026.
+
+We uncovered six distinct variants of PerfectPioneer RAT that the group tracks as:
+
+newhttp3
+
+PerfectRat
+
+Pioneer
+
+RatAAkk-tt
+
+rat_http3_ls
+
+rat_http3_cc
+
+All six variants have evolved iteratively since at least July 2025, exhibiting rapid, adaptive development cycles. Our analysis focuses on newhttp3 as a representative example.
+
+Operational Overview and Infrastructure
+
+We examine the TTPs observed in this recent TGR-STA-0049 campaign, and map the full operational lifecycle, including:
+
+Initial infection vectors
+
+Adopting HTTP/3 as a communication protocol
+
+Credential harvesting and data exfiltration methodologies
+
+We also provide a deep dive into the underlying architecture and specialized capabilities of the PerfectPioneer RAT and KUKURAT malware families, focusing on:
+
+A structural comparison of different PerfectPioneer RAT variants across the development lifecycle.
+
+PerfectPioneer RAT’s unique isDangerousCommand fool-proofing mechanism that prevents the malware operator from executing forensics-heavy or destructive commands.
+
+KUKURAT's extensive modular framework.
+
+KUKURAT’s integration of automated heuristic camouflage engines.
+
+Infection Vectors
+
+The attackers behind this activity leverage a dual-track infection strategy to establish and maintain a foothold inside targeted organizations through a combination of server exploitation and phishing.
+
+Server exploitation is the primary infection vector observed in this campaign — such as the exploitation of vulnerable, unpatched Microsoft Exchange servers and web servers to deploy web shells. We observed a mix of custom and publicly available web shells, including variations of ASPXSpy, Godzilla, Bysunue.aspx and Suo5. This tooling is consistent with the actor's past campaigns.
+
+Figure 1 shows the execution of the PerfectPioneer RAT from a web shell, and how attackers use it to execute initial reconnaissance commands on the infected server.
+
+Our investigation revealed that the threat actor employed phishing tactics as a secondary infection vector, leveraging decoy PDFs and lookalike domains to manipulate users into compromising their hosts. The use of tailored infrastructure and industry-specific decoys demonstrates a highly targeted strategy designed to maximize deception within high-priority sectors.
+
+HTTP/3 Adoption
+
+Both PerfectPioneer RAT and KUKURAT use HTTP/3 as the primary method for communicating with C2 infrastructure. While the adoption of HTTP/3 is rare across the broader malware landscape, its deployment in this campaign reflects an emerging trend among advanced threat actors. The deployment of HTTP/3 provides:
+
+A secure and fast communication channel: HTTP/3 uses the QUIC transport protocol running over UDP.
+
+An effective defense evasion mechanism: Because HTTP/3 uses UDP, enterprise network defenses cannot perform passive TLS interception without breaking the underlying connection. Some corporate firewalls and traditional IDS/IPS engines are not updated to inspect UDP traffic with the same level of scrutiny as standard TCP traffic. When legacy security policies are not optimized exclusively for TCP-based web channels, outbound UDP port 443 communications frequently bypass deep packet inspection entirely – potentially allowing malicious QUIC traffic to flow unhindered.
+
+PerfectPioneer RAT: Deep Dive
+
+Since at least July 2025, the group associated with this activity has deployed PerfectPioneer RAT, a custom Go-based malware family. We examine the RAT's execution methods on infected hosts and explore the architecture and behavior of a representative variant. Our structural comparison of six distinct iterations illustrates the adversary's active development pipeline.
+
+Loaders and Execution
+
+In addition to being dropped to disk as an executable, we observed the execution of PerfectPioneer RAT via three methods across compromised networks: DLL side-loading, decoy installers and phishing. This tactical versatility underscores the threat actor’s operational agility, optimizing target deception and defense evasion across varied environments.
+
+DLL side-loading: The attackers dropped a legitimate, benign executable that they had structurally modified to contain XOR-encrypted shellcode embedded with the PerfectPioneer RAT payload. A malicious loader DLL accompanies this altered binary. Upon execution, the modified legitimate application loads the side-loaded DLL, which reads, decrypts and executes the shellcode from the tampered host executable. The shellcode then deploys the payload in memory.
+
+Decoy installers: The actor used decoy software installers to drop to disk and execute the PerfectPioneer RAT background agent, while running a seemingly normal application setup wizard. In one case, we found that a decoy software installer wrote to disk and executed a GlobalProtect installer. This legitimate Palo Alto Networks secure remote access product was used as a cover, while an executable of PerfectPioneer RAT was written to disk and executed in the background.
+
+Phishing: Unsuspecting targets downloaded several malware samples from domains masquerading as official government websites. To evade detection and deceive victims, these executable files are disguised as PDF files, displaying a PDF icon. When the victim attempts to open the PDF file, they actually click on the malware which launches a decoy PDF document to maintain the illusion of legitimacy while the malware runs in the background.
+
+Figure 2 shows one of the decoy PDF documents used by the threat actor, impersonating a 2025 official document from the Union Election Commission of the Republic of the Union of Myanmar.
+
+The newhttp3 Variant
+
+Our deep dive focuses primarily on a variant that the author labeled newhttp3, as revealed in one of the recovered project paths: D:/proj/http3/newhttp3/agent/. We selected this sample for deeper technical evaluation because it represents the most feature-complete variant.
+
+Commands and Capabilities
+
+The newhttp3 variant contains an expansive array of commands that potentially grant the remote operator total control over the compromised endpoint. These capabilities are natively compiled into the Go binary, unlike the dynamic modules architecture later introduced in KUKURAT.
+
+newhttp3 includes a diverse suite of capabilities for comprehensive data harvesting, host control and resource management, which can be structurally grouped into the following functional categories:
+
+File operations
+
+List, upload, download, delete: Full file system access
+
+Chunked transfers: Large files are transferred in chunks with progress tracking
+
+Temporary files management: Open file handles are tracked and periodically cleaned up
+
+Shell execution
+
+Command execution capabilities
+
+Process management
+
+List/kill/start processes
+
+COM-based process creation: Alternative execution path via COM objects
+
+Code injection using the classic VirtualAllocEx, WriteProcessMemory and CreateRemoteThread techniques
+
+Keylogging
+
+SOCKS5 proxy
+
+Screenshot capture
+
+Window enumeration and manipulation
+
+Resource monitoring
+
+We provide the full list of commands in Appendix A: Analysis of Additional PerfectPioneer RAT Features.
+
+Architecture and Communication
+
+The newhttp3 variant’s communication framework appears to be designed with a focus on both network evasion and operational stability. Rather than relying on a single communication channel, the malware blends stealthy network protocols with automated routines aimed at maintaining steady connectivity and managing host resource overhead.
+
+PerfectPioneer RAT relies on HTTP/3 as its primary C2 communication mechanism, automatically falling back to HTTP/2 in the event of connection failure.
+
+The agent interacts with the C2 infrastructure via four principal endpoints, as detailed in Table 1. The URL endpoints used by PerfectPioneer RAT overlap with those used later by KUKURAT, representing another key artifact connecting the two families to a common development pipeline.
+
+URL Endpoint
+
+Usage
+
+/agent/register
+
+Register a new agent
+
+/agent/heartbeat
+
+Send heartbeat to C2
+
+/agent/tasks
+
+Get tasks from C2
+
+/agent/result
+
+Send task execution result
+
+Table 1. URL endpoints used by PerfectPioneer RAT newhttp3 variant.
+
+Self-Healing Connection Architecture
+
+PerfectPioneer RAT implements three highly specific automated routines. These are designed to maintain stable connections and manage system overhead, to minimize its forensic footprint and maintain a low profile.
+
+Reconnection routine: This routine ensures the connection to the C2 remains active by tracking an internal variable named connected. If the connected variable is toggled to false by either the heartbeat or command polling routines due to a network disruption, the reconnection routine immediately steps in. It cancels the active heartbeat and command polling loops, then forces a clean re-registration workflow with the C2 server in an attempt to forcefully reset the connection state.
+
+Cleanup routine: Designed to limit the malware's forensic footprint on disk and prevent excessive consumption of host memory, this routine achieves its goals via two automated methods:
+
+Cleanup temporary files: Continuously tracks and deletes all temporary files created during operation. This minimizes the creation of persistent artifacts on disk and shortens the window of opportunity for endpoint detection tools or forensic analysts to recover cached operational data from the file system.
+
+Cleanup memory usage: Monitors the active memory footprint of the RAT. If memory usage exceeds 100 MB, it explicitly forces Go’s runtime garbage collection cycle to aggressively purge unallocated memory. Keeping the process memory footprint low reduces the likelihood of triggering suspicion due to high CPU usage.
+
+Resource monitoring routine: This routine tracks client-side CPU and memory utilization on behalf of the operator. It captures a performance snapshot every 30 seconds, which the remote operator can later retrieve via a specific command to monitor host machine overhead.
+
+Comparison of PerfectPioneer RAT Variants
+
+We identified six distinct variants of PerfectPioneer RAT. Comparing these provides a unique window into the group’s active development cycle and illustrates how they adapt their code to meet specific operational constraints.
+
+While the underlying codebase is very similar across variants, we observed differences in communication protocols and functional features. The compilation timestamps across all analyzed samples were either systematically modified or completely omitted, which prevents the reconstruction of a definitive chronological development timeline.
+
+The specific feature combinations vary across the variants. Certain iterations maintain a lightweight footprint and are feature-sparse, whereas other variants have a broader suite of credential harvesting, process manipulation and network tunneling utilities.
+
+The six variants that we recovered are distinguished by their compiled project paths:
+
+D:/proj/RatAAkk-tt/agent/
+
+D:/proj/PerfectRat/agent/
+
+D:/proj/http3/newhttp3/agent/
+
+D:/proj/http3/rat_http3_ls/agent/
+
+D:/proj/http3/Pioneer/
+
+D:/proj/http3/rat_http3_cc/
+
+A detailed feature comparison of each variant is provided in Appendix A: PerfectPioneer RAT Variants Comparison.
+
+The isDangerousCommand Foolproof Mechanism
+
+isDangerousCommand is one of the most notable and unprecedented features uncovered during our analysis. It is implemented in two specific variants that the author named Pioneer and rat_http3_cc.
+
+Before executing any incoming command from the C2, the isDangerousCommand routine cross-references the instruction against a list of hard-coded commands. If it finds a match, the command is blocked entirely. The blocklist includes administrative commands that would be highly destructive or forensics-heavy (noisy) if executed and which security tools could potentially monitor. The inclusion of this operational “safety switch” prevents the operators from making mistakes that could result in the activity being detected.
+
+Our analysis revealed that the hard-coded blocklist includes a mix of both Windows and Linux environment syntax, as Figure 3 shows.
+
+Because Go code can be cross-compiled for Windows and Linux from the same source code, the inclusion of Linux syntax strongly suggests that the threat actor was developing a parallel Linux variant. The full list of blocked commands can be found in Appendix A: Foolproof Mechanism Blocked Commands.
+
+KUKURAT: A Deep Dive into the Latest Modular Backdoor
+
+In March 2026, the threat actor introduced a new custom payload explicitly named KUKURAT into multiple networks that had already been compromised by PerfectPioneer RAT.
+
+Written in C++, we identified two variants of KUKURAT in the wild. While their core functionality is similar, the variants use different underlying network protocols to communicate with the C2: one variant leverages HTTP/2, the other uses HTTP/3.
+
+Unlike PerfectPioneer RAT, KUKURAT is a completely modular malware framework. Almost every post-exploitation capability is implemented as a separate DLL module loaded dynamically at runtime directly from the C2 server. KUKURAT’s code supports at least 12 distinct named modules.
+
+By pulling capabilities directly into memory only when needed, KUKURAT achieves a high level of evasiveness and adaptability. Because the static core binary contains no advanced feature code, it successfully evades standard binary scans, simplifies feature updates and prevents forensic analysts from recovering the underlying payloads.
+
+Registration and Heartbeat
+
+On startup, KUKURAT registers with its C2 infrastructure by connecting to a /register node and posting the following system information from the infected endpoint:
+
+Hostname
+
+Username and integrity level
+
+OS type and architecture
+
+Host IP address
+
+Agent instance ID (randomly generated at runtime)
+
+The C2 responds with initial runtime configuration for the agent.
+
+The JSON values below represent KUKURAT's default hard-coded configuration, featuring a session ID, various operation timeouts and the heuristic camouflage engine status.
+
+{ ""session_id"": ""<session_id>"", ""obfuscation"": { // Heuristic Camouflage ON/OFF ""network"": 0, ""registry"": 0, ""file"": 0 }, ""runtime_config"": { ""heartbeat_timeout_ms"": 300000, // Maximum wait time for heartbeat response ""command_result_timeout_ms"": 300000, // Maximum wait time for command result ""file_transfer_chunk_timeout_ms"": 300000, // Timeout per file transfer chunk ""file_transfer_max_retries"": 5, // Max retries for file transfers ""file_transfer_retry_delay_ms"": 300, // Delay between file transfer retries ""heartbeat_retry_before_rereg"": 1, // Failed heartbeats before full re-registration ""command_worker_threads"": 5, // Number of concurrent command execution threads ""module_exec_timeout_ms"": 600000 // Timeout for module execution calls } }
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+10
+
+11
+
+12
+
+13
+
+14
+
+15
+
+16
+
+17
+
+18
+
+{
+
+""session_id"": ""<session_id>"",
+
+""obfuscation"": { // Heuristic Camouflage ON/OFF
+
+""network"": 0,
+
+""registry"": 0,
+
+""file"": 0
+
+},
+
+""runtime_config"": {
+
+""heartbeat_timeout_ms"": 300000, // Maximum wait time for heartbeat response
+
+""command_result_timeout_ms"": 300000, // Maximum wait time for command result
+
+""file_transfer_chunk_timeout_ms"": 300000, // Timeout per file transfer chunk
+
+""file_transfer_max_retries"": 5, // Max retries for file transfers
+
+""file_transfer_retry_delay_ms"": 300, // Delay between file transfer retries
+
+""heartbeat_retry_before_rereg"": 1, // Failed heartbeats before full re-registration
+
+""command_worker_threads"": 5, // Number of concurrent command execution threads
+
+""module_exec_timeout_ms"": 600000 // Timeout for module execution calls
+
+}
+
+Periodically, the KUKURAT agent uses a /heartbeat node to communicate with the C2. This heartbeat lets the backend know the agent is alive and pulls any queued commands waiting for execution. The complete heartbeat JSON is available in Appendix B: KUKURAT Heartbeat JSON Structure.
+
+Capabilities and Supported Commands
+
+Due to its highly modular architecture, KUKURAT’s main binary lacks the embedded code required to perform post-exploitation activities. Instead, according to our analysis of the malware's underlying logic and compiled strings, the modules enable features related to data collection and exfiltration, command execution, reconnaissance and lateral movement.
+
+The modules provide the following capabilities:
+
+Screenshots and keylogging
+
+Host and port scanning
+
+Process management – listing processes, killing processes and process injection
+
+File management – uploading, downloading, listing, deleting and executing files
+
+Execution of native shell commands via cmd.exe and PowerShell
+
+Lateral movement via PsExec
+
+Server Message Block (SMB) credential brute-forcing
+
+SOCKS tunneling
+
+Local privilege elevation
+
+Execution of Beacon Object Files (BOF)
+
+Silent mode configuration
+
+KUKURAT’s modular framework facilitates the loading and execution of any arbitrary external module, even if it does not match a pre-existing command handler in the base code. This allows the threat actor to dynamically introduce new capabilities and adapt to shifting operational needs in real time.
+
+See Appendix B: KUKURAT Command Frame Architecture for the full list of KUKURAT commands.
+
+Figure 4 shows a snippet of the KUKURAT code that executes the screenshot module. KUKURAT verifies whether the module is loaded before executing it using the hard-coded parameter capture that is passed to the loaded module. If the loading of the module or the screenshot capture fails, an error message is sent back to the operator.
+
+Deployment of Separate KUKURAT Modules
+
+During our investigation, we observed the attackers using KUKURAT to deploy two additional executables named PsExecService.exe and SecurityGuard.exe. While we could not retrieve SecurityGuard.exe, we successfully recovered PsExecService.exe for analysis.
+
+According to the file's compiled program database (PDB) string, the attackers explicitly classify this binary as an external module of KUKURAT, despite it being compiled as a standalone executable rather than a DLL:
+
+d:\proj\KUKURAT\modules\MyPsExec-master\PsExecService\
+
+This tool is a custom remote execution service that appears may be partially based on the open-source MyPsExec GitHub project. Upon execution, PsExecService.exe registers itself as a local Windows service named PsExec and creates a named pipe called \\.\pipe\PSEXEC. The service natively supports four commands:
+
+Shell execution
+
+File uploading
+
+File downloading
+
+Directory listing
+
+To limit its forensic footprint, the service employs an internal self-destruct timer that automatically uninstalls the service and cleans up its artifacts after five minutes of inactivity.
+
+Spoofing Endpoint Activity: Heuristic Camouflage Engine
+
+KUKURAT introduces a unique heuristic camouflage engine capable of operating across three system axes: network, registry and files. The purpose of this engine is to generate dummy, legitimate-looking activity on the endpoint to camouflage the malware's actual operations. By mimicking normal operational behavior, the threat actor establishes a false baseline, which may significantly affect automated detection and other forensic efforts. The threat actor can toggle each method on or off via the C2 command set_obfuscation:
+
+Network noise generation: KUKURAT generates 10 decoy HTTP requests per operational cycle to randomly selected domains, pulled from a hard-coded list of 15 popular websites using randomly generated URL paths. This camouflages traffic, blending C2 communications into normal web noise.
+
+Registry manipulation mimicking browser activity: KUKURAT mimics legitimate Google Chrome browser behavior by writing random data to the registry path HKCU\Software\Google\Chrome\BrowserCrashRecovery, reading the data back, and then deleting the key. It then opens and enumerates the HKCU\Software\Google\Update\ClientState registry key. The purpose of this sequence is to make the agent's registry operation appear like Chrome crash recovery.
+
+File noise generation: The malware continuously creates temporary files with random names and randomized content inside the system %temp% directory, only to immediately delete them. This technique generates file system noise, masking the agent's file modifications.
+
+While certain elements of this evasion technique have been previously documented across various malware families, KUKURAT distinguishes itself through a highly unique design choice. It can coordinate heuristic camouflage across three separate vectors, while dynamically enabling or disabling each feature at runtime.
+
+The Watchdog Component
+
+In multiple incidents, attackers deployed KUKURAT alongside a separate watchdog executable that ensures the malware remains active.
+
+When KUKURAT’s main binary executes, it creates a dedicated thread to communicate with the companion watchdog component. KUKURAT writes its own active file path to a local named pipe called WINDOW_SEC_WATCHDOG, every three seconds. The companion watchdog process reads this path and pulls a heartbeat message every second. If 15 seconds pass without receiving a heartbeat, the watchdog assumes that KUKURAT has been terminated and automatically relaunches it using the cached file path.
+
+On one occasion, we observed the threat actor deploying this watchdog component into the C:\ProgramData\Cyvera\Ransomware\ directory path. This folder structure was historically associated with Cortex XDR, demonstrating the threat actor’s attempt to lower suspicion by hiding within security-product directory structures.
+
+Comparison of Variants
+
+The investigation identified two distinct variants of KUKURAT, leveraging HTTP/2 and HTTP/3 respectively for C2 communications. Aside from the difference in network transport protocols, the two variants are structurally almost identical except for a few noteworthy code developments that affect the malware's development adaptability and operational survivability:
+
+Command-handling architecture: In the HTTP/2 variant, the threat actor implemented a large, nested If-Else conditional chain inside a single command-handling function. All execution and module-loading logic is embedded directly within those conditions. The HTTP/3 variant demonstrates the transition to an array of function pointers that map to individual commands, creating a standalone function for each execution routine. This design shift enables the malware developers to add or remove capabilities on the fly more efficiently.
+
+Built-in exec bypass command: While KUKURAT is engineered to function as a completely modular malware framework that loads code dynamically, the HTTP/3 variant introduces an explicit, natively coded command called exec. This command enables the attacker to spawn a subprocess directly on the host endpoint via CreateProcessA and pipe the resulting terminal output back to the C2 backend. Because this command does not exist in the HTTP/2 variant, its inclusion suggests that the author sought to provide a built-in survival option: allowing operators to run system commands natively without needing to fetch an external module DLL from the staging server.
+
+Post-Exploitation and Network Propagation
+
+The following section details TTPs used throughout this campaign to move laterally across compromised enterprise networks, gather credentials, transition from Active Directory control to endpoint infection and exfiltrate sensitive data.
+
+Lateral Movement via Domain Log-on Scripts
+
+The threat actor’s most notable method for network propagation involves the manipulation of domain log-on scripts, a stealthy persistence mechanism used to execute code across the environment. In addition, they use well-known tools and remote management protocols such as PsExec, Windows Management Instrumentation (WMI) and Windows Remote Management (WinRM).
+
+After successfully compromising a Domain Controller, the attackers installed malicious log-on scripts. Consequently, whenever a legitimate user authenticated to the domain, the malicious script automatically executed on their local endpoint, triggering the download and execution of the KUKURAT malware.
+
+Figure 5 illustrates the execution of a malicious log-on script that downloads and executes the KUKURAT malware to the infected host, as shown in Cortex XDR.
+
+Figure 5. KUKURAT deployed via a malicious log-on script, as shown in Cortex XDR .
+
+Figure 6 shows that the log-on script persistence technique triggered an alert, due to an uncommon startup process executing with a local or domain user Security Identifier (SID).
+
+Credential Stealing Techniques
+
+Upon gaining initial access, the threat actor employs multiple techniques to harvest credentials including Local Security Authority Subsystem Service (LSASS) memory dumping and Directory Service Replication (DCSync).
+
+The threat actor also actively used a robust suite of credential-dumping tools, dual-use administrative tools and registry manipulation techniques, including:
+
+Mimikatz and ProcDump
+
+SharpDPAPI, to decrypt DPAPI credentials and secrets
+
+Manually dumping the SAM and SYSTEM registry hives to extract local account hashes
+
+LSASS Memory Dumping
+
+The attackers leveraged a living off the land technique to dump the memory of the lsass.exe process. They misused the native comsvcs.dll Windows utility using the following command.
+
+CmD.exe /Q /c for /f ""tokens=1,2 delims= "" %A in ('""tasklist /fi ""Imagename eq lsass.exe"" | find ""lsass""""') do rundll32.exe C:\windows\System32\comsvcs.dll, #+000024 %B \Windows\Temp\MxA.tar full
+
+1
+
+CmD.exe /Q /c for /f ""tokens=1,2 delims= "" %A in ('""tasklist /fi ""Imagename eq lsass.exe"" | find ""lsass""""') do rundll32.exe C:\windows\System32\comsvcs.dll, #+000024 %B \Windows\Temp\MxA.tar full
+
+Instead of calling the MiniDump function by name, the attackers invoked it via its ordinal hidden index number, #+000024. This evasion tactic is designed to bypass security detection mechanisms that look for the explicit MiniDump string.
+
+Directory Service Replication
+
+To further compromise the identity infrastructure, the attackers executed DCSync attacks to extract password hashes directly from the Domain Controller. This allowed them to simulate the behavior of a Domain Controller replicating user credentials, as Figure 7 shows.
+
+Data Exfiltration
+
+After systematically moving through the network and harvesting high-privilege credentials, the threat actor initiated their primary objective: cyberespionage. Leveraging the PerfectPioneer RAT and KUKURAT malware families, the threat actor attempted to exfiltrate vast quantities of documents back to their C2 infrastructure. The targeted data predominantly consists of .pdf, .docx, .xlsx and .png files with filenames that suggest potential sensitive information in their content,with a pronounced focus on international relations and internal political affairs.
+
+Beyond document exfiltration, the attackers also targeted email infrastructure. From their initial foothold on a compromised Exchange server, they executed various PowerShell commands to identify and misuse administrative privileges.
+
+Reconnaissance for impersonation rights: The attackers first checked for accounts assigned the ApplicationImpersonation role. In Microsoft Exchange, this role allows a single account to impersonate any user (or a specific subset of users) in the organization. By leveraging this privilege, an account can access other mailboxes directly without needing to know or supply the explicit passwords of those individual users.
+
+The threat actor executed the following commands to identify whether an account they already controlled possessed these rights.
+
+""C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"" -NoExit -Command ""& { . 'C:\Program Files\Microsoft\Exchange Se [truncated for CSV - full text is in the JSON export]"
 504ba59abdea,504ba59abdea,2026-11-12 15:00 UTC,"Attacks, Breaches & Threat Intel",Palo Alto Networks,Palo Alto Unit 42,AI Security; Identity Security Posture Management; Data Security Posture Management; Threat Intelligence,Article,"Attackers Use Autonomous AI to Target Semiconductor, Defense and Civil Society Sectors",https://unit42.paloaltonetworks.com/cairn-framework-ai-autonomous-attacks/,"Related Unit 42 Topics AI, Agentic AI, Supply Chain Technical Analysis Cairn Framework The attackers behind CL-STA-1238 orchestrated their campaign using the publicly available...","Executive Summary
 
 From August–September 2026, Chinese-speaking attackers used an open-source AI penetration testing framework called Cairn to autonomously conduct 25 operations against at least 19 organizations. The attackers weaponized Cairn by pairing it with Chinese AI models Zhipu GLM and DeepSeek.
@@ -274,7 +753,6 @@ The Pathless Path: Cairn AI from Penetration Testing to General Problem Solving 
 Zhipu GLM Model Platform — Zhipu AI
 
 DeepSeek AI Platform — DeepSeek"
-76a65ce696b3,76a65ce696b3,2026-11-10 21:38 UTC,General Security News,Palo Alto Networks,Google News: Accenture,N/A,Article,Accenture vs. Palo Alto Networks: Which Technology Stock Is a Better Buy in 2026?,https://news.google.com/rss/articles/CBMi9gFBVV95cUxPV3U4bVcyMUI0a2YzVjJRLVBhRmwtcW9qb3h2cHJWaHR6YU5TYVpfRGxZTWdMU19lazBBOFZEczVnWHRfQnJudkp0X1h2WEFDdGN6Zk11QXVDN2FxcmtOSmQ2TGk5Z21UNHltX1JaUU9vX0psT0tDY1VCcTM3YVZ6NVpkajdUTFlhZl9TdmtRZmRtajFTcFBaNWV4amtqZEZBcjU4RHRlcE5yaDJYX3JMT1pCd0NwNk16OEt4Mi1BcGUtOXVWc1JDRDgxQjNVci1yTWdLRk5fbnJhbTNmYWZQQVEzMnBTdW1lbVZQeTFZNkxrWU9pUXc?oc=5,,
 2e6ca6fce6a0,2e6ca6fce6a0,2026-11-06 21:15 UTC,"Attacks, Breaches & Threat Intel",Palo Alto Networks,Palo Alto Unit 42,Vulnerability Management; Threat Intelligence; Attack Surface Discovery,Article,Turning Up the Heat: Inside the Attacks on Europe’s Refrigeration Systems,https://unit42.paloaltonetworks.com/europes-refrigeration-systems-attacks/,It also explores how Palo Alto Networks customers can leverage existing products and Unit 42 services to reduce their attack surface to mitigate similar threat activity in the...,"Introduction
 
 Unit 42 has been actively monitoring for new developments related to the cyberattacks targeting refrigeration systems in Europe since at least October 2026. The unidentified threat actors gained unauthorized access to refrigeration controllers and set them to defrost mode, resulting in hundreds of supermarkets across the region having to throw away spoiled food. The time of year when this activity has occurred is particularly concerning since retailers need to maintain adequate inventory levels as shoppers ramp up spending during holiday periods.

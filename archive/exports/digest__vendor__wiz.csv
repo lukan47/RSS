@@ -1,4 +1,99 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+c64aee7db31c,c64aee7db31c,2026-11-16 17:02 UTC,Product & Roadmap,Wiz,Wiz Blog,AI Security; Data Security Posture Management; Vulnerability Management; Cloud Risk Management,Article,Introducing the Wiz AI Security Agent,https://www.wiz.io/blog/introducing-wiz-ai-security-agent,"Together, these findings show how an external attacker could exploit the flaw to hijack the agent's tools and access sensitive data","Artificial intelligence is changing more than the applications organizations build; it's changing what security teams need to understand to secure them.
+
+Cloud context remains foundational to modern security, providing visibility into identities, workloads, permissions, vulnerabilities, and data across an environment. But AI agents operate at the application layer, orchestrating prompts, calling tools, and executing business logic. To accurately map AI security risk, security teams need deep visibility into both layers: understanding what happens at the application, how it maps to the underlying cloud context, and where the two intertwine to create real-world attack paths.
+
+Take, for example, a hypothetical BigQuery Agent. Reviewing its code, the Wiz AI Security Agent identifies tools with read and write access to multiple BigQuery databases, along with an arbitrary code execution vulnerability. Together, these findings show how an external attacker could exploit the flaw to hijack the agent's tools and access sensitive data.
+
+Code analysis alone only tells half the story. To understand true risk, you need to pair what the agent can do at the application layer with how it’s configured at the cloud infrastructure layer. By feeding these insights into the Wiz Security Graph, the AI Security Agent evaluates the vulnerability against broader cloud context, checking for external exposure, internet egress capabilities, and effective BigQuery permissions. Correlating both layers reveals the complete, end-to-end attack path.
+
+AI Security needs more than cloud context
+
+AI agents are becoming part of the enterprise workforce, but discovering them is a challenge in itself. Custom agents defined entirely in code may have no management API or recognizable signature. It takes an agent to discover and understand these agents, wherever they run and at every stage of their lifecycle.
+
+Security teams need to answer:
+
+What AI agents do we have? Discover agents, including proprietary applications defined in code, and identify their models, tools, skills, MCP servers, Gateways and Guardrails.
+
+Where is the application vulnerable? Analyze application code to uncover AI-specific flaws, such as prompt injection that could allow an attacker to execute arbitrary commands.
+
+Can those flaws become real attack paths? Connect application findings with cloud context, including external exposure, internet egress, identities, permissions, and sensitive data access, to establish exploitability and impact.
+
+Does the agent’s Purpose justify its capabilities and access? Understand what it was designed to do, then identify unnecessary tools, excessive permissions and data access, or public exposure on an agent intended for internal use.
+
+The Wiz AI Security Agent, brings this application understanding to cloud security, helping teams build a complete AI inventory, uncover concrete attack paths, and apply least privilege based on each agent’s intended purpose.
+
+Introducing the Wiz AI Security Agent
+
+This is exactly why we built the Wiz AI Security Agent - now available in Public Preview.
+
+The Wiz AI Security Agent delivers deep, multi-layer risk analysis across cloud environments - to discover and reconstruct AI applications, evaluate an agent’s intended purpose against effective capabilities, and expose AI-native security risks, with additional specialized risk domains like code-to-cloud analysis and AI SAST to follow.
+
+It builds on Wiz’s existing AI discovery and cloud security capabilities to analyze AI application logic, prompts, and configurations across three environments:
+
+Self-hosted environments: AI agents and applications running on VMs, containers, and serverless infrastructure, as well as code stored in buckets.
+
+Supported PaaS platforms: Custom agents and AI applications defined in code.
+
+Code repositories: AI application code, prompts, and configurations throughout development.
+
+Across many customer environments, we’ve seen the AI Security Agent detect up to five times as many AI agents as traditional discovery engines.
+
+The resulting application intelligence is brought into the Wiz Security Graph, connecting AI applications with their surrounding environment.Wiz AI Security Agent delivers three interconnected capabilities:
+
+1. Discover AI applications and agents
+
+AI applications and custom agents are not always exposed through cloud APIs or built using recognizable frameworks; they are often embedded directly into application code, making them difficult to identify through conventional inventory methods.
+
+To address this, the AI Security Agent automatically inventories custom AI applications, models, system prompts, MCP servers, and tool definitions across code repos, PaaS, and self-hosted environments even when no central management API exists.
+
+2. Understand purpose and capabilities
+
+Discovering an AI application is only the first step. To effectively evaluate security posture, teams need deeper visibility into what an agent was built to do, how it operates, and what capabilities it possesses.
+
+The AI Security Agent goes beyond initial detection by analyzing application implementation, logic, instructions, and permissions to reconstruct the application's underlying architecture. It compares the agent's intended purpose to the actual infrastructure, surfacing discrepancies such as internal agents being externally exposed or possessing infrastructure-granted access to sensitive data that exceeds their scope. It surfaces the specific tools and capabilities available to each agent, mapping its intended purpose against its actual behavior.
+
+For example, an agent designed simply to answer questions using internal business data may also possess capabilities to execute code, modify local files, or communicate with external systems. Identifying these broad capabilities relative to the agent's core function is essential for spotting over-permissioned access and potential risk.
+
+To make this analysis actionable, the AI Security Agent provides transparent reasoning and supporting evidence, including source code references, allowing security teams to understand exactly how capabilities were identified without needing to manually reverse-engineer every application. Looking ahead, this analysis forms the foundation for future runtime context integration to continuously validate agent behavior during execution.
+
+Instead of treating AI components as black boxes, security teams gain clear visibility into what the agent was designed to do, what actions it can actually perform, and the exact architectural elements that enable them.
+
+3. Find and prioritize risk
+
+While traditional security controls identify known vulnerabilities and risky configurations, some AI security risks emerge from how an application's instructions, tools, capabilities, and access interact, making them impossible to detect through predefined rules alone.
+
+Building on this foundational security analysis, the AI Security Agent uses AI-powered reasoning and deep application understanding to uncover these complex risks that deterministic controls miss. For instance, an unauthenticated endpoint accepting attacker-controlled system instructions might seem like a simple application-level weakness; however, when the connected agent can execute arbitrary shell commands, that weakness creates a direct path to remote code execution.
+
+The AI Security Agent surfaces these findings with detailed explanations, potential impact, and supporting evidence to help teams understand what makes them exploitable and where remediation is needed. Combined with cloud context in the Wiz Security Graph, this deeper intelligence illustrates how AI-native risks intersect with exposure, identities, permissions, and sensitive data, revealing the full security impact beyond the application itself.
+
+From AI Application Understanding to Actionable Risk
+
+Let's bring this together with an example.
+
+Consider an internal AI assistant running in the cloud. From an infrastructure-only view, it looks like a routine workload with a service identity, storage access, and a guardrail in place.
+
+Here is how Wiz connects the dots:
+
+Reconstructs application context: Inspecting the application layer, Wiz maps the agent, its connected endpoints, and its active guardrails.
+
+Finds AI-native vulnerabilities: Code and model-based analysis uncovers a Critical AI security finding - an unvalidated query entrypoint that accepts an arbitrary destination URL and leaks backend service account OAuth tokens in an Authorization header.
+
+Traces the cloud attack path: In the Wiz Security Graph, Wiz correlates two internet-reachable endpoints upstream of the agent with its overprivileged service account - showing that the active guardrail does not block traversal to connected storage buckets.
+
+Exposes crown-jewel data at risk: Wiz data findings identify PII (names and emails) and financial data inside those buckets, elevating the issue to Critical with an end-to-end attack path explanation.
+
+The result: What looked like a routine workload with guardrails enabled turns out to be an internet-reachable attack path—from an unvalidated endpoint to leaked backend credentials and sensitive data exposure.
+
+This is the power of connecting deep AI application understanding with cloud context. The AI Security Agent uncovers what the agent was designed to do, what it can actually do, and where AI-native risks emerge. The Wiz Security Graph connects that intelligence with identities, permissions, exposure, and sensitive data, helping security teams understand potential impact, prioritize risk, and drive remediation.
+
+Securing AI Applications Starts with Understanding Them
+
+AI has changed what security teams need to understand. Alongside cloud context, organizations now need deeper visibility into what their AI applications are designed to do, what they're capable of doing, and the risks they introduce.
+
+The Wiz AI Security Agent brings deep, multi-layer risk analysis to the Wiz platform to extend security beyond deterministic analysis, discover AI applications, understand their purpose and capabilities, and uncover AI-native risks across code and cloud.
+
+Wiz AI Security Agent, is now available in Public Preview through the Wiz Preview Hub. Enable it today to gain deeper visibility into your AI applications and uncover risks you couldn't fully see before."
 879a98c92030,879a98c92030,2026-11-13 17:05 UTC,"Attacks, Breaches & Threat Intel",Wiz,Wiz Blog,Data Security Posture Management; Attack Surface Discovery; Network Security; Container Security,Article,The Green Agent POV: Formulating the Fix for an Exposed Container with Sensitive Data Access,https://www.wiz.io/blog/inside-green-agent-investigation,"A critical Issue was just discovered in an environment: an internet-facing container running an image with a known initial-access vulnerability, with a role attached that can...","A critical Issue was just discovered in an environment: an internet-facing container running an image with a known initial-access vulnerability, with a role attached that can reach sensitive data.
 
 With AI speed reducing the time from discovery to exploitation, the pressure to fix it fast is intense. Yet remediation is never just about speed. Teams are forced to balance security urgency with business continuity, racing against the clock to answer three critical questions: what’s impacted, what the fix is, and who to send that fix to.

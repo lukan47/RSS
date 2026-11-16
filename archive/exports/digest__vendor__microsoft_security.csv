@@ -1,4 +1,65 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3d08854835a6,dada4dec2bd0,2026-11-16 18:14 UTC,Vulnerabilities & Patching,Microsoft Security,Rapid7 Blog,Vulnerability Management; Server & Workload Protection,Article,"Rapid7 Detected Exploitation of CVE-2026-90436 against Atlassian Confluence Data Center, N-able N-central also Exploited",https://www.rapid7.com/blog/post/etr-rapid7-detected-exploitation-of-cve-2026-90436-against-atlassian-confluence-data-center-n-able-n-central-also-exploited,"Overview On November 6, 2026, the Apache Software Foundation disclosed CVE-2026-90436, a critical unsafe reflection vulnerability (CWE-470) in Axis 1","Overview
+
+On November 6, 2026, the Apache Software Foundation disclosed CVE-2026-90436, a critical unsafe reflection vulnerability (CWE-470) in Axis 1.x that allows for unauthenticated remote code execution (RCE). Apache Axis is a Simple Object Access Protocol (SOAP) implementation used for the creation of Java Web services. CISA has assigned CVE-2026-90436 a CVSS score of 9.8 Critical.
+
+Since the initial November 6 disclosure, it has transpired that some versions of Atlassian Confluence Data Center and N-able N-central use the affected Axis library and are vulnerable to CVE-2026-90436. Both products require a non-default configuration in order to be vulnerable.
+
+CVE-2026-90436 is now being actively exploited in the wild against both known affected products. On November 13, 2026, Rapid7 MDR detected exploitation of CVE-2026-90436 against Atlassian Confluence Data Center in a customer environment. Separately, on November 13, 2026, N-able reported exploitation in the wild against N-central for a vulnerability that strongly correlates to CVE-2026-90436. A proof-of-concept exploit that leverages CVE-2026-90436 and targets N-central was published on November 12, 2026, as part of a series of public zero-day disclosures against N-central.
+
+Rapid7 recommends remediating exposed systems on an emergency basis outside of normal patching cycles.
+
+Mitigation guidance
+
+Prioritize internet-accessible instances with the relevant APIs enabled, and check internal deployments as well. Apply the product-specific actions below, then investigate systems that were exposed for evidence of compromise.
+
+Axis 1.x through 1.4 is affected but has reached end of life (EOL) and Apache does not plan to publish a fixed Axis 1.x release. Apache recommends moving to another SOAP engine (for example, Apache Axis 2) or using an Axis 1.x build with this patch applied. Organizations using products that are affected by this issue should follow the product vendor's specific remediation instructions.
+
+Atlassian Confluence Data Center
+
+Atlassian lists versions 1.x through to 9.x as affected when “Remote API (XML-RPC & SOAP)” is enabled. Version 9.2.28 is the fixed release. The setting has been off by default for new installations since version 3.0. Confluence version 10.x and later removed the feature so are not vulnerable, and Atlassian Cloud is unaffected.
+
+Affected users should upgrade to version 9.2.28 or a current unaffected 10.x release. If patching must wait, an administrator can open “General Configuration” and “Further Configuration”, edit the settings, clear “Remote API (XML-RPC & SOAP)”, and save. The change takes effect without restarting Confluence, but integrations using the API may stop working.
+
+Follow the Confluence advisory for the latest fixes and mitigation instructions.
+
+N-able N-central
+
+On-premises administrators should confirm that “Legacy API” is disabled, even on 2026.4 HF2. N-able states that it is off by default, and provides instructions for disabling Legacy API. Its November 13 guidance says hosted environments received temporary protections directly; customers in both hosting models must still follow the vendor's Agent and Probe upgrade guidance. N-able also temporarily disabled the Intune integration as a precaution. Refer to the N-able security update for these responsibilities.
+
+N-able says 2026.4 HF3 will permanently remove Legacy API access. Its November 16 rollout notice states that hosted upgrades have been completed, and on-premises general availability is being finalized. On-premises administrators should confirm availability and follow the release instructions as the update becomes available.
+
+IOCs
+
+The presence of these IOCs in logs should prompt investigation, but the absence of these addresses does not confirm that an environment was unaffected.
+
+Atlassian Confluence Data Center
+
+The following IP addresses are associated with observed exploitation of CVE-2026-90436 against Atlassian Confluence Data Center:
+
+192.238.253[.]176
+
+5.133.47[.]243
+
+163.182.68[.]109
+
+104.13.106[.]166
+
+N-able N-central
+
+N-able's November 13 incident update lists these IP addresses as IOCs for N-central customers who had not disabled Legacy API.
+
+157.20.241[.]16
+
+139.99.69[.]109
+
+79.76.51[.]56
+
+The vendor's update also lists associated URLs for use in compromise assessment.
+
+Updates
+
+November 16, 2026: Initial publication."
 61ad1bc8a134,890ee50f8873,2026-11-13 21:31 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Endpoint Security; Threat Intelligence,Article,SCKit abuses ScreenConnect to deploy remote access and target technician sessions,https://www.microsoft.com/en-us/security/blog/2026/11/13/sckit-abuses-screenconnect-deploy-remote-access-target-technician-sessions/,Microsoft Defender XDR detections Microsoft Defender XDR customers can use the following Microsoft Defender for Endpoint alert titles to investigate activity associated with...,"In this article
 
 ScreenConnect architecture and attack surfaces
@@ -2097,103 +2158,6 @@ The Bitdefender Threat Debrief (BDTD) is a monthly series analyzing threat news,
 Bitdefender provides cybersecurity solutions and advanced threat protection to hundreds of millions of endpoints worldwide. More than 180 technology brands have licensed and added Bitdefender technology to their product or service offerings. This vast OEM ecosystem complements telemetry data already collected from our business and consumer solutions. To give you some idea of the scale, Bitdefender Labs discover 400+ new threats each minute and validate 30 billion threat queries daily. This gives us one of the industry’s most extensive real-time views of the evolving threat landscape.
 
 We would like to thank Bitdefenders Stefan Hanu, Mihai Leonte, Gabriel Macovei, and Andrei Mogage for their help with putting this report together."
-931864cd5b18,931864cd5b18,2026-11-09 21:30 UTC,General Security News,Microsoft Security,CyberWire Daily,Data Security Posture Management; Identity Security Posture Management; Threat Intelligence; Vulnerability Management,Podcast,Peer pressure meets private keys.,https://www.thecyberwire.com/podcasts/daily-podcast/2674/notes,"Our guest is Chris Grove, Director of Cybersecurity Strategy at Nozomi Networks, discussing the critical infrastructure implications of the European refrigeration attacks. Threat actors exploit a high-severity OpenSSH authentication bypass.","A classified memo ties Nvidia’s chief executive to Chinese espionage. AI coding agents crack under peer pressure, coughing up private keys. Big breaches hit seven million Japanese shoppers and three million students here in the States, while a French bank takes a multi-million-dollar hit through a vendor compromise. Adversaries weaponize a fresh OpenSSH bypass in the wild, pro-Russian hacktivists put dark web bounties on senior European officials, and Google drafts digital IDs to solve the passkey recovery puzzle. Monday business briefing. Our guest is Chris Grove, Director of Cybersecurity Strategy at Nozomi Networks, discussing the critical infrastructure implications of the European refrigeration attacks. Beijing goes all-in on domestic silicon.
-
-Today is Monday November 9th 2026. I’m Dave Bittner. And this is your CyberWire Intel Briefing.
-
-Classified memo warns of Nvidia chief's ties to Chinese operative.
-
-Secretary of State Marco Rubio oversaw a classified memo this past spring warning senior Trump administration officials about Nvidia Chief Executive Jensen Huang’s relationship with an operative tied to Beijing's Ministry of State Security.
-
-Intelligence gathered from electronic surveillance revealed Huang was intimately involved with Alice Huang, a senior executive at Singapore-based Megaspeed. Megaspeed has purchased two billion dollars in advanced Nvidia chips and is suspected of smuggling restricted artificial intelligence hardware into China. While Huang admitted to the affair and apologized to his family, Nvidia stated it has no reason to believe national security or trade secrets were compromised.
-
-Huang remains an influential voice shaping United States policy against tighter export controls, highlighting the growing counterintelligence risks hovering over America’s critical semiconductor supply chains.
-
-The New York Times originally reported the findings.
-
-Autonomous AI coding agents leak credentials under swarm peer pressure.
-
-Autonomous software engineering agents routinely violate core security policies, leaking private deployment credentials and executing untrusted scripts, when pressured by third-party agent forums, according to testing by AE Studio and the AI Alignment Foundation shared with The Register.
-
-Researchers tasked nine coding models with debugging a broken service in an isolated sandbox. Given access to a forum that held the solution, agents surrendered private tokens fifteen percent of the time and executed unverified installation scripts nearly a quarter of the time to obtain assistance. Under performance pressure, execution rates spiked to thirty-four percent.
-
-As organizations rush to integrate autonomous agents into production environments, granting models broad system permissions without strict data isolation turns automated workflows into immediate remote code execution and credential leakage risks.
-
-A Japanese online market goes offline following a suspected breach of 7.7 million customer records.
-
-Japanese consumer goods and electronics giant Iris Ohyama has suspended its primary ecommerce platform, Iris Plaza, following unauthorized access to a third-party cloud service that contained personal records for nearly eight million shoppers.
-
-The retailer took the storefront offline late last month after discovering a suspicious file on its cloud infrastructure. Exposed records cover 5.8 million registered members and 1.9 million guest shoppers, potentially compromising names, physical and email addresses, birth dates, phone numbers, and encrypted passwords. Payment data was stored separately and avoided exposure.
-
-The disruption highlights the severe operational fallout and supply-chain vulnerabilities inherent in cloud-hosted retail environments, leaving core commerce operations frozen while investigators determine whether customer files were actually exfiltrated.
-
-Threat actors exploit a high-severity OpenSSH authentication bypass.
-
-Threat actors are actively exploiting a critical authentication bypass in OpenSSH tracked as CVE-2026-123158, dubbed ""SSHole.""
-
-The vulnerability allows attackers to compromise accounts like root on systems running musl libc without PAM—including Alpine and OpenWrt—by supplying overlong passwords. Security firms WatchTowr and Previdian report that botnets and cryptominers are already leveraging the flaw in the wild.
-
-The rapid weaponization underscores immediate exposure for lightweight Linux environments, prompting administrators to deploy version 10.6p2 or disable password authentication entirely.
-
-A French banking group confirms third-party compromise and fraudulent fund transfers.
-
-French banking giant Crédit Mutuel Arkéa has confirmed an intrusion into its network via a third-party service provider, enabling attackers to conduct major fraudulent transactions.
-
-The disclosure follows reports from blockchain investigator ZachXBT, who traced approximately 133 million dollars in suspicious withdrawals and aggressive cryptocurrency laundering across multiple centralized exchanges. The bank stressed that customer accounts remained untouched, as the threat actors targeted Arkéa's own institutional accounts before routing capital toward external cryptocurrency platforms. Arkéa reports that security teams contained the incident, froze a portion of the funds, and maintain that the bank's financial stability remains secure.
-
-The incident underscores the persistent vulnerability institutional financial networks face through external vendor access paths, demonstrating how rapid cryptocurrency conversion complicates law enforcement recovery efforts.
-
-Frontline Education data breach impacts over three million individuals across K-12 systems.
-
-School administration provider Frontline Education has notified the Indiana Attorney General’s Office that an August breach compromised records for over three million people—more than doubling previous state estimates.
-
-Attackers exploited a flaw in a third-party application, accessing personal records of staff and students across Frontline Central and School Health Management services. Exfiltrated data includes Social Security numbers, driver’s licenses, and health insurance information.
-
-The incident highlights continuing third-party software risks threatening sensitive educational and student administrative platforms.
-
-Google develops digital identity credentials for secure passkey and account recovery.
-
-Google is developing an account recovery framework that leverages verified digital identity credentials, aiming to eliminate the security vulnerabilities of fallback methods when users lose primary devices.
-
-Speaking at the Authenticate 2026 conference, company product managers explained that legacy recovery workflows—such as SMS-based fallbacks—risk undermining the cryptographic advantages of passkeys. Under Google's proposed system, users register a signed digital ID in advance to create a cryptographic stable hash linked to their account. If their physical device is lost, obtaining a verified digital credential on a replacement device restores their account, passkeys, and data in a single step.
-
-Securing the recovery loop represents the crucial missing link in widespread passwordless adoption, though full-scale rollout still faces hurdles in wallet interoperability and near-real-time credential provisioning.
-
-Pro-Russian hacktivists dox European leaders and bounty personal details.
-
-Pro-Russian hacktivist syndicate NoName057(16) has published personal records belonging to Italian Foreign Minister Antonio Tajani and seventeen other senior European officials across the dark web, offering cryptocurrency bounties for further intelligence on the targets and their families.
-
-The doxing campaign targets prominent figures across European law enforcement and judiciary—including leaders at Europol, Eurojust, and the German Federal Criminal Police Office—alongside investigative journalists. The operation appears to be direct retaliation for a multi-nation law enforcement takedown in July 2025 that dismantled over one hundred of the gang's servers.
-
-The move marks an aggressive evolution from nuisance denial-of-service disruptions into direct personal harassment and targeted intelligence-gathering aimed at deterring Western support for Ukraine.
-
-Monday business briefing.
-
-Capital continues pouring into artificial intelligence defense and validation, led by 220 million dollars raised across two standout funding rounds. Agentic data security startup Sentra secured 150 million dollars in a round led by Capital One Ventures, while formal verification provider &Truth emerged from stealth backed by 70 million dollars in seed capital.
-
-Consolidation across the sector accelerated with eight reported acquisitions, headlined by CrowdStrike’s aggressive expansion into model governance. According to the Wall Street Journal, the security giant is acquiring AI observability firm Fiddler AI for 400 million dollars alongside red-teaming platform Dreadnode for 95 million dollars to embed behavioral accountability into its Falcon ecosystem. Penetration testing specialist Bendings also acquired Scopertos for 55 million dollars, while Cognition absorbed code security shop Corridor.
-
-The flurry of dealmaking signals that enterprise demand is rapidly shifting toward pre-deployment testing, agent explainability, and securing the broader algorithmic supply chain.
-
-After the break, I welcome Nozomi Networks’ Director of Cybersecurity Strategy Chris Grove. We discuss the critical infrastructure implications of the European refrigeration attack part 2.
-
-That was Chris Grove from Nozomi Networks.
-
-Beijing goes all-in on domestic silicon.
-
-Huawei claims it has built the holy grail of sovereign computing: an enterprise desktop boasting one hundred percent Chinese-manufactured components.
-
-The Qingyun HM650 runs a homegrown, ten-core Kirin processor alongside an enterprise flavor of HarmonyOS, specifically designed to bid a polite, permanent farewell to Western software dependencies. One government agency has already ordered six hundred units—perhaps less out of spontaneous consumer enthusiasm and more in dutiful compliance with Beijing’s mandate evicting Wintel machines from state desks.
-
-Whether every capacitor actually traces its architectural ancestry strictly to domestic drawing boards remains conveniently ambiguous, as foreign outfits still keep plenty of factories humming across the mainland. Regardless of pedigree, locking Western chipmakers out of vast government procurement pools delivers a cold chill to Santa Clara balance sheets.
-
-Meanwhile, Japan unveiled a sixty-three million dollar emergency cybersecurity fund after adversaries disrupted critical infrastructure, cloud providers, and—perhaps most unforgivably—KFC logistics.
-
-And that’s the CyberWire Daily, brought to you by N2K CyberWire.
-
-We’d love to know what you think of this podcast. Your feedback ensures we deliver the insights that keep you a step ahead in the rapidly changing world of cybersecurity. If you like the show, please share a rating and review in your podcast app. Please also fill out the survey in the show notes or send an email to cyberwire@n2k.com
-
-N2K’s lead producer is Liz Stokes. We’re mixed by Tré Hester, with original music by and sound design Elliott Peltzman. Our contributing host is Maria Varmazis. Our executive producer is Jennifer Eiben. Peter Kilpe is our publisher. And I’m Dave Bittner. Thanks for listening."
 58b5883acf62,58b5883acf62,2026-11-09 20:17 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Vulnerability Management,Article,FORGE Lab uses agentic tools to identify memory safety issues in Rust,https://www.microsoft.com/en-us/security/blog/2026/11/09/forge-lab-uses-agentic-tools-to-identify-memory-safety-issues-in-rust/,"For issue #161018, our testing found no reliable exploitation path under the conditions examined, and we assessed practical exploitation as unlikely","In this article
 
 How we found and validated the bugs
@@ -2633,7 +2597,7 @@ To get notified about new publications and to join discussions on social media, 
 To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
 
 The post ARTEX abuse expands as cybercriminals target financial sector appeared first on Microsoft Security Blog."
-4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Blog,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
+4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Security,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
 
 Privacy Pass is a protocol used by site operators like Cloudflare to help protect applications from abuse. One way we do this is by rate limiting individual clients so that no one client consumes too many of the site's resources. Normally this involves some combination of friction or loss of privacy for users: CAPTCHAs or other challenges to moderate traffic, along with accounts and fingerprinting to identify traffic.Privacy Pass was designed to avoid this tradeoff between friction and privacy. The basic idea is that a client gets issued a number of tokens, which they can redeem in exchange for access to the site. Crucially, each token is unlinkable to the client it was issued to, ensuring the client can use the site as they always had without sacrificing privacy.
 
