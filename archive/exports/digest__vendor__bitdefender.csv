@@ -1,4 +1,71 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+062fdcba7798,062fdcba7798,2026-11-16 05:15 UTC,Vulnerabilities & Patching,Bitdefender,Bitdefender Business Insights,Threat and Exposure Management; Attack Path Prediction; Endpoint Security,Article,Introducing GravityZone Exposure Management: Close Attack Paths Before They're Exploited,https://businessinsights.bitdefender.com/how-gravityzone-exposure-management-closes-attacker-pathways,A sysadmin closes the maintenance window with every Critical and High vulnerability patched,"A sysadmin closes the maintenance window with every Critical and High vulnerability patched. One of the remaining mediums sits on a workstation. The workstation's user has administrative rights on a domain controller and signs into it interactively, so their credential material stays in its memory while the session lasts. On the same subnet, a web service still opens to the internet on a port opened during a migration two years ago. None of these findings is worth escalating on its own. Together they are a route to domain compromise, and automated attack tooling now performs the reconnaissance and chaining between steps faster than any ticket queue moves.
+
+Bitdefender GravityZone Exposure Management is a prevention-first product built to remove those attack opportunities before they are used. It unifies visibility across critical exposures, prioritizes them by the attack routes they create, and reduces the attack surface through hardening.
+
+What Does Exposure Management Bring Together?
+
+Exposure Management shifts your strategy toward prevention without replacing what you run today. It works natively with the Bitdefender GravityZone platform and alongside third-party endpoint protection (EPP) and endpoint detection and response (EDR) products.
+
+The product combines five capabilities, each answering a different question:
+
+Endpoint Risk Management: What is weak on your servers and workstations?
+
+User Risk Management (part of Risk Management): Which identities, and which user behaviors, put the environment at risk?
+
+External Attack Surface Management (EASM): What can an attacker see from the internet?
+
+Attack Path: Which weaknesses combine into a route to a critical asset?
+
+Proactive Hardening and Attack Surface Reduction (PHASR): Which risky tools and actions can be blocked without disrupting work?
+
+Fig1. Continuous Exposure Management loop.
+
+Together, these capabilities form one continuous loop in three stages: visibility, prioritization, and reduction. The reduced surface is then scanned again, so the ranking always reflects the current environment.
+
+How Does Exposure Management See Your Environment?
+
+Exposure Management understands your environment by correlating two directions of visibility into a single inventory of findings.
+
+Inside-out: Endpoint Risk Management continuously assesses Windows, macOS, and Linux endpoints for operating system misconfigurations, local and group policy weaknesses, and installed applications mapped to CVE identifiers. Each finding is assigned a risk score and a remediation option: automated mitigation task, manual remediation steps, or application patch. User Risk Management assesses identity-related behaviors such as password reuse and credential exposure.
+
+Outside-in: EASM is agentless and runs from Bitdefender infrastructure. Starting from your domains, email addresses, and IPv4 and IPv6 ranges, it discovers internet-facing assets and artifacts (services, certificates, CIDR ranges, DNS records) and reports publicly exposed services, open ports, CVE-mapped services, name servers vulnerable to zone transfer, and certificates that expire within 30 days.
+
+How Does Exposure Management Decide What to Fix First?
+
+Visibility alone produces longer lists. Scanning produces findings; correlation produces routes. A medium-severity CVE on a privileged user's workstation outranks a critical CVE on an isolated test server. The first ends in domain compromise, the second in a rebuilt test server. Attack Path Analysis turns raw findings into an ordered workflow by asking from which starting points could an attacker reach a valuable asset, and through which steps?
+
+Each answer is a directed graph that ends at a target asset. Nodes include user accounts, workstations, servers, cloud resources such as security groups and load balancers, and derived resources such as an SMB file-sharing service that depends on a specific server. Every edge is labeled with the mechanism that makes the hop possible, and selecting it shows the CVEs and findings behind that step. Four risk factors appear as badges: Public Exposure, Exploitable CVE, High-Severity CVE (a risk score of 70% or higher), and Critical Asset. The target carries a risk score from 0 to 100. The practical result is the choke point: a node that several routes depend on. Fixing a choke point closes every branch below it.
+
+Fig. 2. The demo attack path in the Graph tab, with the Assets panel grouped by attack stage and the details of DEMO-WS4 open.
+
+The Top 5 attack path entry points widget on the ASM Dashboard surfaces these quickly, because the same account appearing at the start of several paths is usually the fix with the widest effect. A Shortest Path control highlights the most direct route while keeping alternate branches visible, so you can confirm whether a fix actually puts the target out of reach.
+
+Fig. 3. The Attack Path view of the ASM dashboard.
+
+How Does Exposure Management Shrink the Attack Surface?
+
+Some attacker routes cannot be closed today: a patch waits for a maintenance window, or the hop relies on something working as designed, such as credentials held in memory or built-in tools like WMIC and PowerShell. Exposure you cannot remove is exposure you constrain. PHASR is the module where Exposure Management moves from reporting to enforcement.
+
+PHASR builds a behavioral profile for each machine-user combination and compares it against more than 1,100 monitored rules covering Living off the Land binaries, tampering tools, remote administration tools, crypto miners, and piracy tools. When a profile never uses a capability attackers rely on, PHASR restricts that action or the entire tool. WMIC can remain available for system queries while remote process execution is blocked, and PowerShell can remain available while obfuscated or encoded actions are blocked.
+
+The hardening is dynamic in both directions. After a learning phase, you approve recommendations in Direct Control or let Autopilot apply them. If a user's behavior changes, PHASR generates new access recommendations.
+
+The same model extends to AI. On Windows, PHASR treats more than 50 local AI tools and each AI agent is treated as a behavioral profile of its own, an identity independent of the user operating the endpoint, with its own permissions and restrictions. The AI agent gains access to the tools required to perform its tasks, while user permissions remain strictly tied to the user's role. For instance, a user whose role never calls for PowerShell keeps that restriction on their own profile, even while the AI assistant running on their workstation is allowed to use it.
+
+Exposure Management in Practice: A Hybrid Exchange Example
+
+Consider a company that moved its mail to Exchange Online but still runs one Exchange 2019 server on-premises to manage hybrid recipients, with Outlook on the web published to the internet. EASM flags the exposed service, and Risk Management flags an exploitable vulnerability on the server. Attack Path Analysis shows why it matters: help desk administrators sign in to that server to manage recipients, so their credentials are cached there, just as they are on a phished user’s workstation where one of them fixed a problem last week.
+
+Two entry points, one from the internet and one from the inbox, lead to the same account, and from that account several routes lead to the servers that run your domain. The fix with the widest effect is that one account, not the machine with the most CVEs. While the Exchange server waits for its migration, PHASR restricts what an attacker could do next: it blocks encoded PowerShell and PowerShell Remoting and WMIC remote execution on workstations that never need them, while your administrators keep the tools they use every day.
+
+Fig. 4. Exposure Management in practice with hybrid Exchange example.
+
+Summary
+
+GravityZone Exposure Management moves risk reduction from periodic reporting to continuous prevention. Risk Management and EASM give you unified inside-out and outside-in visibility across CVEs, misconfigurations, identity risks, and internet-facing assets. Attack Path Analysis correlates those findings into routes that end at critical assets and identifies the choke points where one fix closes several routes. PHASR constrains what cannot be patched, removing unnecessary access to risky tools and actions at the level of individual behaviors, including AI agents.
+
+Bitdefender Exposure Management works with the GravityZone platform alongside third-party EPP and EDR, allowing you to adopt a prevention-first strategy without rebuilding your stack. Learn More About GravityZone Exposure Management"
 9988a1c45724,8c94f14028a7,2026-11-10 21:30 UTC,Vulnerabilities & Patching,Bitdefender,The Hacker News,File Security; Endpoint Security; Threat Intelligence; Vulnerability Management,Article,Attackers Exploit AhsayCBS Flaws to Deploy Sandbox-Evading Python Backdoor,https://thehackernews.com/2026/11/attackers-exploit-ahsaycbs-flaws-to.html,"The two vulnerabilities are assessed to have been weaponized as zero-days, with the managed security platform first observing threat actors employing a smash-and-grab approach...","Cybersecurity researchers have disclosed details of an attack that exploited two now-patched vulnerabilities in AhsayCBS to deliver a Python-based implant.
 
 The activity, observed by Huntress in early October 2026, involves the exploitation of a chain comprising CVE-2026-105133 and CVE-2026-105134 to bypass authentication and execute arbitrary commands on affected systems. Patches for the two vulnerabilities were released by Ahsay Backup in mid-October 2026.
@@ -34,31 +101,6 @@ Evidence indicates that the threat actor may have targeted servers holding or ma
 ""On a related Veeam server in the same environment, we also saw a command consistent with NetExec's Veeam credential-theft module: a PowerShell script, apparently launched remotely through WMI, that queried the VeeamBackup PostgreSQL database for stored credentials and decrypted them with DPAPI,"" Semon said.
 
 ""Backup software holds credentials for hypervisors, repositories and domain accounts. We cannot say how many of those credentials were retrieved, but the pairing of an Ahsay foothold with a Veeam credential query suggested the operator was interested in backup infrastructure on purpose, not by accident."""
-131061c2cdfd,131061c2cdfd,2026-11-10 17:45 UTC,Vulnerabilities & Patching,Bitdefender,The Hacker News,Mobile Security; File Security; Vulnerability Management,Article,"Binance Warns of iOS Sandbox Escape That Could Expose Crypto Wallet Keys, No Fix Confirmed",https://thehackernews.com/2026/11/binance-warns-of-ios-sandbox-escape.html,"Apple's updates for iOS 26 and 27, released yesterday, do not list a fix","An iOS sandbox escape published on GitHub lets an app read other apps' files on iPhones running iOS 26 and 27. That puts seed phrases, private keys, and login credentials at risk of exposure to malicious apps, Binance warned today. Apple's updates for iOS 26 and 27, released yesterday, do not list a fix.
-
-A researcher who goes by forcequit released the escape, called worse_query, on Sunday, a day before those updates came out. Neither the exchange nor the researcher reported any attacks or thefts involving it.
-
-The exchange told users to delete apps installed from untrusted sources, such as sideloaded or manually signed apps, and to update iOS and all their apps. No fix for the escape has been confirmed.
-
-For anyone who suspects a breach, the exchange's security warning advises moving funds to a new wallet created on a clean device and resetting all active login sessions.
-
-The researcher's proof-of-concept code can reach every app's data container on an iPhone, and some system folders on iOS 27. To use it, an app has to set up an App Group container.
-
-He says the code is for developers and ""isn't useful by itself."" Other developers have built apps on it that people can install.
-
-One of them is WQ Files, a file manager that developer Christoph Kolbicz built on worse_query. It reaches other apps' data without a jailbreak or a kernel exploit, and it can edit, delete and clear that data.
-
-WQ Files installs via sideloading tools such as AltStore and SideStore, which automatically create the App Group it needs when used with an Apple ID. No one involved has said whether an app from the App Store could use worse_query.
-
-The three versions in the exchange's warning are the ones listed as tested in the WQ Files release notes. The researcher gives a wider range.
-
-Of these sources, only Erosion's developers list iOS 27.2.1, which came out yesterday, and none lists iOS 26.7.3. They added 27.2.1 this week in a README change with the note ""pretty sure 27.2.1 is supported"".
-
-Yesterday's updates, iOS 27.2.1 and iOS 26.7.3, fixed two iMessage flaws and several Bluetooth bugs. The security notes for iOS 27.2.1 do not mention worse_query or any sandbox issues, nor do the iOS 26.7.3 notes. Apple does not disclose, discuss, or confirm security issues until it has investigated and a patch or release is available, the notes say.
-
-In a reply on X, the researcher wrote that he had not planned to release worse_query early. He added that ""Apple was stalling on responding to me and people started larping with it on here.""
-
-The exchange did not name any wallet app as exposed, and neither did the researcher nor the developers of the apps built on worse_query."
 270218546a01,270218546a01,2026-11-09 05:15 UTC,General Security News,Bitdefender,Bitdefender Business Insights,AI Security; Data Security Posture Management; Attack Surface Discovery,Article,Your Employees Are Using AI. Do You Know How Much?,https://businessinsights.bitdefender.com/how-to-see-and-control-ai-tools,” They ranked the second highest priority as “AI attack surface management for shadow AI” and the third highest priority as “Continuous monitoring of LLMs to prevent data leaks,"How many AI tools are running across your environment right now? If you are guessing at this number, and that worries you, you are in good company.
 
 Figuring out how to gain AI visibility, and then control related risk, is arguably the number one priority in security right now. In fact, it’s the number one, two, and three priorities for organizations according to data from our 2026 Cybersecurity Assessment. Have a look for yourself:

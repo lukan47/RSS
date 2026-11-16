@@ -1,9 +1,26 @@
 {
   "vendor": "SentinelOne",
-  "generated": "2026-11-16 09:57 PHT",
-  "timestamp": "2026-11-16T02:00:16.489822+00:00",
-  "article_count": 23,
+  "generated": "2026-11-16 23:33 PHT",
+  "timestamp": "2026-11-16T15:37:46.352001+00:00",
+  "article_count": 24,
   "articles": [
+    {
+      "id": "27e16b2bb63d",
+      "story": "499f95774333",
+      "podcast": false,
+      "date": "2026-11-16T13:11:04+00:00",
+      "category": "Vulnerabilities & Patching",
+      "vendor": "SentinelOne",
+      "source": "SANS ISC",
+      "title": "Scans for LiteLLM/Starlette (CVE-2026-42271, CVE-2026-48710), (Mon, Nov 16th)",
+      "link": "https://isc.sans.edu/diary/rss/33522",
+      "context": "Looks like our attacker attempts to play with characters like '[', maybe to evade some of the filters built around the PoC exploits",
+      "modules": [
+        "Vulnerability Management",
+        "AI Security"
+      ],
+      "full_text": "This weekend, we started seeing requests for /mcp-rest/test/tools/list hitting our honeypots. These requests appear to attempt to exploit CVE-2026-42271 and CVE-2026-48710. Horizon3.ai published a short write-up about how these vulnerabilities can be chained to achieve remote code execution without authentication [Horizon3]\n\nPOST /mcp-rest/test/tools/list HTTP/1.1 Host: localhost] Content-Type: application/json Authorization: Bearer nothing Accept: */* Accept-Encoding: gzip, deflate, zstd User-Agent: Python/3.14 aiohttp/3.14.5 Content-Length: 74 {\"server\": {\"transport\": \"stdio\", \"command\": \"id\", \"args\": [], \"env\": {}}}\n\nThe problem starts with Starlette. Versions prior to 1.0.1 do not validate the \"Host\" header. This vulnerability became known as \"BadHost\". Starlette will take the unvalidated Host header and use it to build the complete URL. This URL is then used to make access control decisions. The class PoC exploit published uses characters like '/', '?,' and # in the Host header to confuse the access control logic. Looks like our attacker attempts to play with characters like '[', maybe to evade some of the filters built around the PoC exploits.\n\nHere are the different \"odd\" Host headers I have seen so far:\n\nlocalhost] [localhost 127.0.0.1] litellm.proxy\n\nStarlette is a Python web framework, and if tools like LiteLLM rely on it for access control, exploits happen. For LiteLLM, this enables exploitation of the /mcp-rest/test/tools/list endpoint, which usually requires authentication.\n\nA couple of lessons learned:\n\nThis isn't a new vulnerability, and exploitation has been reported back in July. But attackers keep exploiting existing vulnerabilities, modifying them to evade filters and find new victims.\n\nWhen building WAF rules or similar filters, focus on the vulnerability, not on specific exploits. In this case, flag all characters that are not supposed to appear in a hostname, or, better yet, allow only specific hostnames.\n\nIf you write software, validate data components before assembling them into more complex entities. It is much easier to validate a hostname before combining it into a URL. Validating and constraining URLs is hard for \"middleware\" that must allow a wide range of URLs.\n\nReduce your attack surface. Aside from patching, this is probably the most important thing you can do right now to help you weather the current surge in new vulnerabilities.\n\n[Horizon3] https://horizon3.ai/attack-research/vulnerabilities/cve-2026-42271-chained-with-cve-2026-48710/\n\n-- Johannes B. Ullrich, Ph.D. , Dean of Research, SANS.edu Twitter|\n\n(c) SANS Internet Storm Center. https://isc.sans.edu Creative Commons Attribution-Noncommercial 3.0 United States License."
+    },
     {
       "id": "25d63f44edae",
       "story": "25d63f44edae",

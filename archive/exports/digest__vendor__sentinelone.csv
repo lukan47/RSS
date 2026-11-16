@@ -1,4 +1,31 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+27e16b2bb63d,499f95774333,2026-11-16 13:11 UTC,Vulnerabilities & Patching,SentinelOne,SANS ISC,Vulnerability Management; AI Security,Article,"Scans for LiteLLM/Starlette (CVE-2026-42271, CVE-2026-48710), (Mon, Nov 16th)",https://isc.sans.edu/diary/rss/33522,"Looks like our attacker attempts to play with characters like '[', maybe to evade some of the filters built around the PoC exploits","This weekend, we started seeing requests for /mcp-rest/test/tools/list hitting our honeypots. These requests appear to attempt to exploit CVE-2026-42271 and CVE-2026-48710. Horizon3.ai published a short write-up about how these vulnerabilities can be chained to achieve remote code execution without authentication [Horizon3]
+
+POST /mcp-rest/test/tools/list HTTP/1.1 Host: localhost] Content-Type: application/json Authorization: Bearer nothing Accept: */* Accept-Encoding: gzip, deflate, zstd User-Agent: Python/3.14 aiohttp/3.14.5 Content-Length: 74 {""server"": {""transport"": ""stdio"", ""command"": ""id"", ""args"": [], ""env"": {}}}
+
+The problem starts with Starlette. Versions prior to 1.0.1 do not validate the ""Host"" header. This vulnerability became known as ""BadHost"". Starlette will take the unvalidated Host header and use it to build the complete URL. This URL is then used to make access control decisions. The class PoC exploit published uses characters like '/', '?,' and # in the Host header to confuse the access control logic. Looks like our attacker attempts to play with characters like '[', maybe to evade some of the filters built around the PoC exploits.
+
+Here are the different ""odd"" Host headers I have seen so far:
+
+localhost] [localhost 127.0.0.1] litellm.proxy
+
+Starlette is a Python web framework, and if tools like LiteLLM rely on it for access control, exploits happen. For LiteLLM, this enables exploitation of the /mcp-rest/test/tools/list endpoint, which usually requires authentication.
+
+A couple of lessons learned:
+
+This isn't a new vulnerability, and exploitation has been reported back in July. But attackers keep exploiting existing vulnerabilities, modifying them to evade filters and find new victims.
+
+When building WAF rules or similar filters, focus on the vulnerability, not on specific exploits. In this case, flag all characters that are not supposed to appear in a hostname, or, better yet, allow only specific hostnames.
+
+If you write software, validate data components before assembling them into more complex entities. It is much easier to validate a hostname before combining it into a URL. Validating and constraining URLs is hard for ""middleware"" that must allow a wide range of URLs.
+
+Reduce your attack surface. Aside from patching, this is probably the most important thing you can do right now to help you weather the current surge in new vulnerabilities.
+
+[Horizon3] https://horizon3.ai/attack-research/vulnerabilities/cve-2026-42271-chained-with-cve-2026-48710/
+
+-- Johannes B. Ullrich, Ph.D. , Dean of Research, SANS.edu Twitter|
+
+(c) SANS Internet Storm Center. https://isc.sans.edu Creative Commons Attribution-Noncommercial 3.0 United States License."
 25d63f44edae,25d63f44edae,2026-11-13 21:23 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelOne Blog,AI Security; Threat Intelligence; Code Security; Endpoint Security,Article,ARTEX Unmasked | The Rise of AI-Powered ARTEX in Cybercrime & Espionage,https://www.sentinelone.com/blog/artex-unmasked-the-rise-of-ai-powered-artex-in-cybercrime-espionage/,"In attacks against South Korean financial services, operators staged a JNDI/LDAP exploitation rig, and incident responders in other intrusions found numbered JSP web shells and...","Executive Summary
 
 ARTEX is a Chinese open-source, AI-powered penetration testing platform designed to help security teams assess systems they own or are authorized to test. In recent weeks, it has been used in traditional cybercrime campaigns, including in attacks on South Korean banks. Although the original developer made ARTEX closed-source in mid-October, actively maintained forks and backups of the original repository remain publicly available to threat actors.
