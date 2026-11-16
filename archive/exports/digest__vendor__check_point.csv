@@ -162,43 +162,6 @@ Russian cloud firm Beget rebuilds from scratch after data wiper attack
 CISA warns of Fragnesia Linux flaw chained in PHP2Shell attacks
 
 Even after PHP2Shell, blast radius matters more than a CVSS score"
-944b08509fbb,a3d815e35bcf,2026-11-13 11:35 UTC,Vulnerabilities & Patching,Check Point,Security Affairs,Vulnerability Management; File Security; Network Security; Identity Security Posture Management,Article,Unpatched Check Point Gateways Are Being Wiped exploiting PHP2Shell,https://securityaffairs.com/202982/hacking/unpatched-check-point-gateways-are-being-wiped-exploiting-php2shell.html,"“Following initial access, the attacker escalated privileges from the portal service account to root by exploiting CVE-2026-123039, a local privilege-escalation vulnerability in...","Unpatched Check Point gateways were hacked worldwide, leading to root access, backdoors, network intrusion and destructive wiper attacks.
-
-Starting on 30 October, an attacker scanned and exploited Check Point Security Gateways that hadn’t been patched, going in through the Mobile Access portal. Check Point Research describes the activity as PHP2Shell for initial access, followed by a root-level privilege escalation tracked as CVE-2026-123039. The activity began about a week after a fix became available, from an IP address ending in 130.94.19[.]204.
-
-“We have now confirmed that, in late October 2026, approximately one week after a security fix became available, activity originating from 130.94.19[.]204 targeted Israeli organizations through vulnerable Mobile Access portals on Check Point Security Gateways. Evidence suggested some cases of a successful compromise, with exploitation activity consistent with PHP2Shell, associated with CVE-2026-109618 and CVE-2026-109619.” reads the report. “Following initial access, the attacker escalated privileges from the portal service account to root by exploiting CVE-2026-123039, a local privilege-escalation vulnerability in the DynamicCLI IPC interface. The attacker then used privileged command execution to deploy PHP webshells and establish persistence.”
-
-There were two waves. The first, on 30 October, hit Israeli organizations, and some suffered destructive attacks. The second, on 2 November, reached organizations in several countries and sectors with no sign of destruction, and neither wave favored a particular sector. That points to opportunistic scanning, not careful targeting.
-
-The first signs of the attack were PHP session files found in the /opt/CPcvpn-R81.20/tmp/ folder. These files contained a marker named upload_progress_pwn. The portal’s Apache and PHP processes also crashed hundreds of times, suggesting repeated attempts to exploit the vulnerability. The attacker then exploited another local flaw in the DynamicCLI interface to gain root privileges, giving them full control of the device.
-
-With root access, the attackers installed PHP webshells in the folder used by the portal to create login pages. These files had names starting with zz and ending in .tpl. Initially, they contained simple tools for running commands. The attackers later replaced them with more advanced versions that required a hardcoded key, could execute system commands and PHP code, and supported file uploads. Uploaded files were first saved as /tmp/.up.tpl and then copied into the portal’s folder under the name challenge_render.tpl.
-
-The attackers then installed a separate backdoor called TSGA, launched from /tmp/CPconfigdaemon. Running with root privileges, it moved itself, restarted under the name slot_CPconfigdaemon, and installed a second tool called TSProxy at /lib/libcpfwcommon.so. TSProxy was designed to run inside processes on the Check Point appliance and monitor network activity. It intercepted selected network connections used by the attackers while leaving normal network traffic unaffected.
-
-TSGA is built for Check Point gear. It offers encrypted remote access, configuration theft, persistence through backups and snapshots, process injection and tampering with binary firewall logs. TSProxy adds encrypted proxying.
-
-From the gateway, the attackers ran the gogo scanner to map the internal network, then moved over SSH to a VMware ESXi host using the vpxuser account. There they staged a Linux wiper, destroy_v6, and ran it. It deletes files in a target folder regardless of extension, overwrites them with zeros first unless run in fast mode, and can skip listed folders.
-
-The wiper also leaves a note named DREAM_ANNEXATION.txt in each folder it processes. The note is politically themed, includes a timestamp, is written in Hebrew with reference to the Israeli-Palestinian conflict, and rejects ransom talks. At least nobody has to haggle.
-
-Attribution is more difficult. TSGA and TSProxy appear to be modified versions of PhiliKit, a framework previously found in attacks against Ivanti devices and linked by ESET to UNC5221, a China-linked threat group. The tools share several unique features with PhiliKit, including code, configuration settings and encryption details. These similarities include the use of TCP port 11072 and a Unix socket at /tmp/.p_sock. TSProxy also uses the same credentials, communication secrets, TLS certificate and private key as a PhiliKit component called libdssafe.so.
-
-Other findings also suggest a possible connection to Chinese threat actors. The gogo network scanner has previously been associated with China-linked groups, while the attackers used LightNode VPS servers, a hosting provider also used by these actors. The scanning activity took place between 00:00 and 09:00 UTC, corresponding to normal working hours in China (08:00 to 17:00).
-
-However, some aspects of the operation do not match UNC5221’s known activity and objectives. These include the destructive attacks, the focus on Israeli organizations, the Hebrew-language message left by the wiper and the malware name, which appears to reference the word “Philistine”.
-
-Check Point says several explanations are possible. UNC5221 may have carried out the entire operation, or it may have provided initial access to another threat actor. The attackers could also have deliberately left clues to mislead investigators. Another possibility is that the destructive attacks were intended to hide a different objective.
-
-The note uses the Dream Security brand, and Dream recently published research on PHP2Shell attacks on Palo Alto Networks devices by China-nexus actors. That timing raises the possibility of retaliation, but the evidence doesn’t establish a clear motive.
-
-“Taken together, the evidence does not allow us to assess with high confidence the true nature of this operation. Several scenarios remain plausible: the identified actor ran the entire campaign, acted solely as an initial access broker, or took part in a false-flag operation.” concludes the report. “It is also possible that the destructive activity served as a smoke screen.”
-
-Follow me on Twitter: @securityaffairs and Facebook and Mastodon
-
-Pierluigi Paganini
-
-(SecurityAffairs – hacking, PHP2Shell)"
 0b455e92c4dd,0b455e92c4dd,2026-11-13 05:44 UTC,Vulnerabilities & Patching,Check Point,Bleeping Computer,Vulnerability Management; Email and Collaboration Security; Server & Workload Protection,Article,Check Point warns of zero-day flaw exploited for root access,https://www.bleepingcomputer.com/news/security/check-point-patches-zero-day-that-lets-hackers-get-root-access/,"In a separate report, Check Point said the attackers first gained access to the Mobile Access portal by exploiting the PHP2Shell vulnerability, then escalated privileges to root...","Check Point Software has released emergency hotfixes to address a high-severity flaw that hackers have been exploiting to gain root privileges and establish persistence on vulnerable devices since late October.
 
 Tracked as CVE-2026-123039, this local privilege escalation vulnerability was found in the DynamicCLI IPC (Inter-Process Communication) interface used to send privileged command requests to the root-level Gaia OS DynamicCLI (dynamic_server) daemon.
