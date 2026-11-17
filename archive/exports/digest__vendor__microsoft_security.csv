@@ -1,4 +1,329 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3e1184f2838a,3e1184f2838a,2026-11-17 00:08 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,Email and Collaboration Security; Threat Intelligence; Endpoint Security,Article,High volume phishing campaign uses Microsoft 365 outage lures to target multiple industry sectors,https://www.microsoft.com/en-us/security/blog/2026/11/16/high-volume-phishing-campaign-uses-microsoft-365-outage-lures-target-multiple-industry-sectors-2/,"Enable Zero-hour auto purge (ZAP) to help retroactively neutralize phishing, spam, or malware messages that were delivered before new threat intelligence became available","In this article
+
+Phishing attack overview
+
+Attack chain overview
+
+Mitigation and protection guidance
+
+References
+
+Learn More
+
+On November 13, 2026, Microsoft Threat Intelligence observed a coordinated, high-volume phishing campaign targeting organizations across multiple sectors worldwide. The threat actors used phishing emails disguised as legitimate Microsoft 365 service-health notifications to lure recipients into clicking a malicious link. The messages created a false sense of urgency by claiming that emails had been held during a service disruption and would be deleted within 24 hours unless the recipient took action to restore them. This is consistent with historical attacker campaigns which continuously look for notable global events to exploit in their social engineering lures.
+
+Microsoft identified the threat actor’s use of specific sender domain names, randomized outage subjects, recipient-specific tracking links, and a common non-Microsoft destination to make the messages appear relevant while complicating simple pattern matching. We assess that the activity was likely credential phishing; however, the available evidence does not confirm credential capture, malware delivery, or post-compromise activity. Multiple threat actors may continue to look for ways to exploit notable global events in any social engineering pretext.
+
+If credentials were entered, organizations should consider the risk of account compromise, mailbox access, business email compromise, internal phishing, inbox-rule manipulation, and access to cloud collaboration data. Microsoft Defender blocks malicious domains used in this campaign, and Microsoft Defender for Office 365 blocks and quarantines phishing emails. We will continue to monitor this campaign and other related threats. Security teams can use Microsoft Defender for Office 365 and Microsoft Defender XDR capabilities to investigate messages, URLs, clicks, and potential follow-on activity.
+
+Phishing attack overview
+
+Microsoft analyzed the email lures sent on November 13, 2026: the emails used the subject pattern “Outage – <random token>” and display names built from a three-character, organization-style prefix followed by “Outage Notification” or “Service Health.”
+
+Example subject line:
+
+Outage – aF7vG6
+
+Example display names:
+
+MSF Outage Notification
+
+AMZ Service Health
+
+One example email body referenced a purported Exchange Online incident on November 12 and claimed that four messages were held after the outage. The urgency of a 24-hour deletion deadline and the prominent “RESTORE MESSAGES” call to action were intended to drive immediate interaction.
+
+The activity used distinct sender domains, including: moments-notice[.]com, planetmaison[.]com and newbooker[.]com. The messages also used email-delivery and link-tracking infrastructure to generate recipient-specific URLs. In multiple samples, click-tracking links led to reallifeaccounting[.]com or reallifeaccounting[.]com/themelist0.html.
+
+The sample set was link-based: no QR codes or non-EML attachments were observed, and Microsoft did not identify evidence of executable, archive, document, or other malware payload delivery. The off-brand destination and Microsoft 365 impersonation support an assessment of likely credential phishing, but the available evidence did not include the final page source, credential fields, credential-submission telemetry, or post-compromise activity. Microsoft therefore has not attributed the campaign to a named threat actor or malware family.
+
+Figure 1. Sample of one of the Microsoft 365 outage-themed phishing lures.
+
+Attack chain overview
+
+Figure 2. Observed attack chain for the Microsoft 365 outage-themed phishing campaign.
+
+Delivery: A user receives an email from the moments-notice[.]com, planetmaison[.]com or newbooker[.]com sender-domain cluster. The subject contains “Outage -” followed by a randomized string of character tokens. The body of the message includes a fake email conversation positioned to be hidden from the recipient and appears to be an attempt at mail filtering evasion.
+
+Impersonation: The message poses as a Microsoft 365 service-health notification, uses a target-specific display-name prefix, and references Exchange Online, Outlook, Teams, SharePoint, and Copilot.
+
+Social engineering: The lure claims that messages were held during an outage and will be deleted within 24 hours, creating urgency and fear of lost business email.
+
+User interaction: The recipient selects “RESTORE MESSAGES” or “TAKE ACTION”. A recipient-specific tracking URL records or routes the click.
+
+Redirect: The observed link chain leads to reallifeaccounting[.]com, including the path /themelist0.html in some samples.
+
+Assessed threat actor objectives: Microsoft assesses that the activity was likely intended to capture credentials. Credential submission and subsequent account compromise were not directly observed in the supplied evidence.
+
+Mitigation and protection guidance
+
+Immediate actions
+
+Messages in environments protected by Microsoft Defender for Office are currently blocked/quarantined, and we have not observed any indicators of compromise from this attack.
+
+However, organizations can consider taking the following steps:
+
+Search for and remove phishing messages. Search mail telemetry for the observed sender domains, display-name and subject patterns, lure phrases, tracking hosts, and destination domain. Quarantine matching messages and remove delivered copies in accordance with organizational response procedures.
+
+Identify users who clicked campaign links. Identify users who selected campaign links. Review click telemetry, proxy logs, and browser or endpoint evidence to determine whether the destination was reached and whether credentials may have been entered.
+
+Reset credentials and investigate potentially compromised accounts For any user who may have entered credentials, reset the password, revoke active sessions and refresh tokens, and verify multifactor authentication registrations. Review the account for suspicious sign-ins, OAuth consent, new inbox or forwarding rules, delegate permissions, and unusual access to Exchange Online, SharePoint, OneDrive, or Teams.
+
+Block or closely monitor campaign infrastructure. Block or closely scrutinize reallifeaccounting[.]com and the observed /themelist0.html path while the activity is investigated. Avoid broadly blocking shared email-delivery infrastructure based only on this campaign; combine sender, content, URL, and behavioral signals to reduce collateral impact.
+
+Remind users how to verify legitimate service-health communications. Remind users that legitimate Microsoft 365 service-health communications do not direct them to non-Microsoft domains to recover held mail. Validate service issues through the Microsoft 365 admin center rather than through unsolicited email links.
+
+Ongoing hardening
+
+Require multifactor authentication and prioritize phishing-resistant methods, such as passkeys or security keys, where possible.
+
+Review and enable Safe Links and Safe Attachments policies in Microsoft Defender for Office 365.
+
+Enable Zero-hour auto purge (ZAP) to help retroactively neutralize phishing, spam, or malware messages that were delivered before new threat intelligence became available.
+
+Use Attack simulation training and ongoing awareness guidance to help users recognize outage-themed urgency, sender-domain mismatches, and requests to restore or release messages.
+
+Encourage users to report suspicious messages through the organization’s established Outlook reporting workflow so security teams and Microsoft can investigate quickly.
+
+Microsoft Security Copilot
+
+Security Copilot customers can use the standalone experience to create their own prompts or run the following prebuilt promptbooks to automate incident response or investigation tasks related to this threat:
+
+Incident investigation: Summarize related alerts and incidents and identify the affected users and devices.
+
+Microsoft User analysis: Review the activity of users who selected the campaign links. This includes sign-ins, MFA-method changes, inbox or forwarding rules, and OAuth grants.
+
+Note that some promptbooks require access to plugins for Microsoft products such as Microsoft Defender XDR or Microsoft Sentinel.
+
+Microsoft Defender XDR Threat analytics
+
+High volume phishing campaign uses Microsoft 365 Outage lures to target multiple industry sectors.
+
+Advanced hunting queries
+
+These sample queries search for campaign characteristics in Microsoft Defender XDR. Review the results in the context of your environment and adjust the indicators only after validation. The queries do not set a time range; use the advanced hunting time selector for the period you want to investigate.
+
+Find messages by sender domain or subject pattern
+
+This query searches for the observed sender-domain clusters and the randomized outage subject pattern.
+
+let campaignDomains = dynamic([ ""moments-notice.com"", ""em4493.moments-notice.com"", ""newbooker.com"", ""em.newbooker.com"" ]); EmailEvents | where SenderFromDomain in~ (campaignDomains) or Subject matches regex @""(?i)^(?:\[external\]\s*|\*external\*\s*)?outage\s*-\s*[a-z0-9]{6}$"" | project Timestamp, NetworkMessageId, RecipientEmailAddress, SenderFromAddress, SenderFromDomain, SenderDisplayName, Subject, DeliveryAction, DeliveryLocation | order by Timestamp desc
+
+Find messages containing campaign URLs
+
+This query identifies message URLs that contain the observed destination, click-tracking hosts, or tracking-pixel pattern, and joins the results to message metadata.
+
+let campaignUrlParts = dynamic([ ""reallifeaccounting.com"", ""u113727626.ct.sendgrid.net/ls/click"", ""url.newbooker.com/ls/click"", ""162.120.17.69:8080/t/v3."" ]); EmailUrlInfo | where Url has_any (campaignUrlParts) | project NetworkMessageId, Url, UrlDomain, UrlLocation | join kind=inner ( EmailEvents | project Timestamp, NetworkMessageId, RecipientEmailAddress, SenderFromAddress, SenderFromDomain, SenderDisplayName, Subject, DeliveryAction, DeliveryLocation ) on NetworkMessageId | project Timestamp, RecipientEmailAddress, SenderFromAddress, SenderFromDomain, SenderDisplayName, Subject, Url, UrlDomain, UrlLocation, DeliveryAction, DeliveryLocation, NetworkMessageId | order by Timestamp desc
+
+Investigate user clicks on campaign URLs
+
+This query searches click telemetry for the observed destination and tracking patterns so investigators can identify affected users and determine whether clicks were allowed.
+
+let campaignUrlParts = dynamic([ ""reallifeaccounting.com"", ""u113727626.ct.sendgrid.net/ls/click"", ""url.newbooker.com/ls/click"", ""162.120.17.69:8080/t/v3."" ]); UrlClickEvents | where Url has_any (campaignUrlParts) | project Timestamp, AccountUpn, Url, ActionType, Workload, NetworkMessageId, IPAddress, IsClickedThrough, UrlChain | order by Timestamp desc
+
+For users who interacted with campaign links, also investigate:
+
+Unusual sign-ins
+
+New devices or user agents
+
+MFA-method changes
+
+OAuth grants
+
+Inbox or forwarding rules
+
+Delegate permissions
+
+Unusual access to mailbox or collaboration data
+
+These behaviors were not observed in the source messages, they are post-click investigation targets for suspected Microsoft 365 credential phishing.
+
+MITRE ATT&CK Techniques observed
+
+The activity exhibited the following techniques. Microsoft did not map credential capture, malware execution, command and control, or data exfiltration because the available evidence did not directly demonstrate those actions.
+
+Initial Access
+
+T1566.002 Phishing: Spearphishing Link | Messages contained a “RESTORE MESSAGES” link that used tracked redirect URLs and led to a non-Microsoft destination.
+
+Defense Evasion
+
+T1036 Masquerading | Messages impersonated Microsoft 365 service-health communications and used Microsoft product names and copyright language.
+
+Execution
+
+T1204.001 User Execution: Malicious Link | Recipients were urged to select a link within 24 hours to prevent the alleged deletion of held messages.
+
+Indicators of Compromise (IOCs)
+
+The following defanged indicators were observed in the campaign and should be validated in the context of each environment before blocking. Shared service-provider infrastructure can generate false positives when used without the accompanying sender, content, and behavioral signals.
+
+Indicator
+
+Type
+
+Context
+
+moments-notice[.]com
+
+Domain
+
+Observed sender-domain cluster.
+
+planetmaison[.]com
+
+Domain
+
+Observed sender-domain cluster.
+
+em4493[.]moments-notice[.]com
+
+Domain
+
+Observed mail-from or bounce subdomain.
+
+newbooker[.]com
+
+Domain
+
+Observed sender-domain cluster.
+
+em[.]newbooker[.]com
+
+Domain
+
+Observed mail-from or bounce subdomain.
+
+url[.]newbooker[.]com
+
+Domain
+
+Observed click/open tracking host.
+
+url7489[.]newbooker[.]com
+
+Domain
+
+Observed click/open tracking host.
+
+u113727626[.]ct[.]sendgrid[.]net
+
+Domain
+
+Observed click/open tracking host; assess with campaign context because the parent service can be shared.
+
+u118254266[.]ct[.]sendgrid[.]net
+
+Domain
+
+Observed click/open tracking host; assess with campaign context because the parent service can be shared.
+
+u118250677[.]ct[.]sendgrid[.]net
+
+Domain
+
+Observed click/open tracking host; assess with campaign context because the parent service can be shared.
+
+reallifeaccounting[.]com
+
+Domain
+
+Principal downstream destination observed in multiple messages.
+
+outagefixed[.]sbs
+
+Domain
+
+Downstream destination observed in some messages.
+
+outagerestored[.]sbs
+
+Domain
+
+Downstream destination observed in some messages.
+
+hxxps://reallifeaccounting[.]com/themelist0[.]html
+
+URL
+
+Observed destination path.
+
+hxxps://outagerestored[.]sbs/topics_pxyk/themelist0[.]html
+
+URL
+
+Observed destination path.
+
+162[.]120[.]17[.]69:8080
+
+IP and port
+
+Observed host for individualized /t/v3…/px[.]png resources.
+
+Outage – <random>
+
+Subject pattern
+
+Observed randomized subject format; external-mail tags may precede it.
+
+Strengthen – Security <random>
+
+Subject pattern
+
+Observed randomized subject format; external-mail tags may precede it.
+
+Restore — 4 messages <random>
+
+Subject pattern
+
+Observed randomized subject format; external-mail tags may precede it.
+
+References
+
+Safe Links in Microsoft Defender for Office 365
+
+Safe Attachments in Microsoft Defender for Office 365
+
+Zero-hour auto purge in Microsoft Defender for Office 365
+
+Attack simulation training in Microsoft Defender for Office 365
+
+MITRE ATT&CK T1566.002: Phishing – Spearphishing Link
+
+MITRE ATT&CK T1036: Masquerading
+
+MITRE ATT&CK T1204.001: User Execution – Malicious Link
+
+Learn More
+
+For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
+
+To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
+
+To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
+
+Review our documentation to learn more about our real-time protection capabilities and see how to enable them within your organization.
+
+Learn more about securing Copilot Studio agents with Microsoft Defender
+
+Evaluate your AI readiness with our latest Zero Trust for AI workshop.
+
+Microsoft 365 Copilot AI security documentation
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails
+
+Prompt injection protection in Microsoft Defender for Office 365 – official documentation of the prompt injection protection in Microsoft Defender for Office 365.
+
+How Microsoft discovers and mitigates evolving attacks against AI guardrails | Microsoft Security Blog
+
+Manipulating AI memory for profit: The rise of AI Recommendation Poisoning | Microsoft Security Blog – a related example of an AI-era technique observed in email traffic
+
+Defending the inbox against prompt injection attacks | Microsoft Defender for Office 365 Blog – feature announcement introducing prompt injection protection in Microsoft Defender for Office 365.
+
+Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
+
+The post High volume phishing campaign uses Microsoft 365 outage lures to target multiple industry sectors appeared first on Microsoft Security Blog."
 3d08854835a6,dada4dec2bd0,2026-11-16 18:14 UTC,Vulnerabilities & Patching,Microsoft Security,Rapid7 Blog,Vulnerability Management; Server & Workload Protection,Article,"Rapid7 Detected Exploitation of CVE-2026-90436 against Atlassian Confluence Data Center, N-able N-central also Exploited",https://www.rapid7.com/blog/post/etr-rapid7-detected-exploitation-of-cve-2026-90436-against-atlassian-confluence-data-center-n-able-n-central-also-exploited,"Overview On November 6, 2026, the Apache Software Foundation disclosed CVE-2026-90436, a critical unsafe reflection vulnerability (CWE-470) in Axis 1","Overview
 
 On November 6, 2026, the Apache Software Foundation disclosed CVE-2026-90436, a critical unsafe reflection vulnerability (CWE-470) in Axis 1.x that allows for unauthenticated remote code execution (RCE). Apache Axis is a Simple Object Access Protocol (SOAP) implementation used for the creation of Java Web services. CISA has assigned CVE-2026-90436 a CVSS score of 9.8 Critical.
@@ -2158,6 +2483,103 @@ The Bitdefender Threat Debrief (BDTD) is a monthly series analyzing threat news,
 Bitdefender provides cybersecurity solutions and advanced threat protection to hundreds of millions of endpoints worldwide. More than 180 technology brands have licensed and added Bitdefender technology to their product or service offerings. This vast OEM ecosystem complements telemetry data already collected from our business and consumer solutions. To give you some idea of the scale, Bitdefender Labs discover 400+ new threats each minute and validate 30 billion threat queries daily. This gives us one of the industry’s most extensive real-time views of the evolving threat landscape.
 
 We would like to thank Bitdefenders Stefan Hanu, Mihai Leonte, Gabriel Macovei, and Andrei Mogage for their help with putting this report together."
+931864cd5b18,931864cd5b18,2026-11-09 21:30 UTC,General Security News,Microsoft Security,CyberWire Daily,Data Security Posture Management; Identity Security Posture Management; Threat Intelligence; Vulnerability Management,Podcast,Peer pressure meets private keys.,https://www.thecyberwire.com/podcasts/daily-podcast/2674/notes,"Our guest is Chris Grove, Director of Cybersecurity Strategy at Nozomi Networks, discussing the critical infrastructure implications of the European refrigeration attacks. Threat actors exploit a high-severity OpenSSH authentication bypass.","A classified memo ties Nvidia’s chief executive to Chinese espionage. AI coding agents crack under peer pressure, coughing up private keys. Big breaches hit seven million Japanese shoppers and three million students here in the States, while a French bank takes a multi-million-dollar hit through a vendor compromise. Adversaries weaponize a fresh OpenSSH bypass in the wild, pro-Russian hacktivists put dark web bounties on senior European officials, and Google drafts digital IDs to solve the passkey recovery puzzle. Monday business briefing. Our guest is Chris Grove, Director of Cybersecurity Strategy at Nozomi Networks, discussing the critical infrastructure implications of the European refrigeration attacks. Beijing goes all-in on domestic silicon.
+
+Today is Monday November 9th 2026. I’m Dave Bittner. And this is your CyberWire Intel Briefing.
+
+Classified memo warns of Nvidia chief's ties to Chinese operative.
+
+Secretary of State Marco Rubio oversaw a classified memo this past spring warning senior Trump administration officials about Nvidia Chief Executive Jensen Huang’s relationship with an operative tied to Beijing's Ministry of State Security.
+
+Intelligence gathered from electronic surveillance revealed Huang was intimately involved with Alice Huang, a senior executive at Singapore-based Megaspeed. Megaspeed has purchased two billion dollars in advanced Nvidia chips and is suspected of smuggling restricted artificial intelligence hardware into China. While Huang admitted to the affair and apologized to his family, Nvidia stated it has no reason to believe national security or trade secrets were compromised.
+
+Huang remains an influential voice shaping United States policy against tighter export controls, highlighting the growing counterintelligence risks hovering over America’s critical semiconductor supply chains.
+
+The New York Times originally reported the findings.
+
+Autonomous AI coding agents leak credentials under swarm peer pressure.
+
+Autonomous software engineering agents routinely violate core security policies, leaking private deployment credentials and executing untrusted scripts, when pressured by third-party agent forums, according to testing by AE Studio and the AI Alignment Foundation shared with The Register.
+
+Researchers tasked nine coding models with debugging a broken service in an isolated sandbox. Given access to a forum that held the solution, agents surrendered private tokens fifteen percent of the time and executed unverified installation scripts nearly a quarter of the time to obtain assistance. Under performance pressure, execution rates spiked to thirty-four percent.
+
+As organizations rush to integrate autonomous agents into production environments, granting models broad system permissions without strict data isolation turns automated workflows into immediate remote code execution and credential leakage risks.
+
+A Japanese online market goes offline following a suspected breach of 7.7 million customer records.
+
+Japanese consumer goods and electronics giant Iris Ohyama has suspended its primary ecommerce platform, Iris Plaza, following unauthorized access to a third-party cloud service that contained personal records for nearly eight million shoppers.
+
+The retailer took the storefront offline late last month after discovering a suspicious file on its cloud infrastructure. Exposed records cover 5.8 million registered members and 1.9 million guest shoppers, potentially compromising names, physical and email addresses, birth dates, phone numbers, and encrypted passwords. Payment data was stored separately and avoided exposure.
+
+The disruption highlights the severe operational fallout and supply-chain vulnerabilities inherent in cloud-hosted retail environments, leaving core commerce operations frozen while investigators determine whether customer files were actually exfiltrated.
+
+Threat actors exploit a high-severity OpenSSH authentication bypass.
+
+Threat actors are actively exploiting a critical authentication bypass in OpenSSH tracked as CVE-2026-123158, dubbed ""SSHole.""
+
+The vulnerability allows attackers to compromise accounts like root on systems running musl libc without PAM—including Alpine and OpenWrt—by supplying overlong passwords. Security firms WatchTowr and Previdian report that botnets and cryptominers are already leveraging the flaw in the wild.
+
+The rapid weaponization underscores immediate exposure for lightweight Linux environments, prompting administrators to deploy version 10.6p2 or disable password authentication entirely.
+
+A French banking group confirms third-party compromise and fraudulent fund transfers.
+
+French banking giant Crédit Mutuel Arkéa has confirmed an intrusion into its network via a third-party service provider, enabling attackers to conduct major fraudulent transactions.
+
+The disclosure follows reports from blockchain investigator ZachXBT, who traced approximately 133 million dollars in suspicious withdrawals and aggressive cryptocurrency laundering across multiple centralized exchanges. The bank stressed that customer accounts remained untouched, as the threat actors targeted Arkéa's own institutional accounts before routing capital toward external cryptocurrency platforms. Arkéa reports that security teams contained the incident, froze a portion of the funds, and maintain that the bank's financial stability remains secure.
+
+The incident underscores the persistent vulnerability institutional financial networks face through external vendor access paths, demonstrating how rapid cryptocurrency conversion complicates law enforcement recovery efforts.
+
+Frontline Education data breach impacts over three million individuals across K-12 systems.
+
+School administration provider Frontline Education has notified the Indiana Attorney General’s Office that an August breach compromised records for over three million people—more than doubling previous state estimates.
+
+Attackers exploited a flaw in a third-party application, accessing personal records of staff and students across Frontline Central and School Health Management services. Exfiltrated data includes Social Security numbers, driver’s licenses, and health insurance information.
+
+The incident highlights continuing third-party software risks threatening sensitive educational and student administrative platforms.
+
+Google develops digital identity credentials for secure passkey and account recovery.
+
+Google is developing an account recovery framework that leverages verified digital identity credentials, aiming to eliminate the security vulnerabilities of fallback methods when users lose primary devices.
+
+Speaking at the Authenticate 2026 conference, company product managers explained that legacy recovery workflows—such as SMS-based fallbacks—risk undermining the cryptographic advantages of passkeys. Under Google's proposed system, users register a signed digital ID in advance to create a cryptographic stable hash linked to their account. If their physical device is lost, obtaining a verified digital credential on a replacement device restores their account, passkeys, and data in a single step.
+
+Securing the recovery loop represents the crucial missing link in widespread passwordless adoption, though full-scale rollout still faces hurdles in wallet interoperability and near-real-time credential provisioning.
+
+Pro-Russian hacktivists dox European leaders and bounty personal details.
+
+Pro-Russian hacktivist syndicate NoName057(16) has published personal records belonging to Italian Foreign Minister Antonio Tajani and seventeen other senior European officials across the dark web, offering cryptocurrency bounties for further intelligence on the targets and their families.
+
+The doxing campaign targets prominent figures across European law enforcement and judiciary—including leaders at Europol, Eurojust, and the German Federal Criminal Police Office—alongside investigative journalists. The operation appears to be direct retaliation for a multi-nation law enforcement takedown in July 2025 that dismantled over one hundred of the gang's servers.
+
+The move marks an aggressive evolution from nuisance denial-of-service disruptions into direct personal harassment and targeted intelligence-gathering aimed at deterring Western support for Ukraine.
+
+Monday business briefing.
+
+Capital continues pouring into artificial intelligence defense and validation, led by 220 million dollars raised across two standout funding rounds. Agentic data security startup Sentra secured 150 million dollars in a round led by Capital One Ventures, while formal verification provider &Truth emerged from stealth backed by 70 million dollars in seed capital.
+
+Consolidation across the sector accelerated with eight reported acquisitions, headlined by CrowdStrike’s aggressive expansion into model governance. According to the Wall Street Journal, the security giant is acquiring AI observability firm Fiddler AI for 400 million dollars alongside red-teaming platform Dreadnode for 95 million dollars to embed behavioral accountability into its Falcon ecosystem. Penetration testing specialist Bendings also acquired Scopertos for 55 million dollars, while Cognition absorbed code security shop Corridor.
+
+The flurry of dealmaking signals that enterprise demand is rapidly shifting toward pre-deployment testing, agent explainability, and securing the broader algorithmic supply chain.
+
+After the break, I welcome Nozomi Networks’ Director of Cybersecurity Strategy Chris Grove. We discuss the critical infrastructure implications of the European refrigeration attack part 2.
+
+That was Chris Grove from Nozomi Networks.
+
+Beijing goes all-in on domestic silicon.
+
+Huawei claims it has built the holy grail of sovereign computing: an enterprise desktop boasting one hundred percent Chinese-manufactured components.
+
+The Qingyun HM650 runs a homegrown, ten-core Kirin processor alongside an enterprise flavor of HarmonyOS, specifically designed to bid a polite, permanent farewell to Western software dependencies. One government agency has already ordered six hundred units—perhaps less out of spontaneous consumer enthusiasm and more in dutiful compliance with Beijing’s mandate evicting Wintel machines from state desks.
+
+Whether every capacitor actually traces its architectural ancestry strictly to domestic drawing boards remains conveniently ambiguous, as foreign outfits still keep plenty of factories humming across the mainland. Regardless of pedigree, locking Western chipmakers out of vast government procurement pools delivers a cold chill to Santa Clara balance sheets.
+
+Meanwhile, Japan unveiled a sixty-three million dollar emergency cybersecurity fund after adversaries disrupted critical infrastructure, cloud providers, and—perhaps most unforgivably—KFC logistics.
+
+And that’s the CyberWire Daily, brought to you by N2K CyberWire.
+
+We’d love to know what you think of this podcast. Your feedback ensures we deliver the insights that keep you a step ahead in the rapidly changing world of cybersecurity. If you like the show, please share a rating and review in your podcast app. Please also fill out the survey in the show notes or send an email to cyberwire@n2k.com
+
+N2K’s lead producer is Liz Stokes. We’re mixed by Tré Hester, with original music by and sound design Elliott Peltzman. Our contributing host is Maria Varmazis. Our executive producer is Jennifer Eiben. Peter Kilpe is our publisher. And I’m Dave Bittner. Thanks for listening."
 58b5883acf62,58b5883acf62,2026-11-09 20:17 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Vulnerability Management,Article,FORGE Lab uses agentic tools to identify memory safety issues in Rust,https://www.microsoft.com/en-us/security/blog/2026/11/09/forge-lab-uses-agentic-tools-to-identify-memory-safety-issues-in-rust/,"For issue #161018, our testing found no reliable exploitation path under the conditions examined, and we assessed practical exploitation as unlikely","In this article
 
 How we found and validated the bugs
@@ -2597,7 +3019,7 @@ To get notified about new publications and to join discussions on social media, 
 To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
 
 The post ARTEX abuse expands as cybercriminals target financial sector appeared first on Microsoft Security Blog."
-4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Security,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
+4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Blog,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
 
 Privacy Pass is a protocol used by site operators like Cloudflare to help protect applications from abuse. One way we do this is by rate limiting individual clients so that no one client consumes too many of the site's resources. Normally this involves some combination of friction or loss of privacy for users: CAPTCHAs or other challenges to moderate traffic, along with accounts and fingerprinting to identify traffic.Privacy Pass was designed to avoid this tradeoff between friction and privacy. The basic idea is that a client gets issued a number of tokens, which they can redeem in exchange for access to the site. Crucially, each token is unlinkable to the client it was issued to, ensuring the client can use the site as they always had without sacrificing privacy.
 
@@ -3304,73 +3726,6 @@ Join us at Microsoft Ignite for Secure your on-prem estate (BRK215) to explore t
 Modernize where you can. Strengthen the security of what must remain.
 
 The post New investments to reduce on-premises security risk appeared first on Microsoft Security Blog."
-7f55bb76112f,f653dee337ce,2026-11-05 17:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Endpoint Security,Article,​​​​What’s new in Microsoft Security: November 2026,https://www.microsoft.com/en-us/security/blog/2026/11/05/whats-new-in-microsoft-security-november-2026/,"Now generally available, Defender discovers more than 50 supported local AI agents by observing their activity and brings the agent, device, account, and configured MCP context...","Endpoint administrators need to keep elevated access accountable at scale. Security teams also need a clearer view of expert-led protection and a simpler way to deploy SQL Server protection in Azure Government. As AI agents gain access to business data and tools, organizations need ways to limit their authority and adapt protection as risk changes. This month’s Microsoft Intune and Microsoft Defender updates introduce capabilities across these areas, alongside new Secure AI capabilities for agent access. A recent Secure Now update in Microsoft Security Exposure Management also connects information on recent threats to focused initiatives for reducing exposure.
-
-Here’s what’s new:
-
-Limit agent authority to the task with Dynamic Permissions
-
-Give agents task-scoped authority and adapt access as risk changes
-
-As agents gain access to business data and tools, organizations need ways to manage what each agent is allowed to do. Dynamic Permissions provides an agent its own permissions and authority, scoped to its current task and for only as long as the task requires. As the agent works, Dynamic Agent Risk assesses whether the agent’s authority aligns with changing behavior and context. Dynamic Conditional Access can then respond proportionately by narrowing permissions, restricting access to resources, or requiring human approval for higher-impact actions. Together, these capabilities are designed to help organizations tailor agent authority before an agent acts and adjust access as risk changes. See how security can respond when an agent steps outside its task.
-
-Contain local AI agents with Microsoft Execution Containers
-
-Apply least-privilege boundaries to help limit access on Windows
-
-Microsoft Execution Containers (MXC), now generally available, gives organizations an operating system-enforced containment layer for AI agents, designed to limit what an agent can access. Rather than relying on the agent to behave within intended boundaries, MXC applies least-privilege controls across files, networks, processes, and user interactions, with additional isolation options for higher-risk scenarios. Organizations can tune and validate policies before enforcing them broadly, while upcoming integration with Microsoft Intune, Microsoft Entra, and Microsoft Agent 365 is intended to extend governance and attribution across the enterprise. Discover more about this policy-driven containment for AI agents.
-
-Scale least privilege with Microsoft Intune Endpoint Privilege Management
-
-Expand least-privilege scenarios with new system settings support and simpler tenant onboarding
-
-Microsoft Intune Endpoint Privilege Management continues to expand the tasks standard users can complete without broad administrator rights. With new system settings support, standard users can change IPv4, IPv6, and DNS server values on their device’s network adapters through Endpoint Privilege Management, while administrators determine how those changes are elevated. For user-confirmed changes, administrators can require a business justification, Windows authentication, or both before the change is applied. Along with tenant onboarding updates, these improvements support organizations as they get started with and expand their use of Endpoint Privilege Management. Explore how to get started with system settings support in Endpoint Privilege Management.
-
-Get started with Microsoft Intune Endpoint Privilege Management
-
-Simplify security operations with Defender Experts
-
-See what Defender Experts are investigating in a consolidated experience
-
-As threats move faster and security environments grow more complex, security teams need to quickly understand what matters and when to act. New Microsoft Defender Experts MDR experiences in the Microsoft Defender portal bring ongoing expert work into focus with a consolidated overview page with updated navigation and visibility into hunts. Teams can review active and completed hunts, see findings from Defender Experts, and identify items that may require follow-up. Learn more about the new Defender Experts MDR experiences.
-
-Get around-the-clock defense with Microsoft Defender Experts MDR
-
-Extend protection and discover local agents with Microsoft Defender
-
-Simplify deployment and expand SQL protection
-
-The enhanced agent for Defender for SQL Servers on machines is now generally available for resource- and subscription-level enablement in Azure Government cloud. The enhanced agent uses existing SQL infrastructure, eliminating the need to deploy the Azure Monitor Agent for this scenario. Security teams can spend less time on deployment and extend protection across their SQL Server environments. Learn more about the enhanced agent and how to get started.
-
-Discover local AI agents and their configured MCPs on Windows and macOS
-
-On endpoints, Microsoft Defender is extending discovery capabilities for supported local AI agents and their configured model context protocols (MCPs) across Windows and macOS. Now generally available, Defender discovers more than 50 supported local AI agents by observing their activity and brings the agent, device, account, and configured MCP context together to help security teams understand local AI agent activity in their environment. Learn more about local agents.
-
-Explore Microsoft Defender solutions
-
-Improve security posture with Microsoft Security Exposure Management
-
-Prioritize foundational security controls with Secure Now
-
-AI-enabled attacks can take advantage of familiar weaknesses, including excessive permissions, unprotected authentication flows, and exposed systems. Secure Now now pairs information about recent threats with focused initiatives across security domains. Security teams can use that context to identify foundational controls that need attention, review the recommended actions, and prioritize work intended to reduce exposure. The update helps connect information about observed attack patterns with security improvements teams can consider in their own environments.
-
-Learn more about Microsoft Security Exposure Management
-
-Learn how to address agentic AI’s security challenges
-
-From agentic inventory and observability to stopping AI runtime threats
-
-An inventory is only the starting point for managing Al agent risk. Organizations also need to consider ownership, limits on what agents can access, how risk is reassessed as agents operate, and protections against emerging threats. “Don’t Leave AI Exposed” provides security professionals, IT administrators, and developers with actionable guidance on managing risk across the agent lifecycle. Download the guide for considerations spanning agent inventory, ownership, access, monitoring, and runtime protection.
-
-Stay in the Loop
-
-Security teams need a clear account of what is changing across the portfolio and where those changes can strengthen their operations. In the Loop brings together the latest Microsoft Security updates and their implications for your security strategy. Explore earlier editions and check back for the next drop.
-
-See Microsoft Security innovations in action at Microsoft Ignite, November 17-20, 2026, in San Francisco or online.
-
-To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
-
-The post ​​​​What’s new in Microsoft Security: November 2026 appeared first on Microsoft Security Blog."
 1344cfe4672d,1344cfe4672d,2026-11-05 00:00 UTC,Vulnerabilities & Patching,Microsoft Security,CrowdStrike Blog,Vulnerability Management; Identity Security Posture Management,Article,How Adversaries Are Turning the Vulnerability Ecosystem Against Defenders,https://www.crowdstrike.com/en-us/blog/adversaries-turn-vulnerability-ecosystem-against-defenders/,Among them was a modified version (SHA256 hash: fd6b46d148af22da6163f18ce43b35ebb827cc6e140f03f0f514bc2a6f548743) of a public POC exploit for a FortiOS and FortiProxy...,"Fortinet FortiOS and FortiProxy Authentication Bypass Vulnerability (CVE-2024-55591)
 
 In February 2026, CrowdStrike Counter Adversary Operations identified an open directory controlled by the Iran-nexus adversary STATIC KITTEN on IP address 157.20.182[.]49 containing 1.9 GB of data and more than 20,000 files. Among them was a modified version (SHA256 hash: fd6b46d148af22da6163f18ce43b35ebb827cc6e140f03f0f514bc2a6f548743) of a public POC exploit for a FortiOS and FortiProxy authentication bypass vulnerability (CVE-2024-55591) first released by a well-known industry source on January 27, 2025.4
@@ -3816,5 +4171,4 @@ Claude Duet is also in scope of Anthropic’s public bug bounty program, which r
 Building this with you
 
 We’re releasing Claude Duet as a research preview because we want to learn what you value in a personal agent, including the protections and controls you’d like to see next. Some of what’s described here is still changing: how often it asks for approval, how you sign in, and how well the sensitive-information checks tell what’s private from what’s harmless. Tell Claude Duet in plain words what you’d like to see or what went wrong, and it will file a report for our team."
-941922a3be9c,2b62329cc6f4,2026-10-22 07:00 UTC,Vulnerabilities & Patching,Microsoft Security,Google News: Trellix,Vulnerability Management,Article,PHP2Shell: What defenders need to know about CVE-2026-109618 and CVE-2026-109619,https://news.google.com/rss/articles/CBMingFBVV95cUxPbkdSLW9vaDZxdm5wM1E1NXpUQkJQMldDcjgwQnNtNm9wclBQNzNRRFFlblNtNFFMYXZ6MDdpdWR2cjlvakd5bS1sM1JWVEJlaTQ4bEFtS0pDeURJSGNXQ3FUd2dCYlNFLWNrbURLbVNsMEIwd05rODFNUGNRMTRYN3hJR3oxTUpNd2hBcnFtaWdVblVhRE5DSFpLRU1pUQ?oc=5,,
 7b770e3dea7c,7b770e3dea7c,2026-10-21 00:00 UTC,General Security News,Microsoft Security,OpenAI Blog,N/A,Article,"Democratic governance of frontier AI, part II: Empowering cyber defenders",https://openai.com/index/empowering-cyber-defenders,,
