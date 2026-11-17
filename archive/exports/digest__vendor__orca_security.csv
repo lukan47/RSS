@@ -1,4 +1,85 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+560a9969e84f,f219abd484f9,2026-11-17 20:35 UTC,Vulnerabilities & Patching,Orca Security,Orca Security Blog,Vulnerability Management,Article,“Java4Shell”: Critical OpenJDK Base64 Decoder Flaw Could Allow Unauthenticated Remote Code Execution,https://orca.security/resources/research/java4shell-critical-openjdk-base64-decoder-flaw-could-allow-unauthenticated-remote-code-execution/,A critical vulnerability dubbed “Java4Shell” (CVE-2026-114938) has been reported in OpenJDK,"A critical vulnerability dubbed “Java4Shell” (CVE-2026-114938) has been reported in OpenJDK. According to early reports, it lets unauthenticated attackers achieve remote code execution by sending a crafted Base64 string to a Java application running on x86 servers with AVX-512 support. Early reports rate it 9.2 under CVSS 4.0. Java runs a large share of enterprise and cloud backends, so organizations should start inventorying their Java runtimes now and prepare to patch as soon as vendor builds are confirmed.
+
+Security firm Calif, which says it discovered and reported the flaw, disclosed it publicly on November 17 because the details had already leaked, and says it will publish full technical details later that day, after Oracle releases its patch. Neither Oracle nor the OpenJDK Vulnerability Group has published an advisory that names this CVE, and as of this writing CVE records are only reserved but unpublished . [VERIFY @23:00]
+
+Java4Shell key facts
+
+Fact
+
+Detail
+
+CVE
+
+CVE-2026-114938 [VERIFY @23:00: no CVE.org/NVD record yet]
+
+Severity
+
+9.2 (CVSS 4.0, per early reports)
+
+Type
+
+Reported heap buffer overflow in OpenJDK’s intrinsic Base64 decoder, leading to unauthenticated RCE
+
+Likely affected
+
+OpenJDK 17.0.6 and later; JDK 18+ lines contain the same code (scope unconfirmed)
+
+Unlikely affected
+
+Java 8 and 11; ARM-based hosts
+
+Hardware
+
+x86-64 with AVX-512 VBMI for the reported path
+
+Patch
+
+Oracle Nov 17 builds released; CVE not yet confirmed among fixes
+
+Exploitation
+
+No known in-the-wild exploitation or public PoC
+
+What is Java4Shell (CVE-2026-114938)?
+
+The issue is a memory-corruption bug in OpenJDK’s hardware-accelerated (intrinsic) Base64 decoder, the native code the JVM uses in place of the Java implementation of java.util.Base64 decoding on supported CPUs. A crafted 65-byte input reportedly causes an integer underflow in padding handling. The result is a 62-byte heap buffer overflow that can corrupt adjacent Java objects and lead to code execution. Base64 decoding of untrusted input is very common in Java applications (such as authentication headers, tokens and encoded API payloads), so the reachable attack surface can be large. Exploitation still requires attacker-controlled data to reach the decoder.
+
+Which Java versions could be affected by Java4Shell?
+
+Public reports so far say “OpenJDK 17.0.6 and later”. Orca Research reviewed the OpenJDK source history to see which Java versions contain the reported vulnerable code. Containing the code does not by itself confirm that a version is exploitable; confirmation is expected once full technical details and vendor advisories are published:
+
+The 17.0.6 boundary matches the code. The AVX-512 Base64 decoding intrinsic (JDK-8268276) was backported to the JDK 17 update line in November 2022 and first shipped in OpenJDK 17.0.6 (January 2023). It is not present in 17.0.5.
+
+Newer Java lines likely carry the same code. The same decoder was added to mainline OpenJDK in 2021 and first released in JDK 18. JDK 21, 25 and 27 therefore contain it. Early reports mention only Java 17, and it has not been confirmed whether these newer lines are affected; until Oracle or OpenJDK clarifies the scope, organizations may want to treat them as potentially exposed. [VERIFY @23:00]
+
+Java 8 and 11 do not contain this decoder intrinsic in OpenJDK, so they are unlikely to be affected by Java4Shell. Oracle released updates for these lines on November 17 (8u513 and 11.0.33.1) as part of the same patch update.
+
+Hardware matters. On Java 17, the Base64 intrinsic is enabled only on x86-64 CPUs with AVX-512; on Java 21 and later it is also enabled on CPUs with AVX2. However, the AVX-512 decoding path that early reports point to runs only on CPUs with the AVX-512 VBMI extension (e.g., Intel Ice Lake and later, AMD Zen 4 and later). ARM-based hosts (e.g., AWS Graviton) use different decoder code and are not known to be affected.
+
+All distributions are in scope. The code is in upstream OpenJDK, so Oracle JDK, Eclipse Temurin, Amazon Corretto, Azul Zulu, Microsoft Build of OpenJDK, Red Hat and distro OpenJDK packages built from affected versions should all be considered potentially affected, including JDKs bundled inside applications and container images.
+
+Is there a patch for CVE-2026-114938?
+
+On November 17, Oracle released new builds for Java 8, 11, 17, 21, 25 and 27 (8u513, 11.0.33.1, 17.0.21.1, 21.0.13.1, 25.0.5.1 and 27.0.1.1) as part of its November Critical Security Patch Update. According to Oracle’s pre-release announcement, the update contains 11 Java SE fixes, all remotely exploitable without authentication (highest CVSS 3.1 score 8.1). The 9.2 figure in early reports is a CVSS 4.0 score, while Oracle uses CVSS 3.1, so Oracle’s 8.1 maximum neither confirms nor rules out that CVE-2026-114938 is among the fixes. Oracle’s release notes for these builds do not name CVE-2026-114938. Oracle has not confirmed that CVE-2026-114938 is among the fixes, and other OpenJDK vendors (Temurin, Corretto, Zulu and others) release on their own schedules. [VERIFY @23:00 – confirm fixed versions per vendor]
+
+How to mitigate Java4Shell before a patch is confirmed
+
+No vendor-validated workaround has been published. It can be suggested to limit AVX usage or disable Base64 intrinsics as temporary measures. In HotSpot, the JVM option -XX:-UseBASE64Intrinsics disables the Base64 intrinsic entirely, while -XX:UseAVX=2 prevents the JVM from using the AVX-512 decoding path (on Java 21 and later the intrinsic remains active through its AVX2 path). These options exist in affected JDKs, but they have not been validated by Oracle or OpenJDK as a fix for this CVE, they may affect performance, and they do not replace patching. Recommended steps:
+
+Inventory every Java runtime: OS packages, tarball/zip installs, JDKs bundled in applications and container base images, on both Linux and Windows.
+
+Prioritize internet-facing Java services that decode untrusted Base64 input.
+
+Apply vendor updates as soon as fixed builds for CVE-2026-114938 are confirmed, and rebuild container images on patched base images.
+
+Is Java4Shell being exploited in the wild?
+
+At the time of writing, there are no reports of in-the-wild exploitation and no public proof-of-concept. Technical details are expected to become public within hours, which typically shortens the time to working exploits significantly. Organizations should treat this as urgent.
+
+How can Orca help?
+
+Orca enables customers to quickly identify assets running potentially vulnerable Java versions across installation methods – OS packages, standalone JDK installations and JDKs bundled in container images – on both Linux and Windows. Customers can understand each asset’s exposure in context, including internet accessibility, runtime reachability and asset criticality, and prioritize remediation based on real risk."
 1c1ff52f20e3,1c1ff52f20e3,2026-11-16 18:35 UTC,General Security News,Orca Security,Orca Security Blog,AI Security; Code Security,Article,How to Find Shadow AI Apps Built With AI App Builders,https://orca.security/resources/blog/how-to-find-shadow-ai-apps-built-with-ai-app-builders/,"The Orca Research Pod built and attacked real applications on several of these platforms, then measured which signals actually survive across templates and across our own...","Key findings: How to detect AI-built apps
 
 Somebody in your organization has built an application with an AI app builder. It is running on one of your domains, it talks to a database holding real data, and it went through no procurement, no architecture review and no deployment process. You have no record of it because there was never a step at which a record would have been created.
@@ -750,108 +831,3 @@ Successful exploitation could allow attackers to execute arbitrary SQL and OS co
 How Orca helps find and prioritize vulnerable Oracle EBS assets
 
 Orca enables customers to quickly identify assets running vulnerable versions of Oracle E-Business Suite, understand their exposure in context, including internet accessibility, runtime reachability, and asset criticality, and prioritize remediation based on real risk rather than CVSS alone. Orca’s platform highlights affected assets directly in the newItem view, helping security teams focus on the most critical remediation paths first"
-38715aeb8697,38715aeb8697,2026-10-27 16:46 UTC,General Security News,Orca Security,Orca Security Blog,Identity Security Posture Management; Data Security Posture Management; Network Security; AI Security,Article,Securing Vercel at Scale: From One Team to Every Team,https://orca.security/resources/blog/securing-vercel-at-scale-from-one-team-to-every-team/,"Researchers at Red Access found about 5,000 corporate apps among 380,000 public assets on AI app platforms, and about 40% of those exposed sensitive data (TechTarget)","On Thursday, a customer marketing manager vibe codes a community portal where customers can sign in, post questions, and search past answers. By Friday it’s live on Vercel, with a custom domain, an OPENAI_API_KEY for the AI search saved as a plain config variable, and a database full of customer names, emails, and support threads.
-
-No ticket. No code review. No security sign-off. Nothing broke, so nobody looked.
-
-Vercel has the settings to prevent every part of that. The harder question belongs to the security team: how do you know those settings are on, for every team, across the whole company?
-
-The builder population just changed
-
-Vercel used to be where front-end engineers shipped Next.js apps. Now it’s where AI ships apps for everyone else. Vercel’s v0 has crossed 4 million users (SaaStr), and CEO Guillermo Rauch says more than 60% of activity on Vercel is now driven by coding agents (The Stack).
-
-Many of those apps belong to companies, not hobbyists. Researchers at Red Access found about 5,000 corporate apps among 380,000 public assets on AI app platforms, and about 40% of those exposed sensitive data (TechTarget).
-
-Why your current tools only see part of it
-
-Vercel isn’t a cloud account, a repo, or a typical SaaS app. It’s a control plane that sits between all three, so each tool you already own sees only part of it:
-
-CNAPP sees the AWS, Azure, or GCP accounts DevOps provisioned. Vercel isn’t one of them.
-
-AppSec scans the repos you point it at. An app built from a prompt may never pass through one.
-
-SSPM checks SaaS sign-in and access settings, but rarely Vercel’s deployment and firewall settings.
-
-Vercel’s own Security Dashboard, free on every plan since August 2026, is the best place to start. It scores a team on settings like MFA, owner count, token expiry, and secret storage (Vercel). But it covers one team at a time, a fixed list of checks, and only Vercel.
-
-These settings are configured in Vercel, team by team, usually by whoever created the team: access tokens, environment variables, custom domains, deployment protection, SAML enforcement, firewall rules. That person usually isn’t on the security team.
-
-Vercel’s dashboard tells one team how its settings look. Security teams need every team, more checks, and one place to work them next to the rest of their risk.
-
-What Orca adds beyond Vercel’s dashboard
-
-The integration supports Vercel Enterprise. You connect it with a Full Account access token created by a dedicated service user with the Enterprise Viewer and Security roles, so Orca’s access stays read-only. Set an expiration on the token and rotate it (Vercel access tokens). If your organization enforces SAML, connect each team with its own team token instead. There’s no agent to install, nothing to deploy in Vercel, and no change to how anyone builds.
-
-Orca inventories every team the token can reach, including teams added later: projects, deployments, domains, members, access tokens, firewall settings, and environment-variable metadata, never the values. Each Vercel team shows up as an account in Orca, so you see every team in one place instead of one dashboard per team.
-
-Orca runs a variety of detections out of the box. Some overlap with Vercel’s dashboard.
-
-Area
-
-Orca adds
-
-Also covered by Vercel’s dashboard
-
-Identity and access
-
-SAML configured but not enforced, invitations pending more than 14 days
-
-Members without MFA, tokens with no expiration, too many owners, long-lived credentials that could use OIDC
-
-Network exposure
-
-Production deployments without protection, custom firewall (WAF) disabled, no bot blocking, no IP blocking rules, overly permissive bypass rules
-
-Public preview deployments
-
-Data protection
-
-None
-
-Secrets saved as readable Config variables, Git fork protection disabled, variables exposed to the browser
-
-Best practices
-
-Unprotected source maps, unverified Git commits
-
-None
-
-Neglected assets
-
-Access tokens unused for 90+ days
-
-Environment variables older than 90 days
-
-Four misconfigurations that AI-built apps make by default
-
-These four issues come up most with AI-built apps. None is a mistake anyone makes on purpose. Each is a default, or a step builders skip because nothing breaks without it.
-
-Production URLs with no login. Vercel’s Deployment Protection covers preview URLs by default. Production is a separate setting. Builders rarely change it, because the app works fine either way. The result is a public, indexable production URL with nothing in front of it. The fix is free: since September 2026, every plan can put Vercel Authentication in front of production and make it the team default (Vercel).
-
-Secrets saved as readable Config variables. Since August 2026, Vercel stores each variable as Config (readable) or Secret (write-only) (Vercel). Values are encrypted at rest, but a STRIPE_SECRET_KEY saved as Config stays readable to anyone with project access. The name is the giveaway, and that’s what Orca flags.
-
-SAML connected but not enforced. The identity team links the IdP to Vercel. Nobody turns on enforcement, so members can still reach the team without a SAML session (Vercel).
-
-Long-lived and forgotten access tokens. A Full Account or Team token carries the role of the person who created it. Tokens set to never expire, or unused for 90 days, are standing credentials nobody is watching. Orca flags both. Project-scoped tokens limit any one token to a single project (Vercel).
-
-One queue for every team
-
-A dashboard per Vercel team works for the person who owns that team. It doesn’t work for a security team responsible for dozens of them.
-
-In Orca, Vercel findings show up alongside your AWS, Azure, and GCP findings, in the same risk scoring, alert workflows, and ticketing integrations your team already uses. Each finding shows which Vercel team owns the project, so it reaches someone who can fix it. New teams are covered as soon as they’re created, without anyone registering them.
-
-Vercel findings land prioritized in the same queue as your cloud findings in the Orca Platform
-
-Vercel is one part of the AI-built app
-
-An AI-built app has five parts: the model behind it, the agent or builder that made it, the platform it runs on, the database and login behind it, and the cloud account under it. Each comes from a different vendor and has a different owner. None of those owners is security.
-
-Orca AI AppGen Security covers these parts in one platform instead of one tool per vendor. Today that means Vercel, where AI-built apps run, and Claude Enterprise, where many of them start, in the same inventory and the same queue. More platforms are coming.
-
-The goal isn’t to slow builders down. They keep the tools they picked. Security gets enough visibility to say yes instead of no.
-
-Want to see your Vercel teams in Orca? Book a demo today.
-
-About the Orca Platform
-
-Orca Security delivers security for the companies that build. As cloud, applications, AI and app generation expand the attack surface, Orca transforms security risk into the context teams need to act. The Orca Platform provides complete visibility across cloud, AI, and application environments, correlates risk across every layer, and prioritizes the exposures that matter most so organizations can remediate faster and innovate with confidence. Trusted by hundreds of organizations, including SAP, Autodesk, Gannett, Lemonade, and Digital Turbine, Orca is backed by leading investors including Temasek, CapitalG, ICONIQ Capital, and Redpoint Ventures."
