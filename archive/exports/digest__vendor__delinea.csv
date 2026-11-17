@@ -1,4 +1,91 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+e9e1ed4c4253,e9e1ed4c4253,2026-11-17 13:00 UTC,"Attacks, Breaches & Threat Intel",Delinea,Delinea Blog,Code Security; Identity Security Posture Management; Server & Workload Protection; Vulnerability Management,Article,Railway Security Incident: Where Trust Between Services Broke,https://delinea.com/blog/the-railway-security-incident,The attack began with a vulnerability in Railway's build infrastructure and moved through several internal systems before reaching encrypted customer environment variables,"What you will learn
+
+Railway’s incident shows how a limited-purpose build credential, excess trust between services and a misconfigured OIDC binding led to decrypted secrets, and how to limit decryption access and credential lifetimes.
+
+On November 10, Railway published a detailed report on its October security incident, which exposed customer secrets and led to an estimated $740,000 in unauthorized AI API usage.
+
+The attack began with a vulnerability in Railway's build infrastructure and moved through several internal systems before reaching encrypted customer environment variables.
+
+The attacker obtained a credential intended for a limited purpose and exploited weaknesses in trust between services
+
+Railway estimates that environment variables in up to 1.85% of its workspaces, approximately 100,000, could have been decrypted. This represents the maximum potential exposure, not the confirmed number of compromised workspaces. The attacker also obtained linked-account tokens, including GitHub OAuth tokens and AI agent keys, belonging to 1,852 users. Railway has reset those tokens.
+
+The attacker didn't start with a compromised administrator account. Instead, it obtained a credential intended for a limited purpose and exploited weaknesses in trust between services to gain access to increasingly sensitive systems.
+
+From build isolation to internal access
+
+The attacker began creating dummy accounts on October 18. On October 20, it exploited a previously unknown vulnerability in Railway's multi-tenant build infrastructure, partially escaping filesystem isolation and reading files from the underlying host.
+
+One of those files contained a credential used by build servers to authenticate to internal systems, including the container registry. The credential was supposed to authorize only operations needed to complete builds.
+
+However, Railway's internal Temporal instance also accepted it as a trusted client. Temporal was used to schedule and run asynchronous tasks, including parts of the build process. Through its APIs, the attacker retrieved stored build histories containing build variables and other information.
+
+The same credential also allowed access to cached repository snapshots. One of the retrieved builds belonged to an internal Railway service, granting the attacker access to a copy of the company's internal monorepo.
+
+The build credential was accepted by a service it wasn't intended to access. The source code then gave the attacker visibility into Railway's internal architecture and additional opportunities to escalate.
+
+The second trust boundary
+
+Railway detected suspicious activity within hours and revoked the compromised build credential that evening. The attacker already had the source code.
+
+Using information found in the codebase, the attacker identified a misconfigured OpenID Connect (OIDC) trust binding in Railway's cloud environment. On October 21, this allowed it to obtain a short-lived cloud credential intended for the company's CI/CD infrastructure.
+
+That credential provided access to additional internal secrets, including an SSH private key and a longer-lived credential that, when combined with internal network access, could be used to read encrypted environment variables from the production database.
+
+The attacker used the SSH key to connect to a machine responsible for orchestration tasks. That machine had access to the production database network and stored another long-lived credential used to decrypt customer environment variables.
+
+The attacker now had the credentials needed to access the production database and decrypt customer secrets. Revoking the build credential stopped that access, but the attacker had already obtained the source code, exposing the next path into Railway's environment.
+
+Encrypted secrets were not enough
+
+Railway protects customer environment variables using envelope encryption. Each environment has its own data encryption key, which is protected by a root key held in an upstream cloud provider's key management service.
+
+The attacker didn't need to break this encryption. It had obtained credentials that allowed it to retrieve encrypted variables from the database and request their decryption through the legitimate key management service.
+
+On October 21, the attacker retrieved encrypted environment variables and decrypted a subset of them. Database logs show that it prioritized AI provider API keys, searching for variable names that matched specific patterns. Another query also matched cloud, database, and payment service credentials.
+
+Railway believes the primary objective was to steal AI provider keys for resale and use in model distillation. The company estimates that unauthorized use of the stolen credentials resulted in approximately $740,000 in losses.
+
+Railway also points to similar thefts disclosed by OpenCode, Warp, Fireworks AI and other platforms between October 6 and 23. It assesses the incident as part of a broader series of attacks targeting platforms that hold AI keys.
+
+Railway reported no evidence of customer repository downloads, customer database access or logins to Railway accounts using credentials stolen during the incident.
+
+Encryption was not defeated, and Railway's per-environment design helped limit potential exposure. But the attacker had obtained credentials authorized to request decryption. The key management service was performing legitimate operations on behalf of a compromised identity.
+
+Did AI change the attack?
+
+Railway describes the incident as a contest of agent speed. According to its report, the attacker used AI models with safety restrictions removed and, based on Wiz's assessment, an orchestration framework similar to ARTEX. The attacker explored multiple paths in parallel, and access to Railway's source code made that process more effective.
+
+The report doesn't establish exactly which actions were autonomous or how much human direction was involved. What it does show is an attack that was dependent on familiar weaknesses: excessive trust between services, a misconfigured identity binding and privileged credentials accessible from compromised infrastructure. AI may have accelerated the attack, but the permissions and trust relationships were already there.
+
+What this means for identity security
+
+The initial build credential was intended for a limited function, but another internal service trusted it more broadly. This is why service identities need the same scrutiny as privileged human accounts. It's not enough to review what a credential was issued for; organizations also need to understand where it is accepted and what those systems allow it to do.
+
+The OIDC misconfiguration is another example of why short-lived credentials aren't enough on their own. The attacker used a temporary cloud credential to retrieve longer-lived credentials and an SSH key. Its expiration time didn't matter much once those credentials were obtained.
+
+The decryption stage also shows the limits of protecting secrets only at rest. Railway's encryption was working as designed, but the attacker had reached a workload with credentials authorized to decrypt customer variables. The most important parts of secrets management are:
+
+limiting which identities can request decryption.
+
+restricting access to specific secrets.
+
+reducing the lifetime of privileged credentials.
+
+Build systems, CI/CD pipelines, deployment tools and orchestration machines also need to be treated as part of the privileged access environment. They may not look like traditional administrative systems, but they often hold credentials that can be used in production.
+
+Railway says it has closed the exploited weaknesses, rotated affected credentials and moved builds to dedicated ephemeral virtual machines. It has also introduced more narrowly scoped credentials, stronger separation between internal services and additional controls around secret decryption.
+
+Why individually protecting credentials isn’t enough
+
+Railway's incident wasn't caused by a single overly privileged account. It was a chain of credentials, each giving the attacker access to another system or another identity.
+
+The initial vulnerability gave the attacker a foothold, but the trust between services determined how far it could go. Even encrypted customer secrets became accessible once the attacker obtained credentials with the authority to decrypt them.
+
+Railway has addressed the specific weaknesses involved. The broader problem is familiar: credentials are often protected individually, while the access they provide across connected systems receives less attention.
+
+Thanks to Railway’s very detailed analysis, every defender has a real attack chain to test their own environment against. That's the kind of openness our industry should reward. If you ever end up in Railway's shoes, publish as they did. The rest of us will be better for it."
 0f52fff49b5d,0f52fff49b5d,2026-11-12 13:00 UTC,General Security News,Delinea,Delinea Blog,Identity Security Posture Management; AI Security; Code Security; Container Security,Article,When Coding Agents Inherit Your Pipeline’s Permissions,https://delinea.com/blog/when-coding-agents-inherit-your-pipelines-permissions,"Nobody attacked anything, and according to the founder, all it took was nine seconds","What you will learn
 
 How coding agents borrow the permissions of your CI/CD pipeline, why enforcement is thinnest in those environments and how to scope agents to the task, treat pipelines as privileged identities and check each action at runtime.
@@ -596,86 +683,3 @@ Gartner, Magic Quadrant for Privileged Access Management, Paul Mezzera, Shubham 
 Gartner and Magic Quadrant are trademarks of Gartner, Inc. and/or its affiliates.
 
 Gartner does not endorse any company, vendor, product or service depicted in its publications, and does not advise technology users to select only those vendors with the highest ratings or other designation. Gartner publications consist of the opinions of Gartner’s business and technology insights organization and should not be construed as statements of fact. Gartner disclaims all warranties, expressed or implied, with respect to this publication, including any warranties of merchantability or fitness for a particular purpose."
-dcb439d06f1e,2b62329cc6f4,2026-10-23 15:58 UTC,General Security News,Delinea,Delinea Blog,Identity Security Posture Management; Server & Workload Protection; Vulnerability Management; Data Security Posture Management,Article,PHP2Shell: What to Expect and What to Do Next,https://delinea.com/blog/php2shell-aftershocks-what-to-do-next,"Attackers were exploiting PHP2Shell before the patch existed Amazon's threat intelligence team saw the first exploitation attempt on October 17, 2026","What you will learn
-
-Why PHP2Shell runs before your app code does, why a clean investigation proves nothing, which secrets to rotate first and how vaulting and just-in-time access limit what a stolen credential can reach.
-
-Roughly seven in ten websites run on PHP. An unpatched PHP server can be broken into with one web request and no password. That hole has been there for 14 years, and attackers reached it before the patch did.
-
-The flaw is PHP2Shell: two critical vulnerabilities in the PHP runtime itself, CVE-2026-109618 and CVE-2026-109619. The fix shipped on October 21, 2026, four days after the first exploitation attempts were seen. PHP sits behind 69% of websites whose server-side language is known.
-
-Upgrading PHP is the easy part. The hard part is what attackers already took: database credentials, API keys, session tokens and personal data, each still valid until someone rotates it. Treat every secret the server could read as stolen, including any it fetched from a vault.
-
-A vault with automated rotation makes the cleanup fast. Without one, it is slow, manual work. Either way, rotation fixes the stolen credentials and does nothing about the other two problems. The leaked personal data will fuel targeted phishing and identity attacks for months, and breaches will spread from organizations that patched late to those that depend on them.
-
-This is the first week of a long event.
-
-Four reasons PHP2Shell is more dangerous than a typical critical flaw
-
-Critical web vulnerabilities surface most weeks, and most of them don't deserve the label ""dangerous"". PHP2Shell does, for four reasons.
-
-1. PHP2Shell runs before your application code does
-
-With Apache mod_php, PHP is embedded in the web server itself. On those servers the exploit fires while PHP is still parsing the request, before any application code runs. PHP-FPM and other setups are affected too, under extra conditions.
-
-The danger: the attack is over before your login page, your multi-factor check or your application's logging is reached. It can succeed and leave no trace where you would normally look.
-
-2. PHP2Shell can leak server memory without leaving a web shell
-
-PHP's advisory for CVE-2026-109619 lists memory disclosure as a confirmed impact. The process that handles requests keeps credentials, tokens and session data from earlier requests in memory, and an attacker can read it without dropping a file or running a command.
-
-The danger: There may be no web shell to find. An investigation that finds nothing has not shown that nothing was taken. Rotate the server's credentials anyway.
-
-3. Attackers were exploiting PHP2Shell before the patch existed
-
-Amazon's threat intelligence team saw the first exploitation attempt on October 17, 2026. The CVE identifiers leaked on October 20, 2026, so PHP released the fix a day early. Proof-of-concept exploits were circulating hours before the planned release, and Amazon now describes PHP2Shell as broadly exploited in the wild.
-
-The danger: A server patched the day the fix shipped may already have been compromised, and the gap between disclosure and mass exploitation was hours, not days.
-
-4. PHP2Shell has been in PHP since 2012
-
-Calif Research, the firm that found the bugs, traces the earliest affected code path to PHP 5.4.0, released in 2012. A related flaw surfaced in a 2024 audit, but nobody proved it exploitable, so nobody fixed it.
-
-The danger: 14 years of PHP releases are exposed, and more than a third of PHP-powered sites run PHP 7 or older, branches that will never get an official fix. Those servers stay exploitable for months.
-
-A web server is a credential store
-
-Next to the PHP code on a typical server: a config.php with the database password. A .env file with API keys, cloud access keys, mail credentials and OAuth client secrets. Process memory holding the tokens and personal details of whoever was signed in. The PHP process reads all of it, so an attacker whose code runs inside that process can too.
-
-With those secrets, the attacker no longer needs the vulnerability. Every login looks like legitimate traffic, and none of it trips a detection written for the PHP flaw. The vulnerability was the entry. The identities are the payload. A PHP vulnerability becomes an identity problem.
-
-PHP2Shell's aftershocks will come in three waves
-
-This is a forecast, based on how credential theft has played out before.
-
-Wave 1 is now and runs for weeks. Automated exploitation of anything unpatched. Web shells and cryptominers installed. Config files and environment variables harvested at scale. Active sessions hijacked.
-
-Wave 2 starts within a week and continues for months. The harvested credentials are used: database logins from new places, cloud keys to pull data and OAuth secrets to mint tokens for SaaS applications. None of it requires an exploit, and all of it appears to be authorized access.
-
-Wave 3 runs for months or more. Leaked personal data and session details fuel targeted phishing and account takeover against your customers and employees. Some organizations will be breached through a vendor, partner or SaaS provider that ran PHP, patched late and rotated nothing. Their incident becomes yours.
-
-What to do about PHP2Shell, in order
-
-The Cybersecurity and Infrastructure Security Agency (CISA) has urged immediate patching but, at the time of writing, hasn't listed either CVE as known to be exploited. That is not a reason to wait; the first attempts came before any detection signature existed.
-
-In the next hours. Find every place PHP runs, including appliances that bundle it. Upgrade to PHP 8.5.12, 8.4.27, 8.3.36 or 8.2.35, or to your vendor's backported package; there is no complete workaround. Isolate anything you can't patch. Investigate from October 17, not the disclosure date.
-
-In the next days. Assume any secret the server could read is in someone else's hands. Inventory them, rotate them starting with the ones that reach the most systems, and invalidate active sessions. Then audit the systems those credentials open for use you didn't authorize.
-
-In the next months. Change what a web server is allowed to hold. Static secrets in files on an internet-facing host are standing privilege. Move them into a vault that rotates them automatically. Give applications and services just-in-time access scoped to the task, so a stolen credential stops working quickly and reaches only what the task needs. Put phishing-resistant authentication in front of the people who will be targeted. Ask your vendors which of these they've done.
-
-Where identity security does its work
-
-If a credential is stolen, the damage should stop at that credential. The Delinea Platform is built for that outcome; it limits how far an attacker can move and what they can reach if they get in.
-
-Credentials are vaulted and rotated automatically, and in brokered sessions they are injected at the proxy at the moment of use, so database passwords and API keys no longer live in config.php or .env. Access is granted just-in-time, scoped to the task and revoked when it's done. Each privileged action is authorized as it happens and tied to a named identity, so when the board, auditors or regulators ask what happened and why it was allowed, you have an answer.
-
-Patch today, then treat the patch as the beginning. Exploitation started before disclosure, so patching does not mean the attacker is gone, nor does it restore a single credential that was stolen. This is week one. Plan for the year.
-
-See how the Delinea Platform vaults and rotates the credentials PHP2Shell exposes.
-
-A note on Delinea: Delinea products and services do not use PHP and are not affected by these vulnerabilities. Read it in full at the Delinea Trust Center.
-
-Delinea Platform Powered by Delinea Iris AI
-
-Reduce risk across human and machine identities with intelligent, centralized authorization."
