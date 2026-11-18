@@ -1,5 +1,315 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-4b1b04fbd62d,f219abd484f9,2026-11-17 16:45 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Oracle November 2026 Critical Security Patch Update Addresses 640 CVEs (CVE-2026-114938),https://www.tenable.com/blog/oracle-november-2026-critical-security-patch-update-addresses-640-cves-cve-2026-114938,"8% of all patches Background On November 17, Oracle released its Critical Security Patch Update (CSPU) for November 2026","Oracle addresses 640 CVEs in its November 2026 Critical Security Patch Update with 655 patches, including 62 critical updates.
+374b0dd08221,11a9e447f3a8,2026-11-17 21:49 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Java4Shell (CVE-2026-114938): Frequently asked questions about OpenJDK remote code execution vulnerability,https://www.tenable.com/blog/java4shell-cve-2026-114938-frequently-asked-questions-about-openjdk-rce-vulnerability,"Later that day, Oracle released its November 2026 Critical Security Patch Update (CSPU), and the OpenJDK Vulnerability Group published its own advisory","Java4Shell is a flaw in how Java decodes Base64 data. Calif, which found it, says it can let attackers run code on widely used Java applications without logging in. Oracle released fixed Java builds on November 17, and Calif is withholding its exploits for individual applications for now.
+
+Key takeaways
+
+CVE-2026-114938, dubbed Java4Shell, is an OpenJDK memory corruption vulnerability that Oracle scores 8.1 on CVSS 3.1, and Calif says its testing showed attackers could run code without logging in on applications such as Atlassian Jira and Jenkins.
+
+As of November 17, Tenable is not aware of any reports that attackers have exploited this flaw, though Calif has published a PoC that triggers the bug without taking control of the system and a second researcher reports building a working exploit.
+
+Oracle released fixed builds on November 17, and according to Calif, only systems running an affected Java version on x86-64 processors that support AVX-512 VBMI can be affected.
+
+Background
+
+Tenable's Research Special Operations (RSO) team has compiled this blog to answer Frequently Asked Questions (FAQ) regarding Java4Shell, a vulnerability in OpenJDK that was patched on November 17, 2026.
+
+FAQ
+
+When was Java4Shell first disclosed?
+
+On November 17, security firm Calif said on X that it had found and reported the flaw, and that details of Java4Shell, as Calif named it, had leaked ahead of a fix. Later that day, Oracle released its November 2026 Critical Security Patch Update (CSPU), and the OpenJDK Vulnerability Group published its own advisory. Calif then published its technical write-up. Oracle credits Quang Luong of Calif.io and Albert Yang for reporting the vulnerability.
+
+Since the vulnerability has leaked: Calif discovered and reported Java4Shell (CVE-2026-114938).We're publishing technical details by 1 PM Pacific today, after Oracle releases a patch.Stay tuned! https://t.co/No5hJXK1Zx
+
+— Calif (@calif_io) November 17, 2026
+
+What is CVE-2026-114938?
+
+CVE
+
+Description
+
+CVSSv3.1
+
+CVE-2026-114938
+
+OpenJDK Base64 Decoder Memory Corruption Vulnerability (Java4Shell)
+
+8.1
+
+CVE-2026-114938 is a memory corruption vulnerability in the part of Java that decodes Base64, a common format that applications use to send data such as login details and file uploads. Oracle assigned it a CVSS 3.1 score of 8.1 and rates its attack complexity as high. Calif says it scores 9.2 under CVSS 4.0. An attacker does not need to log in to exploit it remotely. According to Oracle, the flaw can only be exploited when an application passes untrusted data to the affected Java APIs, such as through a web service.
+
+Is CVE-2026-114938 among the Java fixes in Oracle's November 2026 CSPU?
+
+Yes. CVE-2026-114938 is addressed by one of the 11 Java SE security patches in Oracle's November 2026 CSPU, released November 17. For a breakdown of all the patches in this release, see our blog post on Oracle's November 2026 CSPU.
+
+What is known about CVE-2026-114938?
+
+The flaw is in a performance shortcut that Java uses to decode Base64 data faster on certain Intel and AMD processors. When the shortcut receives a specially crafted Base64 string, it writes data beyond the memory it set aside. That can corrupt other information the application is holding in memory.
+
+According to Calif, an attacker can use this flaw in two ways. The first, which Calif calls ""JavaBleed,"" lets an attacker read the application's memory. That memory may hold secrets such as keys and tokens. The second lets an attacker run their own code on the server. Calif also says that each application needs its own exploit, and that a failed attempt can crash the application, though an attacker can often try again.
+
+Exposure depends on the processor as well as the Java version. According to Calif, Java uses the affected code only on x86-64 processors that support a feature called AVX-512 VBMI. These include Intel Xeon processors from the Granite Rapids, Emerald Rapids, Sapphire Rapids and Ice Lake families, as well as AMD processors based on Zen 4 or newer. Calif says systems with ARM64 processors are not affected. On Linux, a system meets this requirement when its processor reports all four of the avx512f, avx512bw, avx512vbmi and bmi2 flags.
+
+Which versions of Java are affected?
+
+The OpenJDK Vulnerability Group lists the Java 17, 21, 25 and 27 release lines as affected by CVE-2026-114938. Calif says OpenJDK 17.0.6 and newer are affected. Oracle lists the following Oracle builds as affected:
+
+Product
+
+Affected versions (and likely earlier)
+
+Oracle Java SE
+
+8u511b33-perf, 17.0.21.0.3, 21.0.13.0.3, 25.0.5.0.3, 27.0.1.0.3
+
+Oracle GraalVM for JDK
+
+17.0.21.0.3, 21.0.13.0.3
+
+Oracle GraalVM Enterprise Edition
+
+21.3.20.0.3
+
+Oracle lists only builds it supports and says earlier versions are likely also affected. The Java 8 build on Oracle's list is its Enterprise Performance Pack. The OpenJDK advisory does not list standard Java 8 or Java 11 as affected by this vulnerability.
+
+I don't use Oracle's Java builds. Am I affected?
+
+Possibly. The flaw is in OpenJDK code, and according to Calif, the following Java distributions built from OpenJDK are also vulnerable:
+
+Amazon Corretto
+
+Eclipse Temurin
+
+Microsoft Build of OpenJDK
+
+Azul Zulu
+
+BellSoft Liberica
+
+SAP SapMachine
+
+Red Hat OpenJDK
+
+Oracle OpenJDK
+
+Each vendor releases fixed builds on its own schedule, so check with your distribution's vendor for its fixed versions.
+
+Which applications are known to be affected?
+
+Calif says its initial testing showed that an attacker could run their own code on the following applications in their default configurations, when they run on an affected version of Java on a processor that supports AVX-512 VBMI. The list is not exhaustive, according to Calif.
+
+Application
+
+Calif's result
+
+Keycloak
+
+Exploitable before login
+
+Atlassian Jira
+
+Exploitable before login
+
+Atlassian Confluence
+
+Exploitable before login
+
+JFrog Artifactory
+
+Exploitable before login
+
+Jenkins
+
+Exploitable before login
+
+PingFederate
+
+Exploitable before login
+
+Apache Kafka Broker
+
+Exploitable after login
+
+Apache Solr
+
+Exploitable after login
+
+Elasticsearch
+
+Exploitable after login
+
+Gerrit
+
+Exploitable after login
+
+Spinnaker
+
+Exploitable after login
+
+Calif also said it ran its own code on sample applications built on frameworks including Apache Struts and Spring Boot. Calif adds that everyday functions, including authentication and file uploads, can lead to the vulnerable code, so more applications than the ones Calif tested may be exposed. Calif says researcher samczsun gave it a client-side exploit, and that a Java program can be compromised when it connects over TLS to a server an attacker controls, even if the program offers no service of its own. Calif says it will publish its exploits for individual products at a later date.
+
+Has Java4Shell been exploited in the wild?
+
+As of November 17, we are not aware of any reports of exploitation of CVE-2026-114938, and it is not listed in the Cybersecurity and Infrastructure Security Agency's (CISA) Known Exploited Vulnerabilities (KEV) catalog.
+
+Is there a proof-of-concept (PoC) available?
+
+Yes. Calif published a PoC alongside its write-up that triggers the flaw without taking control of the system. It shows whether a given Java version and processor reproduce the bug. It does not show whether a particular application is exposed.
+
+On November 17, Kevin Breen of Immersive said on X that they had developed a working exploit for CVE-2026-114938. According to Breen, the exploit has to be adapted to each application. It works only on a vulnerable version of Java running on a processor that supports AVX-512 VBMI, and only against applications that decode Base64 data. Breen also said that Apache Tomcat's Basic authentication and the java-jwt library provide ways to exploit the flaw before a user logs in. The post does not say that the exploit has been released.
+
+Have a functional exploit POC for CVE-2026-114938 aka Java4Shell. This is not a generic exploit and will need to be application specific, you need a CPU with AVX-512 VBMI support, vulnerable JDK Version, and the app needs to use Base64, note that tomcats basic auth and java-jwt…
+
+— KevTheHermit (@KevTheHermit) November 17, 2026
+
+Are patches available?
+
+Yes. On November 17, Oracle released the following fixed builds:
+
+Java line
+
+Affected Oracle build
+
+Fixed Oracle build
+
+Java 8 Enterprise Performance Pack
+
+8u511b33-perf
+
+8u513-perf
+
+Java 17
+
+17.0.21.0.3
+
+17.0.21.1
+
+Java 21
+
+21.0.13.0.3
+
+21.0.13.1
+
+Java 25
+
+25.0.5.0.3
+
+25.0.5.1
+
+Java 27
+
+27.0.1.0.3
+
+27.0.1.1
+
+For Oracle GraalVM, see Oracle's advisory. For other Java distributions, see each vendor's advisory.
+
+Are there any mitigations?
+
+Calif identified two Java startup options that keep the vulnerable code from running. The first, -XX:-UseBASE64Intrinsics, turns off the Base64 shortcut. The second, -XX:UseAVX=2, turns off AVX-512 instructions. According to Calif, the second option applies only to x86-64 systems, and Java on ARM processors fails to start with it. Neither Oracle nor the OpenJDK Vulnerability Group mentions these options in its advisory.
+
+Has Java been targeted historically?
+
+Yes. CISA's KEV catalog includes 13 vulnerabilities in Oracle Java SE and the Java Runtime Environment (JRE), six of which are known to have been used in ransomware campaigns. Those six are:
+
+CVE
+
+KEV name
+
+Added to KEV
+
+CVE-2013-0431
+
+Oracle JRE Sandbox Bypass Vulnerability
+
+May 25, 2022
+
+CVE-2013-0422
+
+Oracle JRE Remote Code Execution Vulnerability
+
+May 25, 2022
+
+CVE-2013-2465
+
+Oracle Java SE Unspecified Vulnerability
+
+March 28, 2022
+
+CVE-2012-4681
+
+Oracle Java SE Runtime Environment (JRE) Arbitrary Code Execution Vulnerability
+
+March 3, 2022
+
+CVE-2012-1723
+
+Oracle Java SE Runtime Environment (JRE) Arbitrary Code Execution Vulnerability
+
+March 3, 2022
+
+CVE-2012-0507
+
+Oracle Java SE Runtime Environment (JRE) Arbitrary Code Execution Vulnerability
+
+March 3, 2022
+
+Has Tenable Research classified this vulnerability as part of Vulnerability Watch?
+
+Yes. CVE-2026-114938 has been classified as a ""Vulnerability of Interest"" as part of Vulnerability Watch.
+
+Are Tenable products affected by this vulnerability?
+
+Tenable is aware of this vulnerability and is investigating whether it affects any Tenable products.
+
+Has Tenable released any product coverage for this vulnerability?
+
+A list of Tenable plugins for this vulnerability can be found on the individual CVE page for CVE-2026-114938 as they're released. This link will display all available plugins for this vulnerability, including upcoming plugins in our Plugins Pipeline.
+
+How can Tenable customers find affected assets?
+
+Tenable One Vulnerability Management customers can go to Explore > Software to view installed software across their assets, then filter by product name and version to look for Java installations to compare against the affected versions above. Exposure also depends on the processor, as described above. Software data comes from credentialed and agent scans. For details, see Use the Software Page.
+
+Tenable One Vulnerability Management customers can also use the Java Visibility and Exposures report, which lists Java installations and the hosts where they were detected.
+
+Tenable One Attack Surface Management customers can find internet-facing assets running Java with the filter Programming Languages contains Java. Those assets can then be scanned with other Tenable sensors to check whether they are affected by CVE-2026-114938.
+
+Get more information
+
+Calif: Java4Shell: Write once, RCE everywhere
+
+Oracle Critical Security Patch Update Advisory - November 2026
+
+OpenJDK Vulnerability Advisory: November 17, 2026
+
+Tenable Blog: Oracle November 2026 Critical Security Patch Update Addresses 640 CVEs (CVE-2026-114938)
+
+Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats."
+ba10c920c1ad,3b78ed20d862,2026-11-18 02:00 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,[R1] Tenable OT Version 4.8.66 Fixes Multiple Vulnerabilities,https://www.tenable.com/security/tns-2026-38,"Advanced Support Plan Features Phone Support Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
+
+Advanced Support Plan Features
+
+Phone Support
+
+Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
+
+Chat Support
+
+Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
+
+Tenable Community Support Portal
+
+All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
+
+Initial Response Time
+
+P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
+
+Support Contacts
+
+Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
+4b1b04fbd62d,11a9e447f3a8,2026-11-17 16:45 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Oracle November 2026 Critical Security Patch Update Addresses 640 CVEs (CVE-2026-114938),https://www.tenable.com/blog/oracle-november-2026-critical-security-patch-update-addresses-640-cves-cve-2026-114938,"8% of all patches Background On November 17, Oracle released its Critical Security Patch Update (CSPU) for November 2026","Oracle addresses 640 CVEs in its November 2026 Critical Security Patch Update with 655 patches, including 62 critical updates.
 
 Key Takeaways
 
@@ -3309,113 +3619,7 @@ P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
 Support Contacts
 
 Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
-63a679ae82ed,2b62329cc6f4,2026-10-22 18:04 UTC,"Attacks, Breaches & Threat Intel",Tenable,Tenable Blog,Threat Intelligence; Identity Security Posture Management; Vulnerability Management,Article,The adversary economy: How threat actors are reacting to PHP2Shell,https://www.tenable.com/blog/php2shell-vulnerability-threat-actor-response,"They evaluate this exposure in precisely the same terms as a CISO assessing a critical unpatched vulnerability: the question is not whether someone will attempt exploitation,...","Two critical PHP vulnerabilities sent criminal forum operators scrambling to protect their own infrastructure, revealing that threat actors face the same exposure management challenges as the organizations they target.
-
-Key takeaways
-
-The adversary economy operates on the same fundamental principles as the legitimate economy.
-
-Forum self-evacuations: Criminal forums including BreachForums initiated emergency infrastructure migrations, taking themselves offline within hours of PHP2Shell disclosure, citing direct risk to their operations.
-
-Underground operators face a dual threat: both law enforcement and rival criminal groups could weaponize PHP2Shell against forum infrastructure storing member identities, private communications, and stolen credentials.
-
-The adversary response mirrors legitimate enterprise incident response, including emergency patching, platform migration, and business continuity planning.
-
-Historical precedent from the 2024 BreachForums seizure conditioned criminal operators to treat infrastructure vulnerabilities as existential business risks
-
-Background
-
-PHP powers an estimated 75% of websites with identifiable server-side technology, making it the backbone of the modern web. That infrastructure extends far beyond legitimate businesses. Criminal forums, dark web marketplaces, and underground communication platforms rely on the same PHP-based software stacks, such as phpBB, custom forum engines, and web-based administration panels, that power their legitimate counterparts.
-
-On Oct. 20, 2026, two critical unauthenticated remote code execution vulnerabilities in PHP were publicly disclosed: CVE-2026-109618 (OOM Corruption) and CVE-2026-109619 (Stale Global State), each carrying a CVSS v4.0 score of 9.2. The two flaws target different stages of PHP’s memory management, and chaining them together yields a more reliable exploitation path than either alone. Researchers credit frontier AI models with both the initial discovery and the exploitation chain connecting them. Tenable Vulnerability Watch classified both as Vulnerabilities of Concern (VOC). Within hours, the cybersecurity community began its familiar cycle of assessment, patching, and remediation. (For a full technical breakdown, see our blog “php2shell: Frequently asked questions about critical PHP remote code execution vulnerabilities”.)
-
-At the same time, a parallel response was already underway including criminal forum self-evacuations and steps to protect the adversary economy.
-
-“We take our security seriously”
-
-The adversary economy operates on the same fundamental principles as the legitimate economy. Criminal operators invest in infrastructure, manage risk, plan for business continuity, and respond to threats against their operations with the same systematic urgency that any well-run organization would apply. From the credential theft supply chains we documented earlier this year to the infrastructure-level emergency playing out now, a consistent pattern emerges: the underground functions as an economy, and economies have attack surfaces. PHP2Shell affected both sides of the security divide simultaneously, and the underground's response demonstrates that sophisticated threat actors have already internalized the severity of this exposure.
-
-Within 48 hours of PHP2Shell disclosure, administrators across multiple major criminal forums posted emergency notices to their communities. BreachForums, one of the largest English-language criminal marketplaces, posted an advisory that included a phrase familiar to anyone who has read a corporate breach notification: “We take our security seriously.”
-
-The irony is difficult to overstate. A platform best known for trafficking stolen credentials, facilitating ransomware operations, and hosting leaked corporate data deployed the same language that Fortune 500 companies use after their own security incidents. But behind the borrowed corporate-speak was genuine operational urgency.
-
-BreachForums was not alone. DarkForums posted its own shutdown notice: “DF will remain offline until PHP has been patched globally.” PwnForums went dark without explanation. Dread, the Reddit-like platform serving the Tor ecosystem, posted a maintenance notice explicitly naming both CVEs. Several forums temporarily restricted new registrations, and others migrated critical communications to Telegram channels as a contingency measure, treating their PHP-based web platforms as potentially compromised infrastructure.
-
-The dual threat
-
-The urgency behind these evacuations reflects a threat model that legitimate organizations would recognize immediately. Criminal forums run on PHP infrastructure, and that infrastructure stores exactly the kind of data that makes a vulnerability like PHP2Shell catastrophic.
-
-The simultaneous self-evacuation is a significant behavioral indicator. Analysis from DarkOwl, a dark web intelligence firm, highlighted the scope of what sits behind a typical forum’s PHP application layer: member email addresses, IP logs, private messages, financial transaction records, and the very stolen credentials that members uploaded for sale. A successful exploit of a forum’s PHP stack would not merely disrupt the platform. It would expose the identities and operational security of every participant.
-
-Forum operators face a threat that most legitimate businesses do not: the adversary attacks from two directions simultaneously. Law enforcement agencies have demonstrated both the capability and the willingness to exploit criminal infrastructure, as the FBI’s operation against Hive ransomware and multiple forum takedowns have shown. But rival criminal groups represent an equally serious threat. Competing forums, extortionists, and opportunistic hackers all have incentive to breach a rival platform’s database to steal its user base, to extort its operators, or to eliminate competition.
-
-This dual threat transforms a PHP vulnerability from a technical issue into an existential business risk. The criminal underground last evacuated platforms at this scale during the 2024 BreachForums seizure — but that response was triggered by law enforcement action. PHP2Shell marks the first time a technical vulnerability in shared infrastructure provoked the same reaction, a shift suggesting criminal operators now treat their PHP dependency as a systemic single point of failure. They evaluate this exposure in precisely the same terms as a CISO assessing a critical unpatched vulnerability: the question is not whether someone will attempt exploitation, but when.
-
-The BreachForums lesson
-
-That institutional memory was shaped by hard experience. The 2024 FBI seizure of BreachForums demonstrated in concrete terms what happens when criminal infrastructure is compromised.
-
-That seizure resulted in the exposure of operational details, the arrest of the forum’s administrator, and the disruption of thousands of active criminal operations that depended on the platform. For the underground economy, it was the equivalent of a major supply chain breach: a single point of failure that cascaded across an entire ecosystem.
-
-The lesson was absorbed. Criminal operators began treating their web infrastructure as a single point of failure requiring the same resilience planning that legitimate enterprises apply to critical systems. PHP2Shell validated that concern. The two CVEs affect every PHP version below 8.3, meaning that the approximately 59% of internet-facing PHP hosts running end-of-life branches are permanently exposed absent a version upgrade. Criminal forums running older PHP versions face the same impossible math as any enterprise with a large install base of unsupported software: the patch does not exist, and the only remediation is migration.
-
-From defense to offense: the exploit economy
-
-The criminal underground’s relationship with PHP2Shell extends beyond defensive measures. Intelligence reporting indicates that exploit code for both CVEs circulated in private channels before the public embargo lifted, with pre-disclosure exploitation observed as early as Oct. 17 from infrastructure traced to an IP address geolocated in Australia.
-
-The exploit development pipeline has accelerated in ways that should concern every organization running PHP. Researchers have documented the use of AI-assisted vulnerability analysis tools to accelerate the development of working exploits and to identify additional exploitation vectors within the disclosed vulnerability classes. This represents a broader trend in which the same AI capabilities that accelerate defensive security research simultaneously compress the window between disclosure and weaponization.
-
-The monetization forecast follows a pattern we have documented before. The developer credential economy operates through three layers (generation, distribution, and weaponization), and PHP2Shell maps cleanly onto each. Initial access brokers will package PHP2Shell exploitation into their service offerings. Ransomware affiliates will incorporate the vulnerabilities into their initial access playbooks. And the criminal forums that patched their own infrastructure will become the marketplaces for selling access to organizations that did not. We saw a preview of this commoditization cycle during the Miasma campaign, where open-sourced attack toolchains accelerated exploitation at scale. The adversary economy is efficient: the same operators who scrambled to protect their own PHP stacks will profit from organizations that fail to do the same.
-
-What this means for defenders
-
-The criminal underground’s reaction to PHP2Shell is, paradoxically, one of the clearest available signals of the vulnerability’s severity. When threat actors treat a disclosure as an emergency requiring immediate operational response, defenders should calibrate their own urgency accordingly.
-
-Organizations running PHP should treat both CVE-2026-109618 and CVE-2026-109619 as immediate remediation priorities. Every PHP version below 8.3 is affected, and no patches will be issued for end-of-life branches including all of PHP 5.x, 7.x, 8.0, 8.1, and 8.2. For environments where an immediate upgrade is not feasible, compensating controls including web application firewalls, network segmentation, and enhanced monitoring for exploitation indicators should be deployed without delay. The criminals have already patched. The question for every organization is whether they will do the same before the exploit economy catches up.
-
-Identifying affected systems
-
-A list of Tenable plugins for these vulnerabilities can be found on the individual CVE pages for CVE-2026-109618 and CVE-2026-109619 as they’re released. This link will display all available plugins for these vulnerabilities, including upcoming plugins in our Plugins Pipeline.
-
-Get more information
-
-PHP Security Advisory — CVE-2026-109618
-
-PHP Security Advisory — CVE-2026-109619
-
-CISA Known Exploited Vulnerabilities Catalog
-
-The developer credential economy: Why exposure data is the new front line in the supply chain war
-
-What the Miasma campaign reveals about the new supply chain threat model and the underground
-
-Join Tenable’s Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
-
-Learn more about the Tenable One Exposure Management Platform, the exposure management platform for the modern attack surface."
 6200665e4c31,d49109ad8501,2026-10-22 14:37 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,"[R2] Stand-alone Security Patch Available for Tenable Enclave Security Versions 1.7.0, 1.8.0, 1.9.1: SC-202610.1",https://www.tenable.com/security/tns-2026-29,"<span>[R2] Stand-alone Security Patch Available for Tenable Enclave Security Versions 1.7.0, 1.8.0, 1.9.1: SC-202610.1</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-22T10:37:49-04:00"" title=""Thursd","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
-
-Advanced Support Plan Features
-
-Phone Support
-
-Phone support 24 hours a day, 365 days a year, available for up to ten (10) named support contacts.
-
-Chat Support
-
-Chat support available to named support contacts, accessible via the Tenable Community is available 24 hours a day, 365 days a year.
-
-Tenable Community Support Portal
-
-All named support contacts can open support cases within the Tenable Community. Users can also access the Knowledge Base, documentation, license information, technical support numbers, etc.; utilize live chat, ask questions to the Community, and learn about tips and tricks from other Community members.
-
-Initial Response Time
-
-P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
-
-Support Contacts
-
-Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
-d49109ad8501,d49109ad8501,2026-10-22 14:06 UTC,Vulnerabilities & Patching,Tenable,Tenable Product Security Advisories,Vulnerability Management,Article,"[R2] Stand-alone Security Patch Available for Tenable Security Center Versions 6.6.0, 6.7.2, 6.8.0, 6.9.1: SC-202610.1",https://www.tenable.com/security/tns-2026-28,"<span>[R2] Stand-alone Security Patch Available for Tenable Security Center Versions 6.6.0, 6.7.2, 6.8.0, 6.9.1: SC-202610.1</span> <span><a title=""View user profile."" href=""https://www.tenable.com/profile/arnie-cabral"">Arnie Cabral</a></span> <span><time datetime=""2026-10-22T10:06:27-04:00"" title=""","With Advanced Support for Nessus Pro, your teams will have access to phone, Community, and chat support 24 hours a day, 365 days a year. This advanced level of technical support helps to ensure faster response times and resolution to your questions and issues.
 
 Advanced Support Plan Features
 

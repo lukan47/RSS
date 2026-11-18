@@ -1,4 +1,185 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+f5932cffc9a2,11a9e447f3a8,2026-11-17 23:00 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,"How to Find, Mitigate, and Patch the Critical Java4Shell Flaw (CVE-2026-114938) Now",https://blog.qualys.com/vulnerabilities-threat-research/2026/11/17/how-to-find-mitigate-and-patch-the-critical-java4shell-flaw-cve-2026-114938-now,Executive Summary Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder,"Executive Summary
+
+Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder. The researchers who found it rate it 9.2 under CVSS v4.0, and Oracle rates it 8.1 under CVSS v3.1. An attacker with no credentials can corrupt Java heap memory, read secrets from it, and reach remote code execution. Researchers demonstrated pre-authentication RCE on default installations of Keycloak, Jira, Confluence, Artifactory, Jenkins, and PingFederate. Unpatched OpenJDK builds from 17.0.6 onward, from any vendor, are affected when they run on x86-64 processors with AVX-512 VBMI, which includes Intel Xeon from Ice Lake through Granite Rapids and AMD EPYC from Zen 4 onward. Oracle released fixes on November 17, 2026, and a single JVM flag closes the exposure where patching has to wait. CISA has issued an alert urging organizations to patch immediately. Start with internet-facing identity, CI/CD, and collaboration systems, and assign an owner and a deadline to every system still unpatched.
+
+What’s at Risk
+
+A Critical Java Flaw Could Hand Attackers Your Identity and Build Servers.
+
+Java4Shell is in the Java runtime itself, so no application or library has to be at fault for a service to be exposed. The flaw sits in handwritten assembly that speeds up Base64 decoding with AVX-512 instructions. A short malformed input makes that code write 62 bytes past the end of a buffer before Java rejects the input.
+
+Base64 carries login headers, tokens, and file uploads, so the vulnerable code often runs before a user has authenticated. Calif, the firm that discovered the flaw, demonstrated remote code execution against the following products in their default configurations:
+
+Access required
+
+Products
+
+None (pre-authentication)
+
+Keycloak, Atlassian Jira, Atlassian Confluence, JFrog Artifactory, Jenkins, PingFederate
+
+Authenticated user
+
+Apache Kafka Broker, Apache Solr, Elasticsearch, Gerrit, Netflix Spinnaker
+
+The researchers say these lists are not exhaustive. They also reached RCE in sample applications built on Apache Struts and Spring Boot.
+
+The pre-authentication list is where the business risk concentrates. Identity providers issue the tokens every other system trusts, and build and artifact servers sign and ship your software. A compromise of either can expose downstream systems that trust its identities, tokens, or software artifacts.
+
+Code execution is not the only outcome. A successful exploit chain can read Java heap memory before it runs any attacker code. That memory can hold private keys, tokens, and personal data. CISA also warns that crafted input can crash the JVM, so availability is at risk too. Java clients are exposed as well. The researchers report a client-side exploit in which a Java program is compromised simply by connecting over TLS to a malicious server.
+
+Are You Affected?
+
+A system is in scope only when both conditions are true. For an attack to work, attacker-controlled data must also reach the vulnerable Base64 decoding path in the application.
+
+Condition
+
+Affected
+
+Not affected
+
+Java runtime
+
+Unpatched OpenJDK-based builds from 17.0.6 onward, including 21, 25, and 27. Also Oracle Java SE 8 Enterprise Performance Pack 8u511b33-perf
+
+Releases before 17.0.6, including standard OpenJDK 8 and 11. Also any vendor build that contains the fix
+
+Processor
+
+x86-64 with AVX-512 VBMI: Intel Xeon (Ice Lake, Sapphire Rapids, Emerald Rapids, Granite Rapids), AMD EPYC and Ryzen (Zen 4 and newer)
+
+ARM64, and x86-64 without AVX-512 VBMI
+
+The runtime condition covers every OpenJDK-based distribution: Oracle Java SE, Oracle OpenJDK, Oracle GraalVM for JDK, Eclipse Temurin, Amazon Corretto, Microsoft Build of OpenJDK, Azul Zulu, BellSoft Liberica, SAP SapMachine, and Red Hat OpenJDK. There is one exception on Java 8. Oracle lists the 8u511b33-perf build of Java SE 8 as vulnerable.
+
+On Linux, run this command to check the processor. The host meets the hardware condition only if all four flags appear.
+
+grep -m1 ‘^flags’ /proc/cpuinfo | tr ‘ ‘ ‘\n’ | grep -E ‘^(avx512f|avx512bw|avx512vbmi|bmi2)$’
+
+Two cautions when scoping:
+
+Check the runtime each application actually runs. Many products and container images bundle their own JDK, which operating system updates do not touch. CISA notes that bundled runtimes, including those in appliances, may not appear as separate entries in a software inventory.
+
+Use the processor condition to order the work, not to close findings. A workload on an unaffected CPU today can land on an affected one after an instance resize or a move to newer hardware.
+
+Exploitation Status
+
+As of November 17, 2026, we have not seen public confirmation of exploitation in the wild. Do not plan around that. The trigger is a short malformed Base64 string; the root cause and exploitation technique are public, and the researchers have said details of the bug leaked before the patch.
+
+The researchers are holding back their product-specific exploits until organizations have had time to upgrade, and plan to publish them later. They report finding the bug with AI assistance in about an hour and having a first working exploit two hours after that, for under $200 in AI token costs. Expect others to repeat that work.
+
+There is one limit worth knowing. No universal exploit exists: each product needs its own chain, and the technique is sensitive to network conditions. That slows mass exploitation. It does not protect a specific target such as your identity provider.
+
+What to Do Now
+
+Updating the Java runtime is the only complete fix. Oracle released fixed builds on November 17, 2026.
+
+Oracle Java SE
+
+Fixed build
+
+8 Enterprise Performance Pack
+
+8u513-perf
+
+17
+
+17.0.21.1
+
+21
+
+21.0.13.1
+
+25
+
+25.0.5.1
+
+27
+
+27.0.1.1
+
+Other OpenJDK vendors publish on their own schedules. As of November 17, 2026, Amazon had released Corretto 17.0.21.1.2 with the fix. Use your vendor’s advisory to identify the fixed build and confirm it addresses CVE-2026-114938.
+
+If you cannot patch today, there is a temporary workaround. It is a startup setting for Java, applied by the team that runs the application, and it takes effect after a restart. You need only one of the two options below.
+
+Preferred: -XX:-UseBASE64Intrinsics. This turns off the fast Base64 decoder where the bug lives. Java falls back to its standard decoder, and everything else runs as before. Applications that decode large amounts of Base64 may run slower, so test first.
+
+Alternative: -XX:UseAVX=2. This turns off a wider set of processor optimizations, including the vulnerable one, so the performance cost is broader. Use it only on Intel and AMD servers. Java on ARM does not accept this setting and will not start.
+
+Neither option replaces the patch.
+
+Either way, restart every Java process. A patch or a flag takes effect only when the JVM restarts, so verify the running process and not only the installed package. Do not rely on a reverse proxy as a control. Request buffering breaks some exploit chains but is not a general mitigation.
+
+Reduce exposure while you wait for a patch. Take identity, build, and collaboration consoles off the open internet, or put them behind a VPN, until they are patched. CISA also suggests validating Base64 input and enforcing input-size limits at the application boundary. Size limits alone will not stop this bug, because the malformed input is very short. The JVM flag above is the more direct stopgap because it removes the vulnerable code.
+
+Work in this order:
+
+Internet-facing identity providers such as Keycloak and PingFederate.
+
+Internet-facing Jira, Confluence, Jenkins, and Artifactory.
+
+Other internet-facing Java services that handle logins, tokens, or file uploads.
+
+Internal Java systems, starting with Kafka, Solr, Elasticsearch, Gerrit, and Spinnaker.
+
+Assign an owner and a remediation deadline to every system that is waiting on a vendor build.
+
+What to Watch For
+
+CISA advises monitoring for rogue runtimes, unexpected JVM crashes, and suspicious Java processes. Qualys TRU suggests starting with these checks:
+
+Unexpected JVM crashes or restarts on internet-facing Java services.
+
+Java processes that start a shell or open outbound connections they have not made before.
+
+Java runtimes on a host that your inventory does not account for.
+
+How Qualys Can Help
+
+Qualys helps you respond to Java4Shell: discover and assess exposure using Qualys CyberSecurity Asset Management (CSAM). It inventories Java installations across your assets and helps put internet-facing ones first.
+
+Use the following CSAM query to identify potentially affected OpenJDK installations across Java 17, 21, 25, and 27 for further assessment.
+
+software:(name:""OpenJDK"" AND ((version>=17.0.6 AND version<17.0.21.1) OR(version>=21 AND version<21.0.13.1) OR(version>=25 AND version<25.0.5.1) OR(version>=27 AND version<27.0.1.1)))
+
+As distributions publish their own advisories, InstaScan turns them into findings without waiting for the next scheduled scan.
+
+Detection QIDs
+
+Qualys is releasing the following detection QIDs. We will add distribution-specific detection QIDs to this blog as they are released.
+
+QID
+
+Detection Title
+
+Release
+
+389494
+
+OpenJDK Remote Code Execution Vulnerability (CVE-2026-114938) (Java4Shell)
+
+TBD, release by EOD PST
+
+389610
+
+Oracle Java Standard Edition (SE) November 2026 Critical Patch Update (CPUNOV2026)
+
+TBD, release by EOD PST
+
+389608
+
+Amazon Corretto 17, 21, 25 and 27 Security Update (NOV26)
+
+TBD, release by EOD PST
+
+References
+
+Calif: Java4Shell: Write once, RCE everywhere
+
+Oracle: Critical Security Patch Update, November 2026
+
+CISA: Critical Java Vulnerability Requires Immediate Patching: https://www.cisa.gov/news-events/alerts/2026/11/17/critical-java-vulnerability-requires-immediate-patching"
 e7804108c096,e7804108c096,2026-11-17 16:30 UTC,General Security News,Qualys,Qualys Blog,AI Security; Endpoint Security; Vulnerability Management,Article,"Run Your Qualys Program by Conversation, Inside Google Cloud’s Gemini Enterprise",https://blog.qualys.com/product-tech/2026/11/17/qualys-rocky-gemini-enterprise-google-cloud-marketplace,"” against live Qualys data: a worklist ranked by risk, with CISA KEV, weaponized-exploit, and malware context and the affected hosts for each fix A Day in the Life An overdue...","Qualys ROCky for Gemini Enterprise, now available on Google Cloud Marketplace, allows you to ask your vulnerability, asset, and risk questions, get an answer ranked by real risk, and act on it, without leaving Gemini Enterprise.
 
 With the introduction of frontier AI models, vulnerabilities are now being discovered and weaponized at machine speed. Unfortunately, most security teams still triage at human speed. A typical enterprise carries thousands of open findings and can fix only a small fraction of them, yet leadership still expects a straight answer to a simple question: Are we keeping up? Getting that answer usually means exporting a scan, building a spreadsheet, and losing an afternoon.
@@ -2279,171 +2460,4 @@ The organizations that succeed will not be those that discover the most vulnerab
 That is the purpose of the Risk Operations Center.
 
 And that is why the Risk Operations Center is emerging as the operating system for proactive cyber risk reduction in the age of AI."
-3b7e4bbdf3c1,3b7e4bbdf3c1,2026-11-04 16:00 UTC,General Security News,Qualys,Qualys Blog,Server & Workload Protection; Container Security; Cloud Risk Management; Vulnerability Management,Article,"Cloud Agent, now in a Container: Host Security for Nodes You Can’t Touch",https://blog.qualys.com/product-tech/2026/11/04/cloud-agent-now-in-a-container-host-security-for-nodes-you-cant-touch,"TotalCloud KCS also holds the Red Hat Vulnerability Scanner Certification, which extends its detection accuracy to Red Hat OpenShift, RHEL, and CoreOS","A single container image that brings Vulnerability Management and Policy Audit to every Kubernetes node, on immutable and mutable Linux alike, deployed the way your container workloads already are.
-
-Key Takeaways
-
-The Qualys Cloud Agent is now available as a container image on Docker Hub, bringing host-based Vulnerability Management and Policy Audit to every Kubernetes node without touching the host’s package manager.
-
-It runs as a Kubernetes DaemonSet, so every node that joins the cluster automatically gets an agent. It can be deployed and upgraded through YAML manifests or a unified Helm chart that also deploys Qualys Container Security sensors, for full-stack coverage in a single install.
-
-A single image covers container-optimized operating systems such as AWS Bottlerocket, Google Container-Optimized OS, and Red Hat CoreOS, as well as RPM- and Debian-based Linux, including Azure Linux, on both Intel/x64 and ARM.
-
-Policy Audit includes CIS-certified policies for AWS Bottlerocket and Google Container-Optimized OS, and all findings are prioritized with Qualys TruRisk alongside the rest of your estate.
-
-Paired with Qualys TotalCloud Kubernetes and Container Security (KCS), it delivers full-stack coverage across the host OS, running containers, and the Kubernetes control plane.
-
-The AI Era Is a Container Era
-
-The AI era isn’t arriving on bare metal. It’s arriving on Kubernetes. Model training pipelines, inference services, vector databases, and the agentic workloads that orchestrate them are being built as containers and scheduled across clusters that scale up and down by the minute. The unit of compute is no longer the server. It’s the container, and the node it happens to be running on right now.
-
-That shift changes the math for security teams. The attack surface is no longer a fleet of servers you can enumerate and patch on a monthly cycle. It’s a fleet of nodes that may exist for hours, boot into operating systems that don’t allow you to install a package, and host workloads that move between them without warning. Every one of those nodes is a host, and every host operating system carries its own vulnerabilities and its own configuration risk, regardless of what’s running in the containers above it.
-
-Qualys TotalCloud Kubernetes and Container Security (KCS) extends build-to-runtime coverage for images, containers, and serverless workloads.
-
-The Problem: Host Security Wasn’t Built for Container Platforms
-
-For years, securing a host meant one thing: install an RPM or a DEB on it. That model worked when hosts were long-lived and homogeneous. It breaks down in container platforms in two ways.
-
-Container-optimized operating systems don’t accept packages. AWS Bottlerocket, Google Container-Optimized OS (COS), Red Hat CoreOS, and their peers deliberately lock down the root filesystem and remove the package manager. There’s nothing to yum install. Security tooling has to run the way everything else on these nodes runs: as a container.
-
-Package-based deployment doesn’t fit orchestrated environments. Kubernetes teams manage everything through manifests, Helm charts, and GitOps pipelines. A security agent that has to be installed out of band, node by node, is the one thing on the cluster that isn’t declared, versioned, and reconciled like everything else. It also can’t keep up: a node pool that scales from ten nodes to two hundred during a training run needs security coverage on every node it creates, automatically.
-
-The result is a coverage gap at the foundation. Teams invest in scanning container images and monitoring running containers, and rightly so. But the container runtime, the kubelet, the kernel, and every system library sit on the host OS. If that layer is unmonitored, a clean image running on a vulnerable node is still a vulnerable workload.
-
-The Solution: Qualys Cloud Agent as a Container Image
-
-The Qualys Cloud Agent is now available as a container image, published directly to Docker Hub under the verified Qualys publisher account. It runs on every node in your cluster as a DaemonSet and delivers the same host-based Vulnerability Management and Policy Audit that the Qualys Cloud Agent provides on any other platform, without touching the host’s package manager.
-
-Qualys Cloud Agent container images on Docker Hub under the verified Qualys publisher.
-
-The image ships with the Qualys Cloud Agent pre-installed and dynamically pulls down the components it needs at runtime, such as application manifests and supporting utilities, so it stays lightweight while remaining fully functional. Because it’s deployed through Kubernetes, the orchestrator does the work your provisioning scripts used to do: every node that joins the cluster gets an agent, and every node that leaves takes its agent with it.
-
-Intel/x64 image: qualys/cloud-agent-container-x64
-
-ARM image: qualys/cloud-agent-container-arm
-
-How Qualys secures the container stack, from the host operating system to running containers and the Kubernetes control plane.
-
-Once you’ve pulled the image, you can download the deployment YAMLs, and a Qualys Helm chart is published on Artifact Hub so the agent can be installed, versioned, and upgraded through the same Helm workflow as the rest of your cluster.
-
-Why It Matters: The Benefits
-
-Combined with TotalCloud KCS, the Containerized Cloud Agent gives you full-stack coverage across the host OS, running containers, and the Kubernetes control plane, for vulnerabilities, audit, and posture, as well as runtime security, drift, and threat detection.
-
-Full Host Coverage for Container-Optimized and Immutable Operating Systems
-
-Immutable operating systems are the right choice for container platforms: a smaller attack surface, atomic updates, and a root filesystem that can’t drift. But immutability cuts both ways. If you can’t install anything, you can’t install a traditional agent, and many teams have run these nodes blind. The Containerized Cloud Agent closes that gap. It runs as a privileged container with the host mounts it needs to assess the underlying OS, so Bottlerocket, COS, and CoreOS nodes get the same vulnerability and compliance visibility as a conventional Red Hat Enterprise Linux (RHEL) server, with no changes to the host image and no compromise to the immutability that made you choose that OS in the first place.
-
-Qualys has been building this coverage across the major cloud platforms for years:
-
-Securing Red Hat CoreOS on OpenShift
-
-Scanning AWS Bottlerocket in Amazon EKS and Amazon ECS
-
-Scanning Container-Optimized OS in Google Kubernetes Engine
-
-Qualys for Microsoft Azure Linux in AKS and Azure Container Instances
-
-Your Choice of Agent on Mutable Linux, Too
-
-The Containerized Cloud Agent isn’t limited to immutable operating systems. It also runs on the RPM- and Debian-based distributions that make up the bulk of self-managed and cloud Kubernetes nodes today. That’s a meaningful change. Previously, a RHEL or Ubuntu node meant installing the RPM or DEB package, full stop. Now you choose. Teams with a mix of virtual machines (VMs) and containers can keep the package on VMs and use the Containerized Cloud Agent on cluster nodes. Teams that are all-in on Kubernetes can standardize on the Containerized Cloud Agent everywhere and never manage a host package again. Either way, the data lands in the same place, with the same detections and the same TruRisk scoring.
-
-Deployment That Fits How You Already Run Kubernetes
-
-The Containerized Cloud Agent is a DaemonSet, which means the orchestrator guarantees one agent per node, on every node, for the life of the cluster. Autoscaling node pools, spot instances that get reclaimed, and cluster upgrades that replace every node are all handled without a ticket, a script, or a human. Coverage becomes a property of the cluster rather than a task someone has to remember.
-
-Because it’s delivered as a Helm chart and YAML manifests, the agent lives in the same GitOps repository as your workloads. Upgrading is a tag change and a pull request. Rolling back is a revert. Node selectors and tolerations let you target specific pools, and the same manifest works across dev, staging, and production. Security stops being the exception to your deployment model.
-
-One Image Across Every Operating System
-
-You don’t need a Bottlerocket build, a CoreOS build, and an Ubuntu build. A single Containerized Cloud Agent image runs across all supported operating systems. That collapses your deployment matrix: one image to vet through your supply-chain controls, one image to pin and version, one DaemonSet manifest to maintain. When a new agent release ships, it’s one tag to update across the entire estate. Images that comply with Federal Information Processing Standards (FIPS) are available for environments that require them.
-
-Complete Coverage Across Intel and ARM
-
-Cluster node pools increasingly mix x86 and ARM instances, with Graviton, Cobalt, and Axion sitting alongside traditional Intel and AMD nodes. Images are published for both Intel/x64 and ARM, so a multi-architecture cluster gets consistent coverage without special-casing by pool.
-
-Full-Stack Coverage at a Glance
-
-The Containerized Cloud Agent runs the complete Qualys Cloud Agent on every node, assessing the host OS against the Qualys KnowledgeBase for vulnerabilities and against Center for Internet Security (CIS) Benchmarks through Qualys Policy Audit. Here’s how coverage splits across the stack:
-
-Capability
-
-Covered by
-
-Vulnerability Management
-
-Host: Containerized Cloud Agent. Containers: TotalCloud KCS
-
-Drift detection
-
-TotalCloud KCS
-
-Compliance (CIS Benchmarks)
-
-Data plane: Qualys Policy Audit. Control plane: TotalCloud KCS (Kubernetes Security Posture Management, or KSPM)
-
-Threat detection and response/runtime security
-
-TotalCloud KCS, via eBPF runtime sensors
-
-Findings from both Vulnerability Management and Policy Audit flow into the same Enterprise TruRisk Platform views, dashboards, and workflows your teams already use. A Kubernetes node is just another asset with a Qualys TruRisk score, sitting next to the VM, the laptop, and the cloud account, and prioritized the same way.
-
-Getting Started
-
-Pull the image from Docker Hub: Intel/x64 or ARM.
-
-Download the deployment YAMLs or use the Qualys Helm chart.
-
-Deploy as a DaemonSet to your cluster with your Agent Activation Key, following the Intel or ARM getting started guide.
-
-Platform-specific guides are available for AWS Bottlerocket, Google COS, and Red Hat CoreOS.
-
-Coming in Cloud Agent 2.9.0
-
-Today, images are available on Docker Hub. With Cloud Agent release 2.9.0, you’ll be able to download the Containerized Cloud Agent package directly from the Qualys platform alongside every other Cloud Agent installer. The Common Container tiles will appear in the Download and Install Cloud Agent workflow, with your activation key, supported OS list, and installation steps right there.
-
-Common Container installation instructions in the Qualys Cloud Platform (Cloud Agent 2.9.0).
-
-The Host Is Half the Story: Securing the Whole Container Stack with TotalCloud
-
-The Containerized Cloud Agent secures the layer beneath your workloads. It doesn’t look inside the containers running on top of it, and it isn’t meant to. That job belongs to Qualys TotalCloud, and the two are designed as complementary halves of a single answer to the question every platform team eventually has to answer: how exposed are our container workloads, end to end?
-
-Container risk doesn’t live in one layer. It spans the cloud account the cluster runs in, the node operating systems, the Kubernetes control plane and its configuration, the images in your registries, the containers running in production, and the identities and network paths that connect all of it. Securing any one of those layers in isolation leaves you with a partial view and a false sense of coverage. TotalCloud is built to cover all of them on one platform, with one risk score.
-
-Container Security: From Registry to Runtime
-
-TotalCloud’s Container Security sensor picks up where the host agent leaves off. Deployed as a lightweight container alongside your workloads, it discovers and inventories every image, container, and cluster across your environment and assesses them at every stage of the lifecycle:
-
-Build and registry: images are scanned for OS and application-layer vulnerabilities and embedded secrets as they land in registries or move through continuous integration and continuous delivery (CI/CD) pipelines, so a critical Common Vulnerabilities and Exposures (CVE) entry in a base layer is caught before it’s ever deployed, and admission policies can block it from being scheduled at all.
-
-Running containers: containers in production are continuously assessed against the same KnowledgeBase, with drift detection that flags containers that no longer match the image they were launched from.
-
-Kubernetes posture: clusters, namespaces, workloads, and role-based access control (RBAC) are assessed against CIS Kubernetes Benchmarks and best practices to surface over-privileged pods, exposed dashboards, missing network policies, and other control-plane misconfigurations.
-
-Runtime defense: behavioral monitoring of running containers detects and blocks malicious activity such as unexpected process execution, file tampering, and anomalous network connections, so an exploit that slips past the earlier stages is caught in the act.
-
-TotalCloud KCS also holds the Red Hat Vulnerability Scanner Certification, which extends its detection accuracy to Red Hat OpenShift, RHEL, and CoreOS.
-
-Want to see how TotalCloud secures containers from registry to runtime?
-
-Start Free Trial
-
-Cloud Posture, Identity, and Infrastructure-as-Code
-
-Clusters don’t run in vacuums. TotalCloud’s cloud security posture management (CSPM) continuously assesses the AWS, Azure, and Google Cloud accounts your clusters live in, covering misconfigured storage, over-permissive identity and access management (IAM) roles, exposed services, and hundreds of other controls mapped to CIS and regulatory frameworks. Infrastructure-as-code scanning applies the same checks to Terraform, CloudFormation, and Kubernetes manifests in your repositories, so misconfigurations are fixed in the pull request rather than in production. Together, they close the loop around the cluster itself.
-
-One Risk Picture, Scored with TruRisk
-
-What makes this a platform rather than a collection of tools is that every finding, from the host agent, the container sensor, and the cloud posture assessment, is normalized, correlated, and scored with TruRisk in one place. That changes what you can see. A vulnerable kernel on a Bottlerocket node, a critical CVE in a base image, an over-privileged pod running on that node, and a public ingress in front of it are no longer four alerts in four consoles. They’re one attack path, with one risk score, and one clear answer to what to fix first. The same correlation lets you dismiss noise with confidence: a critical CVE in an image that never runs, on a node with no external exposure, is scored accordingly.
-
-And because it’s all on the Enterprise TruRisk Platform, container risk sits alongside the rest of your attack surface. The Kubernetes node, the VM it replaced, the developer laptop that pushed the image, and the cloud account that owns all of them are managed, prioritized, and reported on the same way, by the same teams, with the same workflows.
-
-Close the Gap from Host to Cloud
-
-A clean image running on a vulnerable node is still a vulnerable workload. Pull the Containerized Cloud Agent from Docker Hub today and bring your Kubernetes nodes into the same Vulnerability Management and Policy Audit coverage as the rest of your estate. Then talk to your Qualys representative about TotalCloud to extend that coverage from the host to every image, container, cluster, and cloud account your workloads depend on.
-
-Bring your Kubernetes nodes into the same Vulnerability Management and Policy Audit coverage as the rest of your estate.
-
-Get the Containerized Cloud Agent"
 d896ae424e5b,d896ae424e5b,2026-10-26 09:00 UTC,Business & Industry News,Qualys,Qualys IR News,Cloud Risk Management,Article,"Qualys to Report Third Quarter 2026 Financial Results on November 9, 2026",https://investor.qualys.com/news-releases/news-release-details/qualys-report-third-quarter-2026-financial-results-november-9,"FOSTER CITY, Calif., Oct. 26, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that the company will report its financial results for the third quarter 2026 after the market closes on Monday, November 9, 2026.","FOSTER CITY, Calif., Oct. 26, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that the company will report its financial results for the third quarter 2026 after the market closes on Monday, November 9, 2026."
