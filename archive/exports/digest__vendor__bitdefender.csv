@@ -1,4 +1,435 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+ce4423c7ffcd,ce4423c7ffcd,2026-11-18 13:55 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Bitdefender Business Insights,Endpoint Security; Threat Intelligence,Article,EggStreme Malware: Rebuilt Under Scrutiny,https://businessinsights.bitdefender.com/eggstreme-malware-revises-architecture-infrastructure,"TL;DR: After we published our first EggStreme research in September 2025, we kept monitoring this malware family, and the development we have seen since justifies an update","TL;DR: After we published our first EggStreme research in September 2025, we kept monitoring this malware family, and the development we have seen since justifies an update. Documenting advanced persistent threat (APT, a state-aligned intrusion team) operations matters because these operators depend on staying unseen: once their tooling is public, defenders can hunt for it and find intrusions before they reach their objective. After we published our research, the operators revised their malware architecture and infrastructure, and the timing suggests our report was a likely trigger.
+
+Twelve days after our report, they changed how EggStremeFuel protects its configuration. The loader’s cryptography and payload format followed 14 days later, and they appear to have moved away from the single certificate authority that once linked their servers. Based on our analysis, we assess with high confidence that the operation continues to target Philippine government organizations, with multiple victims. Based on our analysis of the samples, Taiwan is targeted as well, at low to medium confidence. The attribution is unchanged from our first report: a suspected Chinese APT group. This is a technical assessment based on the evidence available to us, not a statement about the involvement of any government.
+
+I’d like to thank my colleagues, Victor Vrabie, Adrian Schipor, and Martin Zugec, for their invaluable contributions to this research.
+
+EggStreme Since Our First Report: Rotation Versus Rebuild
+
+Our first EggStreme analysis (Bitdefender EggStreme research, September 2025) described a multi-stage fileless framework. “Fileless” means the malicious code runs mostly from memory and leaves little on disk for file scanners to find. The framework had six named components: EggStremeFuel, EggStremeLoader, EggStremeReflectiveLoader, EggStremeAgent (a backdoor with 58 commands), EggStremeWizard and EggStremeKeylogger. We kept tracking the operation after we published. This article covers what changed - it does not explain the framework again, so readers who want the baseline should start with the first piece.
+
+An APT operation succeeds only while it stays unseen. The objective is long-term access: months of quiet collection, not a quick payoff. Public analysis threatens that. Once a framework is documented, security teams can hunt for it, find intrusions already underway, and end the operation before it achieves its objective. For operators, exposure puts the whole mission at risk, so they respond by changing what defenders now know.
+
+When attackers are exposed, the cheap response is to rotate. A file hash changes with every recompile, a domain costs a few dollars, and a new IP address costs less. The EggStreme operators did more than rotate - the agent we now see uses a different network protocol, has an enhanced command set, and comes in a passive variant that never beacons out. The infrastructure appears to be moving away from the one certificate authority that tied its older servers together. Each change broke static signatures and heuristic detections built around the framework as we first described it.
+
+David Bianco’s Pyramid of Pain is a useful way to think about this (David Bianco, “The Pyramid of Pain”, March 2013). The pyramid ranks indicators by how much it costs an attacker when defenders detect them. Hash values sit at the bottom, then IP addresses and domain names, then network and host artifacts, then tools, and tactics, techniques and procedures (TTPs) at the top. For readability, this article groups the bottom three tiers together as “trivial” indicators. Mapped onto those tiers, the EggStreme operators did three things. They rotated hashes, IPs and domains (trivial). They changed payload paths, configuration formats and a firewall rule name (artifacts). They reworked Fuel, the loader and the agent (tools). The behaviors stayed largely the same: DLL sideloading, lateral movement through file shares, in-memory execution and mutual TLS. In other words, the operators spent at the tools level and kept their methods.
+
+Three things made this operation easy to track when we published our first article: the hashes of known samples, a payload decryption method that worked across intrusions, and a single certificate authority that led to the whole server fleet. The operators have since worked on all three.
+
+Our first article went out on September 17, 2025. The first Fuel build with the new configuration format was compiled on 2025-09-29, twelve days later. The first loader build in the newer format followed 14 days after that, with a compile timestamp of 2025-10-13 07:35:48, and was observed in the wild the next day. No new domains have appeared under the legacy certificate authority since.
+
+We tracked some minor changes to the agent before our report, but most of the major changes, including the infrastructure, were first observed after it was published (compile timestamps on some agent builds are earlier, so we date them by first sighting, not by build date).
+
+Some of this speed comes from how the framework is built. EggStreme is not runtime-pluggable: operators cannot load new capabilities into a running implant on the fly. Capabilities are compiled into each build. Our build artifacts show that, from one common codebase, the operators choose at build time which capabilities to include, omit, or swap. The keylogger is the clearest example: it is missing from every newer agent build we have analyzed. Ciphers are another. The loader moved from the RC4 stream cipher (which encrypts data one byte at a time) to the RC5 block cipher (which encrypts fixed-size blocks) in a build dated 2025-10-13, and to a custom cipher by 2025-10-28, about two weeks later.
+
+The agent’s transport differs between generations. Within a generation, builds share the same architecture and protocol, while cryptography, configuration and capability change per campaign. This design is what makes the rework affordable. Changing the cipher or dropping a module does not require a new framework, only a new build.
+
+The infrastructure changed as well. The older EggStreme servers could be mapped from a single certificate authority (CA, the entity that signs TLS certificates) generated in 2019. Searching for that CA’s key identifier returns 32 linked domains. Newer activity suggests a move toward campaign-specific certificate authorities, with certificates and keys embedded directly in each binary, removing that single pivot point. Some pivots remain. Development servers stage certificates for domains before they go live, one development IP is shared across a set of domains, and some legacy domains reappear in the newer setup.
+
+Above: The EggStreme build timeline shows which changes came before and after our initial report.
+
+EggStreme Attribution and Victimology
+
+Our first article attributed the EggStreme operation to a suspected Chinese APT group (Bitdefender EggStreme research, September 2025). This update makes no new attribution claim. The reason we treat the newer activity as the same operation is technical continuity, which is documented in the sections that follow.
+
+Several domains from the legacy infrastructure appear again in the newer setup. One of them, mepintei[.]com, connects the EggStremeFuel activity to the loader and agent activity. Before, we tracked those as two separate clusters. Older-format loader containers, the kind the first article described, are still in use and now carry the newer agent builds, so the two generations meet inside single samples. Delivery still relies on DLL sideloading, the same pattern the first article documented. Within the newer generation, every loader variant uses the same plaintext string KERNEL32 as both key and initialization vector (IV, the starting value a block cipher chains from) in its cryptography.
+
+On victimology, we assess with high confidence that the operation continues to target Philippine government organizations, and that there are multiple victims. Based on our analysis of the samples, we also assess with low to medium confidence that Taiwan is targeted. Readers should treat that finding as a lead, not an established fact. We do not name victim organizations, and we do not publish a victim count. This broadens the target description from the first article, which covered a single Philippine military company.
+
+EggStreme Lateral Movement: Same Strategy, New Mechanics
+
+In the first article, lateral movement relied on Impacket-like tooling and on EggStremeAgent itself. Impacket is an open-source Python toolkit for remote Windows administration that attackers often use to execute commands (What Is Impacket, TechZone).
+
+The operators also used the Stowaway proxy, an open-source multi-hop proxy tool that routes traffic through compromised hosts. They gained execution by injecting a Netlogon script, a logon script that domain-joined machines fetch from a shared folder, into a compromised share. The overall strategy has not changed: stage the payload on shared storage that the targets already reach, then trigger execution remotely. What changed is the mechanics.
+
+In the more recent case, the operators staged on an unmanaged system: a machine outside the organization’s endpoint management that other workstations could still reach easily. That system hosted Visual Basic Script (VBS) files, small scripts run by Windows’ built-in script host, along with an EggStremeFuel package. The package had three parts: a legitimate executable, a malicious DLL (dynamic-link library, a code module that Windows programs load at run time) for that executable to sideload (T1574.002 DLL Side-Loading), and a configuration file.
+
+What is DLL Sideloading?
+
+DLL sideloading places a malicious library next to a legitimate, often signed, program that loads a library of that name at startup. The program runs normally and loads the attacker’s code with it, which helps the malicious code blend into expected process activity. Bitdefender’s explainer on the topic is What Is DLL Sideloading, TechZone.
+
+The operators ran the script remotely over SMB (Server Message Block, the Windows file-sharing protocol) (T1021.002 SMB/Windows Admin Shares). The script copied the Fuel package to the target (T1570 Lateral Tool Transfer) and set persistence through a run key, a registry value that Windows executes automatically at user logon (T1547.001 Registry Run Keys / Startup Folder). Execution itself went through the Windows Script Host (T1059.005 Visual Basic) and a batch file (T1059.003 Windows Command Shell).
+
+These are the elements we observed in the command activity:
+
+Observed Element
+
+Detail
+
+Purpose
+
+reg add run value
+
+Value StandaloneUpdater under HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run, pointing to %LOCALAPPDATA%\Microsoft\OneDrive\setup\logs\StandaloneUpdater.exe
+
+Persistence at logon, for the logged-on user only
+
+attrib (hide and unhide)
+
+.tmp files and StandaloneUpdater.exe on a network share under Users\Public
+
+Hide staged files between uses
+
+Batch file
+
+C:\Users\Public\Officelog.bat
+
+Execution wrapper
+
+WScript.exe
+
+Running C:\Users\Public\prncnfg.vbs
+
+Script-based execution and copy
+
+Each name was chosen to look routine. StandaloneUpdater.exe imitates the naming of OneDrive’s own updater component. The genuine file is OneDriveStandaloneUpdater.exe, which sits under C:\Program Files\Microsoft OneDrive\ on a per-machine installation and directly under %LOCALAPPDATA%\Microsoft\OneDrive\ on a per-user one. The staged copy uses a shorter name and sits two folders deeper, in setup\logs, which is the mismatch to watch for (T1036.005 Match Legitimate Resource Name or Location). prncnfg.vbs is a real Windows printer administration script, documented by Microsoft under System32\Printing_Admin_Scripts (Microsoft Learn, “prncnfg”). Officelog.bat suggests Office logging. Toggling the hidden attribute (T1564.001 Hidden Files and Directories) keeps the staged files out of default directory listings when they are not in use.
+
+We saw the same method on multiple machines in the same network. The pattern suggests that valid credentials (T1078.002 Domain Accounts) and a reachable share were enough. The hashes in the indicator of compromise (IOC) tables will be stale by the next campaign. The pattern will probably still apply: an unmanaged host serving scripts, SMB-triggered execution, a run key under a familiar-looking vendor path.
+
+Above: EggStreme lateral movement flow.
+
+Defender action: Alert on WScript.exe or cmd.exe running scripts from C:\Users\Public\, and on run-key values that point into %LOCALAPPDATA%\Microsoft\OneDrive\setup\logs\ or any OneDrive subfolder that is not the vendor’s installed updater path.
+
+EggStreme v1 and v2: What Changed and What Varies
+
+Two kinds of change are easy to confuse in what follows. One is the step from the framework we described in the first article (v1) to the newer generation (v2). The other is the variation we see between campaigns within v2, where builds of the same generation differ from each other. The following table helps clarify what changed and what varies.
+
+Component
+
+v1 (first article)
+
+v2 (newer generation)
+
+Varies between campaigns within v2
+
+EggStremeFuel
+
+Configuration encrypted with RC4, filename as key
+
+Configuration encrypted with AES-256-CBC, key embedded in the binary and obfuscated; C2 traffic still RC4 with a per-run random key
+
+C2 addresses and the configuration file
+
+EggStremeLoader
+
+Payload decrypted with RC4, keyed from part of a consistent file path
+
+RC5-32 CBC, then a custom CBC cipher; KERNEL32 as key and IV; new payload file layout with the key in the first 8 bytes
+
+The decryption routine (two variants so far), the payload hiding location, the sideloaded DLL name; each payload file carries its own key
+
+EggStremeAgent
+
+gRPC over mutual TLS; 58 commands; keylogger injected per user session
+
+Raw TCP with mutual TLS (wolfSSL) plus an AES-256-CBC layer; certificates embedded; streamlined configuration; command IDs 21 to 88 with Active Directory reconnaissance and in-memory PowerShell; no keylogger
+
+Configuration encryption (RC4 or RC5), which commands are compiled in and what each ID means, active or passive mode
+
+Infrastructure
+
+One 2019 certificate authority linking 32 domains
+
+A newer certificate authority; certificates embedded in the binary; staged development and operational IP pairs
+
+Domains, IP addresses and certificates; campaign-specific certificate authorities are suggested, not confirmed
+
+Behavior
+
+DLL sideloading, share-based lateral movement, in-memory execution
+
+The same
+
+Almost everything that defenders could key on at the file, protocol and infrastructure levels changed between v1 and v2, and keeps changing between campaigns. The behaviors stayed constant across both.
+
+EggStremeFuel: Configuration Encryption Upgraded, C2 Unchanged
+
+EggStremeFuel is mostly unchanged. However, one significant change is how it protects its configuration, and the first build with the new configuration format has a compile timestamp of 2025-09-29, twelve days after our first article.
+
+The earlier Fuel decrypted its configuration with RC4, using the configuration filename as the key. The newer builds use AES-256-CBC, with the key and IV embedded in the binary. The IV is stored in plaintext in several places in the binary as 1234567890ABCDEF. The key is hidden by a custom obfuscation routine and recovers to:
+
+15c7ab53f7cfec92512844244fb09c2f07c2e9aea42b604c31fb78633248a825
+
+The newer configuration we recorded sits at %LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.dat (MD5 8ad958676e67ff70d1b2b95851de6d5d). The name imitates the Windows notification database in the same folder, which is wpndatabase.db, a SQLite database that Windows keeps under that path on current builds. The malicious file differs from the genuine one only in its extension. Moving from a filename-derived RC4 key to an embedded AES key means that knowing a configuration file’s name no longer helps decrypt it. The analyst needs the specific binary. The loader changes, described next, follow the same pattern across components: decryption keys now travel with the build, not with anything an investigator can see on disk.
+
+Fuel’s C2 traffic still uses RC4, with a key generated randomly on each run. Without the per-run key captured from memory, recorded Fuel traffic cannot be decrypted from static analysis alone, so packet captures will show sessions but not their content.
+
+The newer Fuel configurations and binaries point to C2 infrastructure that includes mepintei[.]com, along with 45[.]115[.]225[.]73, 109[.]248[.]24[.]84 and 149[.]104[.]109[.]230. mepintei[.]com also appears in our records of the agent’s original infrastructure.
+
+Defender action: Treat any non-Windows process that reads or writes %LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.dat as suspicious, and when an EggStremeFuel infection is suspected, capture process memory before remediation, because the per-run RC4 traffic key exists only there.
+
+EggStremeLoader: New Ciphers and a New Payload Format
+
+The loader has one main job: stealth. It decrypts the next stage and places it in memory without leaving a readable payload on disk. We identified four new loader samples soon after the first article, each with major structural changes and a different cryptographic algorithm. The IOC list shows one RC5 build dated 2025-10-13 and three custom-cipher builds dated 2025-10-28, which is about six weeks after publication.
+
+Cipher Progression
+
+The first build in the newer format has a compile timestamp of 2025-10-13 07:35:48 UTC, 14 days after the first new Fuel build. We observed it in the wild the next day, so we consider that timestamp reliable. In this build, string protection moved from XOR (a simple bitwise scrambling with a repeating key, easy to reverse) to RC5-32, the variant of RC5 that uses 32-bit words. It runs in CBC mode (cipher block chaining, where each block is mixed with the previous encrypted block before encryption) with PKCS#7 padding (a standard scheme that fills the last block to full length). Both the key and the IV are hardcoded in plaintext as KERNEL32.
+
+About two weeks later, the scheme changed again. The builds stamped 2025-10-28 replace RC5 with a custom 8-byte block cipher, still in CBC mode with PKCS#7 padding. We call this first custom cipher variant A. In variant A, each byte of a block goes through a simple position-dependent transform, and the result is XORed with the previous ciphertext block. The payload path is still decrypted with KERNEL32 as both key and IV. Payload files work the same way, except that the key is the first 8 bytes of the file itself, stored unencrypted, and those bytes also serve as the IV. The file layout also varies within variant A: in one of the four builds, the block after the key holds a skip count instead of the payload size, and that many junk bytes, which the loader skips without decrypting, sit before the DLL. A decryptor therefore has to match both the cipher variant and the file layout.
+
+Variant A stayed in use unchanged for at least a week. All four builds from 2025-10-28 to 2025-11-05 use the same algorithm, so one decryption routine covers them all. By mid-December 2025 the operators had replaced it with a second custom cipher, variant B. Variant B decrypts each block with four rounds of byte-wise subtraction, byte rotation and byte swapping, and undoes the chaining by subtracting the previous ciphertext block instead of XORing it. Both builds we have, from 2025-12-16 and 2026-05-14, use the same algorithm, and variant B handles keys and IVs the same way as variant A.
+
+Neither custom variant offers real protection. Because the key and the IV are identical, variant A's key cancels out: every block except the first of each encrypted message decrypts with the same fixed constant (01 04 07 0A 0D 10 13 16) and no secret at all. In payload files, all of the DLL except its first 8 bytes therefore decrypts without any key, and those 8 bytes are the standard start of a PE (Portable Executable, the Windows executable format) header. Variant B looks more complex, but mathematically it reduces to a fixed byte rotation plus an 8-byte constant, so a single known 8-byte block is enough to decrypt the entire payload. For both variants, even that is unnecessary: brute-forcing each byte position separately (2,048 trials in total) recovers the payload from the ciphertext alone. In practice, none of this is needed, because both variants store the key next to the data it protects: each payload file begins with its own key, so it contains everything needed to decrypt it. What the cipher swaps defeat is detection and tooling tied to a specific routine, not analysis.
+
+The thread through all of this is the operators’ move from RC4, which the earlier loader builds used to decrypt payloads, to RC5 and then to the custom ciphers. Every variant in the newer format shares three traits: CBC chaining, a key-scheduling step (the routine that expands the short key into per-round values), and PKCS#7 padding removal.
+
+MD5
+
+Filename
+
+Compile timestamp
+
+Scheme
+
+a363c1529033fb6017985ce07ab0ad57
+
+iscsiexe.dll
+
+2024-05-15 07:35:43
+
+RC4, key google (original variant)
+
+5e21c73c6e055b67ce1d3311092e09f1
+
+DevicesPlatform.dll
+
+2025-06-09 13:54:20
+
+RC4, key Windows (older format)
+
+b89966529371bd7585c83267ea6d17d6
+
+xwizards.dll
+
+2025-07-09 08:42:01
+
+RC4, key svchost (older format)
+
+0f2404810a20ad1c265a94cf7643e38f
+
+advapi32.dll
+
+2025-10-13 07:35:48
+
+RC5-32 CBC, PKCS#7 (newer format)
+
+2848d5f1a827b70827e4e17497e33946
+
+advapi32.dll
+
+2025-10-28 13:57:10
+
+Custom CBC, PKCS#7 (newer format)
+
+fac380128a04ffc5b8f175071622e885
+
+advapi32.dll
+
+2025-10-28 15:29:11
+
+Custom CBC, PKCS#7 (newer format)
+
+6f920aa7d2e48d1c2a201eb119ba20f1
+
+advapi32.dll
+
+2025-10-28 15:31:16
+
+Custom CBC, PKCS#7 (newer format)
+
+467566ff6573d84b927baf37acf11047
+
+dbghelp.dll
+
+2025-11-05 00:41:20
+
+Custom CBC, PKCS#7 (newer format)
+
+197be742fc81bbc87e5f66d1a4a9af92
+
+dwmapi.dll
+
+2025-11-11 07:23:49
+
+RC4, host-bound key (older format)
+
+a1da36e1225a3d08ae647980250f43d0
+
+advapi32.dll
+
+2025-12-16 09:03:34
+
+Custom CBC, PKCS#7 (newer format)
+
+cd030f106eada108715e99a4661f7fd4
+
+advapi32.dll
+
+2026-05-14 08:33:39
+
+Custom CBC, PKCS#7, contains debug strings (newer format)
+
+Three builds stamped within about 95 minutes of each other on 2025-10-28 suggest active iteration. They look like a short development session producing variants, not a single release.
+
+These cipher changes map to obfuscation of the stored payload (T1027 Obfuscated Files or Information) and its in-memory reversal at run time (T1140 Deobfuscate/Decode Files or Information).
+
+New Payload File Structure
+
+The newer loader also reads a new payload file layout, and that layout has stayed the same since October 2025:
+
+Offset Length Content 0x00 8 Decryption key, plaintext 0x08 8 Encrypted; decrypts to the size of the embedded payload 0x10 N Encrypted embedded payload, ending with the EggStremeAgent component
+
+The key sits in the first eight bytes of the payload file, in plaintext, rather than hidden inside the loader. Because the file carries its own key, one payload can be opened by any loader build that uses the same routine: variant A covers four builds. That adds resilience for the operators, who can swap out a loader build without re-encrypting the payload it carries. The plaintext key is a design choice, not carelessness, and as shown above, the cipher adds little protection on its own.
+
+What the Payload Encryption Does and Does Not Protect
+
+With the earlier loader, a consistent file path and an RC4 key derived from part of that path unlocked payloads across intrusions. An analyst who had reversed one loader could decrypt payloads recovered from other environments. The newer format looks different but offers little more protection. Each payload is encrypted with a routine that differs between variant A and variant B, so a decryptor or signature written for one does not match the other. But every payload file carries its own key, so an analyst who has the file and identifies the variant has what is needed to decrypt it.
+
+Above: Decryption in v1 versus v2: one method opened payloads from every intrusion; in v2 the routine differs between variants, but each payload file carries its own key.
+
+In incident response, when you find a suspicious file in one of the hiding locations below, preserve the DLL that loads it, from the same host, in the same response.
+
+Payload Hiding Locations
+
+Payload files sit in paths chosen to look like ordinary Windows data files. The table lists the paths from our IOC set. Hashes appear only where we recorded one for that path.
+
+Path
+
+MD5
+
+Format
+
+%SYSTEMROOT%\Media\Alarm00.wav
+
+8b88eb038251be49b1ae78406d817610
+
+Newer
+
+%LOCALAPPDATA%\Microsoft\Feeds\Feeds.tmp
+
+(no hash recorded)
+
+Newer
+
+%PROGRAMFILES%\Common Files\Microsoft Shared\msinfo\msinfo32.dll
+
+cbd2d377a041a31bdf94ff95bf37d352
+
+Newer
+
+%SYSTEMROOT%\apppatch\appmain.sdb
+
+(no hash recorded)
+
+Older
+
+%SYSTEMROOT%\apppatch\expmain.sdb
+
+4cfb49f749b75941f1cff59b7cf92e53
+
+Older
+
+%SYSTEMROOT%\Globalization\ICU\systemZones.res
+
+five distinct hashes (see IOC section)
+
+Older
+
+%LOCALAPPDATA%\ConnectedDevicesPlatform\CDPGlobalSettings.cdpresource
+
+(no hash recorded)
+
+Older
+
+Each file type fits its folder: a .wav in the Media folder, an .sdb (application compatibility database) in apppatch, a .res in the ICU globalization folder. A file listing will not reveal them. Two things do: content that does not match the extension, and a non-system process reading them at startup. systemZones.res alone accounts for five distinct payload hashes, so the operators reused that path across intrusions even as the contents changed.
+
+Old and New Formats in the Wild Together
+
+The older format has not disappeared. We still see older-format containers, which hold the payload size, EggStremeReflectiveLoader and the agent, carrying newer agent builds. They are encrypted with RC4 under keys that differ from the first article’s: Windows, svchost and, in one case, a key built from the first four bytes of the C: volume serial number. That last variant makes the payload (MD5 197be742fc81bbc87e5f66d1a4a9af92) harder for a researcher to decrypt, because its key depends on the machine it was built for.
+
+The two formats running side by side support the compile-time modularity reading. The operators did not migrate everything at once. They chose the container format and cipher per build.
+
+To help other analysts, we are publishing a Python implementation of the custom cipher used by the newer-format loaders. It takes KERNEL32 as key and IV, derives an 8-byte schedule from them, and decrypts in CBC mode with PKCS#7-style padding removal. It implements variant A. Treat it as a reference for that variant: variant B uses a different routine, and for payload files the key and IV are the first 8 bytes of the file, not KERNEL32.
+
+def key_setup(key, iv): ks = bytearray(8) for idx in range(8): ks[idx] = ((3 * idx + 1) ^ iv[idx] ^ key[idx & 7]) & 0xFF return ks def decrypt(data): key = b""KERNEL32"" iv = b""KERNEL32"" assert len(data) % 8 == 0 ks = key_setup(key, iv) out = bytearray() prev = bytes(iv) # IV seeds the chaining for off in range(0, len(data), 8): ct = data[off:off + 8] # inner transform vec = bytearray(8) for idx in range(8): k = ks[idx & 7] temp = (idx + k + 7) & 0xFF vec[idx] = ((ct[idx] ^ temp) - k) & 0xFF # XOR with previous block (CBC chaining) out += bytes(vec[i] ^ prev[i] for i in range(8)) prev = ct # save ciphertext for next block # PKCS-style padding removal pad = out[-1] if 1 <= pad <= 8 and all(b == pad for b in out[-pad:]): out = out[:-pad] return bytes(out)
+
+Defender action: Hunt for processes that read Alarm00.wav, appmain.sdb, expmain.sdb, systemZones.res, Feeds.tmp or msinfo32.dll from the paths above when the reading process is not the expected Windows component, and during incident response, always collect the sideloaded DLL together with any payload file found.
+
+EggStremeAgent: Rebuilt Networking, Leaner Configuration, More Commands
+
+EggStremeAgent is the backdoor at the end of the chain. The newer builds differ from the first article’s agent in four areas: how the configuration is stored, how the agent talks to its operators, which commands it accepts, and which modules it carries. Several of these builds carry compile timestamps between March and May 2025, but we first observed them after our first publication. This section therefore describes how the agent differs from what we first documented.
+
+Configuration
+
+Configuration decryption varies between samples, which fits the per-build approach seen in the loader. Some samples still use RC4 keyed from the configuration file’s full path, but with a changed configuration format. Others use RC5-32/12 (32-bit words, 12 rounds) in CBC mode with PKCS#7 padding. In those, the key and IV come from the eight-character filename without its extension. For example, the configuration at %USERPROFILE%\AppData\Local\Comms\Unistore.db is keyed with Unistore. Most of the newer configuration files we recorded sit at %SYSTEMROOT%\system32\config\systemprofile\AppData\Roaming\Microsoft\Crypto\Crypto.db, a location that looks like part of the system’s cryptographic store. We recorded seven distinct hashes for that one path.
+
+The decrypted configuration has fewer fields than before. It holds a six-character uppercase victim ID, a sleep interval, the C2 (command-and-control, the attacker server the implant talks to) domain and the port, separated by ###:
+
+<victim id>###50###fsstore[.]org###443
+
+When no configuration file is present, the agent uses a hardcoded fallback configuration. TLS certificates are now embedded only in the binary. The agent no longer fetches them from an external configuration. That small change also feeds the infrastructure story: each binary carries its own trust material, which is what makes per-campaign certificate authorities practical.
+
+Transport
+
+The first article’s agent communicated over gRPC, a remote procedure call framework that runs over HTTP/2. The newer builds drop gRPC. They use raw TCP sockets (T1095 Non-Application Layer Protocol) wrapped in mutual TLS through the wolfSSL library, a compact open-source TLS implementation often embedded in small software.
+
+What is mutual TLS?
+
+In ordinary TLS, only the server proves its identity with a certificate. In mutual TLS, the client presents a certificate too, and each side rejects the connection unless the other’s certificate is signed by an expected authority. For an implant, this means a scanner or researcher who connects to the C2 server without the implant’s client certificate gets no response worth analyzing.
+
+On top of TLS, the agent adds a second encryption layer: AES-256-CBC (the Advanced Encryption Standard with a 256-bit key, in chaining mode) with keys and IVs hardcoded in the binary (T1573.001 Symmetric Cryptography, alongside the TLS layer’s T1573.002 Asymmetric Cryptography). Because of the double wrapping, intercepting the TLS session (for example, with a TLS-inspecting proxy that holds a trusted certificate) still leaves the analyst looking at AES ciphertext.
+
+Expanded Command Set
+
+The core command set from the first article remains. We see command IDs from 21 to 88, and the same ID can mean different things in different samples, which is another sign that each build is compiled to its own specification. The table lists the commands that are new compared with the first article.
+
+ID
+
+Category
+
+Behavior
+
+Key Windows APIs
+
+24
+
+AD reconnaissance
+
+Enumerate domain users
+
+NetGetAnyDCName, NetUserEnum, NetUserGetInfo
+
+25
+
+AD reconnaissance
+
+Enumerate groups
+
+NetLocalGroupEnum, NetQueryDisplayInformation
+
+26
+
+AD reconnaissance
+
+Enumerate servers, similar to net view /domain
+
+NetServerEnum
+
+76
+
+Proxying
+
+TCP proxy forwarder, 0x1000-byte buffer
+
+Sockets over the existing TLS channel
+
+77
+
+Proxying
+
+TCP proxy forw [truncated for CSV - full text is in the JSON export]"
 062fdcba7798,062fdcba7798,2026-11-16 05:15 UTC,Vulnerabilities & Patching,Bitdefender,Bitdefender Business Insights,Threat and Exposure Management; Attack Path Prediction; Endpoint Security,Article,Introducing GravityZone Exposure Management: Close Attack Paths Before They're Exploited,https://businessinsights.bitdefender.com/how-gravityzone-exposure-management-closes-attacker-pathways,A sysadmin closes the maintenance window with every Critical and High vulnerability patched,"A sysadmin closes the maintenance window with every Critical and High vulnerability patched. One of the remaining mediums sits on a workstation. The workstation's user has administrative rights on a domain controller and signs into it interactively, so their credential material stays in its memory while the session lasts. On the same subnet, a web service still opens to the internet on a port opened during a migration two years ago. None of these findings is worth escalating on its own. Together they are a route to domain compromise, and automated attack tooling now performs the reconnaissance and chaining between steps faster than any ticket queue moves.
 
 Bitdefender GravityZone Exposure Management is a prevention-first product built to remove those attack opportunities before they are used. It unifies visibility across critical exposures, prioritizes them by the attack routes they create, and reduces the attack surface through hardening.

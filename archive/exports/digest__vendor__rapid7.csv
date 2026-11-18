@@ -1,4 +1,409 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a54af3d80ee7,a54af3d80ee7,2026-11-18 14:38 UTC,"Attacks, Breaches & Threat Intel",Rapid7,Rapid7 Blog,Threat Intelligence,Article,"Open by Default, Already Occupied: Threat Actors are Renting your Compute",https://www.rapid7.com/blog/post/tr-self-hosted-ai-renting-compute-exposed-servers,"First, the number I don't trust The scanner reported 14,064 findings across 11,891 IP addresses and labelled 14,060 of them vulnerable, 387 critical","$ curl http://<exposed-host>:11434/api/tags
+
+llama3.1:8bqwen3.6:27bglm-5.3:cloudnomic-embed-text:latestdeepseek-v4-pro:cloud103.249.201[.]108:9882/trigger/benign:latestgemma4:e4bzzvitals-beacon:latesthuihui_ai/Qwen3.8-abliterated:latestgpt-4o:latestclaude-3-opus:latesttinyllama:latestkimi-k2.7-code:cloudverif_sys:latest<tunnel>.trycloudflare[.]com/read/x5fa4534:b1qwen2.5-coder:7bpwn_ctl_<this-host-ip>_ae52…:latestminimax-m3:cloudttl[.]sh/dsv40110/dsv4probe:24hbge-m3:latest<tunnel>/L2V0Yy9zaGFkb3c → /etc/shadowHuihui-CyberStrike-OffSec-35B-abliteratedsmollm2:135mops-verify:latestmistral-large-4:cloud<tunnel>/L3Byb2Mvc2VsZi9lbnZpcm9u → /proc/self/environqwen3-embedding:0.6bgpt-4o:latest-copy-test
+
+local modelcloud-routed or uncensoredleft by a third party
+
+More than half of the exposed Ollama servers in this scan have already been touched by someone who is not the owner. I don't mean theoretically vulnerable. I mean visibly used: model names that are really callback addresses, tags stamped with the server's own IP, and Base64 strings that decode to /etc/shadow.
+
+Exposure statistics normally describe a risk. These model lists describe activity. An unauthenticated /api/tags call is a read-only request, and on thousands of machines it returns something close to a visitors' log.
+
+Below is what the data shows, where I think it points, and what I would do about it on Monday morning. I've labelled claims as [Observed], [Interpretation] or [Hypothesis] so you can see where the evidence stops.
+
+First, the number I don't trust
+
+The scanner reported 14,064 findings across 11,891 IP addresses and labelled 14,060 of them vulnerable, 387 critical. If I put that in a headline it would travel well. It would also be wrong.
+
+[Observed] 148 IP addresses return the exact same fingerprint: Grafana on 3000, Jupyter on 8888, Ollama on three ports, each serving one model, llama3.1:8b. They sit with five different hosting providers in five countries. Another 281 addresses answer as two to five different products on the same port. Real servers rarely do that. Sensors and catch-all responders do it all day.
+
+[Interpretation] These are most likely deception infrastructure, run by researchers, vendors or threat actors watching who comes knocking. Remove those 429 addresses and the critical findings drop from 387 to 39. MLflow falls from 126 to 4. Honeypots look extremely vulnerable. That's the whole job description.
+
+Figure 1
+
+What the scanner flagged versus what holds up
+
+Findings per product before and after removing the 148-host identical fleet and IP:port pairs that answer as multiple products.
+
+Ollama
+
+8,193 flagged
+
+7,675 hold up
+
+Streamlit
+
+4,939 flagged
+
+4,700 hold up
+
+Grafana
+
+475 flagged
+
+123 hold up
+
+Jupyter Notebook
+
+265 flagged
+
+38 hold up
+
+MLflow
+
+126 flagged
+
+4 hold up
+
+JupyterHub
+
+66 flagged
+
+11 hold up
+
+Two more corrections before we go further. A Streamlit health check returning ok tells you an app is on the internet, not that it is exploitable. And the target list was pre-selected: 58% of the 20,354 hosts produced a finding, which is far above any internet-wide base rate. So treat the totals as a sample of a much larger population, not a census.
+
+What survives is still uncomfortable: 7,714 findings on 7,627 hosts where an AI or notebook API answered without authentication, almost all of them Ollama. Only 0.3% of all findings were served over HTTPS.
+
+The lesson for anyone producing exposure numbers, us included: if you count banners and health checks, you measure how the internet presents itself. You don't measure how it behaves.
+
+This is rented compute, not the corporate data centre
+
+Figure 2
+
+Where the exposed AI services live
+
+Full filtered sample: 11,676 hosts in 115 countries. The available basemap visualizes 11,158 hosts across 109 countries; 518 hosts in six countries are not represented. Country shading shows host count; dots show city-level locations, sized by findings.
+
+01,000+mostly Ollamamostly other services
+
+[Observed] Roughly 65% of hosts sit in hosting or cloud networks, and six providers (OVHcloud, Hetzner, Contabo, Oracle Cloud, Tencent Cloud and DigitalOcean) account for 42% of everything. Spread over 1,656 networks, but concentrated in the places where you can rent a capable server in five minutes.
+
+[Interpretation] Germany leads for exposed Ollama (1,306 hosts), ahead of China and the United States. I don't read that as German carelessness. Hetzner and Contabo are German, OVH has a large European footprint, and all three are the default choice for someone who wants to try a model this afternoon without asking procurement. The geography follows the price list.
+
+Figure 3
+
+Exposed Ollama by country
+
+Germany1,306
+
+China1,130
+
+United States1,097
+
+France549
+
+India301
+
+Canada293
+
+United Kingdom290
+
+South Korea275
+
+Finland206
+
+Singapore180
+
+Figure 4
+
+Top networks, all services
+
+OVHcloud908
+
+Hetzner882
+
+Contabo866
+
+Oracle Cloud852
+
+Tencent Cloud709
+
+DigitalOcean644
+
+Google Cloud289
+
+Korea Telecom225
+
+Microsoft219
+
+IONOS183
+
+[Interpretation] Machines like these rarely appear in a CMDB. They tend to be rented on a credit card by a team that needed to compute quickly, and connected to company data later. Your attack surface now includes your developers' expense reports.
+
+What is actually running
+
+[Observed] The exposed Ollama servers listed 106,938 model entries, 18,733 distinct tags, about 14 per host. Locally, Qwen dominates, followed by Llama and Gemma. But the more important split is between models that run on the box and models the box merely routes.
+
+Figure 5
+
+Local models versus cloud-routed models, by family
+
+Number of exposed Ollama hosts listing at least one model from each family. Third-party marker models excluded.
+
+Hosts running it locallyHosts listing it as a :cloud model
+
+4,630Qwen (Alibaba)218
+
+3,349Llama (Meta)1
+
+1,917Gemma (Google)150
+
+862DeepSeek4,981
+
+852GLM (Zhipu)5,720
+
+3MiniMax4,935
+
+12Kimi (Moonshot)2,462
+
+643Mistral2,571
+
+382gpt-oss (OpenAI)220
+
+335Phi (Microsoft)N/A
+
+2,020EmbeddingsN/A
+
+546Image/visionN/A
+
+The box is becoming a gateway
+
+[Observed] 79% of exposed Ollama hosts list at least one :cloud model, mostly GLM, DeepSeek, MiniMax and Kimi variants. Ollama's hybrid mode routes those requests through the local daemon to ollama.com when the host has been signed in with ollama signin, which links a local ed25519 key in ~/.ollama/id_ed25519 to the user's account.
+
+[Interpretation] An exposed, signed-in server can provide access to someone else's paid subscription, with the bill landing on the owner. This is the self-hosted version of LLMjacking, and it requires no exploit at all.
+
+[Hypothesis] A listed cloud tag does not prove the host is signed in, and we did not test inference. But the same seven cloud models appear together on 1,295 otherwise unrelated hosts. That pattern looks less like thousands of individual choices and more like automated pulls by third parties checking which servers will serve them.
+
+Guardrails are optional, and so is the front door
+
+[Observed] 28% of exposed Ollama hosts carry at least one “abliterated”, “heretic” or “uncensored” model, versions with refusal behaviour deliberately stripped out, including a fine-tune named for offensive security work. Running those is legal and often has good research reasons. Running them unauthenticated on the internet means anyone gets an unlogged, unfiltered model on your hardware.
+
+[Observed] 28% also run embedding models such as nomic-embed-text or bge-m3. [Interpretation] Embeddings are the plumbing of retrieval-augmented generation. Those servers are likely wired into pipelines that read internal documents, which makes the exposed box a bridge, not an island.
+
+Figure 6
+
+Model sizes on exposed hosts
+
+Local model tags with a parameter count in the name. Most of this is small enough to run on a rented VPS.
+
+<2B3,967 tags
+
+2–9B7,705 tags
+
+10–34B5,929 tags
+
+35–99B845 tags
+
+100B+143 tags
+
+The visitors' log
+
+Here is the finding I think deserves the most attention. Ollama's API lets any caller pull a model from any registry, copy or create models, and push them elsewhere. Without authentication, the model list becomes a record of what strangers asked the server to do.
+
+Figure 7
+
+Signs of third-party activity on exposed Ollama servers
+
+Share of 7,675 exposed Ollama servers whose model list contains each artifact type. A host can show several.
+
+Any third-party artifact54.8% (4,209)
+
+Marker / “I was here” models40.3% (3,091)
+
+Pulled from a non-official registry34.7% (2,666)
+
+…from a raw IP:port23.7% (1,817)
+
+…via a free tunnel or temp registry22.4% (1,721)
+
+gpt-4o / claude-3-opus aliases15.5% (1,190)
+
+Encoded file-path payloads0.7% (55)
+
+[Observed] 24% of hosts list models pulled from a raw IP address and port. 22% list models pulled through free tunnelling or throwaway registry services: Cloudflare quick tunnels, ttl.sh, bore.pub, Pinggy. When a server pulls from an address you control, it calls you back. That's a clean, reliable way to confirm that a target is reachable, writable and able to make outbound connections: classic server-side request forgery, offered as a feature.
+
+[Observed] 712 model names embed the IP address of the server they sit on. [Interpretation] That's inventory keeping. Someone is tagging targets so their tooling can recognise them later. The same applies to recurring markers like zzvitals-beacon, verif_sys and ops-verify, each found on hundreds of hosts, and to names ending in -copy-test, which show someone checking whether the copy endpoint works.
+
+[Hypothesis] The trio gpt-4o, gpt-4 and claude-3-opus, found together on 1,190 hosts, almost always next to tinyllama, looks like a tiny local model copied under premium names. That's either a write test, or a way to make a server look like it offers frontier models to whoever finds it next. I wouldn't bet on which.
+
+Figure 8
+
+How the model list becomes an attack surface
+
+1Find
+
+Mass-scan port 11434 and friends. No authentication to defeat.
+
+2List
+
+/api/tags reveals models, cloud routing and earlier visitors.
+
+3Call back
+
+Pull from an IP or tunnel you control. The pull confirms reachability and egress.
+
+4Mark
+
+Create or copy a model named after the host. Proof of write access, and a claim flag.
+
+5Reach
+
+Craft manifests that point at local files, secrets and keys, or ride the owner’s cloud account.
+
+What they were reaching for
+
+[Observed] On 55 hosts, model names contain Base64 or hex strings that decode to file paths. The targets read like a post-exploitation checklist: /etc/shadow, /etc/passwd, /proc/self/environ, Ollama's own systemd unit and its override.conf (where people tend to put environment variables and API keys), SSH authorized_keys, AWS config, the Oracle Cloud metadata endpoint, and on 10 hosts the Ollama private key itself. A few points at /etc/ld.so.preload and new systemd service files, which are persistence locations, not reading material.
+
+Figure 9
+
+Decoded file targets, by purpose
+
+Hosts with at least one encoded path in each category.
+
+Host fingerprinting47 hosts
+
+Secrets in env / service config28 hosts
+
+Credentials and keys15 hosts
+
+Persistence paths11 hosts
+
+Cloud metadata endpoint1 host
+
+[Interpretation] This mirrors the technique Wiz published as Probllama (CVE-2024-37032) in 2024: a path-traversal payload in a model manifest's digest field, giving arbitrary file write through /api/pull, file read through /api/push, and code execution by corrupting /etc/ld.so.preload. Ollama fixed it in version 0.1.34 in May 2024. We can't tell from these lists whether any target was still on a vulnerable build, so the attempt proves intent, not success. Somebody still thinks it's worth trying two and a half years later, which suggests the technique remains useful enough to keep testing.
+
+The economics are hard to ignore. The attacker uses free tunnels, free throwaway registries and, in the end, your computer and your cloud subscription. Their cost per target rounds to zero.
+
+Nobody is reading the model list
+
+Figure 10
+
+Timestamps embedded in third-party model names
+
+Unix timestamps found in marker and probe names, by month of creation.
+
+12
+
+1
+
+0
+
+1,026
+
+116
+
+74
+
+JunJulAugSepOctNov 1–3
+
+[Observed] Some of these markers were created in June and were still in place on 10 November. [Interpretation] When a stranger's model sits on your server for five months, the vulnerability isn't the main problem. The main problem is that nobody owns the server.
+
+Table 1
+
+Most frequent callback registries seen in model names
+
+Defanged. Several look like large-scale research scanning; “benign” in a path is a claim, not a guarantee. Treat as context for hunting, not as attribution.
+
+Address
+
+Port
+
+Path pattern
+
+24.144.109[.]68
+
+9882
+
+trigger/benign, trigger/plamo2-<id>
+
+103.249.201[.]108
+
+9882
+
+trigger/benign
+
+76.13.49[.]213
+
+9882
+
+trigger/benign
+
+62.31.247[.]107
+
+9882
+
+trigger/benign
+
+43.143.113[.]68
+
+8899
+
+library/tens
+
+185.165.171[.]21
+
+8899
+
+recon/probe
+
+What I would change after seeing this data
+
+Exposure research needs a second question.
+
+“Is it open?” is the easy part. “Has it been touched?” is the useful part, and for AI runtimes the answer is often sitting in a read-only API response. Defenders should triage on artifacts, not banners.
+
+Model runtimes are becoming credential brokers.
+
+Once a local daemon can route to paid cloud models with a key on disk, compromising it is about access and money, not just CPU cycles. That's a different threat model from the one most teams had in mind when they typed OLLAMA_HOST=0.0.0.0.
+
+The attackers here didn't need AI.
+
+We spend a lot of energy debating whether AI will make attackers faster. On these servers the playbook is old: an unauthenticated service, path traversal, server-side request forgery, outbound callbacks. Familiar primitives, new location. The controls we already know work. They just haven't followed the workload.
+
+Internet measurement is polluted, and we should say so.
+
+A meaningful slice of “critical AI exposure” is other people's sensors watching each other. Anyone publishing exposure numbers, vendors included, should show how they filter.
+
+What businesses should do
+
+The controls here are familiar: ownership, authentication, egress control, logging, patching, and exposure management. The practical steps are straightforward:
+
+This week: find them, and check for guests
+
+Scan your own public ranges and every cloud and VPS account the company pays for, including those on personal cards that get expensed. Look beyond default ports: 6% of findings here sat on a non-standard port.
+
+On every Ollama instance, read the model list. Anything prefixed with an IP address, a tunnel domain or ttl.sh, anything named beacon, verify, probe or pwn, and anything containing your own IP is a stranger's artifact.
+
+If you find one, treat the host as compromised, not misconfigured. Rotate whatever lives in its environment and service files, revoke the Ollama key on the linked ollama.com account, check cloud usage for spend you don't recognise, and rebuild rather than clean.
+
+Within 30 days: close the door, then the windows
+
+Bind model runtimes to localhost or a private network. If remote access is needed, put an authenticating reverse proxy or a zero-trust access layer in front. Ollama has no built-in authentication, so this isn't optional.
+
+Restrict outbound traffic from model servers to the registries you approved. Egress control is what turns a pull-based callback or SSRF attempt into a failed connection.
+
+Keep runtimes current, and don't sign a shared server into a personal or corporate cloud model account unless it's behind authentication and spend alerts.
+
+Log API calls that change state (pull, create, copy, push, delete) and alert on them. On a stable production server they should be rare.
+
+This quarter: make ownership the default
+
+Make registration a condition of AI infrastructure spend: every model server gets a named owner, a data classification and an expiry date. If nobody owns it, it gets switched off.
+
+Decide, in writing, where uncensored or abliterated models are allowed and what they may touch. Research sandboxes, yes. Internet-facing boxes wired into document pipelines, no.
+
+Bring AI runtimes, notebooks and experiment trackers into exposure management and red-team scope. Test the brakes, not just the engine: can you find, isolate and shut down one of these servers within an hour?
+
+Methodology and limitations
+
+Single snapshot taken on 10 November 2026 against 20,354 pre-selected IPv4 addresses on seven ports (3000, 5000, 8000, 8080, 8501, 8888, 11434). Product detection used one unauthenticated HTTP request per service: Ollama /api/tags, Jupyter /api/kernels, MLflow experiment search, JupyterHub /hub/api/, Streamlit and Grafana health endpoints. No inference, write or exploitation requests were sent.
+
+Likely deception infrastructure was removed with two heuristics: an identical five-service fingerprint shared by 148 hosts, and IP:port pairs that answered as more than one product (281 hosts). This removed 1,513 findings on 429 hosts. Some real servers may have been removed, and some sensors certainly remain.
+
+Third-party activity indicators are inferred from model names only. A clean list doesn't prove a clean host, since names can be deleted. Encoded strings were decoded from Base64 and hex segments. Model families were assigned by name pattern. Geolocation and network data from DB-IP Lite (CC BY 4.0), MaxMind GeoLite2 and iptoasn. Individual exposed hosts are not named in this post.
+
+This post reflects the author's analysis of the scan data described above. Ollama, Jupyter, MLflow, Streamlit and Grafana are trademarks of their respective owners. This publication includes GeoLite2 data created by MaxMind."
 7b240f03c44b,11a9e447f3a8,2026-11-17 18:26 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management,Article,CVE-2026-114938: Reported Critical Pre-authentication Remote Code Execution in Java 17,https://www.rapid7.com/blog/post/etr-cve-2026-114938-reported-critical-pre-authentication-remote-code-execution-java-17,"Overview On November 17, 2026, public reports described CVE-2026-114938 as a memory corruption vulnerability in Java 17 and above that could allow a remote attacker to execute...","Overview
 
 On November 17, 2026, public reports described CVE-2026-114938 as a memory corruption vulnerability in Java 17 and above that could allow a remote attacker to execute code without authentication. The reported severity is Critical, with a CVSSv4 score of 9.2. These CVE-specific details remain preliminary, pending confirmation in Oracle or OpenJDK advisories.
@@ -2073,48 +2478,3 @@ October 22, 2026: Updated the Overview section to include Rapid7’s findings on
 October 23, 2026: Updated the Exposure Command, Vulnerability Management, and Nexpose section to describe authenticated coverage, Linux distro backported coverage, and more.
 
 October 27, 2026: Updated the Overview to note that CVE-2026-109618 and CVE-2026-109619 were added to the CISA KEV catalog. Updated Rapid7 customers section to reflect added Windows support."
-cda4e1a9913d,cda4e1a9913d,2026-10-21 13:00 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Threat Intelligence,Article,Q3 2026 Threat Update: Attackers Are Exploiting Vulnerabilities Within 3 Days,https://www.rapid7.com/blog/post/tr-q3-2026-threat-update-attackers-exploiting-vulnerabilities-within-3-days,Attackers are exploiting vulnerabilities that require no interaction Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-...,"Three days is the average time between a high-severity vulnerability becoming public and its exploitation, according to the latest Quarterly Threat Landscape Report from Rapid7. And 71% of the exploitation tracked in Q3 occurred within the first seven days.
-
-For security teams already managing growing vulnerability backlogs, this creates a difficult question: How do you reduce exposure when attackers can exploit vulnerabilities before your next patching window?
-
-Rapid7's Q3 2026 research brings together vulnerability intelligence, ransomware activity, APT tracking, and underground forum intelligence to show where attacker activity is concentrated.
-
-The exploitation window has narrowed, big time
-
-Rapid7 tracked 43 newly exploited high- and critical-severity vulnerabilities this quarter, down 7% from Q2 but still 19% higher than the same period last year.
-
-The number of newly exploited vulnerabilities isn't growing at the same rate as disclosures. The more pressing concern is how quickly attackers exploit the vulnerabilities they choose. On average, exploitation occurred just three days after public disclosure. The report also found that 80% of tracked exploitation occurred within 14 days and 90% within 30 days.
-
-That timeline creates a serious challenge for organizations relying on fixed remediation schedules. It also reinforces the need to distinguish between vulnerabilities that are theoretically severe and those that pose an immediate, exploitable risk.
-
-The report examines the exploitation timeline in greater detail, including the vulnerability characteristics that make certain exposures particularly attractive to attackers.
-
-Attackers are exploiting vulnerabilities that require no interaction
-
-Q3's vulnerability data reveals another concerning pattern: Of the 43 newly exploited high- and critical-severity vulnerabilities tracked, 34 (79%) required no authentication or user interaction.
-
-This provides attackers a potential path into exposed systems, no stolen credentials or malicious content interaction necessary. An internet-facing service with an exploitable vulnerability may require immediate attention, particularly when an attacker can reach it without authenticating.
-
-This makes attack surface visibility and contextual prioritization essential. Security teams need to understand which systems are externally accessible, which vulnerabilities are actively exploited, and whether existing controls can prevent or limit compromise.
-
-A CVSS score alone won’t give you the answers. The report explores the characteristics of exploited vulnerabilities and why understanding reachability is critical to reducing risk.
-
-AI is taking on a more operational role in attacks
-
-In Q3, 8% of the threat reporting tracked by Rapid7 cited AI as an operational component. The research identifies a shift from using AI primarily to help draft content or code toward supporting tactical decisions and execution within attack campaigns.
-
-In the documented cases, human operators continued to select targets and determine objectives, but relied on AI assistance for technique selection, target assessment, and adapting when an attack step failed.
-
-The report also examines how threat actors split malicious objectives across multiple AI sessions to evade provider safeguards. There are serious implications for detection in these findings. AI-enabled attacks also reinforce the value of monitoring and quickly adapting to attacker behavior rather than relying exclusively on known malware signatures or threat actor identities.
-
-The report provides additional context on how AI appeared in tracked campaigns and what defenders should monitor.
-
-The next step: Prioritize exposure before attackers exploit it
-
-Q3's findings reveal a challenge that vulnerability counts alone can’t explain. Attackers exploited 43 newly tracked vulnerabilities this quarter, yet the average exploitation window was just three days. Meanwhile, underground forum monitoring identified 41 posts advertising RDP or network access, demonstrating continued interest in selling access to compromised environments.
-
-Security teams must account for both the vulnerabilities attackers can exploit directly and the access they can obtain through other means.
-
-Start by identifying externally accessible assets and the vulnerabilities affecting them. Prioritize known exploitation, unauthenticated access paths, and systems supporting critical business functions. Where immediate remediation isn't possible, assess compensating controls and detection coverage.
-
-The latest Rapid7 Quarterly Threat Landscape Report brings together vulnerability research, ransomware intelligence, nation-state activity, and dark web monitoring to help security teams understand where threats are concentrated and what to address first. Download and read it now."

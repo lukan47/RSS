@@ -1,5 +1,478 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-3c8bfbaead9f,11a9e447f3a8,2026-11-18 01:53 UTC,Vulnerabilities & Patching,Cisco Security,Talos Intelligence,Vulnerability Management,Article,CVE-2026-114938: Critical vulnerability in OpenJDK JAVA,https://blog.talosintelligence.com/java4shell/,"This vulnerability does require a specific subset of processors that support AVX-512 VBMI; these include commonly deployed processors from both Intel and AMD, resulting in a...","Cisco Talos is tracking the disclosure of a critical vulnerability in OpenJDK Java (CVE-2026-114938), dubbed “Java4Shell,” with a CVSS 4.0 score of 9.2 that may lead to unauthenticated remote code execution (RCE). This vulnerability can be triggered by sending a malformed Base64 input to affected JVMs, which can result in RCE.
+0f284206ec6b,0f284206ec6b,2026-11-18 11:00 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Threat Intelligence; Endpoint Security,Article,The challenge of defending against bulletproof dead drops on public blockchains,https://blog.talosintelligence.com/the-challenge-of-defending-against-bulletproof-dead-drops-on-public-blockchains/,"By redirecting malware traffic to researcher-controlled servers, researchers can not only disrupt the botnet but map the full victim community, gather forensic telemetry, and...","The evolution of malware command-and-control (C2) infrastructure has shifted away from fragile, centralized servers and hardcoded domains toward resilient, decentralized blockchain networks that eliminate single points of failure.
+
+Threat actors are leveraging immutable public ledgers such as Bitcoin transactions, EVM smart contracts via techniques like EtherHiding, TRON wallets, and Solana memo programs to store, mask, and persistently update their operational endpoints.
+
+By executing read-only remote procedure call (RPC) queries to retrieve encrypted C2 configurations directly into compromised endpoint memory, adversaries can continuously bypass traditional perimeter defenses and domain seizures.
+
+Modern cybersecurity requires a fundamental shift away from static domain blocklists toward monitoring anomalous outbound JSON-RPC traffic, analyzing endpoint memory, and treating blockchain infrastructure as an active threat communication channel.
+
+The command-and-control (C2) channel is the operational backbone of any persistent malware campaign. It is also the most fragile component. The moment an actor's C2 infrastructure is identified and reported to the hosting provider, the domain registrar, or law enforcement, the campaign's operational capability collapses. This fundamental asymmetry, where defenders need to identify only a single infrastructure link to disrupt an operation, has driven a multi-decade arms race in resilience techniques, spanning from fast flux DNS evasion to decentralized and peer-to-peer architectures.
+
+Traditional C2 infrastructure where malware beacons to a hardcoded domain or IP address is volatile by design. Security researchers or incident responders who identify the C2 address can trigger a response. The hosting provider can null-route the IP addresses and the domain registrars can suspend malicious domains under abuse policies, law enforcement can obtain court orders compelling infrastructure seizure, and threat intelligence vendors push blocklist updates that cut off the malware from its C2 links across several compromised endpoints simultaneously.
+
+This single point of failure model renders sophisticated malware families inactive once their C2 is identified and sinkholed. By redirecting malware traffic to researcher-controlled servers, researchers can not only disrupt the botnet but map the full victim community, gather forensic telemetry, and notify affected organizations.
+
+The arms race
+
+Threat actors have progressively hardened their C2 infrastructure through several evasion techniques to outpace defensive capabilities. Amongst these techniques, some of the popular approaches include the employment of domain generation algorithms (DGA), content delivery network (CDN) domain fronting, peer-to-peer (P2P) architecture, and dead drop resolvers.
+
+DGAs replace static, hardcoded server domains with dynamically generated domains. Malware programmed with a shared mathematical seed computes hundreds or thousands of pseudorandom domain names on a scheduled basis, systematically attempting to resolve each one until it establishes contact with an address registered by the threat actor. While this technique prevents defenders from neutralizing an entire operation by simply seizing or blocklisting a single domain, defenders counteracted DGAs by reverse engineering the generation algorithms, predicting future domains for proactive sinkholing, and applying machine learning models to detect algorithmically generated strings within enterprise DNS queries.
+
+The CDN domain fronting technique evolved to bypass perimeter inspection mechanisms by exploiting discrepancies between the transport and application layers of encrypted web traffic. By initiating a TLS handshake with a legitimate, reputable domain hosted on a major CDN and specifying a covert, malicious host inside the encrypted HTTP Host header, threat actors route communications through benign enterprise traffic profiles. Enterprise security tools inspecting the outer connection perceive only standard communication with a trusted global platform, effectively masking the true destination behind high reputation infrastructure. However, major cloud providers and network carriers have largely dismantled this evasion vector by standardizing routing policies and enforcing strict matching between TLS Server Name indication values and internal request headers.
+
+P2P architectures eliminate the single point of failure in a centralized server altogether by structuring infected hosts into a decentralized, self-healing mesh network. Instead of querying a primary server for instructions, compromised nodes propagate operational commands, binary updates, and collected data directly between adjacent peers using custom overlay routing protocols. This distributed topology ensures that severing dozens or even hundreds of individual endpoints leave the broader network intact and functional. Nevertheless, peer-to-peer networks suffer from inherent architectural exposure, because defenders and security researchers can enumerate the entire topology by acting as benign nodes, map peer lists, and progressively isolate the infected nodes.
+
+Dead drop resolvers establish an indirect channel by abusing established third-party web services as covert repositories for downstream infrastructure coordinates. Rather than communicating with an adversary's operational network directly, deployed malware retrieves encoded or encrypted IP addresses and domain names embedded inside public social media bios, code repository commits, or image metadata. By masking this initial discovery phase behind legitimate user activity on high-traffic consumer platforms, attackers blind simple reputation-based network defenses. Defenders eventually contain dead drop tactics by working directly with service providers to enforce aggressive account suspension, remove flagged content, and monitor automated outbound API requests from internal enterprise endpoints.
+
+Each of the above techniques still relies on some degree of centralized infrastructure that can, under the right conditions, be neutralized.
+
+The evolution of the blockchain as bulletproof hosting technique
+
+C2 configuration hosting on the blockchain eliminates the operational dependencies through embedding encrypted server addresses and URLs directly into confirmed transactions that cannot be deleted or altered by any party, preventing any single authority from taking down the records.
+
+A public blockchain is a distributed append-only ledger. Once a transaction is confirmed by the validators, it becomes a permanent, globally replicated record. The inherent architectural properties that make public blockchains attractive for financial systems translate directly into ideal characteristics for a resilient C2 configuration hosting channel. When configuration parameters such as active endpoint IP addresses and domain names or operational instructions are embedded into blockchain transactions, no single entity, cloud provider, or law enforcement agency possesses the administrative authority to delete, overwrite, or withhold that data. The ledgers are distributed globally, guaranteeing high availability and persistent access regardless of regional takedowns.
+
+Furthermore, leveraging public blockchains enables operational advantages regarding attribution and survivability. Traditional C2 mechanisms often expose the operator through payment trails, registrar records, or network traffic directed at centralized hosts. By contrast, transactions on distributed ledgers can be broadcast pseudo-anonymously through cheaper wallets and retrieving the embedded configuration data which mimics the benign blockchain queries such as public RPC API lookups or block explorer scraping. Combined with nominal transaction fees, the blockchain functions as an indestructible, globally accessible record where deployed malicious agents can reliably synchronize updates without ever exposing the core infrastructure behind them.
+
+Bitcoin blockchain adoption
+
+The adoption of the Bitcoin blockchain as a C2 configuration hosting channel began around 2016 – 2019, conceived by threat actors seeking to overcome the operational fragility of centralized hosting and vulnerable DNS registrars. Because Bitcoin transactions are permanently recorded and broadcast across nodes globally, configuration details written to the ledger become immutable, preventing law enforcement and infrastructure providers from seizing, altering, or sinkholing the underlying records.
+
+The most prominent implementation of this tradecraft emerged in September 2019 when security researchers at Trend Micro uncovered a new variant of the Glupteba botnet that used Bitcoin transactions to update its active C2 servers. Glupteba embedded a function that queried public Electrum servers for transactions linked to hardcoded script hashes controlled by the threat actors. By parsing the script, the malware extracted AES-encrypted payloads containing operational domains and fallback addresses, allowing the botnet to automatically regain connectivity whenever its active infrastructure faced defensive takedowns.
+
+Prior to Glupteba’s abuse, threat actors explored Bitcoin’s public visibility through auxiliary resolver mechanisms, notably observed in certain iterations of the Cerber ransomware and early proof-of-concept crimeware throughout 2016 and 2017. Rather than embedding direct payloads in transaction scripts, these actors monitored output transaction values, addresses, and block explorer APIs to derive seeds for pseudorandom domain generation. While these early experiments exposed the defensive blind spots of relying on public ledger lookups, the high transaction fees, block confirmation latencies, and 80-byte payload constraints of Bitcoin eventually prompted modern campaigns to migrate toward high throughput smart contract ecosystems and memo programs.
+
+Weaponization of smart contracts on public Ethereum Virtual Machine blockchains
+
+An Ethereum smart contract is an autonomous, self-executing software application deployed directly to an address on the Ethereum network. Compiled into bytecode that runs on the decentralized Ethereum Virtual Machine (EVM), it is distributed across several independent nodes rather than hosted on a central server. Smart contracts operate transparently, resist blocking restrictions, and cannot be shut down or modified by any single hosting provider or authority.
+
+Smart contract architecture is more appealing to threat actors when compared to a standard transaction of a block in the blockchain. A block serves as the structural foundation of the blockchain ledger which builds verified transactions into immutable, time-stamped entries. A standard transaction represents an ephemeral event where a message is broadcasted to move funds or call an address, which may include an arbitrary payload inside the input field. Once mined, this transaction data is written permanently into blockchain history. A smart contract, by contrast, acts as a persistent entity capable of storing data that can be modified over time through subsequent transactions.
+
+Threat actors misuse this unique capability through a technique known as EtherHiding: transforming smart contracts into resilient dead drop resolvers. In the attacks, the actors deploy a smart contract holding encoded C2 domains or IP address within a contract variable. The malicious programs deployed on the compromised machines query the contract via public legitimate blockchain RPC endpoints using JSON-RPC calls such as eth_call over HTTPS and decrypt the encrypted payload received in response in the compromised machine memory and connect to the C2 infrastructure. Because eth_call simulates a contract read operation without creating an on-chain transaction, implants and scripts could retrieve live C2 addresses, leaving no transactional footprints on the ledger.
+
+The EtherHiding technique was surfaced in October 2023, when security researchers documented how threat actors bypassed conventional domain takedowns by using Binance Smart Chain (now BNB Smart Chain) contracts as anonymous, indestructible hosting platforms.
+
+The primary cluster initially responsible for pioneering EtherHiding is the financially motivated threat actor group tracked as UNC5142 and reported by researchers in October 2025, widely associated with the ClearFake distribution campaign. ClearFake initially leveraged Cloudflare workers to deliver drive-by download lures and fake browser updates but shifted to blockchain storage when cloud vendors disrupted their operational infrastructure.
+
+Following the tactical success demonstrated by cybercriminals, state-sponsored advanced persistent threat (APT) groups also integrated EtherHiding into targeted operations. Security researchers revealed in October 2025 that the North Korean state-sponsored threat cluster UNC5342 (linked to social engineering campaigns known as Contagious Interview) adopted EtherHiding to target developers in the cryptocurrency ecosystem. In the report, researchers disclosed that the actor UNC5342 deployed custom smart contracts on BNB Smart Chain to store second-stage payloads and active C2 endpoints for their JADESNOW and INVISIBLEFERRET malware families. They updated the configuration data more than 20 times within a few months, demonstrating how both state-sponsored adversaries and cybercriminal enterprises exploit EVM-compatible ledgers.
+
+Figure 1. A sample transaction of a smart contract hosting malicious data.
+
+TRON adoption
+
+Threat actors have increasingly embraced the TRON blockchain to construct multi-chain fallback systems that resist traditional domain seizures and infrastructure takedowns, initially reported in September 2026. APT groups, most notably UNC5342 and Iranian state-sponsored actors, incorporate TRON as a front-line communication channel by embedding encoded routing details directly within wallet transactions. Deployed implants issue routine queries to public TRON application programming interfaces (APIs) to retrieve these transaction records, extract cryptographic keys or location pointers, and connect to secondary payload contracts hosted on platforms like BNB Smart Chain. By capitalizing on TRON's nominal transaction overhead, high processing throughput, and massive legitimate transaction volume, adversaries create an unseizable setup that forces defenders to attempt simultaneous disruptions across distinct, decentralized ecosystems to break command access.
+
+Adoption of the Solana Memo transaction
+
+On the Solana network, transactions and the Solana Program Library (SPL) memo program operate under a distinct execution model compared to EVM-based smart contracts. A Solana transaction is an atomic package containing one or more instructions executed in sequence, capable of invoking multiple independent on-chain programs within a single block confirmation. The SPL Memo Program is a native, pre-deployed utility program residing directly within the Solana runtime. Rather than managing complex state machines or maintaining custom variables, the Memo Program simply validates an arbitrary string passed to it such as UTF-8 text or Base64-encoded binary data and records it directly into the transaction’s verified execution log.
+
+Threat actors repurpose this architecture by treating the Memo Program as a lightweight, transaction-level dead drop resolver. In this technique, the actor controls standard Solana wallets and periodically broadcasts micro-value transactions that execute a call to the Memo Program. These transactions contain encrypted C2 IP addresses or staging domains. The implanted malware on the compromised endpoints is, configured with the Solana memo program ID, query public Solana JSON-RPC endpoints using standard calls like getSignaturesForAddress and getTransaction. The malware pulls the newest confirmed transaction associated with that wallet, extracts the payload from the memo instruction logs, decrypts the destination in memory, and initiates network beacons. When an operational IP or domain is sinkholed by security teams, the attacker simply broadcasts a new transaction with an updated memo payload, and the malware automatically retrieves the latest transaction on its next polling cycle without requiring binary updates on the victim machine.
+
+Solana’s technical profile presents distinct characteristics compared to earlier public blockchains when evaluated as a low-latency, resilient data distribution layer. Processing over 65,000 transactions per second with sub-second block confirmation times around 0.4 seconds, the network enables near-instant propagation of broadcast data globally, avoiding the prolonged mempool delays characteristic of Bitcoin’s seven transactions per second (TPS) or Ethereum’s 15 – 30 TPS baseline. Economically, execution fees averaging approximately U.S. $0.000025 per transaction allow several updates to be published.
+
+Threat actors are leveraging Solana memo transactions for hosting the C2 configurations that were first seen employed by the Lazarus APT group reported in March 2026. In September 2026, Cisco Talos discovered malicious activity conducted by a suspicious North Korea-aligned threat actor UAT-12643, including the use of the Overlord RAT and implementation of a resilient C2 server discovery mechanism by using the Solana blockchain. The actor embeds encrypted C2 URLs into the Solana blockchain using the Solana Memo Program, a native Solana program that validates and permanently records arbitrary text strings in the blockchain ledger as part of a transaction.
+
+Looking ahead at defensive approach to counter bulletproof blockchain dead drops
+
+The weaponization of public blockchains ranging from legacy Bitcoin script hashes to EVM smart contracts, TRON accounts, and Solana memo fields fundamentally inverts how we counter adversary infrastructure. By turning decentralized ledgers into resilient dead drop resolvers, threat actors have removed the single points of failure that security teams traditionally rely on to dismantle operations. Standard approaches like registrar-level domain seizures, hosting takedowns, and DNS sinkholing simply don't work when the staging record lives across many immutable nodes.
+
+Enterprise defense needs to move past static indicators and focus on how endpoints interact with Web3 infrastructure. Because, resolving these dead drops relies on standard read-only Remote Procedure Call (RPC) queries, monitoring or blocking outbound traffic to public node providers like Infura, QuickNode, Tatum, and native chain endpoints could help reduce the attack surface significantly, if they aren’t required for business operations. Security teams should baseline normal developer or business activity and flag automated, high-frequency calls using methods like eth_call, getTransaction, and getSignaturesForAddress. Network defenders should inspect JSON-RPC payloads for anomalous base-encoded data and unexpected payload lengths. Also, endpoint telemetry should prioritize detecting lightweight in-memory decrypters before they can unpack and beacon out to the resolved C2 destinations.
+
+As defenders mature these detection capabilities, adversary tradecraft will inevitably shift. Talos researchers are anticipating that on-chain C2 pipelines will move towards multi-chain fallback architectures, chaining lookups across multiple cryptocurrency networks to evade single-ecosystem blocks. As commercial RPC gateways implement stricter abuse detections, attackers will likely route the RPC lookups through decentralized RPC aggregators, private transaction relayers, or zero-knowledge proof (ZKP) verification systems that obscure the querying host. Eventually, tracking this activity requires treating public ledgers not just as financial tracks, but as an active adversary communications layer."
+7dc00b66a473,7dc00b66a473,2026-11-18 11:00 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Threat Intelligence; Endpoint Security; Data Security Posture Management; File Security,Article,UAT-12643: Suspected North Korea-aligned actor blends blockchain resilience with targeted infostealing,https://blog.talosintelligence.com/uat-12643-suspected-north-korea-aligned-actor-blends-blockchain-resilience-with-targeted-infostealing/,Cisco Talos discovered malicious infrastructure associated with a financially motivated threat group we are tracking as UAT-12643,"Cisco Talos discovered malicious infrastructure associated with a financially motivated threat group we are tracking as UAT-12643.
+
+The actor’s arsenal has several payloads including the Go-based Overlord remote access trojan (RAT), a Python-based infostealer internally labelled “Good Game,” and a multi-cryptocurrency clipboard hijacker.
+
+The threat actor is likely operating a campaign targeting cryptocurrency holders, gaming platform account owners, and VoIP software users based on the lure file names of the initial vectors and the payloads.
+
+The Overlord RAT implements a command-and-control (C2) resilience technique in which encrypted server URLs are embedded in Solana blockchain transaction memos.
+
+Victimology
+
+The threat actor is potentially targeting victims in Europe, according to the payload’s keyword-based file harvesting capability, which specifically targeted documents that had file names in English, French, Spanish, and Portuguese.
+
+Based on the lure themes and payload file names, the potential victim pool spans across multiple verticals. A lure financial statement decoy PDF — launched when the Good Game stealer is executed — indicates targeting finance and accounting staff. The Viber trojanized installer lure targets messaging platform users, while additional payload variants of files named microsip indicate targeting VoIP softphone operators, consistent with call-center or business telephone environments. Cryptocurrency and gaming users are also targeted by both the clipboard hijacker and the infostealer.
+
+Potential links to North Korea-aligned actors
+
+Talos assesses with low confidence that UAT-12643 is a North Korea-aligned advanced persistent threat (APT) actor based on overlaps in tactics, techniques, and procedures (TTPs) with those of the other known North Korean APT actors.
+
+In the current campaign, Talos observed that the actor is using the Overlord RAT as one of their payloads. The threat cluster called UNK_DeadDrop, likely a North Korean threat actor, had employed the Overlord RAT in their earlier campaigns as reported by the security researchers in June 2026.
+
+The Overlord RAT variant observed in this campaign implements a blockchain C2 resilience technique with Solana blockchain transactions. This technique was first reported in March 2026, employed by the Lazarus APT group. Although the implementation methodology differs (earlier, it was through Node.js), the technique of leveraging Solana transaction memo stayed consistent.
+
+Talos is aware that Overlord RAT and Solana blockchain hosting technique is also leveraged by other threat actors in their campaigns, as reported by external security researchers in October 2026.
+
+Threat actor infrastructure
+
+Talos observed that the actor hosted the malicious files on a server with IP address “41[.]216[.]188[.]11”, running a Flask-based file delivery service on port 8000 with resumable byte-range download support, and serving the payload staging directory. Due to the actor’s operational security failure, the server’s root folder was exposed to the internet, and Talos’ analysis of the exposed folder showed us actor’s tool sets, and the port numbers configured on the C2 server for different services.
+
+Port number
+
+Service
+
+Payload file name
+
+8000
+
+Flask file-drop (HTTP)
+
+Payload.exe, MyApp2.exe, HTA files
+
+5173
+
+Overlord RAT WebSocket C2
+
+Ovl.exe, Client.exe
+
+5656
+
+Python stealer TCP C2
+
+Ova.exe, MyApp2.exe
+
+5959
+
+Python stealer TCP C2
+
+Microsip-config.exe, microsip-config1.exe
+
+The actor does not use the traditional data exfiltration approach of transferring the data to the C2 server; instead, the stolen data is exfiltrated using two different services. The actor used the discord webhook, which receives an immediate notification that contains a victim’s fingerprint and a single click download link. The stolen data archive is uploaded to “gofile[.]io” and is later accessed by the actor through the download link.
+
+We also observed the actor’s LNK generation script among the samples of the staging directory, indicating the actor’s lure creation workflow. The script accepts a payload URL and icon type (PDF, Word, or Windows Update) and generates a COM-based LNK with the spoofed and hidden execution.
+
+Figure 1. Sample Windows shortcut generation script.
+
+Initial access vectors
+
+Talos observed that the actor uses three different methods to gain initial access to victims’ environments. They have instrumented Windows shortcuts, HTA files, and XML files, so the embedded malicious instructions execute and grant initial access. In this campaign, we have not observed how the actor delivers these malicious initial vector files to victims’ machines.
+
+Weaponized LNK
+
+One of the initial access vectors is the usage of the weaponized LNK files paired with the icons spoofed from legitimate system binaries to appear as a legitimate file in the Windows Explorer.
+
+The shortcut file impersonates a PDF using the standard Windows document icon and abuses MpCmdRun.exe, Windows Defender's command line utility and the argument -DownloadFile to get the payload. Since MpCmdRun.exe is a signed Microsoft binary, the download passes application allowlisting controls transparently. The downloaded payload will be saved as RuntimeBroker.exe to blend into process inventories, and the console window is minimized with no visible trace.
+
+Figure 2. Embedded command line in a sample LNK.
+
+Another shortcut file applies the same PDF disguise through a double-extension file name and the Microsoft Edge PDF icon and uses certutil -urlcache –f, a one-liner download command that operates under the guise of a certificate cache update. Both shortcuts were built on the same machine (win-8oa3ccqae4d).
+
+Figure 3. Embedded command line in a sample LNK.
+
+HTA dropper
+
+Talos observed that the actor has weaponized the JavaScript HTML Application (HTA) file to gain initial access. The weaponized HTA is executed by mshta.exe and the JavaScript in the HTA uses “MSXML2.ServerXMLHTTP” to fetch the payload as raw binary and “ADODB.Stream” to write it to %TEMP%\s.exe, then executes it stealthily by hiding the execution window.
+
+Figure 4. Sample HTA file.
+
+MSBuild living-off-the-land binary (LOLBin)
+
+The actor has also weaponized a standard MSBuild XML project file “dl.xml” by including an inline C# CodeTaskFactory task. When the XML file is executed via msbuild.exe, it compiles and executes the C# code in memory, and no intermediate executable is written to disk for the downloader stage. The download uses a spoofed Microsoft BITS/7.8 User-Agent string, impersonating the Windows Background Intelligent Transfer Service (BITS) used by Windows Update, Microsoft Defender and many third-party updaters, so the request blends in with routine background download traffic.
+
+Figure 5. Sample malicious MSBuild project XML file.
+
+Analysis of Overlord RAT
+
+The Overlord RAT variant utilized by UAT-12643 in this campaign is a modular Windows RAT compiled from Go source code.
+
+The defense evasion and anti-analysis techniques implemented include the detection of in-memory execution to suppress forensic artifacts when running in sandboxes and a “kill flag” mechanism that triggers a kernel-level Blue Screen of Death (BSoD), making the process effectively unremovable without triggering a full system crash.
+
+The RAT first verifies that the current process is running with administrative privilege. It then acquires SeDebugPrivilege for the current process. With that privilege held, it calls a native NT kernel API (NtSetInformationProcess) directly, bypassing the documented Win32 API layer entirely, to set the ProcessBreakOnTermination information class on the current process handle to value 1, which indicates the kernel will handle the process as critical to system operation. With these settings, the operating system treats the process the same way as the core Windows system processes. When a user or a security tool attempt to forcibly terminate the process, the kernel does not allow it to exit cleanly. Instead, it immediately halts the entire operating system and triggers a BSoD with the stop code CRITICAL_PROCESS_DIED.
+
+Figure 6. Snippet of Overlord RAT function that triggers BSoD.
+
+For persistence, the RAT employs two approaches. The primary approach is through a registry autorun entry under the current user's hive, with a randomized value name pointing to the RAT binary located in the Network folder of the local user profile application data folder. The secondary approach is a pre-boot persistence via the Windows Recovery Environment OEM script path. It first removes any previous version of itself and then sets up the OEM environment directly under %TARGETOSDRIVE%\Recovery\OEM\. This folder is the location that the Windows Recovery Environment accesses when performing a ""Reset this PC"" operation. By placing files here, anything registered in this directory gets executed inside WinRE before the operating system is restored.
+
+Once the directory is set, the RAT generates a random 20-character file name for its payload file. Each character is picked individually at random from a fixed character set, meaning every installation produces a uniquely named file. With a random name chosen, it writes the RAT's own executable binary into the OEM directory as that payload file. It then constructs the shell command that WinRE will use to launch the payload and wraps it into Windows batch script with the .bat extension.
+
+cmd.exe /c start %TARGETOSDRIVE%\Recovery\OEM\""random_stub_name""
+
+The use of %TARGETOSDRIVE% is significant, as this environment variable only exists and resolves correctly inside the WinRE pre-boot environment, not in normal Windows. This means the command is specifically crafted to work at recovery time, not during a regular session.
+
+Before modifying any system configuration, it backs up the existing WinRE reset configuration file. Finally, it modifies the ResetConfig.xml file that governs what WinRE does during a reset. If no config file exists yet, it creates one from scratch; if one already exists, it patches it to append the malicious batch scripts as registered OEM tasks. From this point forward, whenever the victim triggers ""Reset this PC"" whether from within Windows Settings or from the recovery boot menu, Windows Recovery Environment will execute the RAT's payload before restoring the operating system, ensuring the implant survives a full system reset.
+
+Figure 7. Snippet of Overlord RAT function configuring the malicious script in WinRE location.
+
+Analysis of the RAT’s binary showed a complete command surface with 35 commands, each corresponding to a distinct capability delivered over the C2 channel. These commands belong to several remote administration capability categories as described in the table below:
+
+Category
+
+Capabilities
+
+Surveillance
+
+Captures keystroke using GetAsyncKeyState, Webcam streaming, microphone and desktop audio capture and desktop screen capture.
+
+File system
+
+Directory listing and creation, file read, write, delete, copy, move, perform recursive search, upload, download, and compression tasks.
+
+Process control
+
+Process enumeration and termination.
+
+Script execution
+
+Execute arbitrary command and script with real-time console output streaming back to C2.
+
+Lateral Movement
+
+Establishes Reverse SOCKS proxy tunnel that routes operator TCP traffic through the victim network, enabling access to internal hosts unreachable from the public internet.
+
+Plugin delivery
+
+HTTP-based plugin downloads with reflective DLL injection at runtime where new capabilities are loaded entirely in memory with no binary update or written to the disk.
+
+Overlord’s Solana blockchain C2 URL hosting
+
+The RAT implements a resilient C2 server discovery mechanism by using the Solana blockchain. The actor embeds encrypted C2 URLs into the Solana blockchain using the Solana Memo Program, a native Solana program that validates and permanently records arbitrary text strings in the blockchain ledger as part of a transaction. Any Solana wallet can include a memo instruction in a transaction of up to 566 bytes of arbitrary data to the permanent, globally replicated transaction record.
+
+Figure 8. The Snippet of Overlord RAT function queries the Solana Memo address.
+
+A threat actor can post one such transaction from a controlled wallet address whenever the C2 server address needs to be updated. Every deployed RAT picks up the update on its next discovery cycle without any redeployment or reconfiguration.
+
+This is achieved by first retrieving the transaction history for the actor-controlled wallet using the Solana getSignatures JSON-RPC method which receives a chronologically ordered list of transaction signatures with the newest transaction first. For each signature it fetches the full transaction via getTransaction with jsonParsed encoding, which instructs the RPC node to decode every instruction data field into structured JSON response. The RAT module then walks every instruction in the parsed transaction looking for one whose data string is exactly 43 characters in length. The 43-character length is the fixed string length produced when a Base58-encoded WebSocket URL is AES-256 encrypted. Any instruction whose data field is a different length will be skipped, including legitimate Memo transactions from other users and all other Solana program instructions. Only instructions matching this precise length signature are treated as C2 memos.
+
+Figure 9. RPC response format for the getTransaction request.
+
+Good Game stealer
+
+The Good Game stealer payload Talos observed in the arsenal of UAT-12643 is a publicly available Python-based infostealer developed under the label ""Good Game (version 1.1.2)” by CirqueiraDev. The actor of this campaign is not the developer, and the malware is distributed as a self-contained Windows executable produced by packaging a Python 3.12.0 code with PyInstaller. Its architecture is split between two cooperating bytecode modules. The “final_build.pyc” acts as the launcher, decoy interface, and reverse-shell client, while “kora.pyc” contains the full data-harvesting stealer logic.
+
+Good Game’s anti-analysis and evasion
+
+The malware employs evasion techniques at every stage of execution, beginning the moment the process starts. The launcher immediately retrieves the console window handle via GetConsoleWindow() and calls ShowWindow() to hide the terminal window. A fully functional Notepad-style graphical user interface (GUI) is rendered in the foreground via tkinter, a Python’s standard, built-in library used for creating GUIs while all malicious threads run as daemon threads behind it.
+
+Before the stealer module begins with any data collection, it runs three sequential execution checks. First, it confirms the host operating system is Windows by checking platform.system(); the stealer aborts silently on Linux or macOS. Second, it verifies network connectivity by performing an HTTP GET request to Google, and if the request fails, the stealer exits and records the failure reason in a file named “skipped"" in the temporary directory. Third, and most significantly, it runs sandbox detection checks in five steps.
+
+It checks for the presence of libraries including sbiedll.dll, api_log.dll, vmcheck.dll, wpespy.dll, cmdvrt64.dll, avghookx.dll, snxhk.dll, and guard32.dll.
+
+The MAC address check extracts the host's network adapter hardware address via the getmac module and compares it against known OUI prefixes assigned to virtualization vendors: VMware (00:05:69, 00:0c:29, 00:50:56), VirtualBox (08:00:27), Hyper-V (00:15:5d), Xen (00:16:3e), and Parallels (00:1c:42).
+
+The hardware memory check queries GlobalMemoryStatusEx through a ctypes MEMORYSTATUS structure and flags machines with less than two gigabytes of physical RAM as sandbox environments.
+
+The boot-time check uses psutil.boot_time() to compute system uptime and treats an uptime of fewer than five minutes as indicative of a freshly provisioned analysis VM.
+
+Finally, the Wine emulation check probes for the presence of “C:\windows\system32\wineboot.exe” to detect Windows API compatibility layers.
+
+If any single check triggers, the stealer exits silently, leaving no harvested data and minimal trace.
+
+The decoy URL mechanism of the stealer adds a further layer of camouflage. It opens a PDF-hosted document in the victim's default browser exactly once per machine and computes an MD5 hash of the URL and stores a flag file named “url_opened_<hash>.flag” in the temporary directory of the victim machine. On all subsequent executions, the lure URL is not re-opened, preventing repeated suspicious browser launches that would alert the victim.
+
+Figure 10. Decoy PDF opened by Good Game stealer in victim’s browser.
+
+Persistence established by Good Game
+
+The malware establishes persistence through two independent mechanisms on Windows, ensuring the implant survives reboots regardless of which pathway is disrupted. The primary method is a registry autorun by opening the key HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run using winreg.KEY_SET_VALUE” and writes the absolute filesystem path of the running executable under the value name Zoipers, causing the binary to be launched automatically at every subsequent user logon without requiring elevated privileges. The secondary persistence mechanism is executed from within the stealer module of kora.pyc. The stealer copies the running executable into the Windows Startup folder at %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\ using shutil.copy().
+
+Beyond simple re-execution persistence, the stealer also temporarily disables the Windows Task Manager during its active operation. It calls advapi32.RegCreateKeyExW directly through ctypes against the key HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System and sets a DWORD value DisableTaskMgr=1 via RegSetValueExW. After the data exfiltration completes successfully, the stealer restores the value to zero (DisableTaskMgr=0), reducing the probability that the victim will notice the restriction.
+
+Good Game stealer functionalities
+
+The stealer's most extensive capability targets 23 Chromium-family and Firefox-based browser variants, covering Google Chrome across all distribution channels, Microsoft Edge, Opera, Opera GX, Brave, Vivaldi, Yandex Browser and all its regional variants, Amigo, Torch, Kometa, Orbitum, CentBrowser, 7Star, Sputnik, Epic Privacy Browser, Uran, and Iridium.
+
+The stealer scans LevelDB stores across Discord clients and over 19 Chromium-based browsers for authentication tokens using two regex patterns one for plain-text tokens and one for tokens encrypted with the “dQw4w9WgXcQ:” prefix introduced in newer Discord versions. It decrypts the stolen token via the browser's extracted master key, then validates each recovered token against the Discord API to build a complete account profile covering username, display name, user ID, email, phone number, Nitro subscription tier, linked payment methods, gift codes, and multi-factor authentication (MFA) status.
+
+The stealer additionally extracts ROBLOSECURITY cookies from browser databases, validating each against the Roblox authentication API to confirm active sessions and retrieve the associated account details. A full system profile is assembled covering hostname, username, hardware specifications, OS details, network interfaces, and public IP geolocation metadata queried from ipwhois.app, serialized to system_infos.txt in the archive root.
+
+The stealer also captures a full-monitor screenshot and a single webcam frame, both saved as PNGs and added to the archive before the temporary files are deleted and terminated. The stealer then harvests session data from 21 cryptocurrency wallets including Exodus, Electrum, Ledger Live, Trezor Suite, Atomic Wallet, Trust Wallet, Coinbase, and Binance, as well as four gaming platform launchers (Steam, Riot Games, Epic Games, and Rockstar Games).
+
+Beyond structured credential databases, the stealer conducts a targeted sweep of the victim's personal file system across the folders Desktop, Downloads, Documents, Pictures, Videos, OneDrive root, and the Windows Recent Items folder at %APPDATA%\Microsoft\Windows\Recent. The sweep applies to two independent filters that a file must satisfy simultaneously before it is collected.
+
+The first filter is an extension allowlist covering 45 file types spanning different categories mentioned in the table below:
+
+File types
+
+File extension
+
+Plain text and configuration formats
+
+.txt, .log, .ini, .json, .xml, .csv, .md, .rtf, .cfg, .conf
+
+Image formats
+
+.png, .jpg, .jpeg, .bmp, .gif, .tiff, .svg, .webp
+
+Document formats
+
+.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .odt, .ods, .odp
+
+archive formats
+
+.zip, .rar, .7z, .tar, .gz, .bz2
+
+video and audio formats
+
+.mp4, .avi, .mkv, .mov, .wmv, .flv,.mp3, .wav, .aac, .flac, .ogg
+
+The second filter is a keyword allowlist of four languages English, French, Spanish, and Portuguese that must match the file's base name exactly. The keyword list is designed to maximize overlap with the types of sensitive documents that cryptocurrency users, online gamers, and financially active individuals are likely to store on their desktops or in their documents folders. It covers two-factor authentication backup codes, mnemonic seed phrases, cryptocurrency wallet application names, generic password file naming conventions, banking and payment terms, private key and recovery phrase labels, Discord authentication tokens, Telegram session identifiers, and generic high-value labels such as secret, vault, backup, admin, and root.
+
+Files that satisfy both the extension and keyword filters are written into the archive in the temporary directory, with each file name suffixed by a randomly generated four-digit number before the extension.
+
+Figure 11. Targeted files search and exfiltration program for Good Game stealer.
+
+Data exfiltration mechanism of Good Game stealer
+
+All harvested data is written progressively into a single ZIP file. The ZIP file object is opened with ZIP_DEFLATED compression in the system temporary directory. The archive file name uses the prefix “SK_”, followed by eight randomly generated characters, creating a unique identifier per victim and making the archive harder to identify by name alone.
+
+The ZIP is structured into named subdirectories such as Screenshot/, Webcam/, Session Files/Wallets/, Session Files/Game Launchers/, Session Files/Apps/Telegram/, and Interesting Files/ alongside flat files in the root for system information and antivirus enumeration results. Browser-derived outputs are labelled with a count suffix such as Passwords (N).txt, where N reflects the number of credentials recovered from that browser, enabling the actor to prioritize.
+
+Once all stealer modules have been completed, the closed archive is uploaded to hxxps[:]//upload[.]gofile[.]io/uploadFile using an HTTP POST request. The server returns a JSON response containing a direct download link to the uploaded archive.
+
+Figure 12. Snippet of Good Game stealer exfiltration function.
+
+With the GoFile download URL in hand, the stealer constructs a Discord webhook notification and POSTs it to the hardcoded webhook endpoint. The notification takes the form of a Discord message containing the victim's hostname, username, machine architecture, operating system version, and OS release label providing the operator with an immediate preview of the victim's machine profile without needing to download the archive first. After the webhook POST completes, the stealer calls its cleanup routine to delete the local ZIP archive and all temporary intermediate files including the screenshot PNG and webcam PNG from the temporary directory.
+
+Figure 13. Snippet of Good Game that POSTs reconnaissance data to Discord Webhook.
+
+Clipboard hijacker targets multi-cryptocurrency wallet addresses
+
+The clipboard hijacker Talos identified in the actor’s toolset is a compact Windows x64 executable written in C++. It has no network component or C2 communication protocol; instead, the actor configuration is compiled directly into the binary as XOR-encrypted wallet addresses in the binary data section.
+
+Upon execution, the binary dynamically resolves the API function addresses and creates a global mutex “UuuRjinBZPBMIjnc”. Then it retrieves the machine name and searches for the substrings including VBOX, VMWARE, QEMU, and SANDBOX. Persistence is established by copying the binary to %APPDATA%\MsgEdgeUpdate.exe with FILE_ATTRIBUTE_HIDDEN and FILE_ATTRIBUTE_SYSTEM attributes applied, then adding it under user hive’s Run registry key with value named “MsgEdgeUpdate”, spoofing the appearance of a legitimate Microsoft Edge updater process.
+
+The hijacker polls the Windows clipboard every 500 milliseconds in an infinite loop, applying address-format fingerprinting to detect the copied cryptocurrency. All clipboard APIs are resolved dynamically through user32.dll. On detection, the corresponding attacker wallet address is XOR-decrypted from the data section and overwrites the original wallet address in the victim machine clipboard.
+
+Coverage
+
+The following ClamAV signatures detect and block this threat:
+
+Win.Trojan.OverlordRAT-10060615-0
+
+Ps1.Trojan.LNKBuilder-10060627-0
+
+Win.Trojan.OverlordRAT2-10060616-0
+
+Win.Infostealer.GoodGame-10060617-0
+
+Win.Infostealer.PyStealerDeps-10060618-0
+
+Py.Infostealer.GoodGame-10060619-0
+
+Py.Trojan.GoodGameLoader-10060620-0
+
+Win.Trojan.WalletClipper-10060621-0
+
+Win.Downloader.LNKMpCmdRun-10060622-0
+
+Win.Downloader.LNKCertutil-10060623-0
+
+Win.Trojan.LNKVideosExe-10060624-0
+
+Html.Downloader.HTAStager-10060656-1
+
+Xml.Downloader.MSBuildInline2-10060657-0
+
+The following Snort2 and Snort3 Snort Rules (SIDs) detect and block this threat:
+
+Snort2: 1:67491, 1:67490
+
+Snort3: 7:75, 7:74
+
+Indicators of compromise (IOCs)
+
+IOCs for this research can be found at our GitHub repository here."
+678acf0187d1,678acf0187d1,2026-11-18 05:00 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Takes,Endpoint Security; Threat Intelligence; Server & Workload Protection,Podcast,Using public blockchains for malware command and control,https://www.buzzsprout.com/2018149/20132459,"So at this point, um uh I would say, in my opinion, the attackers uh actually needed uh a type of bulletin board that was highly available and uh it could blend with normal web traffic and most importantly, entirely uncensorable. You know, how how do they impact how an attacker sets up their dead drop and how the...","Amy Ciminnisi 0:00
+
+Welcome to Talos Takes, where we discuss Cisco Talos latest research and security news. We break down complex topics for everyone, from beginner to expert, C suite to frontline. Hello and welcome to Talos Takes. If my voice is a little raspy, a little tired, that is because it is 7 a.m. here on the east coast of the US. Our guest is based in Singapore. It's a special treat where it is 8 p.m. So we're making do. But I'm very excited because today we're talking about the evolution of command and control infrastructure. A few episodes ago, we talked a little bit about ether hiding. Today we're going to do a deeper dive into how threat actors are hosting their C2 infrastructure on blockchains. And then also new findings from our researcher Chetan Ragu Prasad on UAT 126.43 that reveal the use of the overlord remote access Trojan or RAT. And this RAT embeds encrypted server URLs on the Solana blockchain. So Chetan, how are you doing?
+
+Chetan Raghuprasad 1:19
+
+Hi, Amy. Uh I'm doing good, thank you. And it's it really feels good to be here again.
+
+Amy Ciminnisi 1:26
+
+Yeah, yeah. Last time you were on was with Hazel a few months ago, right?
+
+Chetan Raghuprasad 1:32
+
+Yeah, that's right. That's right. Exactly.
+
+Amy Ciminnisi 1:34
+
+Yeah. Well, I'm glad to have you on. Let's let's jump right into it. So we have been tracking C2 infrastructure for a long time. Um we've had the DNS flux, we've had peer-to-peer networks. Um, can you walk us through how we got from these early methods to where we are today and what that looks like?
+
+Chetan Raghuprasad 1:56
+
+Yeah, sure, Amy. So it all started uh from uh very earlier days, I mean uh uh a couple of uh decades ago. And uh even uh we could see that sometimes uh even till date. But earlier, the command and control uh uh infrastructure which the attacker used to maintain was highly centralized and fragile. The malwares uh simply used to reach out to a hard-coded IP address or uh a single domain name. And uh once the defenders figured this out and uh they could just uh blacklist these IPs or seize the domains, which led to instantaneously diffusing uh the actors uh or the attacker's operations. So to survive these, the attackers needed to become a moving target that actually led to the era of uh fast flux uh DNS and domain generation algorithm, DGA techniques. So here, instead of uh having one domain, the malware would mathematically generate uh hundreds of uh potential uh domains a day, and attacker from those set of domains only needed uh a couple of those to register them and uh instrument that into their uh operations to successfully issue commands or to operate it as a uh C2 node or the C2 infrastructure. So it was uh like a relentless game of vacuum all for defenders, but eventually the security industry also got adapted and we got better at analyzing DNS traffic at scale and also spotting those uh DGA patterns and uh syncalling the domains before the attackers could even use them. So then uh after this, we started seeing the attackers um moving towards peer-to-peer, which is P2P uh network uh architecture, where uh an example which I would like to quote is uh uh game overs use botnet. Uh, in that uh intrusion, uh we have seen that there was no single server for the defenders or the law enforcement to take down. Uh instead, uh there were uh a couple of uh and the network of uh affected uh machine which actually uh was acting as a uh C2 nodes uh which can issue commands to the neighboring uh affected machines. Uh still uh the researchers and the security uh and the defenders eventually figured out how to map these uh P2P topologies, uh, and that also uh led these attackers to start thinking uh a different approach. And then we saw the domain fronting techniques uh which the attackers picked up, uh, wherein which their malware used to communicate to a legitimate domain or establish a handshake with a legitimate uh reputed domain uh which is uh available on a major CDN uh uh node, and uh then specifying a covert uh malicious uh host inside the encrypted HTTP host header. So with this, they were uh fronting um the legitimate domain uh in front of their actual uh infrastructure uh IP address or the domain names in their attacks. But that also led to the detections where the defenders uh could identify these techniques where the CDN nodes are under the control of the organizations, uh which led them to look towards the uh CDN logs and all, uh which made them uh kind of not that uh uh helpful to the attackers to continuously leverage on that technique, and then uh that forced them to uh go for a major uh evolution, which is hiding in the plain site. So, where attackers started using legitimate uh trusted platforms like uh Twitter, Telegram, and uh GitHub as a C2 channels, and again, here also all these platforms uh are under the control of uh uh corporate, and then the uh with the abuse um notification uh process or procedures, the researchers uh and defenders like once they identify these uh malicious domain, they could reach out to these uh uh organizations uh which host these platforms and uh issue a takedown request uh or to remove the malicious content from their uh platforms.
+
+Amy Ciminnisi 6:58
+
+So, what is it about public blockchains that makes them so attractive to threat actors?
+
+Chetan Raghuprasad 7:05
+
+So at this point, um uh I would say, in my opinion, the attackers uh actually needed uh a type of bulletin board that was highly available and uh it could blend with normal web traffic and most importantly, entirely uncensorable. Where in which the blockchain uh become a perfect option for them to start leveraging or abusing the blockchain uh technologies, uh, and uh that led them to this blockchain uh-based dead drops or creating the dead drops on the blockchain ledger. So here uh the attackers they can uh embed the encrypted commands of their uh C2 or domain or the IP address in the ledger uh within the transactions, or uh they can also write the location of their secondary payloads directly into the uh transaction uh into a ledger. So uh that's how uh uh this uh has led them to like today, what we are seeing the blockchain uh uh dead drop uh technique and or an option for their C2 infrastructure resilience.
+
+Amy Ciminnisi 8:21
+
+Yeah. And so you analyzed several different um networks in your research. So, like Bitcoin, Ethereum, Solana. Can you talk about some of the technical differences between these chains? You know, how how do they impact how an attacker sets up their dead drop and how the malware interacts with it?
+
+Chetan Raghuprasad 8:42
+
+Yeah. To talk about the uh differences actually it lies uh uh in their fundamental architecture, specifically uh whether uh uh it had they have to function as a simple ledger uh or a programmable computer or a high-throughput uh transaction logs. That's where the difference lies between this uh Bitcoin, Ethereum, and uh Solana uh blockchain or their transactions. So if we uh look into Bitcoin blockchain, so this Bitcoin blockchain, which is a kind of raw ledger and it is intentionally uh rigid. And uh the attackers or the users, like once they uh create the transactions and the transaction got validated and return into the ledger, and that transactions or any of the fields in that transaction cannot be modified. So earlier uh the attackers when they initially uh started leveraging uh this blockchain uh dead drop techniques, and in the Bitcoin transactions, they used a specific uh function called uh op underscore written, which appears as a field uh in the Bitcoin transactions, and uh it allowed the attackers or it will allow the users to write specific bytes of data into that uh op underscore return field. So, how the attackers instrumented it in their attack is uh they used to broadcast a small, often uh a very minimum or zero value kind of transaction uh to a specific wallet address which they control by embedding encrypted IP address or domains of their C2 servers into this OP underscore uh written feed. And then their malware was hard-coded with this specific wallet address, and uh, once that was implanted and run in the victim environment, it used to query the Bitcoin blockchain and looks at the transaction history of the uh transaction in that particular block. And after it retrieves those transaction history, uh it used to extract the op underscore uh written field data and decodes the routing instructions. So that's how uh they used to uh instrument the uh Bitcoin blockchain uh for their uh C2 resilience, but the limitations uh which they started facing was uh uh this blockchain is rigid, like I said uh earlier, and uh they didn't had any options to update their uh C2 domain names or the IP address uh or uh any commands related to their C2 infrastructure uh in a particular transaction that has already been uh registered to a ledger. So they had to again uh uh trigger a new transaction if their uh domain which was uh uh registered there is been detected and it's been blocked. So then uh they started uh looking towards another option uh uh into Ethereum blockchain or Ethereum network. So here in this Ethereum network uh with the help of uh Ethereum smart contracts, they were uh uh writing their uh encrypted or encoded messages related to the IP address or C2 or some specific uh configuration details or the commands into the Ethereum transactions which used to validate and written into the Ethereum blockchain. But before we look into how they actually instrumented into their intrusions or the attacks, I would like to talk a bit about uh the smart contracts. So this uh Ethereum smart contract is actually an autonomous software or I would say applications that are deployed directly uh to an address on the Ethereum network. The tiny applications are compiled into bytecodes and that will run on uh Ethereum virtual machines. So it is uh distributed across several independent nodes rather than uh hosted on a central server. So how the attacker started using this is uh they used to write a simple uh smart contract uh application or program whose sole purpose uh is to store the C2 domain as a variable into the transactions. And they deployed this to the blockchain, and uh in it has the capability to update that specific piece of information that they have written it as a variable to the transaction. So that is the main uh key point uh or uh a win situation for the uh threat actors uh to leverage this uh Ethereum smart chain. The attackers uh can use these smart contracts to uh update the message that has already been written into that particular transaction, and also the Ethereum transactions uh have a kind of small gas fee, uh, wherein uh blockchain or in the crypto transactions uh we see a particular amount called gas fee, which will uh which is similar to kind of transaction fees.
+
+Amy Ciminnisi 14:30
+
+Right.
+
+Chetan Raghuprasad 14:31
+
+So that is very minimum, and it also didn't cost them uh uh much. And uh once they do this uh uh setup uh in the blockchain and then the malwares they have engineered it to uh read a particular contract or the smart contract and then get the data uh within that particular contract using uh uh the legitimate RPC call which is called uh ETH underscore call via the public RPC endpoints like Infura, Ethereum, uh gateways, or like CloudFares. So why by doing this, uh they were able to get these encoded or encrypted data that is uh written into the transactions and then uh decode it and then use the C2 addresses. And we have seen a couple of examples in the external uh uh research reports where uh not only the C2 IP address or the domains have been uh uh hosted there, uh, but we also saw recently with the ClickFix uh URLs. I mean the clickfix URLs uh have been uh also uh staged on these uh smart contracts uh transactions and uh wherein which the malware uh or the uh code uh I saw in one of the reports they mentioned they use the Node.js type of malware and it retrieved this particular click fix URL, and uh from there the attack chain started to happen. So still we saw that uh in the malwares, uh, either the attacker has to provide the contract creator address or the specific Ethereum transaction address, and there is another uh entity called function address. So they have to or hard code this information in their malware for it to reach out to the Ethereum blockchain and look for the specific function address. So that is when they will uh get that piece of uh encrypted information which is embedded in that particular transaction. Uh so for the defenders or the reverse engineers who reverse those malwares and get those uh specific fields like function address or the contract creator address, so they can go to the Ethereum blockchain and uh search for that specific transaction and look those uh embedded uh data or information which the attacker has written there. The researchers have uh named this technique as ether hiding. So, ether hiding technique is uh quite popular today, and you've continued seeing many attacks uh or the intrusions leveraging these techniques.
+
+Amy Ciminnisi 17:18
+
+So, one of your blogs focuses on what we think is a North Korea-aligned actor using the Overlord rat um with Solana. So, can you walk me through this example so we can kind of see how this actually plays out for the attacker and what they're trying to achieve?
+
+Chetan Raghuprasad 17:38
+
+Recently one to two months ago, I mean, while uh doing the research, I found uh a specific uh binaries uh that was uh uh hosted on one of the uh staging servers controlled by the threat actor. And then uh we started analyzing that and uh we found that's an uh overload rat binary uh which is uh uh written in uh Golang. And that has the I would say the capability of implementing the C2 resilience using the Solana blockchain. This uh Solana blockchain uh uh or I would say Solana transaction memos. So uh in the Solana uh network uh uh this Solana program library, SPL Memo, which is what they call it as uh wherein in the Etherim network they call uh Ethereum smart contract. Here uh they call it as uh SPL memo program. So this actually SPL memo program uh is native to Solana network and it is pre-deployed directly within the Solana runtime. So it doesn't need any EVMs or like uh virtual machines uh to uh compile these into bytecodes and run the program. So this is direct. I mean uh direct and also another um advantage of this is uh uh it has the capability to like simply validate an arbitrary string of data which is passed to it uh in the form of like UTF-8 text or base 64 encoded binary data, and then it directly records it to the transaction's uh verified execution log. So that's the difference, and it is uh quite straightforward uh to the attackers, and also uh the solana transactions uh fees are like practically microscopic, so it is very minimum, and the attackers can rotate their deadrops or the configuration data that they have written into like almost virtually at zero cost, and also they can rely on the high throughput nature of the uh chain to quickly broadcast uh these new instructions. So they can do the setup at the blockchain uh uh end using these uh Solana SPL memo programs and the malwares which they use uh, like in this case or the recent research uh we found uh overload RAT implementing this technique where they were acquiring the SPL memo program address. So they reach out, uh the malware will uh reach out to the Solana blockchain and look for that SPL memo program address, and similar to the Bitcoin, uh like it retrieves the transaction uh history of that particular account and then look for an arbitrary string that is uh being embedded in that particular transaction. And this string uh usually is uh about 43 to 44 characters length, and they implement that logic in their malware to look for that particular embedded or encoded or encrypted string that they will get it and decrypt it and get the uh C2 instructions or the C2 domain or the IP address uh updated into their C2 specific modules modules of the RAT. So that will pick up the latest C2 address and it will reach out to the C2.
+
+Amy Ciminnisi 21:11
+
+So is the was this research your first encounter with it on the Solana blockchain?
+
+Chetan Raghuprasad 21:18
+
+Yeah, so the usage of this Solona blockchain technique is not the first time uh that is being um identified or uh detected. Okay. So uh we have if I remember the dates, yeah. I I would say earlier uh it has started uh being uh implemented by Lazarus group and they started using this uh uh Solno blockchain dead drop techniques uh uh in their attacks. And after that, we have also recently uh seen another report uh wherein which another Portuguese uh speaking uh actor have also used this overload rat, which leverage on this uh Solna block. On our blockchain. So we have started seeing these being employed by the uh attackers, and uh it is kind of evolving.
+
+Amy Ciminnisi 22:10
+
+Yeah. I mean, and I'm kind of curious, you know, security teams are used to the traditional playbook of like blocking domains, seizing IP addresses, working with registrars, things like that. Um and so we kind of get why that playbook falls apart here. Um, but if we can't just block that domain or host, what are effective ways for practitioners to like spot this traffic in the environment? And then, you know, what does normal versus malicious look like? And what should they do about it?
+
+Chetan Raghuprasad 22:52
+
+Yeah, yeah. So earlier, I mean, I would say the traditional playbook uh approach that we have. So, in that, like if we see a malicious domain, uh, the security team have a couple of options. Like the team can reach out to the registrar, like GoDaddy or Namecheap, uh, and uh they can uh put a request to uh suspend those domains. And if the server is hosting a payload, uh they can reach out to like law enforcement and uh uh get the subpoena and uh uh reach out to uh the hosting providers and physically seize the infrastructure or take down those malicious content uh or uh uh the particular host itself, or they can null root the IP addresses. So these were uh the options uh that uh we earlier uh or we have it in the traditional playbook. Uh, when uh we see this blockchain uh dead drop techniques, which what I feel is this traditional playbook will not entirely uh be more effective in uh uh containing the this uh dead drop or uh defending this uh dead drop technique, and also uh this is the reason that uh it ultimately uh pushes the defenders to completely change their strategy. Yeah, so instead of going with the traditional approach, the security teams have to move closer to the endpoint. I mean, they have to catch the malware in the memory, I mean they have to uh see or uh uh detect the behavioral uh anomalies of the malware that when it tries to execute a command, it reads from the chain or intercept the API calls at the host level, because the network infrastructure itself has entirely become bulletproof, so they have to go closer towards endpoint and uh start looking it into how it uh behavior behaves and operates within the memory. Because although the blockchain beforehand, uh, if we could say that blockchain is uh undetectable, but the malware is accessible to the researchers and the defenders. So, in that way, we can see that, and also for the network defenders, uh they need to deploy deep packet and full content inspection to analyze the actual uh behavioral context of the traffic to see some JSON RPC JSON specific format of data or the encoding uh data uh which is coming through uh the network or uh in that context, or look into the specific uh length of uh strings or the encrypted string which is which can be identified or detected uh in that uh particular traffic, which is what uh uh kind of suitable for defending uh this uh uh dead drop uh approach or the dead drop techniques.
+
+Amy Ciminnisi 25:51
+
+Right. And so I'm kind of curious, without being too alarmist or anything, like looking ahead. I mean, over the past several decades, we've seen this evolve so much. Where where do you see this evolving? Um, and like what should security teams be prioritizing right now to kind of stay ahead of you know these developments that might come?
+
+Chetan Raghuprasad 26:20
+
+Yeah, true, actually. So as we say, like defenders uh mature with these uh detection capabilities and uh uh like just we discussed that uh uh look closer into the behavioral uh aspects of that particular malware and all, the adversary tradecraft will also inevitably shift. So uh we are uh like anticipating that uh this on-chain C2 uh pipelines will move towards uh multi-chain fallback architectures where uh chaining uh loops across multiple cryptocurrency networks to evade single ecosystem blocks. So rather than uh just uh Ethereum smart contract or like just blocking the uh Solana uh network or the Solana blockchain, the chaining of uh chaining loop across like multiple cryptocurrency networks could happen or could evolve, and also uh these commercial RPC gateways uh implement uh stricter abuse detections. The attackers will likely route the RPC lookups through decentralized RPC aggregators, where this decentralized RPC aggregators like uh uh pocket network. So this actually eliminates uh the choking point for them. So uh how it works is um instead of routing uh traffic through one corporate provider, an aggregator acts as a uh massive uh routing layer. I mean, that distributes these RPC requests across uh various independent uh nodes, which are uh anonymous nodes, uh, which runs globally. So they can start leveraging this, which is uh kind of also we can call it as like logless networks. So we defenders or the researchers, we cannot go back to these corporate providers uh either to get the logs to uh analyze uh the intrusions or the transactions or uh the IP addresses which is related to the victims or something like that. And uh the next is uh they can leverage uh the dark mem mempool. I mean, uh they call it as uh private transaction uh relayers. So what is uh this mempool is uh whenever you do a cryptocurrency transactions, that transaction first sits in public uh mempool for a few seconds or minutes before it is being processed. I mean, before it is pushed to the validating network to validate the transaction, and then it will write it into the ledger. So before that, it will sit into this mempool, and then um if the researcher starts monitoring this uh public mempool uh to catch these actors rotating their infrastructure or uh giving defenders an earlier uh warning before the new C2 goes live. So they can uh start leveraging on these private transaction relayers. Uh, how it is designed is it is like uh a front run uh bot kind of thing where the users or the attackers can submit transactions directly to the validators instead of uh uh waiting it in the mempool, so they can bypass and they can directly submit it to the validators and so that it will be validated and return it to the uh ledger, so which kind of creates a uh blinder to the researchers if we think about uh monitoring the public mempool, and then the third option which I uh thought about is uh leveraging uh zero knowledge uh proof verification system, which they call ZKP verification system, uh, wherein which it allows uh the users or someone to prove uh a specific piece of information without actually revealing uh uh that information. So they can start leveraging this. I mean, in the uh malware context or the attacker context, this is fundamentally uh it changes how the payloads are protected from the defenders or uh researchers. Uh, wherein uh right now we have that if an attacker puts a C2 domain in a smart contract, like I mentioned earlier, anyone can uh uh go and uh query that contract. Uh if you reverse the binary and get the contract address or the function address, uh you can go and look it in the uh blockchain of that particular uh cryptocurrency network. Uh but with this uh ZKP uh ZKP, I mean uh zero knowledge proof, which will allow the attackers to implement this bulletproofing uh uh environment at uh completely. So it will uh completely blind that information or the uh transaction details at all.
+
+Amy Ciminnisi 31:51
+
+So what should I guess defenders do with all of this and how how should security teams try and stay ahead? Because that's that's you know scary uh scary possibilities.
+
+Chetan Raghuprasad 32:06
+
+Yeah, that's true. So uh one thing or the uh I would say the main thing is uh uh for for this uh public ledger, uh uh treating it as just a financial uh tracks. So we should start looking at it uh as an adversarial uh communication layer, like one of the adversarial communication layer. And uh then again uh that we discussed earlier, uh uh implementing uh the behavioral analysis of those uh uh malwares uh will really uh help the defenders and the security uh professionals to um effectively defend this uh approach which the attackers are uh implementing.
+
+Amy Ciminnisi 32:55
+
+Yeah. Wow. Chetan, thank you so much for coming on. This was incredibly useful. Um it was it was great, and I feel like I've learned a lot more about this. Thank you.
+
+Chetan Raghuprasad 33:10
+
+Thank you, Amy.
+
+Amy Ciminnisi 33:11
+
+Listeners, thanks for tuning in. I will put both of Chetan's blogs in the show notes below. We will have a brand new episode for you in another two weeks. In the meantime, you can check out Beers with Talos or subscribe to our Threat Source newsletter, which comes out every Thursday. And until then, stay safe out there."
+3c8bfbaead9f,11a9e447f3a8,2026-11-18 01:53 UTC,Vulnerabilities & Patching,Cisco Security,Talos Intelligence,Vulnerability Management,Article,CVE-2026-114938: Critical vulnerability in OpenJDK Java,https://blog.talosintelligence.com/java4shell/,"This vulnerability does require a specific subset of processors that support AVX-512 VBMI; these include commonly deployed processors from both Intel and AMD, resulting in a...","Cisco Talos is tracking the disclosure of a critical vulnerability in OpenJDK Java (CVE-2026-114938), dubbed “Java4Shell,” with a CVSS 4.0 score of 9.2 that may lead to unauthenticated remote code execution (RCE). This vulnerability can be triggered by sending a malformed Base64 input to affected JVMs, which can result in RCE.
 
 Details
 
@@ -4786,73 +5259,6 @@ Coverage
 The following SNORT® SIDs provide coverage for this threat: 67363 - 67374.
 
 Talos would like to highlight the efforts of Chris Morrison for providing emergency coverage and mitigations for this threat."
-43d0715e584f,43d0715e584f,2026-10-21 15:10 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Threat Intelligence; Vulnerability Management,Article,Two critical RCEs in PHP core,https://blog.talosintelligence.com/two-critical-rces-in-php-core/,Splunk Enterprise Security customers have an Enterprise Security Content Update with detections available,"Update 10/22: Added section detailing observations of in the wild exploitation and associated IOCs.
-
-Cisco Talos is tracking the disclosure of two unauthenticated remote code execution (RCE) flaws in PHP core, dubbed “php2shell”, triggered by a plain HTTP request and exploitable before any application code runs, affecting every PHP build since 5.4. Based on the entities involved in the disclosure, artificial intelligence and associated technologies played a key role in the discovery of these vulnerabilities — yet another example of how these technologies are forcing change across the landscape, most notably on patching processes for organizations because of the wave of vulnerabilities being disclosed.
-
-Cisco customers are covered with the Cisco Talos Network Intrusion Prevention (SNORT®) signatures 67359, 67360, and 67375. These rules are also available in the Community Ruleset for open-source customers. Splunk Enterprise Security customers have an Enterprise Security Content Update with detections available. Please refer to the following recommendations, detection, and coverage guidance for more information.
-
-Details
-
-CVE-2026-109618 and CVE-2026-109619 are both critical vulnerabilities with a CVSS v4.0 score of 9.2.
-
-CVE-2026-109618 occurs when out-of-memory handling interrupts PHP while internal request data is only partially initialized. Request cleanup may then treat invalid data as valid.
-
-CVE-2026-109619 occurs when a stale internal state is reused after its backing memory has already been freed, before normal initialization resets it.
-
-Impact
-
-The potential blast radius is enormous and extends across the PHP ecosystem. The vulnerability sits in PHP core, so applications running affected versions — including WordPress, Drupal, Magento, Shopware, WooCommerce, and Laravel, plus PHP sites hosted through cPanel or Plesk — may be exposed. Note that many older branches will no longer receive fixes, so customers are urged to upgrade to a supported version as soon as possible.
-
-Talos regularly investigates threat actor exploitation of vulnerabilities. State-sponsored and affiliated threat actors, as well as ransomware and other financially motivated groups, all employ tactics to exploit RCE. Talos assesses that all industries running PHP applications are at risk for exploitation if systems remain unpatched.
-
-PHP 8.1 and older are end of life (EOL), and PHP 8.2 security support ends Dec. 31, 2026. Talos’ initial estimates based on open-source intelligence show a significant corpus of PHP systems that will not receive a patch (~50%). If your organization is running PHP 8.1 or older, Talos very strongly advises immediate update to PHP 8.2 or later. There is no patch for PHP 8.1 or older.
-
-Talos is actively monitoring the impact of these CVEs and has not seen them being exploited in the wild yet (as of October 21, 2026 14:00 UTC/10:00 a.m. ET).
-
-Observed Exploitation
-
-Cisco Talos began observing exploitation attempts within hours of the vulnerabilities’ disclosure. So far, most of the activity is scanning, along with some uncoordinated attempts to deliver various payloads. This is expected: scanning or basic exploitation with public proof-of-concept (PoC) code takes far less effort than integrating a vulnerability into an actor’s own tooling. We expect exploitation volume to grow in the coming days, and campaigns to become more sophisticated and coordinated as more capable groups finish updating their tooling and begin deploying it.
-
-Recommendations and detection guidance
-
-Talos strongly recommends all PHP users to upgrade to the available fixed releases. There are no intermediate or temporary controls that provide comprehensive protection; however, PHP advises that the following measure may reduce exposure to specific attack paths:
-
-CVE-2026-109618
-
-Set memory_limit=-1, preferably in a way applications can't override, such as php_admin_value in the FPM pool or Apache configuration, and check that no pool, directory or application setting puts a finite limit back. This removes the controllable PHP memory limit failure, but an underlying allocation failure can still reach the vulnerable path.
-
-Set a low post_max_size. For applications that don't require file uploads, set post_max_size = 8M. If file uploads are necessary, set post_max_size = 32M. Keep upload_max_filesize below post_max_size. Consider enforcing limits at the web server or proxy level for decoded request size, input field count, multipart part count, header count, and nesting depth. These limits must also cover requests without a usable Content-Length.
-
-Use a container or cgroup limit as an availability boundary, preferably with a policy that kills only the affected worker. Do not substitute RLIMIT_AS or RLIMIT_DATA, as these can cause the vulnerable allocation failure.
-
-CVE-2026-109619
-
-Set session.upload_progress.enabled=0 and restart every worker. Use php.ini, an FPM pool, or server configuration that applies before request parsing. Do not rely on ini_set() or FPM .user.ini. This blocks the confirmed session paths but not other variants.
-
-On PHP 8.5, set fatal_error_backtraces=0 and restart every worker. This blocks the confirmed fatal backtrace path only.
-
-Remove invalid or deprecated settings applied per request that emit diagnostics before initialization. Hiding diagnostics with error_reporting, display_errors, or @ does not help.
-
-Fix attacker-reachable fatal errors and execution timeouts, including failures in callbacks, upload or import processing, and cleanup.
-
-This is another vulnerability that owes its discovery to AI and its associated technologies. As we move through 2026, the wave of vulnerabilities and related patches is building. Talos advises organizations to work on a triaged process for prioritizing vulnerabilities with a specific focus on public-facing systems and vulnerabilities that are under active exploitation. The glaring need to prioritize vulnerabilities along with a streamlined process for rolling out patching strongly indicates that the historic trend of “baking in” patches before deployment is not going to survive the AI era.
-
-The true impact of this vulnerability will take time to evaluate. These types of vulnerabilities that impact core technologies tend to cascade into other platforms and applications as they evaluate impact and provide associated patching, harkening back to the waves of exploitation that we saw after Log4J.
-
-Coverage
-
-SNORT® SIDs covering these vulnerabilities for subscribers: 67359, 67360, 67375. Free community rules are live through our Community Ruleset.
-
-Splunk has released an Enterprise Security Content Update (ESCU) related to the ongoing PHP2Shell activity with additional detections. Splunk Enterprise Security customers are urged to download and apply.
-
-Talos would like to highlight the efforts of Ankur Tyagi, Dalton Schaadt, Brandon Stultz, and Matt Killion for providing emergency coverage and mitigations for these threats.
-
-In this video, Talos’ Nick Biasini explains what the vulnerabilities allow adversaries to do, how to assess your exposure, and what defenders should prioritize.
-
-Indicators of Compromise (IoCs)
-
-5.191.140[.]240 158.69.113[.]75 94.154.43[.]149 143.246.223[.]124 45.198.224[.]169 85.11.167[.]243"
 1a8bdc0566fd,1a8bdc0566fd,2026-10-21 04:00 UTC,General Security News,Cisco Security,Talos Takes,Network Security; Server & Workload Protection; AI Security; Compliance Management,Podcast,Hardening your environment: From segmentation to AI kill switches,https://www.buzzsprout.com/2018149/19968188,"We all know that limiting an attacker's movement in your network is critical, but moving from theory to reality there is where things start to get complicated. So I mentioned before some of the early steps for understanding the security implications in your environment, like threat modeling, uh, risk assessment,...","Amy Ciminnisi 0:00
 
 Welcome to the Talos Takes Podcast, where we discuss Talos' latest research and security news. This podcast is for everyone, from the C-suite to the front lines.
@@ -5024,4 +5430,3 @@ Thank you, Amy. Appreciate it as well.
 Amy Ciminnisi 20:19
 
 Yeah. Thank you so much for listening, everyone. We have a ton of Cybersecurity Awareness Month content out and even more headed your way. So check out our blog, blog.talosintelligence.com, for our latest posts. Stay safe out there."
-d76f2e0019de,d76f2e0019de,2026-10-20 07:00 UTC,General Security News,Cisco Security,Google News: WWT,N/A,Article,World Wide Technology Achieves Cisco Secure AI Infrastructure Specialization in the U.S.,https://news.google.com/rss/articles/CBMiogFBVV95cUxNcnNSWENZREpjV001SnlRcmtQdVlrV3hMWkZfUGVKWU96cnpCVXFwaHpkYzVzTWlkeEktcDBicjM3MzlPOHVpU0t4NXhyN2tTWXhLNTdjZmlPVkVnTkp1LU5NeVAxNkVDVVZNbEJMLUVVb2hRNlRYUnp0VzlZcEs3U0JaY3BjMlktbWcxQlhZbzlyREJXdnQ5RXdtbGpqc2hCS1E?oc=5,,
