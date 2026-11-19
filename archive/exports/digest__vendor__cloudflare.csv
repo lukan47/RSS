@@ -1,5 +1,168 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-001767259b98,11a9e447f3a8,2026-11-18 14:52 UTC,Vulnerabilities & Patching,Cloudflare,Cloudflare Security,Vulnerability Management; Network Security,Article,How Cloudflare WAF helps protect against Java4Shell (CVE-2026-114938),https://blog.cloudflare.com/java4shell-waf-protection/,"Calif reported developing its first working local exploit in about three hours with the help of AI agents, so we expect other attackers to build exploit chains quickly","On November 17, 2026, the security research company Calif disclosed Java4Shell (CVE-2026-114938), a memory-corruption vulnerability in the Base64 decoder of OpenJDK, the most widely used Java runtime. Under the Common Vulnerability Scoring System (CVSS) 4.0, it scores 9.2 out of 10 (Critical). The flaw affects Java. OpenJDK published a security advisory and Oracle released patched builds in its November 2026 Critical Patch Update the same day, at 21:00 UTC.
+663f14e1266f,663f14e1266f,2026-11-18 22:00 UTC,General Security News,Cloudflare,Cloudflare Blog,AI Security,Article,"An updated Clairic and Clairic-flash are now open-weight, from the new Workers AI Superintelligence team",https://blog.cloudflare.com/open-clairic/,"Promotional pricing on Clairic for a limited time When we first launched our preview endpoint of Clairic at @cf/cloudflare/clairic, we hosted the 9B variant as it was faster and...","Cloudflare has become a neolab. We’re building our own frontier AI models for our customers and the open-source community.
+
+Today, we’re announcing two open-weight model releases:
+
+We’re introducing an updated version of Clairic. Since the preview, we’ve improved extraction from complex documents including images and PDFs (new!), with more reliable handling of tables, lists, and dates, and better grounding of answers in the source material.
+
+We’re introducing Clairic-flash, a lighter, faster version of Clairic that delivers strong extraction and prediction performance in a compact, 9-billion-parameter model.
+
+Both extraction models are hosted on Workers AI and full open weights are available on Hugging Face.
+
+We’re also excited to re-introduce ourselves as the Workers AI superintelligence team, the frontier AI research team behind Clef, Clairic, and lots more in the works. This team is working quickly to push the AI frontier and build useful models for Cloudflare’s customers and the open source community.
+
+A new version of Clairic: redesigned after the preview release
+
+Since announcing Clairic in preview, we have received a ton of use cases and helpful feedback on how customers wanted to use an extraction model. We heard about use cases ranging from extracting data from images like receipts to reading values from support tickets. We knew that we wanted extraction to be the clear focus for the model, so it had to excel at reading from unstructured data.
+
+We decided to go back to the drawing board with Clairic and redesigned our architecture, differentiating this new version of Clairic from our preview release. For ordinary text and number extraction fields, we now use parallel slot autoregressive generation instead of a single forward pass. Each field uses the tokens it has already written to choose its next token, then stops at its own end marker. All the fields advance together in the serving batch, still giving lightning-fast latency per request. This boosted our accuracy in extraction for both text and images, and the trade-off in accuracy offsets the small latency cost. For computation, estimation, and extraction use cases, we trained special heads that can handle estimates, forecasts, durations, calculated dates, and explicit arithmetic.
+
+Although the model architecture evolved, we kept the parts of the typed API interface that make the answers useful: confidence scores, character spans, and probabilities are still intact with every request. The model is still incredibly fast and cheap. From the evals below, you can see how our newer versions of Clairic have greatly improved on extraction across text, images, PDFs, and more.
+
+Eval
+
+Clairic-preview
+
+Clairic
+
+Clairic-flash
+
+D1.2 + OCR
+
+ScaleDown
+
+Fresh text fields, 96 requests
+
+295/336
+
+335/336
+
+328/336
+
+304/336
+
+259/336
+
+Internal eval (mchen) - mixed-input fields, 36 requests
+
+207/226
+
+221/226
+
+213/226
+
+116/226
+
+156/226
+
+Tracked customer assertions, 139 request shapes
+
+1,033/1,263
+
+1,263/1,263
+
+973/1,263
+
+653/1,263
+
+Synthetic receipt fields in text and images
+
+369/576
+
+576/576
+
+397/576
+
+280/576
+
+There are no public extraction benchmarks yet, but we ran our internal evals for other emerging extraction models on the market, such as Liquid AI’s D1.2 (pipelined with Apple Vision for optical character recognition) and Scaledown’s Extract. Our Clairic models excel across extraction use cases, but take these evals as directional guidance since they are self-reported. We wanted to show an illustrative picture of how Clairic is performing across generalized extraction use cases and celebrate the fact that other companies are releasing extraction models as well — confirming our original hypothesis that extraction was a pain point for LLM users because of the cost, latency, and accuracy.
+
+But is it fast?
+
+We ran latency tests for Clairic and Clairic-flash, measuring complete HTTP response from a self-hosted server, including all fields in the request. Even with the redesigned architecture, you can expect responses in under one second — much faster than typical LLM responses for similar workloads.
+
+Eval set
+
+Requests per model
+
+Clairic p50 / p95
+
+Clairic-flash p50 / p95
+
+Fresh text fields
+
+96
+
+358 / 736 ms
+
+155 / 328 ms
+
+Fresh image fields
+
+48
+
+453 / 976 ms
+
+305 / 605 ms
+
+Commercial leases
+
+180
+
+691 / 803 ms
+
+379 / 519 ms
+
+Loan pricing
+
+600
+
+395 / 407 ms
+
+188 / 192 ms
+
+Traffic forecasting
+
+114
+
+532 / 585 ms
+
+243 / 261 ms
+
+Expense audit, development
+
+60
+
+632 / 742 ms
+
+393 / 512 ms
+
+Better extraction for images and PDFs
+
+In our preview blog post, Clairic read a photo of a receipt. Now the Clairic family of models can read PDFs too, so you can ask for the supplier, line items, and total in one request, even when they appear on different pages. You can include up to four images or PDF pages in total, and line items can come back as rows that keep each description, quantity, and price together. Due to Clairic’s new architecture, image reading accuracy has improved from 207 errors to 0 on our internal benchmarks, explicitly covering text and images.
+
+Promotional pricing on Clairic for a limited time
+
+When we first launched our preview endpoint of Clairic at @cf/cloudflare/clairic, we hosted the 9B variant as it was faster and easier to train, at the preview price of $0.10 per M input tokens. We’re now moving the 9B model to the @cf/cloudflare/clairic-flash endpoint and the 27B model will live at @cf/cloudflare/clairic.
+
+The 27B Clairic model will be priced at $0.24 per M input tokens, while the 9B Clairic-flash model will be priced at $0.10 per M input tokens. Although the model does technically generate output tokens, we decided to keep the System One pricing principles and are only charging on input tokens: we eat the cost of the output token generation.
+
+In order to make this a seamless swap, we’re offering a promotional discount on Clairic — until December 1, 2026, both Clairic and Clairic-flash will cost $0.10 per M input tokens. This means you get to try out the higher quality variant of Clairic at the same price. If your applications are hooked up to the Clairic endpoint that we released in preview, you will automatically benefit from the better extraction capabilities of our new model, which we’re rolling out in place.
+
+If you’d like to move more cost-sensitive workloads to the cheaper 9B Clairic-flash variant, we encourage you to do so. On December 1, we’ll be ending the promotional discount for Clairic and pricing will resume at $0.24 per M input tokens instead of the discounted $0.10 per M input tokens.
+
+Clairic and Clairic-flash (new) are open-weight
+
+Both Clairic models are now open-weight on Hugging Face as well. We have seen an outpouring of experiments and tuned models from our release of Clef, and we’re happy to continue supporting teams and research with our open-weight release of Clairic.
+
+Our mission with these System One models is to help people augment their expensive LLM usage with smaller, faster, cheaper models that are purpose-built for a specific task. We hope that releasing these models open-weight encourages others to experiment and build on our ideas as well.
+
+Try them out
+
+Clairic and Clairic-flash are available on Workers AI as @cf/cloudflare/clairic and @cf/cloudflare/clairic-flash. The developer documentation has the full API schemas, which remain unchanged from our preview endpoint. We’re also publishing the open-weight releases for Clairic and Clairic-flash on Hugging Face.
+
+The team behind these models — the Workers AI superintelligence team — is just getting started, and growing fast to push frontier AI research at Cloudflare. Join us early and help shape what the superintelligence team becomes."
+001767259b98,99d6c260eab2,2026-11-18 14:52 UTC,Vulnerabilities & Patching,Cloudflare,Cloudflare Security,Vulnerability Management; Network Security,Article,How Cloudflare WAF helps protect against Java4Shell (CVE-2026-114938),https://blog.cloudflare.com/java4shell-waf-protection/,"Calif reported developing its first working local exploit in about three hours with the help of AI agents, so we expect other attackers to build exploit chains quickly","On November 17, 2026, the security research company Calif disclosed Java4Shell (CVE-2026-114938), a memory-corruption vulnerability in the Base64 decoder of OpenJDK, the most widely used Java runtime. Under the Common Vulnerability Scoring System (CVSS) 4.0, it scores 9.2 out of 10 (Critical). The flaw affects Java. OpenJDK published a security advisory and Oracle released patched builds in its November 2026 Critical Patch Update the same day, at 21:00 UTC.
 
 The vulnerability lets a remote attacker with no credentials send malformed Base64 data to a Java application and overwrite memory next to the decoded output. Calif turned that overwrite into a leak of heap memory, similar to Heartbleed, and into remote code execution. Calif demonstrated pre-authentication remote code execution against Keycloak, Atlassian Jira, Atlassian Confluence, JFrog Artifactory, Jenkins and PingFederate in their default configurations, and post-authentication remote code execution against Apache Kafka, Apache Solr, Elasticsearch, Gerrit, and Spinnaker.
 
@@ -2156,119 +2319,6 @@ We intend to make this the default way certain file types are served on our netw
 This feature does not change normal cache eligibility. Enabling it does not make an otherwise uncacheable response cacheable. The origin also needs to support byte ranges for partial origin fetches to be useful.
 
 To turn it on, create a Cache Rule that matches your large-file traffic and set Origin Range Requests to On. You can do this in the dashboard under Caching > Cache Rules, or through the API with origin_range_requests: { ""mode"": ""on"" }. Customers choose the traffic; the edge handles the cache coordination and correctness requirements."
-cbdad7369953,cbdad7369953,2026-10-23 18:06 UTC,General Security News,Cloudflare,Cloudflare Blog,Data Security Posture Management,Article,Bringing post-quantum cryptography to geographically fenced key management,https://blog.cloudflare.com/post-quantum-geo-key-manager/,"For organizations with geographic requirements, resisting that threat is only half the challenge","Today, Cloudflare is launching a post-quantum geographically restricted key manager in support of our Data Localization Suite (DLS) in closed beta. This new PQ GeoKey Manager is a cornerstone of Cloudflare’s data sovereignty solutions, making sure that a customer's decryption keys are only accessible in their chosen geography. GeoKey Manager implements this by wrapping each decryption key such that it can only be decrypted by Cloudflare servers that are located in the allowed geography.
-
-While general availability (GA) is planned for Q1 2027, today’s launch is an important milestone on our journey to support our customers’ data sovereignty goals while also migrating all Cloudflare products to post-quantum (PQ) cryptography.
-
-Governments, financial institutions, healthcare providers, and defense organizations process highly sensitive data that can remain sensitive for years or decades after it is produced. Encryption is often required to protect this data. When classical, public-key encryption is used, adversaries do not immediately need a quantum computer today to put that data at risk: they can store the ciphertext and retain them until quantum computers can break the public key cryptography protecting it — an attack strategy known as harvest now, decrypt later.
-
-For organizations with geographic requirements, resisting that threat is only half the challenge. At Cloudflare's scale, high availability requires replicating customer data across many servers across our global network. However, many data sovereignty regulations require that certain types of data be processed only within a given geographical region. We must therefore ensure the data is end-to-end encrypted such that only servers within the region have access to the plaintext. In this post, we describe the system that makes this work.
-
-The evolution of GeoKey Manager
-
-Cloudflare pioneered the concept of geo-restricted transport layer security (TLS) keys back in 2017 with GeoKey Manager. This gave customers control over the locations where their private TLS keys could be unwrapped on Cloudflare’s anycast network to provide stronger technical guarantees of which region their requests are decrypted into. For instance, a customer could choose to only unwrap their private keys in India. So instead of allowing decryption across Cloudflare’s entire global network, GeoKey Manager makes sure TLS signing for each customer request happens in our India network.
-
-GeoKey Manager evolved again in 2022 with ciphertext policy attribute based encryption (ABE). Instead of tying encrypted keys to a fixed set of data centers, ABE expressed geographic requirements using attributes such as country or region, like “region = European Union” or “region = Canada + United States + Mexico”. Newly authorized servers could receive matching decryption capabilities without rewrapping every customer key.
-
-That flexibility created a challenge and opportunity for the post-quantum transition. No production-ready post-quantum ABE scheme is available today, and customers do not need a large number of regions. A simpler design meets the requirement and is easier to maintain and operate. Cloudflare therefore uses hybrid ML-KEM-768 and X25519 protection with two kinds of keys, out of which ML-KEM-768 is a NIST standard that also opens doors to highly sensitive customers. A regional root key is a symmetric secret tied to one region, and an application-specific key pair is derived from it for a single service, such as Gateway or Tunnel. This protects private-key material against harvest now, decrypt later while preserving regional key-use boundaries.
-
-Global ciphertext, regional key unwrapping
-
-In its new form, GeoKey Manager is the key foundation for Cloudflare’s data sovereignty solutions. It controls which region protected decryption keys can be used from and when. Separate workstreams determine where tunnels terminate, where traffic is inspected, how it is routed, and where plaintext processing occurs. But all of them depend on the region where a customer’s private key can be unwrapped, because TLS traffic can only be decrypted where that key is available.
-
-During initialization, the edge key service (the component on each Cloudflare edge server that unwraps customer private keys and uses them to serve requests) verifies that it has loaded every regional root key required by its configuration. If a configured key is missing or malformed, the service does not start. After initialization, an individual request also fails closed (Cloudflare rejects it rather than risk unwrapping a key out of region) if its metadata identifies a regional root key that is not locally available. If a request for Germany was somehow trying to decrypt in Spain or France it would fail, since neither Spain nor France have the regional root key for Germany. This guarantees that a regional root key never leaves its region, no matter what.
-
-Cloudflare needs to maintain high performance while keeping our customers’ regionalized data secure at scale. This is where the next version of GeoKey Manager comes in. We are enabling fast performance while logically separating our network by using post-quantum cryptography to restrict where customers’ private keys are unwrapped. Most of our regions will be available for customers to regionalize their workflow, and there may be product specific caveats. Customers select a region and Cloudflare manages everything else needed to unwrap their private keys within the region’s boundary.
-
-How GeoKey Manager ensures that keys are only available in a region
-
-GeoKey Manager controls where wrapped private keys can be unwrapped and used on the data plane. It does not control where requests are forwarded or routed (that’s Regional Services), where tunnels terminate, or where traffic inspection happens (also Regional Services).
-
-GeoKey Manager separates globally distributed wrapped private keys from the regional root key required to unwrap it. Quicksilver, our global configuration distribution system, distributes wrapped private keys and its metadata across our network. It does not distribute regional root keys; that happens through a separate provisioning service that stores regional root keys and delivers them only to edge servers authorized for each region. Regional root keys follow a separate, controlled path. On the data plane, a node’s regional configuration, which region a node belongs to, determines which nodes can receive which regional root keys.
-
-Defining key hierarchy and application-specific keys
-
-Every wrapped customer private key carries metadata identifying its service context, regional boundary, and epoch.
-
-The service context is the Cloudflare service that uses the key, such as Tunnel or Gateway. The regional boundary is the approved set of Cloudflare data centers where the key may be unwrapped and used, such as data centers in Germany or the European Union. The epoch identifies which generation of the regional root key the key belongs to; each rotation creates a new epoch.
-
-For example, Acme Co. might have one key for Tunnel in Germany (acme0001) and another for Gateway in Germany (acme0002). Road Runner Inc. might have one key for Tunnel in Germany (runner0001) and another for Gateway in the European Union (runner0002).
-
-Keys with the same service context, regional boundary, and epoch use the same application-specific key pair. Therefore, compromising the Tunnel-Germany application-specific private key could expose both acme0001 and runner0001, but not the Gateway keys. Compromising the Germany regional root key could affect every application-specific key derived from that root for the same epoch, including acme0001, acme0002, and runner0001.
-
-In the current architecture, the application-specific key pair is asymmetric. The public component wraps the customer's private key material, while the private component is required to unwrap it. The resulting wrapped private key is distributed with its service context (Access, Gateway, Tunnel, Cloudflare One client), region, and epoch.
-
-Provisioning regional root keys
-
-When Cloudflare/Admin configures a region for a CF1 use case, key management service (which also derives application-specific key pairs and wraps customer private keys) creates a regional root key and associates it with a regional boundary and epoch and sends it to provisioning service for storage and distribution which under the hood uses Vault, which is managed by us on-premises.
-
-Authorizing edge servers for a region
-
-Before an edge server can receive a regional root key, provisioning service evaluates three inputs:
-
-Trusted Platform Module (TPM) proves that the server possesses a registered hardware identity
-
-Zinc, Cloudflare's server inventory system, maps that identity to a data center and location
-
-Provisioning service determines which regional root keys the server may access
-
-Zinc updates its membership records for each edge server. This asynchronous process adds new servers as the network grows and removes servers when they are decommissioned. As Cloudflare performs maintenance on data centers in Germany, the definition of which data centers belong in Germany changes in Zinc. That definition is swiftly propagated through our network with Quicksilver so that our edge is up to date. The reverse also works. As we add capacity to our network, the definition of Germany, or any other region, is updated in Zinc and that is also swiftly propagated through our network with Quicksilver.
-
-Zinc also associates a registered hardware identity with a server and physical location, which supports FIPS 140-3 compliance. TPM-backed identity, server inventory data, and regional configurations determine which region an edge server belongs to and what regional root keys it can access.
-
-Each edge server calls the control plane’s provisioning service, and provides its registered hardware identity. After verifying the server’s hardware identity and regional membership, the provisioning service issues a token that permits the server to retrieve only the regional root keys authorized for its location. Each edge server receives its token and uses it to fetch the regional root keys.
-
-Authorized edge servers load regional root keys into the kernel keyring rather than persisting them on disk. Process level access controls limit which services can use them. Because this memory is volatile, a machine restart removes the keys and the server must authenticate and provision them again. This adds operational complexity in exchange for reducing persistent key material which could be an attack vector for adversaries.
-
-Wrapping private keys for global distribution
-
-When the key-management service receives a customer's private key material with a service context and regional boundary, it will use the request’s regional boundary to get the regional root key and its latest configured epoch. It will then derive the corresponding asymmetric application key pair and use its public component to wrap the private key. The result is a wrapped private key and its metadata.
-
-Quicksilver will then distribute the wrapped private key and metadata across our network. Since the wrapped key requires the specified region to decrypt, global wrapped key distribution does not grant edge servers global access to the private key because unwrapping still requires the corresponding regional root key and service context.
-
-Unwrapping using application-specific keys on the data plane
-
-Why we chose this cryptographic design
-
-Symmetric roots with asymmetric key wrapping
-
-Regional root keys are 256-bit symmetric secrets. GeoKey Manager derives application-specific keys from each regional root key. For the current Cloudflare One path, the control plane’s key management service derives an application-specific Hybrid Public Key Encryption (HPKE) key pair.
-
-HPKE with hybrid post-quantum KEM
-
-The Cloudflare One path uses HPKE, as defined in RFC 9180. Its key-encapsulation mechanism (KEM) combines ML-KEM-768 with X25519, while HKDF-SHA-256 provides key derivation and AES-256-GCM provides authenticated encryption. Combining post-quantum and classical components preserves confidentiality as long as at least one component remains secure.
-
-Designing for rotation
-
-The validated design supports two types of key rotation: soft rotation and hard rotation.
-
-A soft rotation creates a new epoch for the regional root key while retaining controlled access to a limited number of previous regional root-key epochs — let’s say one previous generation, as an example. The customer’s new private-key material is wrapped using the latest epoch, while older wrapped private keys are still usable during the transition. This is a similar concept to when a credit card company allows you to use a previous version of your credit card for recurring payments from an authorized retailer. In this case, the number of epochs we support determine how many generations of previously wrapped private keys — credit cards — are usable. This allows customers to preserve their service uptime while they transition.
-
-A hard rotation instead rewraps affected customers’ wrapped private keys under a replacement epoch so access to the previous epoch can be removed. In this case, it would be like the credit card company not allowing you to use the previous credit card for a transaction under any circumstances.
-
-Security and availability tradeoffs
-
-Failing closed is a very intentional design choice. Failing open would mean unwrapping a customer’s private key outside its allowed region rather than rejecting the request. We never do that: if any required check fails (service context, region, epoch, etc.), the request is rejected. At startup, each edge’s key service loads every configured regional root key from its Linux kernel keyring. Missing or malformed root keys prevent the edge key service from initializing. Once running, the edge key service uses in-memory copies so that it can’t be tampered with, preventing out of region or cross-region unwrapping. In practice, an edge server serves requests for a region only once its configuration and key provisioning are complete.
-
-The trust boundary (all services that can access the regional root key) includes the key-management service, the provisioning service, and authorized edge key services because each can access regional root keys. The key-management service uses them to derive application-specific keys, the provisioning service stores and distributes them, and edge key services use locally authorized copies of them. Quicksilver remains outside this boundary because it receives only wrapped private keys and associated metadata.
-
-Operating GeoKey Manager
-
-Cloudflare’s network is constantly changing. As servers enter or leave service, Cloudflare’s fleet inventory updates regional membership. This means the list of data centers that make up a region like Spain is not static. GeoKey Manager’s provisioning layer refreshes that membership several times each day, granting or removing access to regional root keys as the network changes. This process is separate from key rotation and requires no customer action.
-
-When regional membership changes, the provisioning service immediately synchronizes the server’s Linux kernel keyring with the latest authorized regional root keys. The edge key service caches these keys in process memory until it restarts or the cache expires. It then reloads the current authorized set from the kernel keyring.
-
-What’s next: Cloudflare One integration and CDN
-
-GeoKey Manager is the basis for an improved Regional Services offering for Cloudflare One; these new capabilities will be announced in a few months.
-
-Older versions of GeoKey Manager already provide geographic controls for private keys associated with CDN certificates. We are developing a separate integration that will bring this new post-quantum GeoKey Manager described here to that existing CDN capability. We will share testing and transition details when that work is ready.
-
-Getting started
-
-If you are a current DLS customer who is regionalizing CDN traffic, you can register intent to test this feature before it’s generally available for CDN traffic here.
-
-Thank you to everyone who made this product a reality. It was a huge effort across the Data Localization Suite, Cloudflare One, and Cloudflare Research teams."
 d3619698c6a0,d3619698c6a0,2026-10-22 13:00 UTC,"Policy, Legal & Compliance",Cloudflare,Cloudflare Security,Compliance Management; Identity Security Posture Management; Data Security Posture Management,Article,Localizing compliance at scale: Achieving South Korea’s ISMS certification,https://blog.cloudflare.com/k-isms/,"We document the limits of IP geolocation: it is an estimate rather than an exact science, addresses rotate and change ownership, and it should not be the only signal where the...","For ten days, auditors appointed by the Korea Internet & Security Agency (KISA) sat together with us and worked through 80 controls. That is what it took for a company headquartered in the United States, operating a global network serving Korean users, to be certified in South Korea. Cloudflare has now obtained South Korea's Information Security Management System (ISMS) certification under the ISMS-P framework.
 
 For customers in Korea, this is more than a compliance checkbox. It is evidence that Cloudflare's security and privacy program has been examined not only for whether our controls exist, but for how they operate in the context of Korean law, the Korean language, and the particular expectations of Korean regulators.

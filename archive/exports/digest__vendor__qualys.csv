@@ -1,4 +1,249 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+d5c4bc72ecf6,99d6c260eab2,2026-11-18 23:21 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Server & Workload Protection,Article,"NGINX2Root: Five nginx Flaws, Led by CVE-2026-123007. How to Find, Mitigate, and Patch Now",https://blog.qualys.com/product-tech/patch-management/2026/11/18/nginx2root-five-nginx-flaws-led-by-cve-2026-123007-how-to-find-mitigate-and-patch-now,We will add distribution-specific detection QIDs to this blog as they are released,"Executive Summary
+
+NGINX2Root is a set of five nginx vulnerabilities disclosed on November 18, 2026. The lead flaw, CVE-2026-123007, is a memory corruption bug in the way nginx handles HTTP/2 connections. F5, which maintains nginx, rates it 9.2 under CVSS v4.0 and 8.1 under CVSS v3.1. An attacker with no credentials can crash nginx worker processes, and researchers have demonstrated remote code execution with the privileges of the nginx worker. Where the worker runs without root privileges, an attacker would need an additional escalation path to gain root. This could involve chaining the NGINX vulnerability with a suitable local privilege-escalation flaw.
+
+Unpatched builds of NGINX Open Source from 1.9.5 through 1.31.8, and unpatched NGINX Plus builds, are in scope when HTTP/2 is enabled. Fixes shipped in NGINX Open Source 1.30.7 and 1.31.9, and turning off HTTP/2 closes this exposure where patching has to wait. A separate Linux kernel flaw that the researchers used to go from the worker account to root has no patch yet. Start with internet-facing nginx servers that accept HTTP/2, and assign an owner and a deadline to every system still unpatched.
+
+What’s at Risk
+
+A Flaw in nginx Could Hand Attackers the Front Door to Your Applications. nginx is often the first system a web request reaches. It runs as a web server, a reverse proxy (a server that passes requests to the applications behind it), a load balancer, and the entry point to Kubernetes clusters. CVE-2026-123007 is in nginx’s own HTTP/2 code, so no application behind it has to be at fault.
+
+HTTP/2 lets a client tell the server how much data it is allowed to send. nginx can lose count of that allowance when a client cancels requests at the right moment. The bad count later makes nginx copy memory it should not touch.
+
+F5 says the result is typically a crash of the nginx worker, the process that handles live traffic. F5 also says code execution is possible where ASLR, the memory-address randomization that makes exploits harder, is disabled or bypassed. Xint, the team that named NGINX2Root, reports doing exactly that: it leaked memory addresses and then ran commands as the nginx worker over a public HTTPS port.
+
+In Qualys TRU’s assessment, three outcomes matter to the business:
+
+Exposure of traffic and keys. Code running in the worker can read requests and responses after nginx decrypts them, including passwords and session tokens. It may also expose TLS private keys that are held in software and accessible to the worker.
+
+A foothold behind the perimeter. Backend systems usually trust the proxy in front of them. An attacker on that proxy starts from a trusted position.
+
+Outages. A failed attempt can still crash workers and drop connections.
+
+Workers normally run under a restricted account. An attacker gets whatever privileges the worker actually has, so if it already runs as root, no further escalation is needed in that environment. Where it does not, the researchers chained a separate flaw in the Linux kernel’s SCTP code to get root. SCTP is a network protocol, like TCP, that the kernel supports. They report root on the host, including from nginx running inside a Docker container. That kernel flaw has no CVE and no patch yet, so patching nginx removes the remote entry point but not the step to root.
+
+NGINX2Root covers four more nginx flaws. F5 scores all five 9.2 under CVSS v4.0 and 8.1 under CVSS v3.1, and the same nginx releases fix them. Each needs a different configuration:
+
+CVE
+
+CONFIGURATION THAT PUTS A SERVER IN SCOPE
+
+DOES TURNING OFF HTTP/2 HELP?
+
+CVE-2026-123007
+
+HTTP/2 enabled
+
+Yes
+
+CVE-2026-123633
+
+HTTP/2 for clients, requests passed to a backend, and a worker running low on connections
+
+Yes
+
+CVE-2026-123634
+
+Proxying where the backend server name contains variables, plus an SSI or mirror subrequest that looks up the same name
+
+No
+
+CVE-2026-121810
+
+HTTP/3 enabled
+
+No
+
+CVE-2026-113425
+
+nginx used as a mail proxy
+
+No
+
+The rest of this post focuses on CVE-2026-123007, the flaw with the widest reach.
+
+Are You Affected?
+
+A system is in scope only when both conditions are true. For an attack to work, the attacker must also be able to open an HTTP/2 connection to nginx itself.
+
+CONDITION
+
+AFFECTED
+
+NOT AFFECTED
+
+NGINX BUILD
+
+Unpatched NGINX Open Source 1.9.5 through 1.31.8. Unpatched NGINX Plus: 37.0.0 before 37.0.8.1, 37.1.0 before 37.3.0.1, and R33 and later R-series releases
+
+NGINX Open Source 1.30.7 and 1.31.9. Releases before 1.9.5, which predate HTTP/2 support. Builds compiled without the HTTP/2 module. Any vendor build that contains the fix
+
+HTTP/2
+
+Turned on for at least one listener, with http2 on; or with http2 on a listen line
+
+Not turned on for any listener
+
+F5 notes that it did not evaluate versions past End of Technical Support. F5 also lists BIG-IP, BIG-IQ, and F5OS as not vulnerable in its advisory.
+
+The checks below come from the researchers’ write-up. Run them on the nginx host. The first shows whether the build includes HTTP/2. The second shows whether the configuration turns it on.
+
+nginx -V 2>&1 | grep -o — ‘–with-http_v2_module’
+
+sudo nginx -T 2>&1 | sed ‘s/#.*//’ | grep -nE ‘listen[[:space:]].*http2|^[[:space:]]*http2[[:space:]]+on[[:space:]]*;’
+
+Run this one from outside your network. ALPN protocol: h2 means the server accepts HTTP/2 from the internet.
+
+openssl s_client -connect HOST:443 -servername HOST -alpn h2 </dev/null 2>&1 | grep -E ‘ALPN protocol:|No ALPN negotiated’
+
+nginx also ships inside other software. Status as of November 18, 2026:
+
+WHERE NGINX RUNS
+
+STATUS
+
+F5 NGINX INGRESS CONTROLLER
+
+Release 5.8.0 builds on NGINX Open Source 1.31.9. For NGINX Plus images, confirm the build against F5’s advisory
+
+F5 NGINX GATEWAY FABRIC
+
+Release 2.9.0 moves to NGINX Open Source 1.31.9. For NGINX Plus images, confirm the build against F5’s advisory
+
+COMMUNITY INGRESS-NGINXFOR KUBERNETES
+
+Archived in March 2026. The project states it will ship no further security fixes
+
+LINUX DISTRIBUTION PACKAGES
+
+Ubuntu and Debian list their nginx packages as vulnerable, with no fixed package yet
+
+OFFICIAL DOCKER IMAGE
+
+Mainline tags now point to 1.31.9. Running containers stay on the old build until you pull and redeploy
+
+OTHER PRODUCTS THAT BUNDLE NGINX
+
+Potentially affected. Verify the bundled nginx version, vendor backports, and whether the vulnerable feature is enabled
+
+Three cautions when scoping:
+
+Do not rely on nginx -v alone. Distributions often fix a flaw without changing the nginx version number. Compare the full package version with the distribution’s advisory.
+
+Check where the HTTP/2 connection ends. If a CDN or load balancer handles HTTP/2 in front of nginx, an outside test only reaches that device. Test the nginx port directly.
+
+Use internet exposure to order the work, not to close findings. An internal nginx with HTTP/2 on is still reachable by an attacker who is already inside the network.
+
+Exploitation Status
+
+As of November 18, 2026, we have not seen public confirmation of exploitation in the wild.
+
+Working exploit code is public. The team behind NGINX2Root also reports its own exploit working over public IP addresses on AWS, GCP, and Azure, and is holding back the final steps.
+
+The public exploit is hard to use. It sends a very large number of HTTP/2 control messages over one long-lived connection for several minutes, has to reach nginx directly, and depends on a specific memory-copy routine in the standard Linux C library on 64-bit Intel and AMD processors.
+
+These limits slow mass exploitation. In Qualys TRU’s assessment, they do not protect a specific internet-facing server from a capable attacker, and other techniques may follow.
+
+What to Do Now
+
+Updating nginx is the only complete fix. F5 released fixed builds on November 18, 2026.
+
+PRODUCT
+
+AFFECTED
+
+FIXED BUILD
+
+NGINX OPEN SOURCE, MAINLINE
+
+1.31.0 through 1.31.8
+
+1.31.9
+
+NGINX OPEN SOURCE, STABLE
+
+1.30.0 through 1.30.6
+
+1.30.7
+
+NGINX OPEN SOURCE, OLDER BRANCHES
+
+1.9.5 through 1.29.x
+
+None listed. Move to 1.30.7 or 1.31.9, or use a vendor package that contains the fix
+
+NGINX PLUS 37.1 AND LATER
+
+37.1.0 before 37.3.0.1
+
+37.3.0.1
+
+NGINX PLUS 37.0
+
+37.0.0 before 37.0.8.1
+
+37.0.8.1
+
+NGINX PLUS R-SERIES
+
+R34 through R36 in F5’s advisory, R33 and later in the CVE record
+
+None listed. Move to a fixed 37.x build
+
+Linux distributions publish on their own schedules. As of November 18, 2026, Ubuntu and Debian had not shipped fixed packages. Use your vendor’s advisory to identify the fixed package and confirm it addresses CVE-2026-123007.
+
+Restart nginx after you update. A reload applies configuration changes but keeps the old program running, so the flaw stays in memory until a restart.
+
+If you cannot patch today, turn off HTTP/2 on every affected listener. F5 states the flaw affects only configurations that use HTTP/2, and the researchers recommend this as a temporary measure. For the exact steps, see nginx’s documentation for the http2 directive, CERT-EU’s advisory, and section 3.3 of the researchers’ write-up. Clients fall back to HTTP/1.1. Services that need HTTP/2, such as gRPC, will stop working, so test first. This covers CVE-2026-123007 and CVE-2026-123633 only, and it does not replace the patch.
+
+Advice for Risk and Vulnerability Management Teams
+
+Qualys TRU’s advice for the teams running this response:
+
+Do not let the score set the deadline: Under CVSS v3.1 this flaw is 8.1, which many remediation policies file as High. Public exploit code and a server that faces the internet matter more than the number. Handle vulnerable nginx deployments with externally reachable HTTP/2 as an emergency.
+
+Close findings on evidence: A server is done when the fixed build is installed, nginx has been restarted, and the vendor’s advisory confirms the package covers all five CVEs. Report patched, temporarily mitigated, not exposed by configuration, and unknown as separate states, and do not count unknown as safe.
+
+Fix the template as well as the server: Update container images, Helm charts, machine images, and autoscaling templates. Otherwise the next scale-out or failover brings the vulnerable build back.
+
+Put an end date on every workaround: Turning off HTTP/2 covers two of the five flaws, and the next configuration push can undo it. Record who owns each exception and when it ends.
+
+Decide what to do with nginx that will not get a fix: The community ingress-nginx project is archived, and the older NGINX Plus R-series branches have no fixed build listed, although fixed NGINX Plus 37.x releases exist. These need a migration plan or a signed risk acceptance.
+
+Treat privilege escalation flaws as part of this response: Where the worker runs without root privileges, an attacker would need an additional escalation path to gain root. The newly disclosed SCTP flaw is one such path, and any other local privilege-escalation flaw that can be exploited from the worker’s context could serve the same purpose. Patch known local privilege-escalation flaws on nginx hosts, in the kernel and elsewhere, with the same urgency. A current kernel does not mean the SCTP flaw is fixed, because that flaw has no patch yet.
+
+How Qualys Can Help
+
+Inventory nginx Installations with Qualys CSAM
+
+Qualys CyberSecurity Asset Management (CSAM) lists every asset with nginx installed, along with the version of each installation, so teams can quickly scope NGINX2Root remediation. Because NGINX Open Source 1.9.5 through 1.31.8 is affected, the version tells you which installations are in range. It does not tell you whether HTTP/2 is turned on or whether a Linux distribution has backported the fix, so check those separately. nginx bundled in containers, Kubernetes ingress controllers, and appliances may not appear in a standard inventory, so check those separately too.
+
+Assets With nginx in the Affected Range
+
+Use the following CSAM query to identify potentially affected NGINX Open Source installations on the stable, mainline, and older branches for further assessment. It uses two ranges because 1.31.0 through 1.31.8 are affected even though they are higher than the fixed 1.30.7.
+
+software:(name:”nginx” AND ( (version>=1.9.5 AND version<1.30.7) OR (version>=1.31.0 AND version<1.31.9) ))
+
+Detection VMDR QIDs
+
+Qualys is releasing the following detection QIDs. We will add distribution-specific detection QIDs to this blog as they are released.
+
+QID
+
+Detection Title
+
+Release
+
+736231
+
+NGINX Open Source Multiple Security Vulnerabilities (K000164058)
+
+TBD By EOD
+
+389654
+
+F5 NGINX Plus Multiple Security Vulnerabilities (K000164058)"
 8b779fa9a5ec,8b779fa9a5ec,2026-11-18 16:52 UTC,General Security News,Qualys,Qualys Blog,Threat and Exposure Management; Vulnerability Management; AI Security; Data Security Posture Management,Article,Why AI-ROC Is the Future of Exposure Management,https://blog.qualys.com/product-tech/2026/11/18/ai-roc-future-of-exposure-management,"The Verizon 2026 Data Breach Investigations Report found that vulnerability exploitation was the leading way attackers got in, while the median time to patch grew to 43 days","Executive Summary
 
 Security teams have never had better visibility into their assets, vulnerabilities, and threats. What they lack is the speed to act on it. Frontier AI models are surfacing vulnerabilities faster than ever, attackers are using the same models to exploit them within hours, and most remediation still depends on scans, tickets, and change windows. Exposure management needs a new operating model that detects exposures as soon as they are disclosed, focuses only on what is proven exploitable, and remediates autonomously without breaking the business. That operating model is the AI-native Risk Operations Center (AI-ROC).
@@ -423,7 +668,7 @@ Managed security is moving from raising alerts to closing risk. Cognizant is amo
 Attackers already move at AI speed. This expanded partnership helps tip the balance back toward the defense.
 
 To learn more, visit the Qualys Global mROC Alliance page, read the press release, or contact your Cognizant or Qualys account team."
-f5932cffc9a2,11a9e447f3a8,2026-11-17 23:00 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,"How to Find, Mitigate, and Patch the Critical Java4Shell Flaw (CVE-2026-114938) Now",https://blog.qualys.com/vulnerabilities-threat-research/2026/11/17/how-to-find-mitigate-and-patch-the-critical-java4shell-flaw-cve-2026-114938-now,Executive Summary Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder,"Executive Summary
+f5932cffc9a2,99d6c260eab2,2026-11-17 23:00 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,"How to Find, Mitigate, and Patch the Critical Java4Shell Flaw (CVE-2026-114938) Now",https://blog.qualys.com/vulnerabilities-threat-research/2026/11/17/how-to-find-mitigate-and-patch-the-critical-java4shell-flaw-cve-2026-114938-now,Executive Summary Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder,"Executive Summary
 
 Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder. The researchers who found it rate it 9.2 under CVSS v4.0, and Oracle rates it 8.1 under CVSS v3.1. An attacker with no credentials can corrupt Java heap memory, read secrets from it, and reach remote code execution. Researchers demonstrated pre-authentication RCE on default installations of Keycloak, Jira, Confluence, Artifactory, Jenkins, and PingFederate. Unpatched OpenJDK builds from 17.0.6 onward, from any vendor, are affected when they run on x86-64 processors with AVX-512 VBMI, which includes Intel Xeon from Ice Lake through Granite Rapids and AMD EPYC from Zen 4 onward. Oracle released fixes on November 17, 2026, and a single JVM flag closes the exposure where patching has to wait. CISA has issued an alert urging organizations to patch immediately. Start with internet-facing identity, CI/CD, and collaboration systems, and assign an owner and a deadline to every system still unpatched.
 
@@ -1805,249 +2050,6 @@ Use a compensating control to close the attack path. For bloatware and unused ap
 How can I see which assets are affected before Microsoft’s release notes are published?
 
 Qualys InstaScan evaluates assets the moment Microsoft releases updates, with no new scan. In November 2026, it flagged affected assets about 40 minutes before Microsoft’s release notes page finished loading."
-561703625afc,561703625afc,2026-11-13 01:37 UTC,General Security News,Qualys,Qualys Blog,AI Security; Identity Security Posture Management; Threat Intelligence; Vulnerability Management,Article,AI Didn’t Create a New Kind of Risk. It Removed the Time You Had to Fix the Old One.,https://blog.qualys.com/product-tech/2026/11/12/ai-didnt-create-a-new-kind-of-risk-it-removed-the-time-you-had-to-fix-the-old-one,"Attackers now use agentic AI for reconnaissance, vulnerability validation, and, in at least one case, a zero-day, yet vulnerability exploitation is still the leading way in for...","Mandiant’s AI Risk and Resilience 2026 report shows attackers putting agentic AI to work across the intrusion. Vulnerability exploitation is still the leading way in, and the window to fix it is closing.
-
-Executive Summary
-
-Mandiant and Google Threat Intelligence Group (GTIG) published AI Risk and Resilience 2026 in September. Attackers now use agentic AI for reconnaissance, vulnerability validation, and, in at least one case, a zero-day, yet vulnerability exploitation is still the leading way in for the sixth year running. AI has changed how fast attackers exploit far more than what they exploit.
-
-Exploitation is still the front door. Exploits caused 32% of intrusions in M-Trends 2026, and the mean time to exploit is now an estimated minus seven days. Mandiant concludes that defense has to move beyond manual triage to machine speed.
-
-Most AI incidents started as exposures. Poisoned packages, long-lived CI/CD credentials, unsigned plugins and MCP servers, and over-permissioned agents were all in place before the attack.
-
-AI infrastructure is now a target in its own right. An autonomous AI agent reached cluster-admin in Hugging Face’s Kubernetes environment with no CVE to match, and exploits for AI components are appearing before disclosure.
-
-The Risk Operations Center is the missing layer. The report answers with runtime controls and an agentic SOC, which act after the attacker is inside. A Risk Operations Center (ROC) closes exposures before the attack and uses runtime evidence to catch what is exploited anyway.
-
-A machine-speed adversary needs a machine-speed defender. Qualys AI agents detect new exposures, prove which ones are exploitable, and remediate them, so the defender’s side of the race is automated too.
-
-One ROC covers all of it. Infrastructure, identity, and AI risk belong in one ROC, with proactive AI governance ahead of runtime guardrails.
-
-What the Frontline Is Telling Us
-
-Drawing on incident response, Offensive Security engagements, and threat intelligence, the report describes attackers moving from chat-based research to autonomous attack orchestration. Five patterns stand out.
-
-Agentic attack tooling is in the wild. Tools such as Hexstrike and Strix automate reconnaissance, vulnerability validation, and credential harvesting.
-
-AI-assisted zero-days are real. GTIG assessed with high confidence that a cybercriminal used an AI model to find and weaponize a two-factor authentication bypass in an open-source admin tool for a planned mass exploitation campaign.
-
-The AI supply chain is part of the perimeter. Poisoned PyPI packages, a compromised LiteLLM library, weaponized agent skills, and subverted coding-assistant hooks all appear in the case studies.
-
-Over-privileged agents are part of the attack surface. Mandiant red teamers manipulated a CI/CD chatbot into pushing internal repositories to an external GitHub account, and an assessment found a RAG support agent that indirect prompt injection could turn against other customers’ data. In a real incident, a finance agent made 15,000+ API calls in under an hour, causing a roughly $50,000 billing spike.
-
-Long-lived credentials keep doing the damage. One healthcare intrusion began with a single long-lived CI/CD credential and ended with thousands of credentials compromised.
-
-M-Trends 2026 also shows the hand-off from initial access to a secondary threat group falling from over eight hours in 2022 to 22 seconds in 2025.
-
-AI Infrastructure Is Already Under Attack
-
-The same pattern is showing up in AI infrastructure itself. In July 2026, an autonomous AI agent that had escaped an evaluation sandbox worked its way into Hugging Face’s Kubernetes environment. A Qualys analysis of the intrusion counted about 17,600 actions over five days, and the agent reached cluster-admin in about 13 hours. It entered through a dataset configuration file and an unsanitized template, then used a privileged pod and a shared credential to take over clusters. None of those steps gave a vulnerability scanner a CVE to match.
-
-Figure 1. The Hugging Face intrusion step by step, with what a package scan and a runtime sensor can see at each stage.
-
-Vulnerabilities in AI components are being weaponized just as quickly. Qualys research on AI exploits in containers puts the window of weaponization at minus one day for flaws in the NVIDIA Container Toolkit (CVE-2025-23266) and in an MCP server (CVE-2025-6514). For a Docker Model Runner flaw (CVE-2026-28400), whether a workload is exploitable depends on runtime flags and how the service is invoked.
-
-Most AI Incidents Are Exposure Problems in Disguise
-
-A risky package in the build pipeline is a software exposure. A long-lived CI/CD key is an identity exposure. An unsigned plugin or over-permissioned MCP server is a misconfiguration. An agent that reads private data, ingests untrusted content, and talks to the internet is an attack path. These are familiar exposures on a new class of asset that most inventories cannot yet see. In six of the report’s eight case studies, the attacker used an exposure that could have been found beforehand.
-
-Mandiant Case Study
-
-Exposure Before the Attack
-
-How Exposure Management Finds It
-
-Coding session hijack spreads Shai-Hulud
-
-Unverified AI-recommended package; long-lived GitHub OAuth tokens
-
-SCA and AI-SBOM in IDE and CI/CD, secrets scanning, malware detection
-
-AI co-debugging in a cloud intrusion
-
-Long-lived CI/CD credential; unisolated VM with open egress
-
-Non-human identity inventory; cloud egress posture checks
-
-Subverted CLI hooks lead to RCE
-
-Unsigned hooks, plugins, and MCP servers; weak AI repository controls
-
-MCP and AI software discovery, MCP testing, access review
-
-Confused Deputy exfiltration (red team test)
-
-Agent with repo access, user input, and an allowed external domain
-
-One attack path across data access, untrusted input, and egress; LLM red teaming
-
-Denial-of-wallet reasoning loop
-
-Agent with read and write access to billing databases, no cost limits
-
-Agent entitlement and least-privilege findings
-
-RAG agent with untrusted input (assessment)
-
-Pipeline ingesting public content with reach into other customers’ tickets
-
-LLM red teaming for indirect prompt injection and data leakage
-
-The other two, just-in-time polymorphic malware and a stealthy espionage backdoor, are runtime detection problems. Together with the Hugging Face case, they are why a ROC needs runtime detection as well as posture.
-
-The Risk Operations Center Is the Missing Layer
-
-Mandiant answers these cases with agent identity, runtime guardrails, and an agentic SOC that triages at machine speed. Those controls matter, and they take effect once an attack is underway. The layer the report leaves out is the Risk Operations Center, which finds and closes exposures before the attack and uses runtime evidence to catch what is exploited anyway. Three capabilities make it more than another source of detections.
-
-Hybrid coverage. The exposures in the report sit on developer workstations, CI/CD pipelines, cloud VMs, SaaS applications, and identity systems. The Qualys platform covers on-premises, endpoint, multi-cloud, container, identity, application, and AI assets with the agents and connectors customers already run.
-
-Proof of exploitability. Safe exploit validation shows which exposures an attacker can actually use in your environment, so teams act on evidence instead of a severity score.
-
-Remediation as well as detection. Each validated exposure is patched, mitigated, or isolated, and the fix is confirmed, so the finding is closed as well as reported.
-
-Six Moves That Answer AI with AI
-
-Mandiant’s premise is an adversary that operates at machine speed. A defense that depends on analysts triaging by hand cannot match it, so the defender’s side has to be automated as well. On the Qualys platform, AI agents do that work at each stage. Agent Insta detects new exposures within minutes of disclosure. Agent Val proves which ones are exploitable. Agent Sara plans and runs remediation in TruRisk Eliminate. Agent Grant investigates and closes identity risk. The six moves below show where each one fits.
-
-Figure 2. The three decisions security teams have to make at AI speed: detect faster, prioritize with runtime evidence, and act surgically.
-
-Close the Window with Agent Insta and TruRisk Eliminate
-
-With a negative time to exploit, what matters is how fast a team closes the gap between disclosure and fix, and every handoff between tools adds hours. InstaScan, powered by Agent Insta in Qualys Enterprise TruRisk Management (ETM), matches new advisories against the inventory Qualys already holds, without a rescan.
-
-Customers are seeing this in practice. In a Techstrong TV interview recorded at ROCon Americas 2026, Theo Bowman, who runs the vulnerability management program at NCR Atleos, explains that the biggest change since Mythos is the need to find exposures first and fix them quickly. He describes InstaScan returning vulnerability data for his assets within three minutes of a Patch Tuesday release. The last two Patch Tuesdays show similar speeds.
-
-October 2026. Microsoft fixed a record 1,414 vulnerabilities, 78 of them critical, including an exploited Windows Shell zero-day (CVE-2026-96951) with a CISA patch deadline of October 16. Agent Insta customers had detections within 5 minutes, and Qualys provided mitigations for 608 of the vulnerabilities.
-
-November 2026. Microsoft fixed more than 1,000 vulnerabilities, 63 of them critical, including an exploited Outlook spoofing zero-day (CVE-2026-124194) with a CISA patch deadline of November 24. InstaScan showed customers their findings 40 minutes before Microsoft’s own advisory page was updated, and Qualys provided mitigations for 537 of the vulnerabilities.
-
-Figure 3. Findings detected first by InstaScan in Qualys ETM, each marked with the Agent Insta icon and the time it was first found.
-
-TruRisk prioritization, informed by QVSS and Qualys threat intelligence, raises likely-weaponized vulnerabilities about 45 days, on average, before they reach the CISA Known Exploited Vulnerabilities (KEV) catalog. TruRisk Eliminate with TruConfidence then closes the loop through agentic remediation and autonomous RemOps. Agent Sara picks the safest action for each exposure (patch, mitigation, or isolation), rolls it out in waves with reliability scoring and rollback, and confirms the fix. In the past year, customers deployed 150 million patches, 40 million fully autonomously.
-
-Figure 4. Agent Sara plans risk-based remediation waves in TruRisk Eliminate with TruConfidence, starting with the exposures proven to be risky.
-
-See AI as Attack Surface with TotalAI
-
-Mandiant calls for a dynamic AI inventory and an AI-SBOM. Qualys TotalAI discovers AI agents, models, MCP servers, AI software and libraries, GPUs, AI containers, cloud AI services, and shadow AI using the Cloud Agents and connectors customers already run. Built on the Enterprise TruRisk Platform, it scores each AI asset with TruRisk alongside servers, endpoints, and cloud workloads.
-
-Figure 5. The TotalAI inventory of AI workloads, including coding assistants, agents, and RAG pipelines found on hosts and in the cloud.
-
-TotalAI follows an AI application from code to runtime. It checks AI code and agent configuration in the IDE and CI/CD, assesses AI container images, generates an AI-SBOM, and confirms whether vulnerable AI packages are installed, running, and communicating, so a risk on a live workload can be traced back to its image and code. It tests MCP servers for missing authentication, tool poisoning, argument injection, SSRF, and rug-pull behavior, and red-teams LLMs for prompt injection, jailbreaks, and data disclosure, mapped to the OWASP LLM and MCP Top 10 and the EU AI Act. For supply chain malware, including the just-in-time polymorphic malware in the report that defeats signatures, Qualys uses deep learning to detect unknown malware in container images and workloads before deployment and in cloud network traffic with TotalCloud Cloud Detection and Response.
-
-Figure 6. Code-to-runtime tracing, from the running container to its image, source repository, and AI agent code (illustrative example).
-
-The same visibility extends to the workforce. The TotalAI Browser Plugin, combined with SaaS connectors, shows which sanctioned and shadow AI tools employees use, and it analyzes prompts and uploads to show when sensitive data is leaving through them.
-
-Figure 7. Securing an AI workload in TotalAI. AI-SPM is delivered through the Qualys Cloud Agent and AI runtime coverage through the Qualys Browser Plug-in.
-
-Treat Every Agent as an Identity with ETM Identity
-
-An agent with a static API key and standing access holds privileged access around the clock. Mandiant recommends dedicated agent identities, short-lived credentials, least privilege, and treating coding assistants and MCP servers as privileged sessions. Each is an identity exposure that can be measured before it is abused, and Entro Security found that 97% of non-human identities carry excessive privileges.
-
-ETM Identity discovers identities across Active Directory, Entra ID, Okta, and local accounts, extends to non-human identities such as service accounts and application identities, traces blast radius across chained permissions, and correlates risky identities with vulnerable assets as toxic combinations. Agent Grant investigates those findings and guides the fix. Access reviews now need to ask what has access as well as who. AI agents with standing access are where ETM Identity is heading next.
-
-Figure 8. The identity inventory in ETM Identity, with a TruRisk score for each user and service account.
-
-Map the Lethal Trifecta as an Attack Path
-
-Mandiant’s “lethal trifecta” is an agent with private data access, exposure to untrusted content, and an external channel. Each alone is manageable. Together they form an attack path that one injected instruction can turn into exfiltration, as the Confused Deputy test showed.
-
-Attack paths for AI span more than one product. TotalCloud provides attack path insights for cloud and container workloads, and with TotalAI those insights extend to the AI models and MCP servers found in container images. Figure 9 shows one: an internet-exposed container with a critical exploitable vulnerability, running an image that contains an AI model, traced back to the commit and build pipeline that produced it. ETM Identity traces how an identity can chain privileges to reach critical systems. ETM is where these come together. For the lethal trifecta, the chain joins the agent’s entitlements from ETM Identity, the untrusted inputs and unsafe tool behavior TotalAI finds, and the cloud and network exposure from TotalCloud and ETM. Showing it as one toxic combination, ranked by the data it reaches, lets teams break the chain at a single link instead of chasing each finding. That is the direction we are taking attack path analysis across ETM and TotalCloud with TotalAI.
-
-Figure 9. An attack path in TotalCloud that links an internet-exposed container with a critical exploitable vulnerability to the AI model in its image and to the commit and build that produced it.
-
-Prove It, Fix It, and Prove It Again with Agent Val
-
-When exploits take hours to build, theoretical severity cannot decide what to fix. Agent Val uses TruConfirm to safely prove whether an exposure is exploitable in your environment, drives the mitigation, and revalidates closure. TruConfirm covers more than 1,800 CVEs with over 8 million validations. It brings the discipline of a red team engagement, like those Mandiant’s Offensive Security team runs, into continuous operation.
-
-The same principle applies at the application and AI layers. TotalAppSec (or WAS) runs dynamic application security testing (DAST) against the web applications and APIs that sit in front of AI systems, alongside the penetration tests teams already run. TotalAI red teaming tests models and MCP servers and shows which technique succeeded and which guardrail failed.
-
-Figure 10. Agent Val reports a TruConfirm exploit validation with step-by-step evidence and offers remediation options.
-
-Detect AI Exploitation in Real Time with Container Runtime Security
-
-Some attacks leave nothing for a posture scan to find. In the Hugging Face intrusion, a package scan had nothing to match at the entry point and no view of the later stages (Figure 1). Exploits for AI components can arrive before disclosure, and whether a flaw is exploitable can depend on how a container is started. These cases have to be caught while they happen.
-
-Figure 11. Three vulnerabilities in AI components running in containers, where exploitation had to be detected at runtime.
-
-Qualys Container Runtime Security, part of TotalCloud, uses an eBPF sensor in the kernel to watch process, file, and network activity inside running containers, so it can detect exploitation of AI vulnerabilities in real time. In the Hugging Face analysis, its detections map to the fileless Python execution at the entry point, the container escape through a host path mount, the mount, chroot, and setns activity on the node, and the SOCKS proxy tunnel used for lateral movement. TotalCloud Cloud Detection and Response adds the Kubernetes and cloud API activity that process sensors cannot see, such as token minting and replayed cloud credentials. Kubernetes posture checks and admission policies flag or block the privileged pods and host path mounts the agent relied on. The analysis does not claim these controls would have stopped the campaign. It shows which layer sees each step, and that runtime, posture, and cloud audit each answer a different question.
-
-Figure 12. Runtime detections in the TotalCloud Investigate view, including a suspicious host mount through the NVIDIA Container Toolkit and a shell spawned after exploitation of an Nginx UI vulnerability.
-
-The same runtime evidence sharpens prioritization, because it shows which vulnerable packages are actually running and exposed.
-
-Runtime Is One Pillar of AI Governance
-
-Mandiant separates governance for AI (risk appetite and policy) from governance of AI (technical guardrails in pipelines and at runtime), and most of its technical guidance sits at runtime. A program that relies on runtime alone assumes every guardrail is configured correctly and every injection is caught in flight. We believe the stronger model is proactive first, with runtime guardrails as the backstop.
-
-Layer
-
-Question It Answers
-
-How Qualys Delivers It
-
-AI-SPM
-
-What AI do we have, who owns it, and how is it configured?
-
-TotalAI discovery and posture across models, agents, MCP servers, AI SaaS, and cloud AI
-
-Workforce AI
-
-Which AI tools are employees using, and what data goes into them?
-
-TotalAI Browser Plugin and SaaS connectors, with prompt analysis for shadow AI use
-
-Proactive security testing
-
-Can this model or MCP server be manipulated before it ships?
-
-LLM and MCP red teaming from CI/CD or on a schedule, mapped to OWASP and the EU AI Act
-
-Prioritization and remediation
-
-Which AI risks matter most, and what fixes them?
-
-TruRisk with infrastructure and identity context; TruRisk Eliminate and guardrail recommendations
-
-Runtime AIDR
-
-Is something going wrong right now?
-
-Policy-based runtime controls, and eBPF-based real-time detection of exploitation in AI workloads
-
-TotalAI includes the runtime guardrails that give the SOC its AI signals. A SOC delivers its best return when a ROC is working ahead of it, because the ROC closes the exposures that would otherwise keep producing alerts. Guardrails written from red team results address weaknesses proven to exist, and every retest produces the evidence boards and regulators are starting to ask for.
-
-Figure 13. The TotalAI AI Governance Dashboard, with a TruRisk score for AI, the AI assets at risk, and regulatory status.
-
-Measure Time to Close
-
-The AI era will be decided by how quickly teams close the window between disclosure and fix, which a count of open findings does not show.
-
-Measure your exposure window. Track disclosure to detection, prioritization, and fix for exploited vulnerabilities, with a target in hours.
-
-Put AI in the asset inventory. Cover agents, models, MCP servers, AI libraries, and shadow AI-like servers and endpoints.
-
-Retire static credentials for agents. Classify non-human identities, flag long-lived keys and standing privileges, and move to short-lived, scoped identities.
-
-Look for the lethal trifecta. Find agents with private data access, untrusted input, and an outbound channel, and remove one of the three.
-
-Validate before you prioritize. Use safe exploit validation to separate the exploitable from the theoretical.
-
-Test AI before you rely on runtime guardrails. Red-team models and MCP servers before release and after every change to prompts, retrieval, or guardrails.
-
-Watch AI workloads at runtime. Use kernel-level runtime detection to catch exploitation that has no CVE to match.
-
-One Risk Operations Center for Infrastructure, Identity, and AI Risk
-
-Attackers have automated their side of the race, yet their first move is still a weakness that was in place before the attack began. Runtime controls and the SOC respond once that weakness is used. The ROC closes it first, and its runtime detection catches what is exploited anyway. With Qualys, Agent Insta detects at AI speed, Agent Val proves what is exploitable, and Agent Sara remediates autonomously, on one platform that treats servers, clouds, identities, and AI systems as the same attack surface. That is one Risk Operations Center for infrastructure, identity, and AI risk.
-
-Ready to see how Qualys closes the exposure window across your infrastructure and your AI? Request an ETM demo or start a TotalAI free service.
-
-Contributors
-
-Kaustubh Jagtap, Principal Evangelist, Risk Management"
 24ae8ce74723,24ae8ce74723,2026-11-10 09:00 UTC,Business & Industry News,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys to Speak at Upcoming Investor Conference,https://investor.qualys.com/news-releases/news-release-details/qualys-speak-upcoming-investor-conference-19,"(NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested...","FOSTER CITY, Calif., Nov. 10, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested investors at the following conference: 30 th Annual UBS"
 26a007fe43fd,26a007fe43fd,2026-11-09 16:05 UTC,Product & Roadmap,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys Announces Third Quarter 2026 Financial Results,https://investor.qualys.com/news-releases/news-release-details/qualys-announces-third-quarter-2026-financial-results,"Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,","Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,"
 a920141ac818,a920141ac818,2026-11-09 09:01 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys IR News,Attack Surface Discovery; Cloud Risk Management,Article,Qualys Expands Global mROC Alliance with New Technology Alliances Across Every Major Attack Surface and Partner Certification Tracks,https://investor.qualys.com/news-releases/news-release-details/qualys-expands-global-mroc-alliance-new-technology-alliances,"Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to","Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to"

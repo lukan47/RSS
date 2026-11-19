@@ -1,4 +1,233 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+1e1604ccd060,99d6c260eab2,2026-11-18 19:18 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management; Server & Workload Protection,Article,NGINX2Root (CVE-2026-123007): Frequently asked questions about five critical NGINX vulnerabilities,https://www.tenable.com/blog/nginx2root-cve-2026-123007-frequently-asked-questions-about-five-critical-nginx,A bug is only exploitable if the relevant feature is in use,"Frequently asked questions about five critical NGINX remote code execution vulnerabilities and five additional flaws fixed in F5’s November 18 out-of-band release.
+
+Key takeaways
+
+NGINX2Root is associated with five critical remote code execution vulnerabilities in NGINX, and a separate, unpatched Linux kernel local privilege escalation (LPE) flaw that can be chained with the NGINX bugs to gain root.
+
+CVE-2026-123007 is the most urgent of the five. It is an unauthenticated RCE flaw in NGINX’s HTTP/2 implementation and requires only HTTP/2 over TLS to be enabled. A PoC is publicly available on GitHub.
+
+F5’s November 18 release fixed the five NGINX2Root vulnerabilities and five additional NGINX flaws.
+
+Background
+
+Tenable’s Research Special Operations (RSO) team has compiled this blog to answer Frequently Asked Questions (FAQ) regarding NGINX2Root, a set of five critical remote code execution vulnerabilities in NGINX, and five additional NGINX flaws that F5 fixed in an out-of-band security release on November 18, 2026.
+
+FAQ
+
+What is NGINX2Root?
+
+NGINX2Root is the name Xint (Theori) gave to five critical remote code execution vulnerabilities in NGINX, and a separate, unpatched Linux kernel local privilege escalation (LPE) flaw that Xint says can be chained with the NGINX bugs to gain root. The NGINX flaws are memory-corruption bugs in HTTP/2, HTTP/3, the resolver, and the mail proxy module. Exploitation depends on the specific feature being active, and achieving code execution generally requires ASLR to be absent or defeated. The name is not used by F5 or nginx.org.
+
+What are the vulnerabilities associated with NGINX2Root?
+
+CVE
+
+Description
+
+CVSSv4 (F5)
+
+CVE-2026-123007
+
+NGINX ngx_http_v2_module vulnerability
+
+9.2
+
+CVE-2026-123633
+
+NGINX ngx_http_v2_module vulnerability
+
+9.2
+
+CVE-2026-123634
+
+NGINX resolver vulnerability
+
+9.2
+
+CVE-2026-121810
+
+NGINX ngx_http_v3_module vulnerability
+
+9.2
+
+CVE-2026-113425
+
+NGINX ngx_mail_proxy_module vulnerability
+
+9.2
+
+Xint also identified a separate, unpatched Linux kernel SCTP use-after-free vulnerability (no CVE assigned as of November 18) that can be chained with these flaws to escalate from NGINX worker access to root. This includes escaping Docker containers to compromise the host kernel. Xint is withholding most technical details pending a kernel patch.
+
+Which one is the most urgent?
+
+The most urgent is CVE-2026-123007 because it only needs HTTP/2 to be enabled. It has been in the code since HTTP/2 support arrived in 1.9.5 in 2015, and Wiz confirmed code execution against an NGINX instance serving only static content, with no application logic or additional modules involved. Wiz Research, Rapid7, Xint and others reported it independently.
+
+When were the NGINX vulnerabilities first disclosed?
+
+On November 18, F5 released an out-of -band security update for 10 vulnerabilities in the NGINX Plus, NGINX Open Source.
+
+What are the other vulnerabilities fixed in F5’s November 18?
+
+There are five additional NGINX CVEs affecting NGINX Plus, NGINX Open Source.
+
+CVE
+
+Description
+
+CVSSv4
+
+CVE-2026-118899
+
+NGINX TLSv1.3 vulnerability
+
+8.7
+
+CVE-2026-120993
+
+NGINX ngx_stream_ssl_module vulnerability
+
+6.9
+
+CVE-2026-125283
+
+NGINX map directive and regex matching vulnerability
+
+6.9
+
+CVE-2026-123640
+
+NGINX ngx_stream_ssl_preread_module vulnerability
+
+6.9
+
+CVE-2026-120967
+
+NGINX ngx_stream_ssl_module vulnerability
+
+6.3
+
+Was this exploited as a zero-day?
+
+There is no evidence of the five NGINX vulnerabilities being exploited as zero-days. Xint says it found the bugs on October 11, 2026, reported them to F5 via HackerOne on October 16, and published them after the coordinated release. No source reviewed reports exploitation in the wild, and the CVEs are not on CISA’s Known Exploited Vulnerabilities (KEV) catalog as of November 18.
+
+Are threat actors exploiting these CVEs?
+
+There are no reports of threat actors exploiting these CVEs as of November 18.
+
+Is there a proof-of-concept (PoC) available for these vulnerabilities?
+
+Yes for CVE-2026-123007. Rapid7 published a technical analysis of CVE-2026-123007 on November 18, and its author, Stephen Fewer, released a public PoC on GitHub at sfewer-r7/CVE-2026-123007. The repository includes a minimal crash-level trigger script and a full unauthenticated remote code execution exploit, demonstrated against NGINX 1.31.8 in a Docker container with HTTP/2 over TLS. Rapid7 describes the exploit as constrained: it depends on a glibc memory-copy routine specific to x86-64 builds, requires roughly 128 gigabytes of HTTP/2 traffic, and needs to defeat ASLR by recovering heap addresses from server responses. Execution lands in the NGINX worker process. The exploit is also unlikely to succeed against servers behind HTTP/2-terminating proxies or on connections too slow to deliver the required data volume before NGINX's one-hour connection limit is reached.
+
+Xint published demo videos and said it intentionally omitted the final steps needed to reproduce the full exploits. Wiz confirmed working exploits exist but has chosen not to publish them.
+
+Are patches or mitigations available for the NGINX2Root vulnerabilities?
+
+Yes. Patching is the fix. Mitigations are a temporary stopgap, and each covers only some of the vulnerabilities. Upgrade to the fixed versions in the table below. These fix all ten CVEs in F5’s November 18 release. Xint notes that you must restart NGINX after upgrading, because a configuration reload does not replace the running executable.
+
+NGINX Open Source
+
+Affected Versions
+
+Fixed Versions
+
+Before 1.30.7 (stable) and 1.31.9 (mainline)
+
+1.30.7 (stable), 1.31.9 (mainline)
+
+The earliest affected version varies by CVE, from 0.5.x for the mail proxy to 1.9.5 for CVE-2026-123007. A bug is only exploitable if the relevant feature is in use.
+
+NGINX Plus
+
+Affected Versions
+
+Fixed Versions
+
+R33–R36 and 37.x before fixed releases
+
+37.0.8.1, 37.3.0.1
+
+R33–R36 have no patch available; those customers need to move to a 37.x release. CVE-2026-123633 is also fixed in 37.0.7.1 and 37.2.0.1.
+
+For those organizations that are unable to apply the available patches, the following mitigations can be applied until patching is feasible.
+
+Feature / Component
+
+Mitigation
+
+Covers
+
+HTTP/2
+
+Disable HTTP/2
+
+CVE-2026-123007, CVE-2026-123633 only
+
+HTTP/3 (QUIC)
+
+Remove the QUIC/HTTP/3 listeners
+
+CVE-2026-121810
+
+Mail proxy
+
+Bind mail listeners to loopback or restrict access with a firewall
+
+CVE-2026-113425
+
+Resolver with a request-derived proxy_pass
+
+Point proxy_pass at a fixed upstream group and turn off mirror where it is not needed
+
+CVE-2026-123634
+
+Xint notes that disabling HTTP/2 does not protect against CVE-2026-123634, CVE-2026-121810, and CVE-2026-113425, so it is not advised to use it as a blanket workaround. Additionally, turning off mirror does not make a server safe from CVE-2026-123634.
+
+For the unpatched Linux kernel LPE, until a kernel fix is available, Xint recommends blocking the SCTP module on hosts that do not use it.
+
+Has Tenable released any product coverage for these vulnerabilities?
+
+A list of Tenable plugins for these vulnerabilities can be found on the individual CVE pages as they’re released:
+
+CVE-2026-123007
+
+CVE-2026-123633
+
+CVE-2026-123634
+
+CVE-2026-121810
+
+CVE-2026-113425
+
+CVE-2026-118899
+
+CVE-2026-120993
+
+CVE-2026-125283
+
+CVE-2026-120967
+
+CVE-2026-123640
+
+These links will display all available plugins for these vulnerabilities, including upcoming plugins in our Plugins Pipeline.
+
+Get more information
+
+F5 out-of-band security notification K000164058
+
+Xint: nginx2root
+
+Wiz: NGINX HTTP/2 RCE vulnerabilities
+
+watchTowr: NGINX2root FAQ
+
+nginx.org security advisories
+
+PoC: sfewer-r7/CVE-2026-123007
+
+Join Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.
+
+Learn more about Tenable One, the Exposure Management Platform for the modern attack surface."
 6113629e24a7,6113629e24a7,2026-11-18 08:00 UTC,General Security News,Tenable,Tenable Blog,AI Security; Code Security; Threat Intelligence,Article,Fix Tenable One findings where developers work: Tenable and OpenAI Daybreak Defense Factory,https://www.tenable.com/blog/openai-connector-tenable-one-codex-security,"OpenAI built the connector, one of the select supported integrations in the OpenAI Daybreak Defense Factory","Tenable One customers can now bring selected findings into OpenAI Daybreak Defense Factory through a local Codex Security CLI import with Tenable’s description and solution attached, so developers can fix them where they already work. OpenAI built the connector, one of the select supported integrations in the OpenAI Daybreak Defense Factory.
 
 Key takeaways
@@ -44,7 +273,7 @@ Learn more:
 Codex Security (GitHub repository)
 
 Tenable One Exposure Management Platform (product page)"
-374b0dd08221,11a9e447f3a8,2026-11-17 21:49 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Java4Shell (CVE-2026-114938): Frequently asked questions about OpenJDK remote code execution vulnerability,https://www.tenable.com/blog/java4shell-cve-2026-114938-frequently-asked-questions-about-openjdk-rce-vulnerability,"Later that day, Oracle released its November 2026 Critical Security Patch Update (CSPU), and the OpenJDK Vulnerability Group published its own advisory","Java4Shell is a flaw in how Java decodes Base64 data. Calif, which found it, says it can let attackers run code on widely used Java applications without logging in. Oracle released fixed Java builds on November 17, and Calif is withholding its exploits for individual applications for now.
+374b0dd08221,99d6c260eab2,2026-11-17 21:49 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Java4Shell (CVE-2026-114938): Frequently asked questions about OpenJDK remote code execution vulnerability,https://www.tenable.com/blog/java4shell-cve-2026-114938-frequently-asked-questions-about-openjdk-rce-vulnerability,"Later that day, Oracle released its November 2026 Critical Security Patch Update (CSPU), and the OpenJDK Vulnerability Group published its own advisory","Java4Shell is a flaw in how Java decodes Base64 data. Calif, which found it, says it can let attackers run code on widely used Java applications without logging in. Oracle released fixed Java builds on November 17, and Calif is withholding its exploits for individual applications for now.
 
 Key takeaways
 
@@ -354,7 +583,7 @@ P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
 Support Contacts
 
 Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
-4b1b04fbd62d,11a9e447f3a8,2026-11-17 16:45 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Oracle November 2026 Critical Security Patch Update Addresses 640 CVEs (CVE-2026-114938),https://www.tenable.com/blog/oracle-november-2026-critical-security-patch-update-addresses-640-cves-cve-2026-114938,"8% of all patches Background On November 17, Oracle released its Critical Security Patch Update (CSPU) for November 2026","Oracle addresses 640 CVEs in its November 2026 Critical Security Patch Update with 655 patches, including 62 critical updates.
+4b1b04fbd62d,99d6c260eab2,2026-11-17 16:45 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Oracle November 2026 Critical Security Patch Update Addresses 640 CVEs (CVE-2026-114938),https://www.tenable.com/blog/oracle-november-2026-critical-security-patch-update-addresses-640-cves-cve-2026-114938,"8% of all patches Background On November 17, Oracle released its Critical Security Patch Update (CSPU) for November 2026","Oracle addresses 640 CVEs in its November 2026 Critical Security Patch Update with 655 patches, including 62 critical updates.
 
 Key Takeaways
 
@@ -2335,7 +2564,7 @@ P1-Critical: < 2 hr P2-High: < 4 hr P3-Medium: < 12 hr P4-Informational: < 24 hr
 Support Contacts
 
 Support contacts must be reasonably proficient in the use of information technology, the software they have purchased from Tenable, and familiar with the customer resources that are monitored by means of the software. Support contacts must speak English and conduct support requests in English. Support contacts must provide information reasonably requested by Tenable for the purpose of reproducing any Error or otherwise resolving a support request."
-accb8659d5cd,15b5fe82f315,2026-10-26 21:19 UTC,Vulnerabilities & Patching,Tenable,Tenable Blog,Vulnerability Management,Article,Brotli2Shell: Frequently asked questions for Google Brotli decoder vulnerability (CVE-2026-111497),https://www.tenable.com/blog/brotli2shell-frequently-asked-questions-for-google-brotli-decoder-cve-2026-111497,A list of Tenable plugins for this vulnerability can be found on the individual CVE page for CVE-2026-111497 as they're released,"Researchers have demonstrated remote code execution through CVE-2026-111497, an out-of-bounds write in Google's Brotli decoder library, and public proofs-of-concept (PoCs) are available. Software that uses the decoder includes Node.js, .NET, Bun, Envoy Proxy, Istio, Python HTTP clients and PHP for Windows.
+accb8659d5cd,15b5fe82f315,2026-10-26 21:19 UTC,Vulnerabilities & Patching,Tenable,Tenable Cyber Exposure Alerts,Vulnerability Management,Article,Brotli2Shell: Frequently asked questions for Google Brotli decoder vulnerability (CVE-2026-111497),https://www.tenable.com/blog/brotli2shell-frequently-asked-questions-for-google-brotli-decoder-cve-2026-111497,A list of Tenable plugins for this vulnerability can be found on the individual CVE page for CVE-2026-111497 as they're released,"Researchers have demonstrated remote code execution through CVE-2026-111497, an out-of-bounds write in Google's Brotli decoder library, and public proofs-of-concept (PoCs) are available. Software that uses the decoder includes Node.js, .NET, Bun, Envoy Proxy, Istio, Python HTTP clients and PHP for Windows.
 
 Change log
 

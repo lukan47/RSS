@@ -1,9 +1,26 @@
 {
   "vendor": "Tenable",
-  "generated": "2026-11-19 05:50 PHT",
-  "timestamp": "2026-11-18T21:55:09.730649+00:00",
-  "article_count": 19,
+  "generated": "2026-11-19 11:17 PHT",
+  "timestamp": "2026-11-19T03:22:07.482600+00:00",
+  "article_count": 20,
   "articles": [
+    {
+      "id": "1e1604ccd060",
+      "story": "99d6c260eab2",
+      "podcast": false,
+      "date": "2026-11-18T19:18:05-05:00",
+      "category": "Vulnerabilities & Patching",
+      "vendor": "Tenable",
+      "source": "Tenable Blog",
+      "title": "NGINX2Root (CVE-2026-123007): Frequently asked questions about five critical NGINX vulnerabilities",
+      "link": "https://www.tenable.com/blog/nginx2root-cve-2026-123007-frequently-asked-questions-about-five-critical-nginx",
+      "context": "A bug is only exploitable if the relevant feature is in use",
+      "modules": [
+        "Vulnerability Management",
+        "Server & Workload Protection"
+      ],
+      "full_text": "Frequently asked questions about five critical NGINX remote code execution vulnerabilities and five additional flaws fixed in F5\u2019s November 18 out-of-band release.\n\nKey takeaways\n\nNGINX2Root is associated with five critical remote code execution vulnerabilities in NGINX, and a separate, unpatched Linux kernel local privilege escalation (LPE) flaw that can be chained with the NGINX bugs to gain root.\n\nCVE-2026-123007 is the most urgent of the five. It is an unauthenticated RCE flaw in NGINX\u2019s HTTP/2 implementation and requires only HTTP/2 over TLS to be enabled. A PoC is publicly available on GitHub.\n\nF5\u2019s November 18 release fixed the five NGINX2Root vulnerabilities and five additional NGINX flaws.\n\nBackground\n\nTenable\u2019s Research Special Operations (RSO) team has compiled this blog to answer Frequently Asked Questions (FAQ) regarding NGINX2Root, a set of five critical remote code execution vulnerabilities in NGINX, and five additional NGINX flaws that F5 fixed in an out-of-band security release on November 18, 2026.\n\nFAQ\n\nWhat is NGINX2Root?\n\nNGINX2Root is the name Xint (Theori) gave to five critical remote code execution vulnerabilities in NGINX, and a separate, unpatched Linux kernel local privilege escalation (LPE) flaw that Xint says can be chained with the NGINX bugs to gain root. The NGINX flaws are memory-corruption bugs in HTTP/2, HTTP/3, the resolver, and the mail proxy module. Exploitation depends on the specific feature being active, and achieving code execution generally requires ASLR to be absent or defeated. The name is not used by F5 or nginx.org.\n\nWhat are the vulnerabilities associated with NGINX2Root?\n\nCVE\n\nDescription\n\nCVSSv4 (F5)\n\nCVE-2026-123007\n\nNGINX ngx_http_v2_module vulnerability\n\n9.2\n\nCVE-2026-123633\n\nNGINX ngx_http_v2_module vulnerability\n\n9.2\n\nCVE-2026-123634\n\nNGINX resolver vulnerability\n\n9.2\n\nCVE-2026-121810\n\nNGINX ngx_http_v3_module vulnerability\n\n9.2\n\nCVE-2026-113425\n\nNGINX ngx_mail_proxy_module vulnerability\n\n9.2\n\nXint also identified a separate, unpatched Linux kernel SCTP use-after-free vulnerability (no CVE assigned as of November 18) that can be chained with these flaws to escalate from NGINX worker access to root. This includes escaping Docker containers to compromise the host kernel. Xint is withholding most technical details pending a kernel patch.\n\nWhich one is the most urgent?\n\nThe most urgent is CVE-2026-123007 because it only needs HTTP/2 to be enabled. It has been in the code since HTTP/2 support arrived in 1.9.5 in 2015, and Wiz confirmed code execution against an NGINX instance serving only static content, with no application logic or additional modules involved. Wiz Research, Rapid7, Xint and others reported it independently.\n\nWhen were the NGINX vulnerabilities first disclosed?\n\nOn November 18, F5 released an out-of -band security update for 10 vulnerabilities in the NGINX Plus, NGINX Open Source.\n\nWhat are the other vulnerabilities fixed in F5\u2019s November 18?\n\nThere are five additional NGINX CVEs affecting NGINX Plus, NGINX Open Source.\n\nCVE\n\nDescription\n\nCVSSv4\n\nCVE-2026-118899\n\nNGINX TLSv1.3 vulnerability\n\n8.7\n\nCVE-2026-120993\n\nNGINX ngx_stream_ssl_module vulnerability\n\n6.9\n\nCVE-2026-125283\n\nNGINX map directive and regex matching vulnerability\n\n6.9\n\nCVE-2026-123640\n\nNGINX ngx_stream_ssl_preread_module vulnerability\n\n6.9\n\nCVE-2026-120967\n\nNGINX ngx_stream_ssl_module vulnerability\n\n6.3\n\nWas this exploited as a zero-day?\n\nThere is no evidence of the five NGINX vulnerabilities being exploited as zero-days. Xint says it found the bugs on October 11, 2026, reported them to F5 via HackerOne on October 16, and published them after the coordinated release. No source reviewed reports exploitation in the wild, and the CVEs are not on CISA\u2019s Known Exploited Vulnerabilities (KEV) catalog as of November 18.\n\nAre threat actors exploiting these CVEs?\n\nThere are no reports of threat actors exploiting these CVEs as of November 18.\n\nIs there a proof-of-concept (PoC) available for these vulnerabilities?\n\nYes for CVE-2026-123007. Rapid7 published a technical analysis of CVE-2026-123007 on November 18, and its author, Stephen Fewer, released a public PoC on GitHub at sfewer-r7/CVE-2026-123007. The repository includes a minimal crash-level trigger script and a full unauthenticated remote code execution exploit, demonstrated against NGINX 1.31.8 in a Docker container with HTTP/2 over TLS. Rapid7 describes the exploit as constrained: it depends on a glibc memory-copy routine specific to x86-64 builds, requires roughly 128 gigabytes of HTTP/2 traffic, and needs to defeat ASLR by recovering heap addresses from server responses. Execution lands in the NGINX worker process. The exploit is also unlikely to succeed against servers behind HTTP/2-terminating proxies or on connections too slow to deliver the required data volume before NGINX's one-hour connection limit is reached.\n\nXint published demo videos and said it intentionally omitted the final steps needed to reproduce the full exploits. Wiz confirmed working exploits exist but has chosen not to publish them.\n\nAre patches or mitigations available for the NGINX2Root vulnerabilities?\n\nYes. Patching is the fix. Mitigations are a temporary stopgap, and each covers only some of the vulnerabilities. Upgrade to the fixed versions in the table below. These fix all ten CVEs in F5\u2019s November 18 release. Xint notes that you must restart NGINX after upgrading, because a configuration reload does not replace the running executable.\n\nNGINX Open Source\n\nAffected Versions\n\nFixed Versions\n\nBefore 1.30.7 (stable) and 1.31.9 (mainline)\n\n1.30.7 (stable), 1.31.9 (mainline)\n\nThe earliest affected version varies by CVE, from 0.5.x for the mail proxy to 1.9.5 for CVE-2026-123007. A bug is only exploitable if the relevant feature is in use.\n\nNGINX Plus\n\nAffected Versions\n\nFixed Versions\n\nR33\u2013R36 and 37.x before fixed releases\n\n37.0.8.1, 37.3.0.1\n\nR33\u2013R36 have no patch available; those customers need to move to a 37.x release. CVE-2026-123633 is also fixed in 37.0.7.1 and 37.2.0.1.\n\nFor those organizations that are unable to apply the available patches, the following mitigations can be applied until patching is feasible.\n\nFeature / Component\n\nMitigation\n\nCovers\n\nHTTP/2\n\nDisable HTTP/2\n\nCVE-2026-123007, CVE-2026-123633 only\n\nHTTP/3 (QUIC)\n\nRemove the QUIC/HTTP/3 listeners\n\nCVE-2026-121810\n\nMail proxy\n\nBind mail listeners to loopback or restrict access with a firewall\n\nCVE-2026-113425\n\nResolver with a request-derived proxy_pass\n\nPoint proxy_pass at a fixed upstream group and turn off mirror where it is not needed\n\nCVE-2026-123634\n\nXint notes that disabling HTTP/2 does not protect against CVE-2026-123634, CVE-2026-121810, and CVE-2026-113425, so it is not advised to use it as a blanket workaround. Additionally, turning off mirror does not make a server safe from CVE-2026-123634.\n\nFor the unpatched Linux kernel LPE, until a kernel fix is available, Xint recommends blocking the SCTP module on hosts that do not use it.\n\nHas Tenable released any product coverage for these vulnerabilities?\n\nA list of Tenable plugins for these vulnerabilities can be found on the individual CVE pages as they\u2019re released:\n\nCVE-2026-123007\n\nCVE-2026-123633\n\nCVE-2026-123634\n\nCVE-2026-121810\n\nCVE-2026-113425\n\nCVE-2026-118899\n\nCVE-2026-120993\n\nCVE-2026-125283\n\nCVE-2026-120967\n\nCVE-2026-123640\n\nThese links will display all available plugins for these vulnerabilities, including upcoming plugins in our Plugins Pipeline.\n\nGet more information\n\nF5 out-of-band security notification K000164058\n\nXint: nginx2root\n\nWiz: NGINX HTTP/2 RCE vulnerabilities\n\nwatchTowr: NGINX2root FAQ\n\nnginx.org security advisories\n\nPoC: sfewer-r7/CVE-2026-123007\n\nJoin Tenable's Research Special Operations (RSO) Team on Tenable Connect for further discussions on the latest cyber threats.\n\nLearn more about Tenable One, the Exposure Management Platform for the modern attack surface."
+    },
     {
       "id": "6113629e24a7",
       "story": "6113629e24a7",
@@ -24,7 +41,7 @@
     },
     {
       "id": "374b0dd08221",
-      "story": "11a9e447f3a8",
+      "story": "99d6c260eab2",
       "podcast": false,
       "date": "2026-11-17T21:49:16-05:00",
       "category": "Vulnerabilities & Patching",
@@ -56,7 +73,7 @@
     },
     {
       "id": "4b1b04fbd62d",
-      "story": "11a9e447f3a8",
+      "story": "99d6c260eab2",
       "podcast": false,
       "date": "2026-11-17T16:45:17-05:00",
       "category": "Vulnerabilities & Patching",
@@ -209,10 +226,10 @@
       "id": "accb8659d5cd",
       "story": "15b5fe82f315",
       "podcast": false,
-      "date": "2026-10-26T21:19:40-04:00",
+      "date": "2026-10-26T21:19:40+00:00",
       "category": "Vulnerabilities & Patching",
       "vendor": "Tenable",
-      "source": "Tenable Blog",
+      "source": "Tenable Cyber Exposure Alerts",
       "title": "Brotli2Shell: Frequently asked questions for Google Brotli decoder vulnerability (CVE-2026-111497)",
       "link": "https://www.tenable.com/blog/brotli2shell-frequently-asked-questions-for-google-brotli-decoder-cve-2026-111497",
       "context": "A list of Tenable plugins for this vulnerability can be found on the individual CVE page for CVE-2026-111497 as they're released",

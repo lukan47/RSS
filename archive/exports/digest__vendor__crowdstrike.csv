@@ -1030,6 +1030,77 @@ Communication with the operator's infrastructure was maintained over a long-live
 Beyond ambient data collection, the extension provided the operator with persistent visibility into the victim's day-to-day work inside the national justice department's internal document system. This document system is used to route, print and track official correspondence between high-ranking officials and subordinate staff.
 
 On one occasion, while the victim was actively viewing a routing slip in that system, we observed the operator capture a full-page screenshot of the rendered document. The captured document was a request for the ap [truncated for CSV - full text is in the JSON export]"
+3d533cc9273f,3d533cc9273f,2026-11-11 11:19 UTC,"Attacks, Breaches & Threat Intel",CrowdStrike,Cyble,Identity Security Posture Management; Threat Intelligence; Vulnerability Management; AI Security,Article,"CERT-In’s CRAFTY FALCON Advisory: AI Is the Accelerant, Your Payment APIs Are the Target",https://cyble.com/blog/crafty-falcon-ai-assisted-financial-threat-actor/,"CERT-In's critical advisory, last week, gives a name to the campaign draining Indian fintechs: CRAFTY FALCON, an ""AI-assisted financial threat actor"" that moves money by calling...","CERT-In's critical advisory, last week, gives a name to the campaign draining Indian fintechs: CRAFTY FALCON, an ""AI-assisted financial threat actor"" that moves money by calling its victims' own payment and disbursement APIs. Organizations that fixed their systems after CERT-In's first warning in October have been hit again.
+
+The AI label will get the headlines. The attack chain tells a plainer story. Hardcoded API tokens, staging servers that share credentials with production, IP allow-lists that trust shared third-party fetchers: none of these weaknesses is new. What the AI tooling changes is the time between an attacker finding one and cashing it out, and that time is now shorter than most remediation cycles.
+
+What CERT-In has confirmed
+
+The latest advisory updates the previous Oct. 9 advisory. CERT-In's finance team, CSIRT-Fin, named the actor and called the campaign active and ongoing, with victims across NBFCs, digital lenders, fintechs, payment aggregators, payment service providers and crypto exchanges.
+
+Entities that had received the earlier restricted advisories and remediated were deliberately hit again, some after incomplete cleanup, with attacks timed for holidays and weekends.
+
+CERT-In names four publicly available offensive AI tools: ARTEX, the PentAGI multi-agent pentest system, the Cairn attack search engine and CyberStrikeAI. It doesn't attribute the actor or say how many entities were hit. Business Standard reported that researchers link at least two of the tools to China, but where a tool was written says little about who ran it.
+
+How CRAFTY FALCON gets from a staging server to a mule account
+
+The advisories describe four stages:
+
+Get in. Exposed UAT and staging servers, file-upload and deserialization flaws exploited as soon as they're public, hardcoded API tokens, forged repository commits, plaintext credentials and services without MFA.
+
+Reach production. Credentials and network paths shared with production carry the attacker across. AWS Systems Manager and Lambda then run commands through legitimate cloud channels.
+
+Get past the app. The attacker reverse-engineers the app, calls APIs from a modified package and routes traffic through allow-listed third-party fetcher IPs that anyone can make fetch a URL.
+
+Test, cash out, clean up. A Rs 1 transfer confirms the route. Large transfers follow to mule accounts at several banks, including through merchant settlement APIs, and crypto platforms lose wallet keys. Logs and endpoint tools get tampered with.
+
+Because the calls come from the victim's own allow-listed infrastructure, the October advisory says they bypass KYC, beneficiary verification, balance and per-transaction limit checks. To the payment partner, the fraud looks like normal traffic.
+
+Also read: Addressing Deepfake Risks in BFSI: Why Early Detection Is Critical
+
+The real story: AI took away the grace period
+
+Is ""AI-driven"" doing too much work here? Partly. Hardcoded tokens, plaintext credentials and missing MFA were in the October advisory before the AI tools took center stage.
+
+What the tooling changes is cost and tempo. CERT-In says the frameworks run full attack chains on their own, refine tailored scripts in rapid succession, adapt payloads to how the target responds and rotate infrastructure within hours. Reverse-engineering one lender's app used to be a project. Now an agent can work through a target list.
+
+That explains the re-targeting. An agent can come back, test whether the fix was complete and try the next path on a Saturday night. Patching in the next sprint assumes an attacker who gets tired. This one doesn't.
+
+Who's exposed
+
+Any Indian entity that can move money through an API: lenders with disbursement APIs, aggregators with settlement APIs, fintechs holding partner-bank credentials and crypto exchanges with hot wallets. You're most exposed if an internet-facing non-production environment shares anything with production, or if your payment API trusts the client app or a source IP instead of a signed, server-validated request.
+
+What to do this week
+
+CERT-In lists 27 actions. Start with the six that break the money path:
+
+Cut non-production off from production. No shared credentials, keys, databases or routes, and alert on any UAT-to-production access.
+
+Stop trusting the client and the source IP. Validate server-side, sign requests with a nonce and timestamp, use app attestation, and swap fetcher IP allow-lists for mutual TLS or scoped keys.
+
+Retire long-lived secrets. Scan repositories and CI/CD for secrets, move to short-lived scoped tokens and rotate build and deployment tokens now.
+
+Hold the Rs 1 pattern. Flag micro-value transfers to new beneficiaries followed by large ones, and add cooling periods and maker-checker approval on merchant settlements.
+
+Watch the cloud control plane. Alert in AWS CloudTrail on Systems Manager sessions and SendCommand, Lambda UpdateFunctionCode in production and new IAM users, roles or keys. Default-deny server egress.
+
+Staff the weekend and assume persistence. Lower holiday alert thresholds and verify eradication forensically.
+
+What we're watching
+
+The offensive tools are compromised too, though nothing ties this to CRAFTY FALCON. Researcher Badbyte recently said that a GitHub copy of ARTEX pulled a Docker image with a hidden root shell, and 62 internet-facing consoles served it between Nov. 2 and 4. It's one more reason CERT-In wants these tools banned from corporate infrastructure.
+
+Sources
+
+CERT-In, Advisory CIAD-2026-0058: Escalation of AI-Driven Attacks on BFSI Entities by Threat Actor ""CRAFTY FALCON"", Nov. 4, 2026
+
+The Hacker News, CERT-In Flags AI-Driven Attacks as Backdoored ARTEX Exposes 62 Consoles to Root Access, Nov. 5, 2026 (summary of CIAD-2026-0046 and Badbyte's ARTEX research)
+
+Business Standard, China-linked tools used in AI-driven cyberattacks on Indian financial firms, Nov. 5, 2026 Cloud Security Alliance, Crafty Falcon: Weaponized Pentest Agents Hit the Financial Sector, Nov. 5, 2026
+
+Disclaimer: The data and content written in this blog is based on on open web information available. Analysts and researchers are advised to confirm once again from original sources.
+
+The post CERT-In’s CRAFTY FALCON Advisory: AI Is the Accelerant, Your Payment APIs Are the Target appeared first on Cyble."
 5f92abe11948,5f92abe11948,2026-11-10 00:00 UTC,Vulnerabilities & Patching,CrowdStrike,CrowdStrike Blog,Vulnerability Management; Identity Security Posture Management; Endpoint Security; File Security,Article,"November 2026 Patch Tuesday: 1,252 CVEs Include One Zero-Day and 68 Critical Vulnerabilities",https://www.crowdstrike.com/en-us/blog/patch-tuesday-analysis-november-2026/,"November 2026 Attack Surface Analysis Preview-pane-triggered exploitation remains a dominant attack surface pattern for the third consecutive month, with eight Critical RCE...","November 2026 Attack Surface Analysis
 
 Preview-pane-triggered exploitation remains a dominant attack surface pattern for the third consecutive month, with eight Critical RCE vulnerabilities across Microsoft Office applications including Outlook and Word. CVE-2026-110043 and CVE-2026-110068 in Outlook exemplify the risk: Merely selecting a malicious message in the Reading Pane or previewing an attachment in File Explorer triggers code execution without any click or macro prompt. This attack pattern continues to be attractive to phishing operators and initial access brokers because it converts document or message delivery into reliable code execution, bypassing the user-action barrier that many enterprises treat as a training backstop.
@@ -1804,6 +1875,6 @@ Missed Fal.Con 2026? Register for Fal.Con Digital to watch the cloud security vi
 15d6dcd332da,15d6dcd332da,2026-11-03 05:00 UTC,Business & Industry News,CrowdStrike,CrowdStrike IR News,Other/General,Article,"EY Builds Its Frontier AI and Cyber Resilience Business on CrowdStrike, Commits to Training Cyber Workforce on the Falcon Platform",https://ir.crowdstrike.com/news-releases/news-release-details/ey-builds-its-frontier-ai-and-cyber-resilience-business,"EY makes a significant Falcon Flex commitment, brings SafeMind to critical infrastructure, and expands workforce training to deliver frontier AI-powered cybersecurity at scale AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD) today","EY makes a significant Falcon Flex commitment, brings SafeMind to critical infrastructure, and expands workforce training to deliver frontier AI-powered cybersecurity at scale AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD) today"
 7e823ac962c2,7e823ac962c2,2026-11-03 08:00 UTC,Business & Industry News,CrowdStrike,Google News: Deloitte,AI Security,Article,CrowdStrike and Deloitte Expand AI Security Partnership to Transform How Enterprises Detect Cyber Threats,https://news.google.com/rss/articles/CBMif0FVX3lxTE9JLTVpbVpQRzRScjItWFFHdHdyeC1ZSDFVYVU4S0t1ZS1wMGVCRUw4cGNEYkhOQjBlQU0tM2kyZjhkb2ticnMwdVZTaWJ2ZU1RampfWkFHT2prSEJZM1g5ekxhT2VGU0gyNVBWNm1BZDRwb1Q1amhtclBPbUo1cTTSAYQBQVVfeXFMUGprSnhZbDJ2aTdqdTl4Ny1sM1NXUGJxNDd2UXFRSjFJQkN0RDA0OG1ydmQtT0xsSmV0djUxNzdGTFVIalZYMTIwZi11S0ljSS1wQUhIWlVaWndPRzRDNHBOTEVVOVd1bzI5bWRFUDQ0Z19CUHdiY2lPbDJTXzdkT1dDZlI4?oc=5,,
 5a37a3521a62,15d6dcd332da,2026-11-03 08:00 UTC,General Security News,CrowdStrike,Google News: EY,N/A,Article,"EY Builds Its Frontier AI and Cyber Resilience Business on CrowdStrike, Commits to Training Cyber Workforce on the Falcon Platform",https://news.google.com/rss/articles/CBMilAJBVV95cUxNS2g0Njdja25JUnFyLVpBZkc4SXpIUE5lZlNsd3BRNWFmeFd0WldPLXlUYXpwbVd2dUlBXzAyaW9oQjE4MEpXV05Nb0xiTndWOEtCbWt0ZXZrVHlWS2VScnF4SlNFRjRoak4zcEl4NnVfamNoMFdVQnlmYXBsOXNqRUd4ME5BTHhhRV9SRTF0M2t1Q3piMWV6cXNBU1NLSjl2THFmaWJONXktamM3ZHVPS1BSU2JqMmx6a3BFRjlBeG5Mek9uV0xnb3B3VEN6dnZUM244RjFCZGhEWVNCNnRYdWU5djNaNm1XWWpibFNkd0d4RkQxQlZuUE1TcklsdTNGMFM4bl8zUTFGU0kzeW0zSmF6ckM?oc=5,,
-246563150cde,246563150cde,2026-11-02 08:00 UTC,General Security News,CrowdStrike,Google News: Deloitte,N/A,Article,"CrowdStrike, Deloitte expand cybersecurity collaboration",https://news.google.com/rss/articles/CBMisgFBVV95cUxNcnJ1ZnE4b3VpaVVGdHBFRUk3c19aWFE1ZUZoVG9MSmd3VHFaZmxZMTN5dnNSRDdZRTcxZm5yQ1FFaDdYY01GR0pKaDYzeHZVUkRacm8wRHdyZHVLNWJzZjAyQ1VvTFFyOERyQXpqd3BkQ2Jid1liQjRpMWVjcWV2OVBkR3lEN2FJS3NiNGx2ZDludG90bjBwT3c0bGVtMk04bXlzbTNBaEtXQ0FfVXVaaEdR?oc=5,,
 23b5d2c8acc2,23b5d2c8acc2,2026-11-02 08:00 UTC,Business & Industry News,CrowdStrike,Google News: Deloitte,AI Security,Article,CrowdStrike Expands Partnerships to Strengthen AI Security,https://news.google.com/rss/articles/CBMipAFBVV95cUxOOVNNU1pLMmVDanVNT1M4N1hyak9tZ3Y4WmtFbUVIN3pWNFJCNmhxUmlNazBxajF3SnVRQ2JCSEhBUnpZWEdXMXUyYjBNYTJRLWQ0Mmd6cDVYZThRVXVCdVl2RFRINmlkbVBiblF0Sm1FQzRoblFldmVSYW40VUFudWs3NGZLV2lVbHNQTzJGdkZyUGFEazRUckZfRnIxY2hQYUxQZg?oc=5,,
+246563150cde,246563150cde,2026-11-02 08:00 UTC,General Security News,CrowdStrike,Google News: Deloitte,N/A,Article,"CrowdStrike, Deloitte expand cybersecurity collaboration",https://news.google.com/rss/articles/CBMisgFBVV95cUxNcnJ1ZnE4b3VpaVVGdHBFRUk3c19aWFE1ZUZoVG9MSmd3VHFaZmxZMTN5dnNSRDdZRTcxZm5yQ1FFaDdYY01GR0pKaDYzeHZVUkRacm8wRHdyZHVLNWJzZjAyQ1VvTFFyOERyQXpqd3BkQ2Jid1liQjRpMWVjcWV2OVBkR3lEN2FJS3NiNGx2ZDludG90bjBwT3c0bGVtMk04bXlzbTNBaEtXQ0FfVXVaaEdR?oc=5,,
 6256063ba57c,09112073afd9,2026-11-02 08:00 UTC,General Security News,CrowdStrike,Google News: Deloitte,N/A,Article,CrowdStrike and Deloitte Spain Expand Alliance to Transform Cybersecurity from Boardroom to SOC,https://news.google.com/rss/articles/CBMi5wFBVV95cUxNNlVZVmlud0ZENy1iSWl4S0YzY3BnMkJpTmxsamI2VzN1Q3g1dFotbHNTTmo1TllmbUJ0WjgtUFNVMXBCRy10TDE5M2N6V1Jxb2UtakFzWU9GS1Q2Zm9YZzFORVpUYk92cEFFb3QyS1gxdlJRVEFUTjhSQmZDR3NIV3BReHRoQWtKOUVia1FyNjlKcnI5UTJxLU8xRnktQ1hsckhQMW0tUm5qSTA4SWNKWVZfclVaX3VSUW5teUlpM2ZOT1lNQVUzNmotLXVDVy1qUE9ZT0F5Q2ZHbWNYd2tyREY2TVhldkU?oc=5,,
