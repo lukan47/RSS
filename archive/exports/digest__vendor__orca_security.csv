@@ -1,4 +1,246 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+0f9394b0fe44,f8957f18a934,2026-11-19 16:11 UTC,Vulnerabilities & Patching,Orca Security,Orca Security Blog,Vulnerability Management,Article,"PHP Patches 7 Critical Flaws, Including Session and PHP-FPM Remote Code Execution (CVE-2026-115560, CVE-2026-129289)",https://orca.security/resources/research/php-patches-7-critical-flaws-including-session-and-php-fpm-remote-code-execution-cve-2026-115560-cve-2026-129289/,"0 (released with the fixes) These ranges apply to CVE-2026-115560, CVE-2026-129289 and most of the other vulnerabilities in the release; a few affect only some branches (see below)","On November 19, 2026, the PHP project released PHP 8.2.36, 8.3.37, 8.4.28 and 8.5.13, fixing 17 vulnerabilities. Seven are rated critical by the PHP project (CVSS 4.0 9.2), including CVE-2026-115560, a session serializer mismatch that can lead to remote code execution, and CVE-2026-129289, a PHP-FPM request smuggling flaw that lets an unauthenticated attacker forge a backend request and execute attacker-controlled PHP code. PHP 8.6.0, released the same day, already includes the fixes.
+
+PHP runs a large share of the world’s websites and web applications, in virtual machines, containers and managed platforms alike. CVE-2026-115560 was pre-announced in October, a few days after the PHP2Shell fixes (CVE-2026-109618, CVE-2026-109619), with the mitigation of disabling session upload progress. Today’s release publishes its full details and fixes it alongside 16 other vulnerabilities. Several of them need specific configurations, but the release as a whole affects every supported PHP branch.
+
+PHP November 2026 security release: key facts
+
+Fact
+
+Detail
+
+CVEs
+
+17 in total; critical: CVE-2026-115560, CVE-2026-129289, CVE-2026-126714, CVE-2026-129496, CVE-2026-129481, CVE-2026-129474, CVE-2026-129182
+
+Type
+
+Deserialization of untrusted data (CWE-502) in the session extension; HTTP request smuggling (CWE-444) in PHP-FPM; several use-after-free bugs
+
+Severity
+
+Rated critical by the PHP project (CVSS 4.0 9.2) for all seven; NVD score pending
+
+Required configuration
+
+CVE-2026-115560: session upload progress enabled and mismatched session serializers. CVE-2026-129289: PHP-FPM behind a front end that reuses FastCGI connections
+
+Affected versions
+
+PHP 8.2.0 to 8.2.35, 8.3.0 to 8.3.36, 8.4.0 to 8.4.27 and 8.5.0 to 8.5.12 (some CVEs affect only some branches)
+
+Fixed versions
+
+8.2.36, 8.3.37, 8.4.28, 8.5.13; PHP 8.6.0 includes the fixes
+
+Exposure
+
+Internet-facing PHP applications; exploitability depends on configuration and on the application
+
+Workaround
+
+Set session.upload_progress.enabled = 0 (CVE-2026-115560); disable FastCGI connection reuse on the front end (CVE-2026-129289); other CVEs have their own workarounds
+
+Exploitation
+
+No known in-the-wild exploitation; a public proof of concept exists for CVE-2026-115560 in a lab setup
+
+What is CVE-2026-115560?
+
+CVE-2026-115560 is a flaw in PHP’s session upload progress feature. When a client uploads a file, PHP writes the upload’s progress into the user’s session, including a value the client controls. PHP supports several session serialization formats, and if that data is written in one format (php_serialize or php_binary) and later read in another (php), the reader can treat attacker-supplied bytes as serialized object data.
+
+This can happen when an application switches session.serialize_handler at runtime before calling session_start(), or when separate applications, PHP-FPM pools, virtual hosts or command-line jobs with different settings share the same session storage. If the reading application has a suitable deserialization gadget chain, the attacker can execute code with the privileges of the PHP worker. According to the PHP advisory, the original report demonstrated command execution with a Guzzle gadget on PHP 8.2.35, 8.3.36, 8.4.27 and 8.5.12, and with a Monolog gadget.
+
+The fix turns session upload progress off by default and blocks runtime changes to session settings while the feature is enabled. An explicit session.upload_progress.enabled = 1 in existing configuration still overrides the new default, and the PHP project notes that matching serializers across separate configurations is still the administrator’s responsibility.
+
+What is CVE-2026-129289?
+
+CVE-2026-129289 is an HTTP request smuggling flaw in PHP-FPM. When an application opens php://input but does not read the request body to the end, PHP can leave the unread bytes on a persistent FastCGI connection. An attacker can place a crafted FastCGI message in that body, and PHP-FPM accepts it as a new request that the web server never created or authorized.
+
+The forged request controls FastCGI parameters, including the script to run and administrator-level PHP settings, which lets the attacker execute attacker-controlled PHP code as the worker in a single unauthenticated request, provided they know the path of an existing PHP script on the server. According to the PHP advisory, no non-default PHP setting, memory corruption or race condition is needed, and the bug has existed since PHP 5.6.0.
+
+Exploitation requires a front end that reuses backend connections, such as nginx with fastcgi_keep_conn on, Apache mod_proxy_fcgi with enablereuse=on, or HAProxy FastCGI applications that keep connections open. Standard nginx and Apache configurations that close the FastCGI connection after each request are not affected by the demonstrated attack. LSAPI is affected by the same cleanup bug, but the advisory does not establish code execution through LSAPI.
+
+Which PHP versions are affected?
+
+PHP branch
+
+Affected versions
+
+Fixed version
+
+8.5
+
+8.5.0 to 8.5.12
+
+8.5.13
+
+8.4
+
+8.4.0 to 8.4.27
+
+8.4.28
+
+8.3
+
+8.3.0 to 8.3.36
+
+8.3.37
+
+8.2
+
+8.2.0 to 8.2.35
+
+8.2.36
+
+8.6
+
+Not listed as affected
+
+8.6.0 (released with the fixes)
+
+These ranges apply to CVE-2026-115560, CVE-2026-129289 and most of the other vulnerabilities in the release; a few affect only some branches (see below). PHP 8.1 and older are end of life and received no release, although the PHP project notes that older versions may also be affected (session upload progress was introduced in PHP 5.4.0). Linux distributions often backport fixes without changing the PHP version number, so check your distribution’s security tracker as well as the version string. PHP bundled in container images and application platforms needs its own update.
+
+Additional vulnerabilities fixed in the same release
+
+The other five critical vulnerabilities (all CVSS 4.0 9.2 according to the PHP project):
+
+CVE-2026-126714 (8.2 to 8.5): partially overwritten session files can lead to remote code execution. Requires attacker influence over session data, an interrupted write and a gadget chain. Disabling session upload progress removes one input path but is not a full fix.
+
+CVE-2026-129496 (8.2 to 8.5): a timezone cache use-after-free can lead to remote code execution. Requires a startup diagnostic and PHP error logging to a file; code execution was demonstrated locally in PHP-FPM and Apache mod_php under additional assumptions.
+
+CVE-2026-129481 (8.3 to 8.5): use-after-free after an interrupted session shutdown. Code execution has not been demonstrated. Disabling session upload progress does not address it.
+
+CVE-2026-129474 (8.5 only): use-after-free in magic method backtraces can lead to remote code execution, confirmed by the PHP project on PHP 8.5. It depends on the application and requires bypassing address randomization.
+
+CVE-2026-129182 (8.5 only): use-after-free in the fatal error backtrace after shutdown. Code execution through this path has not been demonstrated.
+
+The release also fixes four high-severity issues: a PHP-FPM epoll use-after-free that allows local privilege escalation to root when the FPM master runs as root (CVE-2026-129291, affecting configurations with catch_workers_output enabled, including the official PHP-FPM Docker images), a denial of service through folded HTTP response headers (CVE-2026-127960), mixed-case HTTPS and FTPS URLs that can send data in plaintext (CVE-2026-128064), and a PHAR signature bypass (CVE-2026-128090). Six medium-severity issues affect PHP-CGI, SOAP, DOM, the URI extension and the PHP-FPM status page.
+
+Is there a patch for CVE-2026-115560 and CVE-2026-129289?
+
+Yes. PHP 8.2.36, 8.3.37, 8.4.28 and 8.5.13 were released on November 19, 2026 and are available on the PHP downloads page. PHP 8.6.0, released the same day, includes the same fixes. Linux distributions, container image maintainers and hosting platforms that ship PHP need to release their own updated packages.
+
+How to mitigate the PHP vulnerabilities
+
+The best fix is to upgrade to the fixed release for your branch. Each critical vulnerability has a different workaround, and no single setting covers all of them.
+
+Inventory: find every PHP installation, including PHP in container images, PHP-FPM pools and application platforms, and note which ones run PHP-FPM behind nginx, Apache or HAProxy.
+
+Upgrade: move to PHP 8.2.36, 8.3.37, 8.4.28, 8.5.13 or 8.6.0, then restart the PHP master process and all workers.
+
+CVE-2026-115560: set session.upload_progress.enabled = 0 in php.ini or the FPM pool configuration. Calling ini_set() from the application is too late. Check for explicit settings that re-enable it, even after upgrading.
+
+CVE-2026-129289: disable FastCGI connection reuse: leave nginx fastcgi_keep_conn off, leave Apache enablereuse off, or configure other front ends to close the backend connection after each request. Never expose PHP-FPM listeners to untrusted networks.
+
+CVE-2026-129474 and CVE-2026-129182 (PHP 8.5): set zend.exception_ignore_args = 1 or fatal_error_backtraces = 0.
+
+CVE-2026-129496: fix configuration errors that produce startup warnings, or send PHP errors to syslog instead of a log file.
+
+CVE-2026-129291: disable catch_workers_output in affected FPM pools, and avoid running the FPM master as root where possible.
+
+Prioritize internet-facing PHP-FPM servers behind connection-reusing front ends, and applications that share session storage or change session settings at runtime.
+
+Is CVE-2026-115560 being exploited in the wild?
+
+There are no known reports of in-the-wild exploitation of any of the vulnerabilities, and none is listed in CISA’s Known Exploited Vulnerabilities catalog. A public proof-of-concept exploit for CVE-2026-115560 has been available on GitHub since October, but it targets a deliberately vulnerable lab application with a built-in gadget. With full technical details for all 17 vulnerabilities now public, especially for the PHP-FPM request smuggling flaw, exploit attempts are likely to follow.
+
+How can Orca help?
+
+Orca enables customers to quickly identify assets running vulnerable PHP versions, including PHP installed from OS packages and PHP bundled in container images, and to understand their exposure in context, including internet accessibility, runtime reachability and asset criticality, so they can prioritize remediation based on real risk rather than CVSS alone."
+a5c9b83cf960,a5c9b83cf960,2026-11-19 16:08 UTC,General Security News,Orca Security,Orca Security Blog,Network Security; Compliance Management; Server & Workload Protection; Cloud Risk Management,Article,Quantum deadlines are here. Meet Orca’s new tools for PQC readiness.,https://orca.security/resources/blog/quantum-deadlines-are-here-meet-orcas-new-tools-for-pqc-readiness/,"Building on the PQC compliance framework we launched in July, Orca now gives teams a live inventory of their cryptography, a clear read on how exposed each key and certificate...","Post-quantum deadlines are no longer a distant line on a roadmap. US federal agencies owed their PQC migration plans in October. High-value federal systems must move key establishment to post-quantum cryptography by the end of 2030. And the EU expects member states to start cryptographic inventories by the end of this year, with contractors, regulated industries, and their suppliers next in line.
+
+Yet the first step is still where most teams stall. Knowing RSA and ECC have to go tells you nothing about where they run in your cloud, which of those assets face the internet, what data they protect, or what breaks if you change them. Without those answers, teams either try to boil the ocean with a spreadsheet inventory or let PQC sit in the backlog until the next audit.
+
+The cloud makes this harder than most environments. Cryptography is spread across managed key services, load balancers, certificates, SSH keys, VPN tunnels, container images, and code, and it changes every time someone deploys. A spreadsheet inventory is out of date the day it’s finished.
+
+That’s why we’re expanding Orca’s post-quantum cryptography capabilities. Building on the PQC compliance framework we launched in July, Orca now gives teams a live inventory of their cryptography, a clear read on how exposed each key and certificate is to quantum attacks, and one place to track readiness. This post covers what’s new, then shows it in action on a real example.
+
+What’s new in Orca for post-quantum cryptography
+
+Cryptography Bill of Materials (CBOM). See every key, certificate, key pair, and cryptography library across your cloud in one live inventory. CBOM shows algorithms, key lengths, and expiration dates for cloud keys and vaults, the SSH keys and key files sitting on your workloads, and the crypto packages they run. Export it in CycloneDX for auditors, customers, and GRC tools.
+
+PQC Impact. Know at a glance which cryptography quantum computing will break. Each key and certificate is rated Vulnerable, Weakened, or Resistant based on its algorithm and key length, so you can filter and group your inventory by quantum risk instead of decoding algorithm names.
+
+PQC Alerts view. Work every post-quantum finding from one place. A dedicated PQC view on the Alerts page gathers all quantum-related alerts, each tied to the affected asset and enriched with Orca’s cloud context.
+
+PQC Dashboard. Show leadership where you stand and how fast you’re moving. A pre-built dashboard tracks quantum-vulnerable cryptography and migration progress over time, ready to share with the board or an auditor.
+
+PQC Runtime Detections. Catch harvest-now, decrypt-later (HNDL) attacks while the traffic is being collected, not years after. Three new detections flag the ways attackers capture encrypted traffic in the cloud: a network capture tool executed on a host, cloud network traffic mirroring enabled, and TLS session key logging enabled.
+
+These sit alongside the Orca for Post Quantum Cryptography compliance framework, which maps findings to post-quantum standards and organizes them by urgency.
+
+Four questions to prioritize quantum risk
+
+Whatever deadline you’re working toward, prioritizing PQC comes down to the same four questions. Orca answers each one from a single platform for cloud security, across every account, cloud, and workload.
+
+Where does quantum-vulnerable crypto live?
+
+How vulnerable is it?
+
+Is it internet exposed?
+
+What can it reach?
+
+Each answer narrows the list for the next, so an inventory of thousands of keys and certificates ends with a short, ranked migration plan. Here’s how that looks on a real example.
+
+Example: A quantum-vulnerable key on a production jump box
+
+Take a common finding, like a production jump box in AWS that admins log into with an RSA key pair. Jump boxes exist to reach everything else, so whoever holds the key holds the door. A capable quantum computer could derive that private key from its public half, which means an attacker can collect the public key today and break in later.
+
+Here’s how Orca takes you from the mandate to a fix.
+
+Step 1: Find where quantum-vulnerable cryptography lives
+
+Open the new PQC view on the Alerts page, or the Orca for Post Quantum Cryptography framework in Orca’s multi-cloud compliance, to see every quantum-related finding across your clouds. In our example, Orca flags 21 EC2 instances that use quantum-vulnerable key pairs, out of 34 in scope.
+
+Prefer plain English? Ask Orca AI, “Which EC2 instances use quantum-vulnerable key pairs?” and get the same answer in seconds.
+
+Step 2: Check how vulnerable it is
+
+Not every finding carries the same quantum risk. Orca’s new PQC Impact rating sorts cryptography into Vulnerable (broken by a quantum attack), Weakened (reduced but not broken), and Resistant.
+
+Click into the finding for mgmt-jumpbox-prod-01. Orca explains the risk in plain language, showing that the instance uses an RSA key pair, and its PQC Impact is Vulnerable.
+
+Step 3: Check whether it’s internet exposed
+
+A vulnerable key matters most when attackers can reach the host it unlocks. Orca’s exposure view shows this jump box is open to the internet on every port, along with the IAM roles, users, and groups that can reach it. Internet-facing hosts go to the top of the list. Internal-only ones still get fixed, just on a longer timeline.
+
+Step 4: Map what it can reach
+
+A jump box is only as dangerous as what sits behind it. Orca’s attack path analysis shows this one can reach a crown jewel S3 bucket holding AI training data, a Bedrock agent, a SageMaker endpoint, and a production database, plus dozens more buckets, functions, and roles. The key protecting this host is also protecting the path to your models and their data.
+
+Step 5: Turn findings into a migration plan
+
+One jump box is a fix. Hundreds of keys and certificates is a program, and a program is what the mandates ask for. US federal agencies must now submit PQC migration plans, and contractors, regulated industries, and their suppliers are increasingly asked for the same by customers and auditors.
+
+Run the same four questions across every finding, and they sort into waves. Internet-exposed assets with a path to crown jewels get fixed now, internal assets with limited reach come next, and findings with no post-quantum option from the cloud provider yet get tracked until one arrives. Group your CBOM by PQC Impact to size each wave, then export it as the inventory behind your plan.
+
+Another option is to connect the Orca MCP Server to the AI assistant your team already uses, like Claude or Cursor, and ask it to build a PQC migration plan. Because the MCP Server pulls straight from Orca, the plan reflects your real environment. You get a wave-by-wave plan grounded in live cloud context, not a generic checklist.
+
+Go further with Orca: Fix, track, and prove progress
+
+That’s the prioritization of a single finding done. PQC migration is a multiyear program though, and Orca helps with the rest too.
+
+Catch harvest-now, decrypt-later attacks. Migration takes years, and attackers aren’t waiting for it to finish. In an HNDL attack, they collect encrypted traffic today and store it until a quantum computer can break it. Orca’s new runtime detections cover the three ways to collect that traffic in the cloud: capture tools running on a host, traffic mirroring on a cloud network, and TLS session key logging. Each alert comes with Orca’s cloud context, so you can see what the affected workload can reach and respond fast.
+
+Prove progress to leadership: When the board asks how ready you are, you shouldn’t need to pull a spreadsheet together to answer. The new PQC Dashboard shows how much quantum-vulnerable cryptography is left, and that number drops as teams migrate, so one view shows both your exposure and your progress.
+
+Stay audit-ready. Mandates and auditors want the same things, which are an inventory, a plan, and evidence of progress. Orca’s PQC framework maps findings to NIST and the EU Cyber Resilience Act, alongside 200+ other customizable frameworks, so you can generate a shareable report in one click instead of assembling evidence by hand. And when an auditor, engineer, or customer asks for your cryptographic inventory, export your CBOM in CycloneDX and hand it over.
+
+Cut the time to fix: Orca tells you what to do, not just what’s wrong. AWS doesn’t yet offer a post-quantum key type for EC2, so swapping the algorithm isn’t an option for our jump box example above. Instead, the recommendation is to drop key-based access and use AWS Systems Manager Session Manager, which authenticates through IAM instead of a key vulnerable to quantum computing.
+
+From there, Orca does the heavy lifting. Orca AI generates the fix in CLI, CloudFormation, Terraform, and more, so engineers start with ready-to-run remediation instead of a blank page. Code Origin traces the jump box back to the infrastructure-as-code template and the team that deployed it, so the fix lands with the right owner and gets made at the source. Fix the template once, and every future instance launched from it comes up without a quantum-vulnerable key. Tickets open in Jira, ServiceNow, and Slack with the details already filled in, keeping the work inside your existing workflows.
+
+Keep weak crypto from creeping back in. Teams keep shipping while the migration runs. Orca scans continuously, so a new key, certificate, or listener using RSA or ECC shows up in your CBOM and the PQC Alerts view as soon as it’s deployed, and you don’t migrate the same risk twice.
+
+A repeatable workflow for the next PQC deadline
+
+Post-quantum deadlines will keep landing, and migrating every key and certificate at once isn’t realistic. The teams that stay ahead know where quantum-vulnerable crypto lives across their environment, and which of it needs to move first.
+
+Orca helps you do exactly that. With CBOM, PQC Impact, the PQC Alerts view, and the PQC Dashboard, the Orca Cloud Security Platform shows where vulnerable crypto runs, how exposed it is, what it can reach, and how your migration is progressing. One jump box is the example. The same workflow works for every key, certificate, and tunnel that comes after it.
+
+See it in your own environment. Request a demo and we’ll show you what your cryptographic footprint looks like across your cloud. To go deeper on Orca’s PQC capabilities, download the data sheet."
 4b47a6c26a41,4b47a6c26a41,2026-11-19 10:56 UTC,Vulnerabilities & Patching,Orca Security,Orca Security Blog,Vulnerability Management,Article,Breaking: “ruby2ßhell” or ruby2shell One-Byte Heap Overflow in Ruby Could Allow Remote Code Execution in Rails and Popular Self-Hosted Apps,https://orca.security/resources/blog/ruby2shell-ruby-heap-overflow-rce/,"The Ruby core team rates the issue critical and states that changing the case of a crafted string may allow remote code execution, adding that it is aware of proof-of-concept...","A heap-based buffer overflow in Ruby’s string case conversion, tracked as CVE-2026-132825 and dubbed “ruby2ßhell”, has been disclosed. The Ruby core team rates the issue critical and states that changing the case of a crafted string may allow remote code execution, adding that it is aware of proof-of-concept exploits that can trigger code execution in some scenarios. Fixed versions, Ruby 3.3.14, 3.4.13 and 4.0.10, were released on November 18, 2026.
 
 Ruby powers a large number of web applications and widely used self-hosted platforms. According to the researchers who published the ruby2ßhell write-up, the flaw is reachable without authentication in default Ruby on Rails and classic-style Sinatra applications, as well as in self-hosted software such as GitLab, GitHub Enterprise Server, Mastodon and Discourse. The vulnerable code has been present since Ruby 2.4.0. The same Ruby release also fixes six additional memory-safety vulnerabilities in Ruby’s regular expression engine and string case conversion.
@@ -923,95 +1165,3 @@ Want to see which AI app builders are already running in your environment? Reque
 About the Orca Platform
 
 Orca Security delivers security for the companies that build. As cloud, applications, AI and app generation expand the attack surface, Orca transforms security risk into the context teams need to act. The Orca Platform provides complete visibility across cloud, AI, and application environments, correlates risk across every layer, and prioritizes the exposures that matter most so organizations can remediate faster and innovate with confidence. Trusted by hundreds of organizations, including SAP, Autodesk, Gannett, Lemonade, and Digital Turbine, Orca is backed by leading investors including Temasek, CapitalG, ICONIQ Capital, and Redpoint Ventures."
-09c2aac1da3e,09c2aac1da3e,2026-11-06 13:00 UTC,General Security News,Orca Security,Orca Security Blog,Container Security; Vulnerability Management; Attack Surface Discovery,Article,A Kubernetes CVE just dropped. Here’s how to find and fix what matters.,https://orca.security/resources/blog/a-kubernetes-cve-just-dropped-heres-how-to-find-and-fix-what-matters/,” Step 4: Map the attack path from node to cloud A node escape is only as dangerous as what the node can access,"Critical Kubernetes CVEs arrive constantly. Some hit an operator or controller, some the Linux kernel underneath your nodes, others the container images your teams ship every day. Each one comes with a CVSS score and an urgent recommendation to patch.
-
-What it doesn’t come with is context. A CVSS score tells you how bad a flaw could be in theory. It can’t tell you whether the vulnerable component runs in your clusters, whether anyone could actually exploit it, or what it can reach. Without those answers, teams either scramble to patch everything at once or let the CVE sit in a backlog until it’s forgotten.
-
-Kubernetes makes this harder than most environments. Workloads are ephemeral, permissions are spread across roles, bindings and service accounts, and a single foothold can travel from a pod to a node, from a node to the cloud account, or through a privileged operator to everything it manages.
-
-This post walks through a repeatable approach for triaging any Kubernetes CVE in Orca, then puts it to work on a real example: Copy Fail, a Linux kernel flaw affecting nodes across nearly every major cloud and operating system.
-
-How to triage a Kubernetes CVE: Four questions to ask
-
-Whatever the CVE, effective triage comes down to the same four questions. Orca answers each one from a single platform for cloud security, across every cluster and the cloud accounts they run in.
-
-Where does it run?
-
-Is it internet exposed?
-
-Is it exploitable?
-
-What can it reach?
-
-Each answer narrows the list for the next, so a CVE that touches dozens of clusters ends with a short, ranked set of actions. Here’s how that looks on a real example.
-
-The example: Copy Fail (CVE-2026-31431)
-
-Copy Fail is a bug in the Linux kernel that lets an ordinary user quietly give themselves full admin (root) access. In Kubernetes, that means an attacker who gets into any container can take over the node it runs on, and from there, potentially everything that node can reach. Here’s how Orca takes you from the headline to a fix.
-
-Step 1: Find which nodes and images are affected
-
-Orca’s emerging threats feed, From the News, flags Copy Fail with a plain-language summary and recommended fix. From there, search CVE-2026-31431 in the Vulnerabilities view, part of Orca’s agentless vulnerability management, to see every affected node, node pool and image across clusters and clouds, with the fixed kernel version for each.
-
-Prefer plain English? Ask Orca AI, an AI reasoning engine for security teams, “Which Kubernetes nodes are affected by CVE-2026-31431?” and get the same answer in seconds.
-
-Step 2: Check whether affected nodes or pods are internet exposed
-
-Copy Fail needs a foothold inside a pod first, so checking the node alone isn’t enough. A node can sit on a private network and still run a pod that’s reachable from the internet through a LoadBalancer or an Ingress. If that pod is compromised, the attacker lands on the node’s kernel just the same. Click into an affected node to see its asset details, including whether the node or any workload running on it is publicly accessible, and how many high-severity risks it carries. Nodes with any internet-facing path go to the top of the list. Nodes with no exposure still get patched, just on a normal cycle.
-
-Step 3: Confirm whether the CVE is exploitable
-
-Open the Copy Fail risk on that node to see the vulnerable kernel package it affects, along with Orca’s exploitability and risk scoring details. Copy Fail has public exploit code, so the answer is yes, and on a node with an internet-exposed workload, that moves it from “patch soon” to “patch now.”
-
-Step 4: Map the attack path from node to cloud
-
-A node escape is only as dangerous as what the node can access. Use attack path analysis to see how an attacker could move to the cloud roles, secrets or crown jewel data within reach, all in one ranked path. That’s the alert you patch first.
-
-Go further with Orca: Remediate, prevent, and prove progress
-
-That’s the triage done. But finding the risk is only part of the job, and Orca helps with the rest too.
-
-Prove progress to leadership. When leadership asks where things stand, you shouldn’t need to scramble and pull a spreadsheet together to answer. The K8s & Container Security dashboard shows how many clusters and nodes are still affected, and that number drops as patches roll out, so one view shows both your current risk and your progress.
-
-Patch without letting new risk in. Teams keep deploying while patches roll out, and every new pod is a possible foothold. Orca’s Admission Controller checks each workload before it’s admitted, stopping new privileged or host-namespace pods, which make it easier to take over a node from a compromised container, from landing in affected clusters. Policies can warn or block depending on what you need, and every decision is logged in Orca alongside the CVE you’re tracking.
-
-Stay audit-ready. An unpatched critical vulnerability is an audit finding waiting to happen. Orca automatically maps it to the regulatory compliance frameworks you report on, such as PCI DSS 4.0 and SOC 2, so you know which controls are affected now and have the evidence ready once remediation is done, instead of scrambling for it later.
-
-Cut the time to fix. Orca opens tickets in tools you already use with the affected nodes and fixed kernel version already filled in, so engineers start fixing instead of investigating, and you can track every ticket through to closure. Where patching has to wait, disabling the affected kernel module is a quick interim mitigation.
-
-Catch an attack before the patch lands. Rolling new images across a fleet takes time, and that window is when attackers move. Orca’s cloud detection and response monitors affected workloads for suspicious activity, so if someone tries to use the foothold, you know right away and can respond.
-
-Together, that’s the difference between knowing about a CVE and being done with it.
-
-A repeatable workflow for the next Kubernetes CVE
-
-Kubernetes CVEs aren’t slowing down, and patching everything the moment it’s disclosed isn’t realistic. The teams that stay ahead are the ones that know where those CVEs are throughout their environment, and which ones need to get remediated first.
-
-Orca helps you do exactly that. From the first alert to the closed ticket, the Orca Cloud Security Platform shows you where a CVE runs, whether it’s exposed, whether it’s exploitable, what it can reach, and how it affects your compliance posture. Copy Fail is one example. The same workflow works for whatever CVE lands next.
-
-See it in your own environment. Request a demo and we’ll walk through how Orca triages the Kubernetes CVEs that matter most to your clusters. To go deeper on Orca’s Kubernetes and Container Security capabilities, download the data sheet."
-dd1bd606a9be,88386f2be82e,2026-11-05 18:09 UTC,Vulnerabilities & Patching,Orca Security,Orca Security Blog,Identity Security Posture Management; Vulnerability Management; Server & Workload Protection,Article,*sshole: OpenSSH Authentication Bypass Gives Attackers Root on Alpine Linux,https://orca.security/resources/research/sshole-openssh-authentication-bypass-gives-attackers-root-on-alpine-linux/,"A critical authentication bypass, with no CVE assigned yet, was disclosed in OpenSSH on musl-based Linux distributions such as Alpine","A critical authentication bypass, with no CVE assigned yet, was disclosed in OpenSSH on musl-based Linux distributions such as Alpine. An unauthenticated attacker can log in over SSH password authentication as an account that should not accept passwords at all, including root. On a default Alpine install that means root access from a single connection, so patch now.
-
-How the *sshole vulnerability bypasses SSH authentication
-
-The bug comes from how musl libc’s crypt() reports errors. Since 2012, musl has returned the string “*” when crypt() fails instead of NULL, and its SHA-256 and SHA-512 crypt refuse passwords longer than 256 bytes. Locked and key-only accounts also use “*” as their shadow password field. When sshd checks passwords itself, without PAM, a password between 257 and 1024 bytes makes crypt() fail and return “*”. That matches the stored field, and sshd lets the attacker in.
-
-Which locked and key-only accounts are exposed
-
-Accounts exposed this way include root on Alpine 3.16 and later, key-only service and deploy users, directory users from nslcd, winbind or sssd, and the “alpine” user in tiny-cloud images, which has passwordless doas and is effectively root.
-
-Which Alpine Linux and musl-based systems are affected
-
-A system is affected when all of these hold: sshd is built without PAM (or runs with UsePAM no) on musl libc, PasswordAuthentication is on (the default), at least one account has “*” as its password field, and at least one local account has a SHA-256 or SHA-512 hash. On Alpine that means the openssh-server package on releases 3.16 through 3.24 and edge. Other musl-based systems such as OpenWrt, Buildroot and Yocto builds, and container images that run sshd, may also be exposed. glibc distributions, PAM-enabled sshd, Dropbear and non-Linux systems are not affected.
-
-How to patch *sshole: fixed OpenSSH versions and mitigations
-
-Upgrade to OpenSSH 10.6p2, or on Alpine to openssh 10.6_p2-r0 (edge), 10.3_p1-r2 (3.24), 10.2_p1-r1 (3.23), 10.0_p1-r11 (3.22), 9.9_p2-r1 (3.21) or 9.7_p1-r6 (3.20). Restart sshd afterwards, because upgrading the package does not replace the daemon that is already running. If you cannot patch yet, setting PasswordAuthentication no closes the hole. Also search authentication logs for “Accepted password for” on accounts that have no password, and treat any host with such a line as compromised.
-
-Is *sshole being exploited in the wild?
-
-The researcher’s public write-up explains the technique in enough detail to reproduce it, and no exploitation in the wild has been reported so far. Internet-facing Alpine hosts with password login enabled are the most exposed. An attacker who gets in this way has root on the host and can use it to reach the rest of the environment.
-
-How Orca helps find and prioritize vulnerable OpenSSH hosts
-
-Orca helps customers find assets running vulnerable OpenSSH versions and see each one’s exposure in context: whether it is reachable from the internet, at runtime, and how critical it is. Teams can use that context to fix the riskiest hosts first. Affected assets appear directly in the newItem view, so security teams can start with the most critical ones."

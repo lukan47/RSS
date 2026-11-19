@@ -1,4 +1,413 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+8778e047911d,8778e047911d,2026-11-19 15:53 UTC,"Policy, Legal & Compliance",PwC,Google News: PwC,N/A,Article,The Cyber Resilience Act explained: requirements and timeline,https://news.google.com/rss/articles/CBMi0AFBVV95cUxPNXYwZlBNUUpwWlRJRmtaeWl4YTBrVDNCcThieWJJUWFHNkdLamIxOS1DMWdONWplTkt4YkdsT3dtNzEzRlhqZE9nSkFKYVJIQ2ktVUNwX0hpUEo2dDR1MWZ3RHFfSnAyS0FXa0E3MU5vUFNsV0Uxd3lrbWVsTUc3STNqOGlZZmtDcnoyR0E4VWN0enBweTZYQ1NWQU13LXNEOVBjelh2Q0t2N0FxNWszZUhjVEk2cnNIeU9fNF9ZdVZ6ckM5b3A0a2VhbGEtMWVj?oc=5,,
+eea11ad50f8c,eea11ad50f8c,2026-11-19 15:30 UTC,"Policy, Legal & Compliance",Elastic Security,Elastic Security Labs,Compliance Management,Article,From posture to root cause: Investigate OpenShift compliance with Elastic Agent Builder,https://www.elastic.co/security-labs/blog/openshift-compliance-elastic-agent-builder,"On Elastic Cloud Serverless, these capabilities are available on supported project feature tiers (such as Serverless Security Complete)","A single Elastic Agent on each cluster polls OpenShift Compliance Operator APIs every 60 seconds. An Elastic Agent Builder agent on top of that data can tell you what change failed the compliance control. Every scan and check result lands in Elasticsearch, as do the remediations, so the agent answers questions (like, Which clusters failed checks this week? Why did a control start failing, and when?) in plain English. The rules that the scanner marks as manual get evaluated with Common Expression Language (CEL) custom rules, and a scheduled workflow in Elastic Workflows annotates the result back to the manual rule in the cluster. Rescans and remediation patches run through those same workflows and pause for your approval. Everything in this post is on GitHub, including the integration package and workflows, along with the manifests.
+
+The Compliance Operator scans each OpenShift cluster against configured profiles covering the CIS Benchmarks, National Institute of Standards and Technology (NIST) 800-53 moderate (the basis for Federal Risk and Authorization Management Program [FedRAMP] authorization), the Australian Essential Eight and more, and then stores the results on that cluster. For one cluster, that’s fine, but across a fleet, nobody has a single view. A rule that passed last week starts failing after a deployment, and a scheduled scan silently fails to trigger. But the only way to find out is to log in and run oc get compliancecheckresult cluster by cluster.
+
+Why OpenShift compliance is hard to track across a fleet
+
+Scan results stored on each cluster
+
+The Compliance Operator runs scans on each OpenShift cluster and stores the results locally. This approach works across a few clusters, but as the fleet grows, it becomes difficult for OpenShift administrators to maintain visibility across each cluster.
+
+A compliance rule that had previously passed might start to fail after a new workload deployment or a cluster upgrade. Similarly, a scheduled scan can fail to trigger, due to unresolved dependencies. Without a central view of compliance scan status and results, these failures go unnoticed until an OpenShift administrator logs in to the cluster and manually checks, using commands such as oc get compliancecheckresult and oc get compliancescan.
+
+In this blog post, we explore how this challenge can be addressed by ingesting OpenShift compliance data into Elasticsearch, giving platform and security teams a unified way to track compliance posture and investigate drift across the fleet.
+
+Manual compliance rules tracked outside the cluster
+
+Not all compliance rules are automated, so they need a manual assessment. Platform teams usually track these rules and their status in shared spreadsheets or Confluence pages. Those trackers sit apart from the scan results, and someone has to update and reconcile them with each cluster’s findings.
+
+Organizational controls add another layer. A team may exclude certain controls from specific clusters because of internal requirements or operational needs. Without a central record, it’s hard to determine which controls apply to which cluster and why an exception exists, and that’s exactly what an auditor will ask.
+
+Compliance reporting spread across clusters
+
+With scan results spread across clusters, security teams have to find their own way to aggregate the data before they can build a report. Auditors can ask for reports at regular intervals, so this aggregation repeats every cycle. Each report draws on scan output and manual rule status, along with documented exceptions that live in different places. Pulling all of that together can leave gaps.
+
+Centralizing OpenShift compliance data in Elasticsearch
+
+Elastic Agent Builder lets you build interactive AI agents on top of your compliance data. Teams can query compliance posture across their entire fleet in plain English, investigate why specific controls failed, and safely trigger remediations with human-in-the-loop approvals, rather than combing through endless scan JSON or switching between cluster consoles.
+
+A custom Elastic integration collects compliance scan data from each cluster and sends it to Elasticsearch. It uses the HTTP JSON input to query the OpenShift Compliance Operator APIs and retrieve scan results, in addition to ingesting them into Elasticsearch. During ingestion, compliance data is parsed and normalized, making it easier to search, build dashboards, set up alerts, and generate compliance reports.
+
+With the data centralized, the next step is to make it easy for platform and security teams to work with it. Together, the integration and the agent turn compliance data into something that teams can interact with directly instead of static dashboards. The agent helps the team to find the information it needs and decide what to investigate next.
+
+The following diagram illustrates the high-level architecture of the entire workflow discussed in this solution:
+
+Note: The proof of concept (PoC) in this solution has been tested with OpenShift Local version 4.22, Compliance Operator 1.10.0, and Elastic Serverless. On Elastic Stack deployments (self-managed or Elastic Cloud Hosted [ECH]), both Agent Builder and Workflows require version 9.5 or later and an Enterprise subscription. On Elastic Cloud Serverless, these capabilities are available on supported project feature tiers (such as Serverless Security Complete).
+
+Elastic also offers a free, 14-day Elastic Cloud trial to help you get started.
+
+How to ingest OpenShift compliance data into Elasticsearch
+
+We deploy Elastic Agent directly on each OpenShift cluster using a single integration policy. Every 60 seconds, the agent queries the Compliance Operator API endpoints via HTTP JSON and ships the raw scan records into Elasticsearch data streams across your entire fleet.
+
+The integration reads three Compliance Operator resources:
+
+Resource / API
+
+What it provides
+
+compliancescans.compliance.openshift.io
+
+The scans configured in the cluster, including scan name, phase, and result.
+
+compliancecheckresults.compliance.openshift.io
+
+Individual check details, including rule name, status, and severity.
+
+complianceremediations.compliance.openshift.io
+
+Available remediations for checks, including their current state.
+
+Because the HTTP JSON integration appends time-series documents to a data stream on every polling cycle, three Elasticsearch transforms (scans, checks, and remedy) continuously collapse each stream into dedicated latest-state indices (ospm-compliance_-latest). The checks transform deduplicates events by cluster and check resource name (metadata.name). This ensures that checks evaluated across different node roles (such as master and worker) are preserved without creating duplicate records across repeated scan cycles.
+
+The agent queries these latest-state indices for current posture and uses the raw time-series data streams for historical investigations.
+
+The following diagram illustrates the compliance scan data ingestion workflow from multiple OpenShift clusters into Elastic:
+
+Note: This is a custom-built integration and isn’t officially supported by Elastic Support.
+
+Deploy the OpenShift compliance integration in Kibana
+
+The custom integration is a zip file package that has all the required components. To deploy the package, you can upload the package directly using Kibana UI.
+
+The integration follows the standard Elastic package specification and bundles all the required Kibana and Elasticsearch assets into a single archive. When uploaded through the Kibana UI, the package registers three data streams with dedicated ingest pipelines, configures prebuilt dashboards, sets up latest-state index views, and installs the continuous Elasticsearch transforms that maintain current compliance posture:
+
+OpenShift Security Posture Management │ ├── 1. Dashboards (kibana/dashboard/) │ ├── [OpenShift Compliance] Posture Overview │ ├── [OpenShift Compliance] Overall Results │ └── [OpenShift Compliance] Auto Remediations │ ├── 2. Data Views / Index Patterns (kibana/index_pattern/) │ ├── ospm-compliance-*-latest │ └── logs-openshift_security_posture_management.compliance* │ ├── 3. Data Streams (data_stream/) │ ├── compliance_check_results (with Ingest Pipeline) │ ├── compliance_scans (with Ingest Pipeline) │ └── compliance_remediations (with Ingest Pipeline) │ └── 4. Elasticsearch Transforms (elasticsearch/transform/) ├── checks ├── remedy └── scans
+
+Download the integration from the GitHub repository.
+
+The video below walks through deploying and configuring the custom OpenShift Security Posture Management (OSPM) integration package in Kibana Fleet. It covers setting the three compliance endpoints for scans, check results, and remediations, setting the 60-second polling interval, and mapping the orchestrator.cluster.name field from the agent's environment variables.
+
+Configure the Compliance Operator API endpoints and polling interval
+
+The integration has three data collection endpoints that cover compliance scans, check results, and remediations. Each endpoint builds the OpenShift API URL from environment variables that Kubernetes sets in the pod, so the same configuration works on every cluster.
+
+For compliance check results, the URL looks like this:
+
+https://${env.KUBERNETES_SERVICE_HOST}:${env.KUBERNETES_SERVICE_PORT_HTTPS}/apis/compliance.openshift.io/v1alpha1/compliancecheckresults
+
+The integration polls each endpoint every 60 seconds by default. You can change the interval to match how fresh you need the data to be.
+
+When the configuration is complete, create an Elastic Agent policy with these settings and deploy it on your OpenShift cluster to start collecting compliance data.
+
+Deploy Elastic Agent on each OpenShift cluster
+
+To deploy the agent and the integration:
+
+In Kibana, create or update an Elastic Agent policy and add the OSPM integration to it. Confirm that the API endpoints and polling interval match your environment.
+
+The integration automatically enriches each event with orchestrator.cluster.name using the CLUSTER_NAME environment variable configured on the agent.
+
+Generate an enrollment token to be passed along with the Fleet URL endpoint.
+
+Replace the token and Fleet URL in the following reference YAML, and deploy the Elastic Agent on the cluster.
+
+In Fleet, check that the agent is healthy.
+
+Once healthy, add the OSPM integration policy to the agent to start polling data.
+
+In Kibana, open the integration’s data streams. Confirm that documents are arriving and that each one carries the expected cluster name in orchestrator.cluster.name.
+
+Repeat these steps for every OpenShift cluster that you want to monitor, and set the matching cluster name for each environment.
+
+To collect OpenShift compliance data, deploy Elastic Agent as a single-replica deployment on each OpenShift cluster. The manifest below runs the agent with Fleet enrollment enabled and mounts a persistent volume to preserve agent state across pod restarts. It also injects the CLUSTER_NAME environment variable. The integration uses this variable to tag every ingested event with orchestrator.cluster.name, ensuring that multi-cluster scan results remain separated in Elasticsearch.
+
+--- apiVersion: apps/v1 kind: Deployment metadata: name: elastic-agent namespace: elastic-agent-ocp labels: app.kubernetes.io/name: elastic-agent spec: replicas: 1 selector: matchLabels: app.kubernetes.io/name: elastic-agent template: metadata: labels: app.kubernetes.io/name: elastic-agent spec: serviceAccountName: elastic-agent containers: - name: elastic-agent image: docker.elastic.co/elastic-agent/elastic-agent:9.5.5 env: - name: CLUSTER_NAME value: ""<Replace-cluster-name>"" #replace this with your actual cluster name # Set to 1 for enrollment into Fleet server. If not set, Elastic Agent runs standalone. - name: FLEET_ENROLL value: ""1"" # Set to true to communicate with Fleet with either insecure HTTP or unverified HTTPS. - name: FLEET_INSECURE value: ""false"" # Fleet Server URL to enroll the Elastic Agent into. # Found in Kibana: Management > Fleet > Settings. - name: FLEET_URL value: ""<Replace-fleet-url>"" # Enrollment token used to enroll the Elastic Agent in Fleet. - name: FLEET_ENROLLMENT_TOKEN value: ""<replace-token>"" resources: limits: memory: 500Mi requests: cpu: 100m memory: 200Mi volumeMounts: # Persist Elastic Agent state across pod restarts within the pod's lifetime. - name: elastic-agent-state mountPath: /usr/share/elastic-agent/state volumes: - name: elastic-agent-state persistentVolumeClaim: claimName: agent-state
+
+Note: The above manifest is to deploy a single replica elastic agent pod to scan and ingest compliance data. For OpenShift cluster logs and metrics, use the Elastic Kubernetes integration separately.
+
+Complete Kubernetes manifests and role-based access control (RBAC) are available in the GitHub repository.
+
+How to automate manual OpenShift compliance rules with CEL
+
+Starting with Red Hat OpenShift Compliance Operator version 1.10.0, CEL-based custom rules are generally available (GA). Using this feature, create a CustomRule object for rules tagged as Manual.
+
+For example, the compliance rule accounts-restrict-service-account-tokens is common across the profiles ocp4-cis and ocp4-high. Using a CEL expression, check whether any pods have the property spec.automountServiceAccountToken set to true:
+
+apiVersion: compliance.openshift.io/v1alpha1 kind: CustomRule metadata: name: custom-accounts-restrict-service-account-tokens namespace: openshift-compliance spec: id: xccdf_org.ssgproject.content_rule_accounts_restrict_service_account_tokens title: ""Service account tokens should not be automounted unless required"" severity: medium checkType: Platform scannerType: CEL expression: | pods.items.all(p, !has(p.spec.automountServiceAccountToken) || p.spec.automountServiceAccountToken == false ) failureReason: ""A pod has automountServiceAccountToken set to true"" inputs: - name: pods kubernetesInputSpec: apiVersion: v1 resource: pods
+
+Note: In the custom rule above, spec.id is mapped the same as in the original rule with status of Manual.
+
+Custom rules cannot be evaluated directly on their own; they must be enabled through a TailoredProfile object. To execute the checks, bind this TailoredProfile to a ScanSetting using a ScanSettingBinding.
+
+For example, create a TailoredProfile named custom-ocp4-manual-rules for the custom CEL rule custom-accounts-restrict-service-account-tokens:
+
+apiVersion: compliance.openshift.io/v1alpha1 kind: TailoredProfile metadata: name: custom-ocp4-manual-rules namespace: openshift-compliance spec: title: ""Custom CEL automation for shared manual rules (cis/e8/high)"" description: ""Each rule is evaluated once; rationale documents which native profiles it should be patched back to."" enableRules: - name: custom-accounts-restrict-service-account-tokens kind: CustomRule rationale: ""applies-to: cis,high""
+
+Using a similar pattern, CEL checks for all the rules tagged as MANUAL can be evaluated.
+
+Note: CEL-based evaluation only supports platform type rules.
+
+In the Elastic Workflows for live OpenShift cluster actions section, we define a workflow that reads scan data from these custom rules ingested into Elasticsearch and uses it to annotate MANUAL rules on the OpenShift Container Platform (OCP) cluster based on their custom scan status. Because the OpenShift Compliance Operator automatically propagates custom annotations from Rule custom resources (CRs) to their corresponding ComplianceCheckResult objects during scan runs, these evaluated statuses are automatically ingested into Elasticsearch on the subsequent scan cycle.
+
+The following diagram illustrates the sequence for evaluating MANUAL compliance rules using a CEL-based check and annotating the result to the actual rule:
+
+Build the OpenShift compliance agent in Agent Builder
+
+Agent Builder lets you build purpose-driven AI agents connected to your Elasticsearch data. It provides four core building blocks (instructions, skills, tools, and connectors) that govern how the agent reasons and queries data, along with how it interacts with external platforms.
+
+In this post, we build a custom OpenShift compliance agent, which reviews compliance scan data and identifies noncompliant clusters. It also evaluates failed compliance rules. Using tools, it can also trigger compliance scans and apply auto-remediation patches. Plus, it can generate operational reports.
+
+The goal of this compliance agent is to let platform and security teams query compliance data in natural language, without writing custom queries or manually correlating results across clusters.
+
+The following diagram illustrates the anatomy of the OpenShift compliance agent:
+
+Set the compliance agent’s instructions and guardrails
+
+Configuring an agent in Agent Builder starts with custom instructions, which become part of the system prompt. They set the persona and reasoning habits for everything the agent does, in addition to the guardrails. For an OpenShift compliance agent, the most important decision is what level of actions the agent is allowed to perform. This agent uses a strictly precautionary role. It reviews and queries ingested compliance data and can apply remediation patches or trigger scans on the cluster with user approval. It treats the data in Elasticsearch as the source of truth and asks for any unstated detail, such as the cluster name or scan identifier, rather than assuming defaults.
+
+The instructions are structured in Markdown across six focused sections (goal, steps, guardrails, domain context, output conventions, and edge cases):
+
+Section
+
+What it covers
+
+Goal
+
+The agent only handles OpenShift compliance; the ingested Elasticsearch data is the source of truth.
+
+Steps
+
+Confirm scope, retrieve data with the provided tools, verify the results, summarize, and then ask before acting.
+
+Guardrails
+
+No change without explicit approval; only the provided tools; no invented IDs or remediation; and off-topic requests are declined.
+
+Domain context
+
+Rules that the model cannot infer from the data, such as the custom scan and how manual checks are reported.
+
+Output conventions
+
+Timestamps in local time, plus the ingested and original timestamps for Elasticsearch data; sources are cited.
+
+Edge cases
+
+Missing input means ask; a failed or empty tool result is stated, never read as ""compliant.""
+
+This excerpt from the directives and guardrails shows the tone:
+
+# Guardrails - **Cluster Mapping**: Cluster name provided by the user must match orchestrator.cluster.name exactly as recorded in compliance data. - **Silent Exclusion of Custom Scans**: By default, completely omit and suppress any scan or check result where scan_name contains custom (case-insensitive *custom*). Do NOT list, mention, or show an ""Excluded custom scans"" section or table in the output. Filter them out completely silently. Only include them if the user explicitly requests custom scans. - **Handling Manual Rules**: Treat OpenShift's base status MANUAL as manual review. If a custom automated evaluation exists, read manual_scan_status (PASS/FAIL) and last_manual_scan timestamp and report that custom evaluation separately. If absent, report ""no manual scan annotation recorded"". - **Strict Read-Only Workload Investigation**: When investigating which workload or pod caused a rule to fail, the agent operates in strictly read-only mode. The agent must NEVER mutate, patch, or change application workloads. It identifies the root cause and user attribution, and provides the remediation steps for the OpenShift administrator to execute. - **Safety**: Never execute live cluster changes or scans without presenting the plan and receiving explicit user confirmation. - **Concise Communication**: Answer directly and concisely using clear Markdown tables. Do not ask follow-up questions or offer unsolicited next steps unless clarification is strictly necessary to answer the prompt.
+
+The instructions also carry domain context that a model cannot infer from the data. In OpenShift clusters, a custom scan bound to the custom-ocp4-manual-rules tailored profile tests manual rules. The agent leaves it out of summaries and counts unless the user asks for it.
+
+For manual checks in the other scans, the agent reports two statuses side by side: the original status (MANUAL); and the manual scan status from the annotation that a scheduled Elastic workflow writes back to the cluster. Putting these rules in the instructions keeps them in one place, so no tool or skill needs to repeat them. Also, the whole block is static, with no timestamps or session IDs, so prompt caching keeps working.
+
+Add skills for posture, failure investigation, and reporting
+
+Custom instructions are loaded on every turn, making them ideal for general guardrails and domain context. However, adding detailed task workflows to system instructions creates unnecessary prompt overhead. Instead, define modular skills that the agent loads dynamically when the user request matches the skill description.
+
+The OpenShift compliance agent uses four skills, each covering a single responsibility:
+
+Skill
+
+Reads from
+
+What it does
+
+Posture summary
+
+Latest-state indices
+
+Summarizes current scan results, pass and fail counts, failed controls by severity, manual check status, and remediation state.
+
+Failure investigation
+
+Raw data streams
+
+Explains why a check failed or when it started failing, using history and remediation records. Kubernetes log correlation comes once audit logs are ingested.
+
+Live cluster actions
+
+Live cluster, through workflows
+
+Reads live state, triggers a rescan, and applies or reverts a remediation, always after user approval.
+
+Reporting
+
+Latest and raw data
+
+Produces reports, trends, and scan comparisons, and creates dashboards after user approves.
+
+Each skill includes a description specifying its purpose and trigger criteria. Below is the description for the Posture Summary skill:
+
+Summarize OpenShift compliance posture, scan execution status, check results, manual rule evaluations, and remediation states from latest-state indices (ospm-compliance_*-latest).
+
+Each skill defines its own trigger conditions, available tools, workflow rules, and decision trees, along with output standards, execution steps, examples, and edge cases. For example, the manual check logic described in the previous section is implemented as:
+
+Manual Rules & Custom Automated Evaluations When manual rules are requested, call ocp_compliance.list_checks_by_status with status: ""MANUAL"". For every manual check, inspect both the base OpenShift status and the custom evaluation annotations: Report the base status as MANUAL. If manual_scan_status contains a value (e.g. PASS or FAIL), present it separately as: ""Custom Evaluation Status: (last evaluated at <last_manual_scan>)"". If both manual_scan_status and last_manual_scan are empty/null, explicitly state: ""No manual scan annotation recorded"" (indicating it still requires manual verification). Do not interpret or alter values beyond what the data fields show.
+
+Custom ES|QL tools for querying compliance data
+
+Skills tell the agent how to approach a task, but executing those steps requires tools to query data and perform actions. Because compliance scan data is normalized and stored in Elasticsearch, the agent uses targeted tools to search current posture and historical trends. Following are the tools configured for the compliance agent:
+
+Tool
+
+Type
+
+What it does
+
+ocp_compliance.get_scan_status
+
+Elasticsearch Query Language (ES|QL)
+
+Lists the scans on a cluster with result, phase, and timestamps.
+
+ocp_compliance.list_checks_by_status
+
+ES|QL
+
+Lists checks with a given status, including manual scan annotations for manual checks.
+
+ocp_compliance.list_remediations
+
+ES|QL
+
+Lists auto remediations with their apply flag, state, and target object.
+
+ocp_compliance.get_rule_details
+
+ES|QL
+
+Looks up a specific compliance rule from latest-state data.
+
+ocp_compliance.search_audit_logs
+
+Index search
+
+Searches the OpenShift cluster audit logs ingested into Elasticsearch cluster.
+
+ocp_compliance.search_compliance_history
+
+Index search
+
+Offers open-ended search over the raw event history.
+
+Elastic Workflows for live OpenShift cluster actions
+
+Although large language models (LLMs) excel at reasoning and synthesis, you don't want an AI model improvising arbitrary mutations against a live OpenShift cluster. Elastic Workflows solves this by executing deterministic, YAML-defined steps that run identically every time. When exposed to Agent Builder as tools, the agent decides when to invoke a workflow based on your prompt but cannot alter its underlying execution logic, ensuring strict guardrails around cluster interactions.
+
+Four workflows handle the live cluster interactions supported by the agent, alongside a scheduled automation workflow that reconciles manual rule annotations:
+
+Workflow name
+
+Agent tool
+
+What it does
+
+openshift-compliance-query-live-workload
+
+ocp_compliance.query_live_workload
+
+Executes a strictly read-only HTTP GET request against the live OpenShift API to inspect objects and pinpoint the offending resource.
+
+openshift-compliance-read-live-state
+
+ocp_compliance.live_read_state
+
+Reads the live state of one ComplianceScan, ComplianceCheckResult, or ComplianceRemediation directly from the OpenShift API.
+
+openshift-compliance-trigger-scan
+
+ocp_compliance.trigger_scan
+
+Reruns an existing ComplianceScan on the live cluster by setting the rescan annotation.
+
+openshift-compliance-set-remediation-state
+
+ocp_compliance.set_remediation_state
+
+Applies (apply: true) or reverts a native ComplianceRemediation on the live cluster.
+
+Annotate custom compliance Rule resources
+
+N/A
+
+Checks custom CEL rule outcomes in Elasticsearch and annotates the corresponding rule object on the OpenShift cluster.
+
+Each workflow tool has Require user confirmation set to Always, so Agent Builder pauses and asks to approve every call.
+
+Connect Elastic to the OpenShift API with the Kubernetes connector
+
+The Elastic Kubernetes connector provides secure connectivity between the Elastic Stack and OpenShift API endpoints, allowing workflows to interact directly with cluster resources.
+
+The service account token configured for the connector must follow the principle of least privilege, scoped strictly to the operations required by the workflows.
+
+The connector needs patch permissions on the Compliance Operator custom resource definitions (CRDs), so workflows can trigger scans and apply remediations. Investigations need more than that; the agent has to read pods and service accounts, along with RBAC bindings, to find the workload behind a failed check, which also means read-only access to cluster workloads. You can grant both in two ways:
+
+Approach
+
+Permissions granted
+
+When to use
+
+Dedicated connector service account
+
+Bound to the OpenShift view or cluster-reader ClusterRole for read-only workload queries, plus a scoped role granting patch on compliancescans and complianceremediations in compliance.openshift.io.
+
+Production. The connector’s access is separate from the agent’s and can be audited and revoked on its own.
+
+Extend the existing agent service account
+
+Adds get and list on pods, serviceaccounts, and rolebindings to the existing elastic-agent-ospm ClusterRole.
+
+PoCs and lab environments, where standing up a second service account is more setup than the exercise warrants.
+
+The example below generates a token for the existing elastic-agent service account:
+
+oc create token elastic-agent -n elastic-agent-ocp --duration=720h
+
+Note: When deploying across multiple clusters or staging environments, ensure that connector-id in the workflow matches the specific Kubernetes connector configured for that cluster.
+
+The complete OpenShift compliance agent architecture
+
+The finished agent combines custom instructions, skills, tools, workflows, and connectors. The final structure looks like this:
+
+The complete agent and its supporting components manifests are available in the GitHub repository.
+
+OpenShift compliance agent demo: From failed control to root cause
+
+The demo below follows the OpenShift compliance agent across an end-to-end investigation scenario. It shows how the agent summarizes multi-cluster posture and flags rule failures. It also demonstrates how the agent uses Elastic Workflows to query live pods without leaving the chat interface. From there, the agent correlates OpenShift audit logs in Elasticsearch to trace the exact user and deployment that caused the policy drift and documents the timeline into an Elastic case. And it shows how execution guardrails block unauthorized or destructive cluster commands.
+
+Conclusion: OpenShift compliance monitoring at fleet scale
+
+The OpenShift Compliance Operator does the essential work of auditing cluster configurations, but keeping a multi-cluster fleet compliant shouldn't require juggling spreadsheets or hunting down failed pods manually, nor should it force you to scramble before every audit.
+
+Centralizing compliance findings in Elasticsearch and putting Agent Builder on top shifts the experience from static dashboards to active, evidence-backed investigation. Teams can query posture across clusters in plain English and automate manual checks with CEL and scheduled workflows. They can also trace policy drift down to the exact OpenShift user and timestamp, all while keeping humans firmly in control of live cluster changes."
+0bba9474dfb7,0bba9474dfb7,2026-11-19 15:06 UTC,"Policy, Legal & Compliance",,Security Affairs,AI Security; Data Security Posture Management,Article,European Commission Cyberattack: ARTEX AI Tool Suspected in Prolonged Disruption,https://securityaffairs.com/203483/hacking/european-commission-cyberattack-artex-ai-tool-suspected-in-prolonged-disruption.html,A cyberattack disrupted EU Commission services for over ten days,"A cyberattack disrupted EU Commission services for over ten days. ARTEX is suspected, while investigators assess whether staff data was stolen.
+
+A cyberattack has disrupted internal European Commission systems for more than ten days, hitting payroll, leave requests and medical reimbursements. Politico’s Brussels Playbook reports the Corporate Management Board, the Commission’s top internal crisis body, met urgently over the incident, and tech commissioner Henna Virkkunen briefed the full College of Commissioners on 18 November. An EU official told Politico the Commission believes it has contained most of the attack, while the full extent of any damage remains unclear.
+
+Sysper, the HR platform for payslips, timesheets and leave, crashed briefly again on 18 November after access had been restored earlier in the week. MyPMO, the medical reimbursement system, came back online around the same time. JSIS, the staff health insurance portal, was still down on 19 November according to a Commission employee cited by Euronews, and translation services went offline on 17 November, prompting one official to admit to “swearing a lot.”
+
+Pay still landed on time, according to staff Politico spoke to, even as some couldn’t submit timesheets or request leave. Commission spokesperson Thomas Regnier confirmed the response to Politico: “Individual systems were targeted and, in line with our standard practice, we have informed those concerned.”
+
+Some staff still complained the internal communication said little, and an IT reply about the Sysper problem cited a general technical issue without mentioning an attack.
+
+CERT-EU, the cybersecurity team that protects EU institutions, detected the activity and identified ARTEX, an AI-powered penetration-testing tool, as a possible tool used in the attack. An EU official told Politico that some threat actors misuse tools like ARTEX and have targeted the Commission. In a technical note published on 5 November, CERT-EU described ARTEX as a system that uses AI agents. An operator gives it an objective in plain language, and the software breaks it down into smaller tasks that the agents carry out using real hacking tools.
+
+ARTEX does not include its own AI model. Instead, it connects to an external AI model selected by the operator. Its original developer removed the project from its repository in October after reports of misuse. However, independent copies are still available, so removing the original project does not prevent others from using it. So far, there is no public information explaining how the attackers entered the Commission’s systems. The reference to ARTEX therefore points to a suspected tool, not a confirmed attack method or the identity of those responsible.
+
+The biggest unanswered question is whether staff data was stolen. This could include names, salary details, home addresses or health information. Investigators have not yet confirmed whether anyone accessed this data, which explains why the Commission has shared little information with employees.
+
+Taking systems offline or restoring them does not prove that no data was stolen. Getting a service back online only shows that it is working again. It does not mean attackers did not copy information before the system was shut down.
+
+Under EU Regulation 2018/1725, a confirmed personal data breach must normally be reported to the European Data Protection Supervisor within 72 hours. If the breach creates a high risk for individuals, they must also be informed without delay. However, these deadlines only start once a personal data breach has been confirmed.
+
+This is not the Commission’s first security incident this year, although no link between the cases has been established. On January 30, attackers left traces in the system used to manage staff mobile devices. Some names and phone numbers were exposed. The Commission said it contained and cleaned up the incident within nine hours.
+
+A more serious incident happened in March. Attackers compromised a software update for Trivy, a security tool, and used it to enter an AWS cloud environment. They stole around 91.7 GB of compressed data, including personal information and email content. The breach may also have affected at least 29 other EU institutions and bodies.
+
+The timeline shows that the Commission restored its systems before it fully understood what had happened. Services came back online in stages, but key questions remain unanswered: where did the attack start, which systems were affected, and was any data stolen, and who is behind the attack?
+
+Follow me on Twitter: @securityaffairs and Facebook and Mastodon
+
+Pierluigi Paganini
+
+(SecurityAffairs – hacking, European Commission)"
 01dd87a63538,01dd87a63538,2026-11-19 14:45 UTC,"Policy, Legal & Compliance",,Infosecurity Magazine,AI Security; Data Security Posture Management; Threat Intelligence,Article,European Commission Confirms AI-Driven Cyber-Attack Took Systems Offline,https://www.infosecurity-magazine.com/news/commission-ai-attack-systems/,"He said the intrusion was detected on October 22, 2026, and confirmed as a cyber-attack on October 26, which triggered mitigation steps being carried out and an investigation...","The European Commission has confirmed it was hit by an AI-driven cyber-attack that resulted in services being taken offline.
 
 Commission spokesperson Thomas Regnier revealed the incident during a press briefing on November 19. He said the intrusion was detected on October 22, 2026, and confirmed as a cyber-attack on October 26, which triggered mitigation steps being carried out and an investigation launched.
@@ -162,57 +571,6 @@ Ransomware affiliate suspect extradited to US, faces 27 years in prison"
 af2f963b5e7f,af2f963b5e7f,2026-11-18 20:09 UTC,"Policy, Legal & Compliance",,Databreaches.net,Other/General,Article,Russian national indicted for allegedly acting as a foreign agent targeting Silicon Valley tech and defense firm,https://databreaches.net/2026/11/18/russian-national-indicted-for-allegedly-acting-as-a-foreign-agent-targeting-silicon-valley-tech-and-defense-firm/,"SAN FRANCISCO – A federal grand jury has indicted Igor D’iu, a Russian national, on charges of conspiring to act as an agent of a foreign government, acting as an agent of a...","SAN FRANCISCO – A federal grand jury has indicted Igor D’iu, a Russian national, on charges of conspiring to act as an agent of a foreign government, acting as an agent of a foreign government without notice to the Attorney General, interstate stalking, and fraud in connection with identification documents, all in connection with an..."
 cf9b46a5b71a,cf9b46a5b71a,2026-11-18 19:58 UTC,"Policy, Legal & Compliance",,Databreaches.net,Email and Collaboration Security,Article,North Carolina Arrests 2 involved in business email compromise scam of hospital,https://databreaches.net/2026/11/18/north-carolina-arrests-2-involved-in-business-email-compromise-scam-of-hospital/,November 16 – The West Jefferson Police Department and the North Carolina State Bureau of Investigation (SBI) have arrested two men in a multi-state fraud investigation that...,"November 16 – The West Jefferson Police Department and the North Carolina State Bureau of Investigation (SBI) have arrested two men in a multi-state fraud investigation that began when Ashe Memorial Hospital lost more than $196,000 to a business email scam. Investigators say the suspects posed as legitimate vendors in emails to hospital staff and..."
 18738df1dc22,18738df1dc22,2026-11-18 15:54 UTC,"Policy, Legal & Compliance",,Databreaches.net,Other/General,Article,British National Sentenced to 6 Years in Federal Prison for Hacking into Companies and Stealing at Least $11 Million in Virtual Currency,https://databreaches.net/2026/11/18/british-national-sentenced-to-6-years-in-federal-prison-for-hacking-into-companies-and-stealing-at-least-11-million-in-virtual-currency/,"While some news sites are reporting the $11M figure, DataBreaches points out that that figure was only for U","Note: The following is a press release from the U.S. Department of Justice. While some news sites are reporting the $11M figure, DataBreaches points out that that figure was only for U.S. victims’ virtual currency losses, not the total for all of his victims’ virtual currency losses. SANTA ANA, California – A United Kingdom man..."
-a3b08cc15ba8,a3b08cc15ba8,2026-11-18 03:24 UTC,"Policy, Legal & Compliance",,Bleeping Computer,Email and Collaboration Security; Identity Security Posture Management; Threat Intelligence; Mobile Security,Article,British Scattered Spider hacker sentenced to 6 years in prison,https://www.bleepingcomputer.com/news/security/british-scattered-spider-hacker-sentenced-to-6-years-in-prison/,US prosecutors charged 24-year-old British man Tyler Robert Buchanan and four other suspects in November with wire fraud and aggravated identity theft in relation to a series of...,"A leader of the Scattered Spider cybercrime collective has been sentenced to six years in prison in the United States for stealing millions in cryptocurrency and conspiring to hack a dozen companies.
-
-US prosecutors charged 24-year-old British man Tyler Robert Buchanan and four other suspects in November with wire fraud and aggravated identity theft in relation to a series of phishing attacks between September 2021 and April 2023.
-
-According to court documents, their victims include companies across a wide range of industries, such as telecommunications, technology, business process outsourcing (BPO), entertainment, and information technology (IT) suppliers, as well as virtual currency providers, cloud communications providers, and individuals.
-
-Buchanan and his accomplices sent hundreds of SMS phishing messages to victim companies' employees' phones (while impersonating the companies or a contracted IT or BPO supplier) to trick them into entering sensitive information (including credentials and personally identifiable information) into phishing pages that looked like their employers' legitimate websites.
-
-The stolen information was used to steal over $11.6 million of virtual currency after compromising victims' cryptocurrency accounts and wallets via Subscriber Identity Module (SIM) swaps (also known as SIM swapping attacks).
-
-""Those thefts had severe, life-altering consequences for many victims and underscore both the seriousness and far-reaching impact of this conspiracy,"" the prosecutors argued in a sentencing memorandum.
-
-""In April 2023, on a digital device found at Buchanan's Scotland residence, he possessed the names and addresses of numerous individual victims, including a text file that contained cryptocurrency seed phrases and login information for one victim's account,"" the US Justice Department added.
-
-Buchanan was arrested in Palma de Mallorca, Spain, in June 2024, has been in US federal custody since April 2025, and pleaded guilty to crypto theft charges in April.
-
-Three of his accomplices (Evans Onyeaka Osiebo, Ahmed Hossam Eldin Elbadawy, and Joel Martin Evans) were also charged in November 2024 with wire fraud, wire fraud conspiracy, and aggravated identity theft and are now serving multi-year prison sentences after pleading guilty.
-
-Noah Michael Urban (also known online as Sosa and Elijah), a fourth conspirator and another Scattered Spider key member, has been sentenced to 10 years in prison after pleading guilty to wire fraud and conspiracy charges in April 2025.
-
-Scattered Spider hacking collective
-
-The Scattered Spider gang (also tracked as 0ktapus, Scatter Swine, Octo Tempest, Starfraud, UNC3944, and Muddled Libra) is a loose-knit group of young, English-speaking threat actors that orchestrates attacks through Telegram channels, Discord servers, and hacker forums.
-
-Scattered Spider has also partnered with several Russian ransomware operations since early 2023, including BlackCat/AlphV, Qilin, and RansomHub.
-
-This cybercrime group was previously linked to breaches at multiple high-profile companies and organizations, including Caesars, Riot Games, MailChimp, Twilio, DoorDash, and Reddit.
-
-According to the FBI, they're using a wide range of tactics to breach corporate victims' networks, including social engineering, multi-factor authentication (MFA) bombing (targeted MFA fatigue), phishing, and SIM swapping.
-
-Some Scattered Spider members have also previously been linked to ""The Com,"" another hacking collective behind violent incidents and cyberattacks.
-
-Uncover email threats your existing defenses may miss.
-
-Adaptive Security's AI agents analyze email intent, context, and behavior to uncover phishing, business email compromise, and invoice fraud.
-
-See what's getting through with a 14-day read-only scan of Microsoft 365 or Google Workspace, with no MX changes.
-
-Start your free email security scan.
-
-Related Articles:
-
-US bans MEXC crypto exchange over sanctions evasion, cybercrime links
-
-US charges two Canadians accused of hacking US universities
-
-Uranium crypto exchange hacker convicted for stealing $53 million
-
-Owner of Empire cybercrime market gets 40 years in prison
-
-US soldier gets 70 months in prison for extorting 10 tech, telecom firms"
 fa86239ff977,fa86239ff977,2026-11-17 20:52 UTC,"Policy, Legal & Compliance",,Security Affairs,Data Security Posture Management; Mobile Security,Article,Apple Services Disrupted as NSA Network Goes Down and Equinor Faces Cyberattack,https://securityaffairs.com/203354/security/apple-outages-add-to-growing-concerns-over-technology-service-disruptions.html,"The company said the attack had not affected its operations or production, and it had found no evidence of data theft","Apple and NSA services faced outages as Equinor reported a cyberattack, highlighting the risks facing increasingly connected infrastructure.
 
 Apple customers faced widespread service problems on November 17, with issues affecting iCloud, the App Store, Apple Music and AppleCare on Device.
@@ -923,45 +1281,6 @@ Update WordPress, its themes, and its plugins.
 
 Allow access to the /wp-admin login page only from the IP addresses of your own devices."
 7ad90ce2f1fd,7ad90ce2f1fd,2026-11-13 11:15 UTC,"Policy, Legal & Compliance",,The Register Security,Other/General,Article,Brit police watchdog says cops' use of facial recog risks wrongful arrests,https://www.theregister.com/security/2026/11/13/brit-police-watchdog-says-cops-use-of-facial-recog-risks-wrongful-arrests/5309379,"Home Office figures released on Thursday to complement the report show similar positivity toward the technology among police officers, with only 4 percent reporting a negative...","UK police forces must do more to prevent the wrongful arrests of people subjected to retrospective facial recognition (RFR) searches, according to a Criminal Justice Inspectorate that holds deep concerns about the way in which the technology is used. According to a report from His Majesty's Inspectorate of Constabulary and Fire & Rescue Services (HMICFRS), there is a large gap in understanding among police forces and the National Crime Agency about how RFR should be used in responsible policing. The inspectorate blamed ""fragmented and underdeveloped"" frameworks for governance and legislation. It pointed to a lack of bespoke legislation to provide a uniform approach to police facial recognition use – and said existing laws have not kept pace with the technology. HMICFRS also said the rules governing each force's use of RFR are mismatched, and called for a statutory code to be included in the forthcoming Police Reform Bill to set nationwide standards. Illustrating the breadth of misunderstanding across forces, the report noted that despite the message being routinely communicated by National Police Chiefs' Council (NPCC) reps, individual investigators ""often"" thought RFR results constituted evidence rather than intelligence. In many cases, they are unaware that RFR results require further enquiries before enforcement action can be taken. ""We found that some investigators didn't always carry out enough corroborative enquiries before acting on potential matches,"" the report stated. ""In a small number of cases, officers relied too heavily on RFR results, which led to inappropriate investigative action. ""Although some forces had strengthened their processes after such incidents, practice remained inconsistent."" Later in the report, the inspectorate described the findings as ""deeply concerning."" Some of the excuses police staff offered included acute demands on response teams leading to reduced opportunities to carry out further enquiries before acting on RFR matches. In one force, managers were known to encourage officers to ""progress investigations quickly"" after getting a match on the RFR system. However, the inspectorate clarified that just because an arrest is made, it does not necessarily mean it is wrongful, as investigators may need to rule out subjects from their inquiries. The onus for taking action should also be placed on the police forces themselves, given that some lack formal procedures regarding how RFR enquiries should be carried out, the report noted. The best forces had centralized facial recognition teams, which generally provided better governance and consistent processes. Officials fear long-term misuse of RFR, and other forms of facial recognition, will erode public trust in the technology, which it insists remains generally high. Surveys carried out in 2025 by the likes of the Ada Lovelace Institute and Alan Turing Institute, as well as the King's College London Policy Institute, showed a generally favorable view of facial recognition use in UK policing, with support ranging from 91 percent and 53 percent respectively. Home Office figures released on Thursday to complement the report show similar positivity toward the technology among police officers, with only 4 percent reporting a negative experience. The Register's comments section often paints a vastly different picture of public perception of facial recognition. Kathryn Stone, his majesty's inspector at HMICFRS, said facial recognition has transformed policing, allowing officers to compare images in seconds, allowing them to solve crimes more quickly, but echoed the report's main concerns. ""Police forces must be able to show that appropriate safeguards are in place, risks relating to bias and data retention are effectively managed, and decisions are still subject to human judgment,"" she said. ""A clearer statutory framework, stronger national standards and improved governance and oversight arrangements are essential to maintaining public confidence."" As well as legislative and governance-related concerns, HMICFRS also noted in its report that officers' training around the use of RFR remains inconsistent, and if improvements were made, this would lead to more effective and lawful use of RFR across the UK. Another major issue was police forces' failure to meet their image retention obligations. Forces were found too often to retain custody images taken of suspects on the Police National Database, against which many RFR queries are made. Police guidance sets out the scenarios in which custody images can and cannot be retained, and the inspectorate found that forces have failed to delete images that should have been wiped. The Police Reform Bill includes a provision to group custody images with the likes of DNA and fingerprints, bringing about more robust measures to ensure they are retained or deleted in line with legal requirements. A Home Office review previously found in 2017 that introducing such a statutory framework was untenable. It concluded that police could not automate the deletion of these images, and doing so manually would be too time-consuming. Jasleen Chaggar, senior legal and policy officer at Big Brother Watch, said UK police cannot be allowed to continue to use RFR when it risks wrongfully arresting individuals. ""The revelations that officers are treating facial recognition as bona fide evidence rather than a probability score is alarming,"" she said. ""This approach significantly increases the risk that more innocent people will have officers knock on their door to arrest them for crimes committed in towns they've never visited, as we've seen before. ""Worse still, police aren't even logging their use of retrospective facial recognition, meaning people could wrongfully become suspects in criminal investigations without any record of why they've been accused."" Chaggar called on the government to ""urgently step in"" and help the UK's police forces to sort out the new frameworks needed for effective RFR use. ®"
-c9ee44728591,c9ee44728591,2026-11-12 13:05 UTC,"Policy, Legal & Compliance",Check Point,Check Point Blog,Network Security; AI Security; Data Security Posture Management; Vulnerability Management,Article,Check Point Expands Its FedRAMP Certification to Include Check Point WAF,https://blog.checkpoint.com/security/check-point-expands-its-fedramp-certification-to-include-check-point-waf/,"As government organizations move services online, deploy citizen self-service portals, connect APIs, and integrate AI into mission-critical workflows, every new capability...","The federal, state, local government, and education sectors are under growing cyber pressure, and the attack surface is shifting to where they now serve citizens most. According to Check Point’s 2026 Cyber Security Report, government organizations faced an average of 2,680 cyber-attacks per organization each week in 2025, a 17% increase from 2024, making government the second most targeted sector worldwide. As government organizations move services online, deploy citizen self-service portals, connect APIs, and integrate AI into mission-critical workflows, every new capability creates a new entry point. A successful attack doesn’t just disrupt IT-it can interrupt essential services, expose sensitive citizen records, compromise internal secrets, and undermine public trust.
-
-The data reflects that reality. Verizon’s 2026 Data Breach Investigations Report recorded 3,634 public-sector incidents and 2,410 confirmed data disclosure breaches, with exploitation of vulnerabilities accounting for 40% of initial access, and personal data, internal data, and secrets among the most compromised. That makes runtime web application and API protection especially critical for government organizations running legacy systems, third-party applications, and public-facing services that cannot always be patched immediately.
-
-Check Point has been addressing this risk inside government trust and compliance requirements since achieving FedRAMP Certification for its Check Point Platform for Government in 2025. Now Check Point is expanding its FedRAMP-Certified packages to include Check Point WAF, bringing prevention-first web application security, API protection, Bot mitigation, DDoS defence, CDN-integrated delivery, and GenAI application security into the same government-certified platform.
-
-Security Built for Modern Government Applications
-
-Government organizations no longer operate static websites. Today’s public sector runs digital citizen portals, API-driven benefit and payment systems, cloud-native applications, and AI-enabled interfaces that connect identity, records, contractors, and partner organizations across the public sector. This growing interconnection makes the application layer more dynamic, complex, and exposed.
-
-AI is also transforming both the speed of attacks and the security model required to stop them. Frontier AI technologies demonstrate how vulnerabilities can be discovered and validated autonomously at unprecedented speed and scale. Attackers are already using AI-powered tools to generate payload variations and exploit weaknesses faster, making signature-based protection increasingly ineffective. As a result, pre-emptive, AI-driven prevention that can stop unknown attacks without signatures or emergency updates is becoming essential.
-
-Modern Web Application and API Protection (WAAP) must secure far more than a single website or API endpoint. Government organizations need prevention-first protection across the entire application environment, including:
-
-Pre-emptively prevent known, unknown, and zero-day web and API attacks before they reach the application
-
-End-to-end API security with automated discovery, schema validation and authentication enforcement
-
-Availability of critical services with strong bot mitigation and DDoS protection against automated abuse and disruption
-
-Block GenAI application attacks including prompt injection, data leakage and harmful content
-
-Simplify operations with centralized management that reduces tool sprawl and complexity across the full application stack
-
-Check Point WAF brings all these capabilities into a single consolidated platform, purpose-built for the modern application reality that government organizations face today. By adding it to the FedRAMP certified packages, federal organizations can now secure public-facing applications and APIs through the same government-certified platform they already trust with the prevention, visibility, and control needed to protect modern application environments without adding complexity or managing separate tools for every risk.
-
-Why This Matters Now
-
-The public-sector application attack surface is expanding quickly as government organizations modernize services, expose more APIs, and begin adopting AI-enabled workflows. At the same time, AI is accelerating the speed at which attackers find and exploit those weaknesses.
-
-According to Check Point 2026 Cloud Security Report, 70% of organizations run GenAI workloads in production, yet visibility has not kept up. Only 5% of organizations have full visibility into how AI is used, and just 14% actively enforce and audit an AI security policy.
-
-PHP2Shell shows how fast the window closes. Two critical PHP flaws, each rated 9.2 on the CVSS scale, let an attacker run code on a server with one crafted request, with no password, account, or user interaction. Attacks started before the patch landed on October 21, 2026, and government organizations took sites offline to cope. Check Point WAF preemptively blocked PHP2Shell with no signature, rule, or configuration change.
-
-This is why expanding Check Point’s FedRAMP certification packages to include Check Point WAF matters. It is not just another security product. It is a way to help public-sector organizations protect the applications, APIs, and digital services that citizens, employees, contractors, and partners depend on every day.
-
-Available Through the FedRAMP Marketplace
-
-Check Point is listed on the FedRAMP Marketplace, with Check Point WAF included in the certification, making it easier for federal mission owners to discover, evaluate, and procure the solution."
 1c458096b94c,1c458096b94c,2026-11-12 10:00 UTC,"Policy, Legal & Compliance",,Infosecurity Magazine,Threat and Exposure Management; Threat Intelligence,Article,NCSC Launches Cyber Adversary Testing to Boost Resilience,https://www.infosecurity-magazine.com/news/ncsc-cyber-adversary-testing-boost/,The UK’s leading cybersecurity agency has officially launched a new scheme designed to help providers of critical infrastructure to test and improve their cyber resilience,"The UK’s leading cybersecurity agency has officially launched a new scheme designed to help providers of critical infrastructure to test and improve their cyber resilience.
 
 The National Cyber Security Centre (NCSC) first trailed its Cyber Adversary Simulation (CyAS) scheme at the CYBERUK 2025 conference.
@@ -2236,6 +2555,7 @@ Risky Bulletin: Game devs are being extorted with AI game-cloning threats"
 957e274d11a9,957e274d11a9,2026-11-01 07:00 UTC,"Policy, Legal & Compliance",Accenture,Google News: Accenture,AI Security,Article,"Claude Code agent sat inside a Pentagon network for two months, Accenture rejects the claims",https://news.google.com/rss/articles/CBMikgFBVV95cUxQeTRtcXdoZEJucTJjRnZEd3RqakZldXdkRjFzejl6dXRRdkt0Q1NmRm9aQ2xkd3VRc2VjOUlzVjhyWVZ5N055eUlNNGZyZTV4a2g3eWgyQjVDVTViMGxwbGkwMmtPR0FzSzQ0QWF1dVV5NktXYnpQNmR1UDYwNnpmNXFydTJESHBfVnhDOHNsdk5KUQ?oc=5,,
 e2932583a21e,69d0748456e4,2026-11-01 07:00 UTC,"Policy, Legal & Compliance",Accenture,Google News: Accenture,AI Security,Article,Accenture Contractor Allegedly Linked Personal Claude AI Agent to Pentagon System Used by Intel Agencies,https://news.google.com/rss/articles/CBMikAFBVV95cUxNYzhpazVHSjRDTVJQZ0wtcjFkZnd5U2dVUER3M2dTRkl1YVl5UXhHZlplZTBuTFZ6UVgtZzU1aVFqNGtPV29PM0dod2V6X2p5WVczeFNFVmFnUldzUS1XYXU4Qk1KeGxVM19NbWJZampsSTRoWnlLbWRrQVJOMmdvNm1hOFc5WDdreTI5MV9LdFY?oc=5,,
 6b7210daacd9,69d0748456e4,2026-11-01 07:00 UTC,"Policy, Legal & Compliance",Accenture,Google News: Accenture,AI Security,Article,Accenture Contractor Allowed Claude AI Access to Pentagon Network,https://news.google.com/rss/articles/CBMiwAFBVV95cUxOaF9vcXd2QVpsS0ZqMk52QVRuU29GNDFJU3JRc2V0UWpvN24zUmhseHZDZ3VZcHA3bGZGYk5BR05JVVROOGNmUS01NTZlUEgtQm45QWo4NEtGeFJnbHBFZU80TU94VVhYXzJTMlNZNWlBVzZidEVxOVpLeVh2Z0VaekNubGFoTmItajJDWjNKSjU2M3NUNEN5WUVJYmN6R0VGS0Z6dnNXQkZ5MGd3eDExT3hMVG53YXo2dVZwS3JWLWM?oc=5,,
+322e07860426,322e07860426,2026-10-30 07:00 UTC,"Policy, Legal & Compliance",Accenture,Google News: Accenture,AI Security,Article,"'It’s 100 percent a national security threat': Accenture contractor connected an AI agent to the Pentagon’s secure network, and then sent data to a high-risk website",https://news.google.com/rss/articles/CBMimAJBVV95cUxPRlhhQnh1eXMyeUNpZ3VEZ3NqMTFyaWJZaWx3a1BPM1hRUWdUNk1WQ01JTmxVc3NLUjZBcTJfVUFYZVFUZENiRlhpUzZXZy1zSDVILWV5enVwVDBLbWpZU3BSMjBaZzc1SnhEWGcwWGs5Zl9zWnhTaWMxSk9PaFMzeTZGSXFEcjEtLVVfV3I5UXpudS1VNU1Da0ppcEw5VnVsTkdGSFBKNkZJV1FTVVhhc2wtQkJaYnd0ZjhaOE1pUFR4YVN6ZTZNOFBSbmNZWl83Y2JpeGNJMXRUZjVfc0FLMFNNaFZ3VEs3TTF3QWJVTVBqVGUtQS1wam13YV9jTGgxb2ltRGVqMWNwaEE5X2Vtam5SdTRXdXVj?oc=5,,
 4082f45d291b,69d0748456e4,2026-10-30 07:00 UTC,"Policy, Legal & Compliance",Accenture,Google News: Accenture,AI Security,Article,Accenture Contractor Allegedly Gave Claude AI Agent Access to Secure Pentagon Network,https://news.google.com/rss/articles/CBMihwFBVV95cUxQY3lFdkF1LW9iWHFYdElfVEFNMXRsTnhJS1VMWExuZzB4ckpZMDdjWFczYzBwX28tejBCenVyVmpMU29lV1A0UU5GNExKV09xbUFFZUhvOHU4OVRpVTRqSGNWdnU1MHhiRUhuSF9pLVpEd0thVE5WUXBfUVZhQmR6N2tGTkU3TlHSAYwBQVVfeXFMTVcwVm1CY29wRkRLYnF3VFVCaHYydl9qRTJTTWRtTnB4Y0JsMEhtdlF5NzN2a0kxajlsM2RsYldEQUs2VzFuMUtybHRBLW9pVG9ESDN0X2V3cjktbElEcnNaeVFEb1BjUThtOVpUSzBvSzFYSXg1TWJfS005YVVPd3ZlYlBOZjVOZFdWd1E?oc=5,,
 825b07e28428,825b07e28428,2026-10-29 10:30 UTC,"Policy, Legal & Compliance",,Infosecurity Magazine,Data Security Posture Management; Compliance Management,Article,ICO Reprimands Staffordshire Police After Domestic Abuse Breach,https://www.infosecurity-magazine.com/news/ico-reprimand-staffordshire-police/,"Despite the serious nature of the breach, the ICO decided not to fine the police force, even though the regulator found that it failed to put in place “appropriate measures” to...","A UK police force committed a serious breach of data protection law after sharing the home address of a domestic abuse victim with their abuser, the Information Commissioner’s Office (ICO) has revealed.
 
@@ -2578,7 +2898,6 @@ Going through it made Cloudflare more global, not less. It pushed us to think ca
 That is consistent with what we are working toward: helping build a better Internet for everyone, not just in the regions where regulatory requirements are straightforward, but everywhere.
 
 To learn more about Cloudflare's compliance and assurance programs, visit our Trust Hub."
-2c340e4d8628,2c340e4d8628,2026-10-22 07:00 UTC,"Policy, Legal & Compliance",Accenture,Google News: Accenture,Compliance Management,Article,Analysis: Cybersecurity must go beyond compliance in gov’t,https://news.google.com/rss/articles/CBMijwFBVV95cUxOMUs2Q2pyZXNKNDQ1NGNQbDZyRllITzBNbEwwQkhMU3lqVThsM1ZpY2hYczNLMUdzYWhnMUwzZ2puSzVJZmFxZW5MT2tFRGlmcnZ4cHlHMmdSWjVoZ21lVE10NU55cDlQMHlaLXhZVzQxMnJRQ2djQTh6TldLenBYSXBwckZob3VFVzk4a1RfTQ?oc=5,,
 4da041891481,4da041891481,2026-10-21 11:00 UTC,"Policy, Legal & Compliance",Secureworks,Infosecurity Magazine,Data Security Posture Management; Threat Intelligence; Identity Security Posture Management; Vulnerability Management,Article,"SafePay Has Compromised 600 Critical Infrastructure Victims Worldwide, CISA Warns",https://www.infosecurity-magazine.com/news/safepay-compromised-critical/,Attackers Hide Malware Behind Signed ChatGPT and Claude Binaries Attackers Exploit Teams External Chat to Breach Organizations in Under 15 Minutes Online Scam Volumes Double to...,"The SafePay ransomware group has compromised at least 600 critical infrastructure organizations, according to a joint advisory issued by government agencies from the US, Germany and UK.
 
 The authoring agencies, which includes the US Cybersecurity and Infrastructure Security Agency (CISA), warned that since emerging in August 2024, SafePay’s operations have affected a range of businesses and critical infrastructure in North America, South America, Europe and Australia.

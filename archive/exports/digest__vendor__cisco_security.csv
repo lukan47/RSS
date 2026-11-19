@@ -1,4 +1,130 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+111f30e53c68,111f30e53c68,2026-11-19 19:00 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Vulnerability Management; Server & Workload Protection,Article,"The internet needs a nap (and you do, too)",https://blog.talosintelligence.com/the-internet-needs-a-nap-and-you-do-too/,"A vulnerability is not an outage, and an outage is not automatically an attack","“Not everything that is faced can be changed; but nothing can be changed until it is faced.” — James Baldwin
+
+Welcome to this week’s edition of the Threat Source newsletter. I had planned to write about one thing. The week, apparently, had other plans.
+
+I can start with conversation on the most viral cybersecurity news of the week. So obviously I had to go with PHP... oh wait, Java. Let’s type this up... wait, Outlook, Apple? The NSA? As soon as I start to type nginx comes pounding on my door. It’s the kind of news cycle that makes me wonder if the internet is trying to tell us something. I think it just wants everyone to stop asking it for things for a few hours, and can you blame it?
+
+These are different events with different causes. A vulnerability is not an outage, and an outage is not automatically an attack. But they all arrive in the same place: someone’s queue, someone’s pager, someone’s overflowing calendar. The headlines might be viral and “new,” but the work they create is not.
+
+For all of us, the work starts with knowing what is in the environment. Which systems run PHP or Java? Where is nginx deployed? Who owns those devices and services? Are they still supported? Are they properly admin’d? In every environment there is an application that everyone knows is important, and no one is quite sure how to patch it without breaking something else (or everything else). Isolating these devices and applications and getting them into the modern era is a challenging lift, but it’s beyond time and a big part of “know your environment.”
+
+Then there’s the telemetry. A new vulnerability or a service disruption can make ordinary activity look strange, and strange activity can disappear into the noise when everyone is busy chasing the latest alert. Teams need time to understand what “normal” looks like in your own network and ensure that your tools are being leveraged to their full potential by your smart people. Because people still have to decide what it means and what to do next.
+
+“Patch faster” isn’t an answer, and it’s not realistic for anyone.
+
+The new normal is a steady stream of things that demand attention, each one landing on systems and people already carrying too much. The answer is still the same unglamorous work: Know your environment, keep it as up to date as possible and watch it carefully for the anomalies, and most importantly give the people doing the work enough room to do it well.
+
+“Every quality that made a person more valuable than a database was a product of experience.” — Ted Chiang
+
+The one big thing
+
+Cisco Talos is tracking the disclosure of ""Java4Shell"" (CVE-2026-114938), a critical vulnerability in OpenJDK with a CVSS 4.0 score of 9.2. This flaw can lead to unauthenticated remote code execution (RCE) when a malformed Base64 input is sent to affected Java Virtual Machines. The vulnerability impacts OpenJDK Java versions 17.0.6 and later running on x86-64 CPUs with AVX-512 VBMI support enabled. While we haven't observed in-the-wild exploitation yet, the vulnerability has already been successfully tested against a suite of Java applications.
+
+Why do I care?
+
+This vulnerability requires a specific subset of processors that support AVX-512 VBMI, which includes commonly deployed hardware from both Intel and AMD. Because of this, there is a large potential attack surface of vulnerable systems spanning both on-premise and cloud environments. Furthermore, as additional targets are tested and confirmed, that attack surface is likely to grow, and we anticipate probing attempts may pick up soon after public disclosure.
+
+So now what?
+
+Defenders should apply the software update for this vulnerability. If immediate patching is not possible, you can mitigate the threat by starting the JVM with AVX-512 support disabled using ""=XX:UseAVX=2"". Keep in mind this mitigation is only applicable for x86-64 systems, as ARM-based processors will not recognize the command and will likely fail to start.
+
+Deploy the Snort rules and review the Splunk detections mentioned in the blog to help detect malformed Base64 data and suspicious post-exploitation indicators. We will continue to monitor for exploitation attempts and provide updates accordingly.
+
+Top security headlines of the week
+
+Optimizely hack turns world's biggest websites into malware dispensers BBC, Zoom, HSBC, and GitLab among those caught up in supply chain attack targeting visitors' crypto wallets, credit cards, and iPhones. (The Register)
+
+NGINX2Root: New remote code execution vulnerabilities in nginx require urgent patching nginx2root is a collection of five critical CVEs, the most impactful of which allows an unauthenticated attacker to execute commands on an affected nginx server with HTTP/2 enabled. (Xint)
+
+NIST finalizes post-quantum cryptography guidance, GAO offers a reality check NIST laid out a technical road map to guide organizations through the process in its recent ""Transition to Post-Quantum Cryptography Standards"" report. The U.S. Government Accountability Office (GAO) cautions that federal agencies are not prepared to meet deadlines. (Dark Reading)
+
+Microsoft rules out cyber attack in outage, warns of phishing campaignThe outage disrupted access to Exchange Online mailboxes and Outlook, and possibly affected Teams, SharePoint Online, and Microsoft 365 Copilot. Phishing emails posing as Microsoft 365 service notices referenced the real outage incident and threatened to delete held messages. (SecurityWeek)
+
+Criminals attack French postal operator subsidiary, grab contact details of 22M people Customers use Maileva for hybrid post services. They upload the documents they need to send to Maileva, which then prints and posts the letters on behalf of the customer. According to Maileva, the service has more than 70,000 registered users and is trusted to send more than 180 million documents per year. (The Register)
+
+Police arrest 15 over £1.5M “we'll recover your losses” scam targeting elderly City of London Police said the victims were initially targeted by a range of investment scams related to art, carbon credits, land, whisky, wine, and pensions, and that some took place more than a decade prior to their re-victimization. (The Register)
+
+Can’t get enough Talos?
+
+Talos Takes: Using public blockchains for malware command and control Attackers are moving away from centralized infrastructure that is easy to seize or block. By leveraging public blockchains, threat actors are building highly resilient C2 channels that operate on top of legitimate, decentralized networks.
+
+The challenge of defending against bulletproof dead drops on public blockchains The evolution of malware command-and-control (C2) infrastructure has shifted away from fragile, centralized servers and hardcoded domains toward resilient, decentralized blockchain networks that eliminate single points of failure.
+
+UAT-12643: Suspected North Korea-aligned actor blends blockchain resilience with targeted infostealing The actor’s arsenal has several payloads including the Go-based Overlord remote access trojan (RAT), a Python-based infostealer internally labelled “Good Game,” and a multi-cryptocurrency clipboard hijacker.
+
+Upcoming events where you can find Talos
+
+COP31 (Nov. 9 – 20) Antalya, Türkiye
+
+CYBERWARCON (Nov. 20) Arlington, VA
+
+AVAR 2026 (Dec. 2 – 4) Hyderabad, India
+
+Black Hat Europe (Dec. 7 – 10) London, U.K.
+
+JSAC2027 (Jan. 19 – 22) Tokyo, Japan
+
+Insomni’hack (Feb. 1 – 5) Lausanne, Switzerland
+
+Most prevalent malware files from Talos telemetry over the past week
+
+SHA256: 9f1f11a708d393e0a4109ae189bc64f1f3e312653dcf317a2bd406f18ffcc507 MD5: 2915b3f8b703eb744fc54c81f4a9c67f Talos Rep: https://talosintelligence.com/talos_file_reputation?s=9f1f11a708d393e0a4109ae189bc64f1f3e312653dcf317a2bd406f18ffcc507 Example Filename: VID001.exe Detection Name: W32.9F1F11A708-100.SBX.TG
+
+SHA256: f4b1f888f29faa7fbec180f42bdc78596e8a8b908c0a6e6c419933703c81df85 MD5: 95a6a4b638cfdfbe3afc883d593a1f87 Talos Rep: https://talosintelligence.com/talos_file_reputation?s=f4b1f888f29faa7fbec180f42bdc78596e8a8b908c0a6e6c419933703c81df85 Example Filename: f4b1f888f29faa7fbec180f42bdc78596e8a8b908c0a6e6c419933703c81df85.js Detection Name: W32.F4B1F888F2-95.SBX.TG
+
+SHA256: 7fc50b69b56bfdfa9fc0a3e088ff13904587d6336a51e9edcc7919cba83d4e3f MD5: cca616647db9370c88998ae25da6997f Talos Rep: https://talosintelligence.com/talos_file_reputation?s=7fc50b69b56bfdfa9fc0a3e088ff13904587d6336a51e9edcc7919cba83d4e3f Example Filename: cca616647db9370c88998ae25da6997f.exe Detection Name: W32.7FC50B69B5-95.SBX.TG
+
+SHA256: 73a25ff8893260418c2271b863c567e40e842adbab3c57023cb72de590ea377d MD5: 0cf0271c3564881fce95f44c649bd745 Talos Rep: https://talosintelligence.com/talos_file_reputation?s=73a25ff8893260418c2271b863c567e40e842adbab3c57023cb72de590ea377d Example Filename: KMSAuto++.exe Detection Name: HackTool:WZTeam-tpd
+
+SHA256: 985c3972712218c62d2418b41056dba5fe883ca5104d8ec12041f8611db344f9 MD5: 485055033bcddfde56325c0d2feea4f2 Talos Rep: https://talosintelligence.com/talos_file_reputation?s=985c3972712218c62d2418b41056dba5fe883ca5104d8ec12041f8611db344f9 Example Filename: 485055033bcddfde56325c0d2feea4f2.exe Detection Name: W32.985C397271-95.SBX.TG"
+6efa1f99d4e3,6efa1f99d4e3,2026-11-19 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,Building a Global Tech Career at Home in Costa Rica,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/building-a-global-tech-career-at-home-in-costa-rica.html?source=rss,"But when I discovered an open Product Manager role at Cisco and explored the company's culture and global footprint, I realized I wouldn’t have to choose between entering my...","When I set out to build a career in product management, I wasn’t sure that I could do it in my home country of Costa Rica. In many emerging tech hubs across Latin America, specialized product management opportunities are scarce.
+
+But when I discovered an open Product Manager role at Cisco and explored the company's culture and global footprint, I realized I wouldn’t have to choose between entering my field of choice and staying in the country I love.
+
+Stepping into the role meant charting new territory as Cisco's very first Product Manager based in Costa Rica, an exciting milestone filled with a sense of responsibility to blaze a trail for others.
+
+Ange Chaves Solis, Cisco’s first product manager based in Costa Rica.
+
+My journey to Cisco
+
+My path to product management was an intentional evolution. I began in consulting and software development, learning how to build scalable systems from the code up.
+
+Over time, I transitioned into project management and ultimately, moved to the United States in 2025 to earn a Master's in Product Management from Carnegie Mellon University.
+
+When I graduated, my dream was to bring that training back to Costa Rica and apply it to complex, enterprise-scale challenges. Cisco gave me that exact opportunity.
+
+Being a product manager at Cisco means taking end-to-end ownership of a piece of our technology. It’s my job to understand business use cases and product features, then work with engineers, solution architects, and data experts to build the seamless user experiences our customers expect.
+
+Currently, I’m the lead product manager for a major enterprise initiative that will simplify account planning through a unified CRM experience. This project replaces siloed account planning with a shared, data-driven approach that helps our sellers serve customers more strategically.
+
+A thriving hub
+
+I also have an incredible local community of support in Costa Rica. The Escazú office has grown to over 400 employees across engineering, operations, UX, and data. This presence means we can come together to whiteboard in person, brainstorm over coffee, and collaborate across our business functions.
+
+Ange and her colleagues from the Cisco Escazú office participating in a local volunteer activity.
+
+Giving back is equally core to our Cisco Costa Rica community. We make time to give back through team volunteering initiatives, like preparing emergency food and care packages for local relief efforts.
+
+Cisco also continues to afford me the opportunity to pay forward the mentorship I received throughout my career journey.
+
+This past summer, our office welcomed 15 interns across product management, UX, and data.
+
+I had the privilege of designing enablement sessions, coaching junior talent, and directly mentoring two interns. Helping them tackle real-world product challenges, sharpen their problem-solving skills, and gain confidence in a global tech environment in under two months was immensely fulfilling. When a global company like Cisco invests in local talent, the impact is profound.
+
+Redefining what's possible
+
+My journey has shown me that you don't have to leave home to do world-class work.
+
+Cisco's global presence creates pathways for people to build careers in their own communities that might not otherwise be possible. As a woman in product leadership, I feel proud, empowered, and energized to help shape the future of tech in Costa Rica.
+
+You may also like…
+
+Kevin McMenamy’s Road from Retail Sales to Distinguished Engineer
+
+You Don't Have to Work in Product to Help Build One
+
+Why I Sleep Out for Covenant House"
 5f4a6e64ce69,5f4a6e64ce69,2026-11-18 13:00 UTC,General Security News,Cisco Security,Cisco Newsroom,AI Security,Article,From Flashlight to Floodlight: What Six Months of Frontier AI Has Changed at Cisco,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/from-flashlight-to-floodlight-what-six-months-of-frontier-ai-has-changed-at-cisco.html?source=rss,"It started with the launch of AI Defense, the first enterprise AI security offering to combine asset visibility, supply chain scanning, algorithmic red","Amy Chang
 
 Vikram Varakantam
@@ -5014,11 +5140,6 @@ Want to see more? Watch the full interview, and don’t forget to subscribe to o
 From Collaboration to Intelligent Workplace: What’s New for Cisco Partners in 2026
 
 Discover how to turn intelligent workplace innovation into profitable growth. From Partner Summit, learn how Cisco’s new AI-native collaboration and spaces solutions are helping partners drive 3x-6x larger deals. Watch the recap today."
-8d193e33052e,8d193e33052e,2026-10-26 21:00 UTC,General Security News,Cisco Security,Cisco Newsroom,Other/General,Article,Cisco IQ Is the Engine. Partners Are the Business.,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m10/cisco-iq-is-the-engine-partners-are-the-business.html?source=rss,"<img src=""https://newsroom.cisco.com/c/dam/r/newsroom/en/us/assets/a/y2026/m10/Cisco-IQ-Is-the-Engine-Partners-Are-the-Business.jpg"" width=""450px""><br>For the first time, partners can deliver Cisco IQ under their own brand, through their own experts, as part of their own services practice. <br><b>Mo","Kristyn Hogan
-
-From Collaboration to Intelligent Workplace: What’s New for Cisco Partners in 2026
-
-Discover how to turn intelligent workplace innovation into profitable growth. From Partner Summit, learn how Cisco’s new AI-native collaboration and spaces solutions are helping partners drive 3x-6x larger deals. Watch the recap today."
 422b792ff7cf,422b792ff7cf,2026-10-22 18:04 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Other/General,Article,I had plans for that second,https://blog.talosintelligence.com/i-had-plans-for-that-second/,See an interview with Nick Biasini on php2shell defense: Top security headlines of the week 'PHP2Shell' Bugs Signal Red Alert for Security IndustrySecurity teams are scrambling...,"Welcome to this week’s edition of the Threat Source newsletter.
 
 Here for the latest on the PHP vulnerabilities? Head on down to ‘The One Big Thing’. Talos has published a blog to explain what we know so far, and details the Snort coverage available, including rules in the Community Ruleset.
@@ -5114,55 +5235,6 @@ SHA256: 7fc50b69b56bfdfa9fc0a3e088ff13904587d6336a51e9edcc7919cba83d4e3fMD5: cca
 SHA256: 985c3972712218c62d2418b41056dba5fe883ca5104d8ec12041f8611db344f9MD5: 485055033bcddfde56325c0d2feea4f2Talos Rep: https://talosintelligence.com/talos_file_reputation?s=985c3972712218c62d2418b41056dba5fe883ca5104d8ec12041f8611db344f9Example Filename:485055033bcddfde56325c0d2feea4f2.exeDetection Name: Win.Tool.Kmsauto::1201
 
 SHA256: d921fc993574c8be76553bcf4296d2851e48ee39b958205e69bdfd7cf661d2b1MD5: 0c883b1d66afce606d9830f48d69d74bTalos Rep: https://talosintelligence.com/talos_file_reputation?s=d921fc993574c8be76553bcf4296d2851e48ee39b958205e69bdfd7cf661d2b1Example Filename:d921fc993574c8be76553bcf4296d2851e48ee39b958205e69bdfd7cf661d2b1.exeDetection Name: Win.Worm.Zard::95.sbx.tg"
-19a6b0132bb2,2b62329cc6f4,2026-10-21 20:43 UTC,"Attacks, Breaches & Threat Intel",Cisco Security,Talos Intelligence,Vulnerability Management; Cloud Risk Management; Container Security,Article,Compromised eMudhra intermediate certificates,https://blog.talosintelligence.com/compromised-intermediate-certificates/,"To eliminate exploitation across the entire cloud-native ecosystem including Docker, Kubernetes, Terraform, and Prometheus, the Go team designated the compromised certificates...","Cisco Talos is aware of eight compromised intermediate certificates belonging to the intermediate certificate authority, eMudhra. Rather than possessing the mandatory 384 bits of pseudo-random security, several private keys evaluated single-digit and double-digit integers. This misconfiguration allows an attacker with the private key of any of the compromised intermediate CAs to impersonate any website or service. Six of the TLS certificates, trusted by Chrome, Mozilla, and Apple have been blocked by these vendors already. Two other certificates, used for codesigning by Microsoft, have also been blocked. Talos expects there will be additional patches available across a variety of technologies as software applications work to remediate the certificates’ exposure.
-
-Following the disclosure, eMudhra has revoked the compromised certificates and stopped issuing new certificates under its G3 root.
-
-Compromise details
-
-The cause of this issue, originated during an April 30, 2025 key generation activity conducted by eMudhra under its emSign Root TLS CA - G3 and cross-signed Comodo AAA Certificate Services. During a key generation ceremony for 24 subordinate CAs, a flaw in eMudhra’s key generation process created a second set of weak P-384 keys during a wrap/unwrap step. Those keys were mistakenly used for eight intermediate CA certificates. This flaw took the encryption from 384 bytes of entropy down to 3 – 8, making recovering the private keys trivial. The following are the impacted certificates, as illustrated in Mozilla’s bug report:
-
-EM EV TLS CA - G3B (eMudhra BV), CCADB A012304 SHA-256 E7568FE6E12331F4FD7DE61DA4C7559D0F8EB192A218D4741A3BA75184333838 serial c7c41efe92d825f05eae841a4a82c1, issuer emSign Root TLS CA - G3 EM OV TLS CA - G3B (eMudhra BV), CCADB A012308 SHA-256 98B896625C0C230ADEEC3EB2CF6AAD5001ECF9156A68644E82374CE5833BC25B serial 6cada367fb1c100088120ea202d568, issuer emSign Root TLS CA - G3 EM DV TLS CA - G3B (eMudhra BV), CCADB A012302 SHA-256 42C4ACCD12C4F59597925E1A08A7A90102608543809308D50EC427E118BA1493 serial a4aee678f23362b4c0e460b772f214, issuer emSign Root TLS CA - G3 EM EV TLS CA - G3C (eMudhra Inc), CCADB A012296 SHA-256 432EC25F0D28DE9006D97BF752F17BBB2CD41F669933FCB072D9A1148D0261F3 serial 8009928a64107601af05fa2f19f109, issuer emSign Root TLS CA - G3 EM OV TLS CA - G3C (eMudhra Inc), CCADB A012300 SHA-256 CB6E15165AC802E9B3F993F16C25D41F4E81C21EBDE71AE1B012AC00BF9C7C3F serial 296926c227a3a1526392b19482a504, issuer emSign Root TLS CA - G3 EM DV TLS CA - G3C (eMudhra Inc), CCADB A012294 SHA-256 0164D7CEAE5BB909C272AF151FF44B1177AE9B47D9424B94F1D9558C30934D19 serial 588b2e3c2bb8cda13e1a1209254321, issuer emSign Root TLS CA - G3 EM OV CS CA - G3B (eMudhra BV), CCADB A012306 SHA-256 9E39DE2881273ACC225A149C72BA3E0F51424963669AB633EE1DC7DF5DB067B4 serial 7818933f8f85b4619a2b35fba83d0a, issuer emSign Root CS CA - G3 EM OV CS CA - G3C (eMudhra Inc), CCADB A012298 SHA-256 4B2460A466F95FD40113BCDCCA2CEB29B3B093921DE45474DA7DF48874C630B1 serial 544b7f922c31ae220a4a922916f6e6, issuer emSign Root CS CA - G3
-
-CVE-2026-111943
-
-Unlike languages that defer entirely to external dynamic system libraries (like OpenSSL), the Go programming runtime implements its own X.509 chain verification engine in the standard library (crypto/x509). While Go usually queries platform certificates, several platforms or static container environments rely on embedded or legacy root certificate pools where certificate revocations are ignored.
-
-To eliminate exploitation across the entire cloud-native ecosystem including Docker, Kubernetes, Terraform, and Prometheus, the Go team designated the compromised certificates as a vulnerability, CVE-2026-111943, and released Go versions 1.27.3 and 1.26.10.
-
-The fixed versions filter out chains containingthe SHA-256 hashes of the SubjectPublicKeyInfo (SPKI) for all eight compromised eMudhra intermediate certificates.
-
-Impact
-
-These compromised certificates could allow adversaries to impersonate servers and intercept or modify traffic. The impact of their exposure is far more than just web browsers. Other programs that check for TLS certificates might still be impacted since they may not check revocation lists. One clear example is related to virtual private networks (VPNs); these technologies will likely require software updates to mitigate the issue. Based on this guidance, Talos strongly recommends users update software using and handling TLS certificates as fixes become available.
-
-Talos is actively monitoring the impact of these compromised certificates and has not seen any malicious incidents involving them in the wild yet (as of October 21, 2026 14:00 UTC / 10:00 a.m. ET).
-
-Significance of this breach
-
-Public key infrastructure relies on trust being delegated through certificate chains: root CAs authorize intermediate CAs, which can issue certificates within the scope of their authority. An attacker who obtains an intermediate CA’s private key may be able to issue fraudulent certificates that clients accept, subject to the intermediate certificate’s constraints and each client’s validation controls. In this incident, six compromised intermediates were for TLS and two were for code signing.
-
-For TLS, an attacker able to intercept or redirect a connection could use a fraudulent certificate to impersonate a server and potentially read or modify traffic if the client still trusts the affected key and no applicable protection blocks it. Protections such as revocation, key distrust, certificate transparency enforcement, and certificate pinning can prevent or expose such an attack. Browser vendors have blocked the affected TLS keys, but other applications may rely on separate trust stores or validation paths:
-
-Enterprise infrastructure and VPNs
-
-Organizations should assess TLS-using software and appliances, including proxies, reverse load balancers, VPN clients, and gateways. Exposure depends on the certificate chain being validated and the trust store and revocation behavior in use. A stale or separately managed trust store may need an application, operating-system, firmware, or trust-bundle update; verify the required action for each product.
-
-Software supply chains and CI/CD
-
-Build runners and package managers may be exposed if they fetch content over TLS while still trusting an affected key and an attacker can intercept the connection. A fraudulent TLS certificate could enable registry impersonation, but it would not by itself bypass separate package integrity checks, such as lockfile hashes, checksums, signatures, or provenance controls. Assess the actual package-manager configuration and dependency path.
-
-Industrial IoT and embedded systems
-
-Review devices that use bundled or independently managed CA stores, especially where certificate revocation or trust-store updates may be limited. Some devices may require a vendor update or compensating control, but the necessary action depends on each device’s validation and update mechanisms.
-
-Talos recommends updating affected software and trust stores as vendor fixes become available.
-
-Coverage
-
-The following SNORT® SIDs provide coverage for this threat: 67363 - 67374.
-
-Talos would like to highlight the efforts of Chris Morrison for providing emergency coverage and mitigations for this threat."
 1a8bdc0566fd,1a8bdc0566fd,2026-10-21 04:00 UTC,General Security News,Cisco Security,Talos Takes,Network Security; Server & Workload Protection; AI Security; Compliance Management,Podcast,Hardening your environment: From segmentation to AI kill switches,https://www.buzzsprout.com/2018149/19968188,"We all know that limiting an attacker's movement in your network is critical, but moving from theory to reality there is where things start to get complicated. So I mentioned before some of the early steps for understanding the security implications in your environment, like threat modeling, uh, risk assessment,...","Amy Ciminnisi 0:00
 
 Welcome to the Talos Takes Podcast, where we discuss Talos' latest research and security news. This podcast is for everyone, from the C-suite to the front lines.

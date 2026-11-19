@@ -1,9 +1,26 @@
 {
   "vendor": "F5",
-  "generated": "2026-11-19 23:38 PHT",
-  "timestamp": "2026-11-19T15:42:59.599066+00:00",
-  "article_count": 2,
+  "generated": "2026-11-20 06:06 PHT",
+  "timestamp": "2026-11-19T22:09:33.286268+00:00",
+  "article_count": 3,
   "articles": [
+    {
+      "id": "7de7b805aff2",
+      "story": "99d6c260eab2",
+      "podcast": false,
+      "date": "2026-11-19T18:25:50+00:00",
+      "category": "Vulnerabilities & Patching",
+      "vendor": "F5",
+      "source": "Help Net Security",
+      "title": "NGINX2Root: F5 patches five critical NGINX vulnerabilities",
+      "link": "https://www.helpnetsecurity.com/2026/11/19/nginx2root-nginx-vulnerabilities/",
+      "context": "A public proof-of-concept exploit for one of them (CVE-2026-123007) is already available, though",
+      "modules": [
+        "Server & Workload Protection",
+        "Vulnerability Management"
+      ],
+      "full_text": "F5 has patched five critical vulnerabilities in NGINX, the world\u2019s most widely used open-source web server, that can allow remote code execution under certain conditions.\n\nDubbed \u201cNGINX2Root\u201d by Xint researchers, two of the bunch (CVE-2026-123633 and CVE-2026-123007) were also independently unearthed and reported by Rapid7, Wiz, Ikotas Labs, Palo Alto Networks and Metnir researchers.\n\nThere\u2019s no evidence that any of them has been exploited in the wild, and none were on CISA\u2019s Known Exploited Vulnerabilities (KEV) catalog as of November 19. A public proof-of-concept exploit for one of them (CVE-2026-123007) is already available, though.\n\nThe NGINX2Root vulnerabilities\n\nNGINX is a web server, but it\u2019s also used as a reverse proxy, load balancer, mail proxy, static file server, and HTTP cache.\n\nThe NGINX2Root vulnerabilities are:\n\nCVE-2026-123007 (aka \u201cNGINX2Shell\u201d): an integer underflow in HTTP/2 flow control, leading to out-of-bounds read/write on the heap, which may lead to a crash of the NGINX worker process and pontentially allow remote code execution.\n\nCVE-2026-123633: a use-after-free that is reachable when HTTP/2 is used and requests are forwarded to an upstream server.\n\nCVE-2026-123634: a use-after-free in NGINX\u2019s DNS resolver. It can only be triggered (via a specially crafted HTTP request) if the server uses the resolver, request-derived proxy_pass, and mirror (with mirror_request_body off) directives together.\n\nCVE-2026-121810: a use-after-free from closing a QUIC connection while an HTTP/3 request runs\n\nCVE-2026-113425: a use-after-free in the mail proxy\u2019s auth_http path\n\nIf address space layout randomization (ASLR) is disabled or bypassed, any of the five can allow remote code execution with the privileges of the NGINX worker process.\n\nTo get from there to root, attackers need a sixth flaw, and Xint found that one too: a use-after-free in the Linux kernel\u2019s SCTP code that can turn into a double free. The researchers used it to get root on cloud hosts, and also got a root shell on the host from a Docker container. (The Linux kernel flaw has no CVE as of November 18 and hasn\u2019t been patched yet).\n\nXint and Wiz have built proof-of-concept exploits for the five flaws, but haven\u2019t released them yet.\n\nRapid7\u2019s Stephen Fewer has published a technical analysis and a PoC exploit for CVE-2026-123007.\n\n\u201cRapid7 describes the exploit as constrained: it depends on a glibc memory-copy routine specific to x86-64 builds, requires roughly 128 gigabytes of HTTP/2 traffic, and needs to defeat ASLR by recovering heap addresses from server responses. Execution lands in the NGINX worker process,\u201d Tenable researchers noted.\n\n\u201cThe exploit is also unlikely to succeed against servers behind HTTP/2-terminating proxies or on connections too slow to deliver the required data volume before NGINX\u2019s one-hour connection limit is reached,\u201d they added\n\nWhat to do?\n\nMitigations are available, but upgrading to a fixed release \u2013 NGINX Open Source versions 1.30.7 and 1.31.9, NGINX Plus versions 37.0.8.1 and 37.3.0.1 \u2013 is the better option. (F5 also fixed five more NGINX flaws in the same releases.)\n\nAdmins should upgrade and then restart NGINX, because a configuration reload doesn\u2019t replace the running executable. Those who use distro packages should check for backported fixes.\n\nNGINX is also part of other F5 products, such as NGINX Instance Manager, NGINX Ingress Controller and NGINX Gateway Fabric. F5 has released updates for some of them and is still working on the rest.\n\nXint researchers also provided instructions on how to investigate possible attacks via CVE-2026-123007.\n\nJohannes Ullrich, dean of research at the SANS Technology Institute, says that large organizations probably won\u2019t manage to patch all their NGINX instances before exploits appear, so they should think beyond these vulnerabilities.\n\nHis general advice to meet the ongoing \u201cvulnocalypse\u201d is to automate patching as much as possible, cut the number of internet-facing systems, and limit which data and resources each application can access."
+    },
     {
       "id": "c1224409bc6e",
       "story": "99d6c260eab2",

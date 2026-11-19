@@ -1,4 +1,364 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+6920847b4ce5,f8957f18a934,2026-11-19 19:12 UTC,Vulnerabilities & Patching,Check Point,Check Point Blog,Vulnerability Management,Article,New PHP Vulnerabilities: What Organizations Need to Know and How Check Point Customers Are Protected,https://blog.checkpoint.com/security/new-php-vulnerabilities-what-organizations-need-to-know-and-how-check-point-customers-are-protected/,CVE-2026-129289: the risk CVE-2026-129289 is a critical PHP vulnerability that lets an attacker smuggle a malicious request inside a malformed HTTP request,"On November 19, 2026, A series of recently disclosed vulnerabilities in PHP has put one of the world’s most widely deployed web technologies under renewed scrutiny.
+
+The most significant issues, CVE-2026-109618 and CVE-2026-109619, are critical remote code execution vulnerabilities that can allow an unauthenticated attacker to execute code on vulnerable PHP systems. CVE-2026-109618 carries a CVSS 4.0 score of 9.2 and has since been added to the CISA Known Exploited Vulnerabilities catalog.
+
+A third issue, CVE-2026-115560, was disclosed shortly afterward. It involves a more specific PHP configuration and should be considered separately from the two original PHP2Shell vulnerabilities. Public reporting indicates PHP recommended temporarily disabling session upload progress for the affected configuration while awaiting the regular fix.
+
+It lands just four weeks after PHP2Shell (CVE-2026-109618 and CVE-2026-109619), which attackers began exploiting within hours of disclosure. No exploitation of the new flaws has been reported so far. Given how fast PHP2Shell went from patch to attack, we don’t expect that window to stay open for long.
+
+Check Point customers remain protected
+
+Check Point has released IPS protections against attempts to exploit these PHP remote code execution vulnerabilities. Customers should ensure that their Security Gateways are running the latest IPS update and that the relevant protections are enabled in Prevent mode.
+
+Check Point;s PHP Remote Code Execution advisories : CPAI-2026-15172 CPAI-2026-15184 covers CVE-2026-109618, CVE-2026-109619 and CVE-2026-115560 and is rated Critical.
+
+CVE-2026-129289: the risk
+
+CVE-2026-129289 is a critical PHP vulnerability that lets an attacker smuggle a malicious request inside a malformed HTTP request. This can bypass server access controls and lead to remote code execution.
+
+How Check Point protects against it
+
+Check Point Gateways prevent this attack by dropping non-compliant HTTP traffic. For full protection:
+
+Make sure the Non Compliant HTTP inspection setting is activated and installed with the Access policy.
+
+For HTTPS traffic, also enable HTTPS Inspection.
+
+(Add here)
+
+Importantly, IPS protection provides an additional layer of defense, but it does not replace updating PHP itself. Organizations should patch vulnerable installations as quickly as possible.
+
+Here is what we know by now, who is exposed, and what to do about it.
+
+What do we know by now
+
+All seven critical flaws carry a CVSS 4.0 score of 9.2, and every one of them depends on specific configuration or runtime conditions. Several can lead to remote code execution (RCE).
+
+CVE
+
+Component
+
+Branches
+
+What has to be true
+
+CVE-2026-129289
+
+PHP-FPM request smuggling
+
+8.2–8.5
+
+The web server reuses FastCGI connections, and the app opens php://input without reading it fully. Can lead to unauthenticated code execution.
+
+CVE-2026-115560
+
+Sessions (serializer mismatch)
+
+8.2–8.5
+
+Session upload progress is on and session data is read with mismatched serializers. Left open by the October PHP2Shell fixes.
+
+CVE-2026-126714
+
+Sessions (default files handler)
+
+8.2–8.5
+
+An interrupted session write plus attacker influence over session data.
+
+CVE-2026-129496
+
+Date / timezone cache
+
+8.2–8.5
+
+A startup warning is logged (for example, an invalid date.timezone), then an early request warning hits a fresh worker.
+
+CVE-2026-129474
+
+Engine (use-after-free)
+
+8.5 only
+
+fatal_error_backtraces=1 (the 8.5 default) with zend.exception_ignore_args=0.
+
+CVE-2026-129182
+
+Engine (shutdown)
+
+8.5 only
+
+A fatal error while PHP restores memory-limit or zlib settings at shutdown.
+
+CVE-2026-129481
+
+Sessions (cleanup)
+
+8.3–8.5
+
+A fatal error in a callback during session cleanup.
+
+Furthermore:
+
+This is PHP2Shell’s unfinished business. CVE-2026-115560 was left open by the October patches, and CVE-2026-129182 and CVE-2026-129481 extend the fixes for CVE-2026-109619.
+
+Session upload progress is now off by default. This is the feature PHP2Shell abused. Servers that set it explicitly keep it on.
+
+A local path to root. CVE-2026-129291 (high) lets an attacker who can run code in a PHP-FPM worker execute commands with the FPM master’s privileges, which is often root.
+
+The release also fixes bugs in PHP-CGI, PHAR signature checks, SOAP and the HTTP stream wrapper. Full technical advisories are published on the PHP project’s GitHub.
+
+Who’s exposed
+
+Any server running PHP 8.2 through 8.5 below the fixed versions is affected. Whether a given flaw is reachable depends on how PHP is deployed. The setups at highest risk:
+
+PHP-FPM behind connection-reusing front ends. Nginx with fastcgi_keep_conn on, or Apache mod_proxy_fcgi with enablereuse=on (CVE-2026-129289). Reuse is off by default in both, so check custom configs and includes.
+
+Apps that keep session upload progress on and mix serializers (CVE-2026-115560), for example code that switches session.serialize_handler at runtime.
+
+PHP 8.5 deployments not using the production php.ini template, where zend.exception_ignore_args is left at 0 (CVE-2026-129474).
+
+Shared hosting and multi-tenant FPM pools, where one tenant’s code could escalate to the FPM master’s privileges (CVE-2026-129291).
+
+php-cgi with particular web server path mappings (CVE-2026-129538).
+
+Two groups are easy to miss:
+
+End-of-life PHP. PHP 8.1, 8.0 and 7.4 get no official release. The PHP security team published minimal source backports, and some vendors are shipping their own. PHP 8.2 itself reaches end of life on December 31, 2026.
+
+PHP you didn’t install. Vendor products, appliances, admin portals and container base images often bundle their own PHP runtime. PHP2Shell showed that attackers go after exactly these edge-facing systems.
+
+Organizations should look for PHP across:
+
+Internet-facing websites and web applications
+
+WordPress, Drupal, Joomla, Magento and other PHP-based environments
+
+PHP-FPM and Apache/mod_php deployments
+
+Shared hosting infrastructure
+
+Containers and cloud workloads
+
+Hosting and administration platforms
+
+Commercial applications and appliances that bundle PHP
+
+Legacy systems running unsupported versions of PHP
+
+What needs to be done
+
+Upgrade PHP to 8.5.13, 8.4.28, 8.3.37 or 8.2.36. Linux distributions often backport fixes without changing the version number, so check the package changelog for the CVE IDs instead of relying on php -v.
+
+If you can’t patch today, apply the interim mitigations:
+
+Disable session upload progress: set session.upload_progress.enabled=0 in php.ini or the FPM pool config. It can’t be changed with ini_set(). Restart all workers and verify the value through the web server, not the CLI. Uploads still work; only server-side progress bars stop.
+
+Turn off FastCGI connection reuse (fastcgi_keep_conn in Nginx, enablereuse in Apache).
+
+Disable catch_workers_output in PHP-FPM pools.
+
+On PHP 8.5, set zend.exception_ignore_args=1.
+
+For end-of-life PHP, apply your vendor’s backported fixes or the PHP security team’s source backports, and schedule the migration.
+
+What should organizations do
+
+Find every PHP instance
+
+Inventory PHP across the environment.
+
+Start with internet-facing systems, but include containers, cloud workloads, third-party products, appliances and applications that may bundle PHP internally.
+
+Organizations using external hosting providers should also confirm which PHP version the provider is actually running.
+
+Patch PHP, not just the application
+
+Move supported PHP branches to their appropriate fixed releases.
+
+Do not assume that updating WordPress, Drupal, Magento or another CMS resolves the issue. The underlying PHP runtime must be addressed.
+
+After updating, restart PHP-FPM, Apache or the relevant web service and verify that the patched PHP version is actually running.
+
+Treat unsupported PHP as a priority
+
+Older versions create a different remediation challenge.
+
+PHP’s current lifecycle information shows that PHP 8.1 and earlier are end-of-life. See PHP’s official branch status. [php.net]
+
+For those systems, administrators should check whether their Linux distribution or commercial vendor provides a maintained backport. Where that isn’t possible, migration or isolation should be prioritized.
+
+Reduce exposure where immediate patching isn’t possible
+
+Where vulnerable systems cannot immediately be updated:
+
+Restrict internet access.
+
+Apply access controls where possible.
+
+Segment affected web servers from sensitive internal systems.
+
+Limit unnecessary outbound connectivity.
+
+Consider temporarily taking particularly exposed systems offline.
+
+These measures reduce risk, but they are not substitutes for applying the appropriate PHP security update.
+
+Make sure preventive protections are enabled
+
+Check Point customers should update IPS and verify that the PHP Remote Code Execution protections are active.
+
+The Check Point advisory provides the applicable protection and configuration guidance for Security Gateway customers. Check Point PHP Remote Code Execution protection. [advisories…kpoint.com]
+
+This follows CPR’s earlier operational guidance to keep critical IPS protections updated and use Prevent mode after appropriate validation. [COMMS week…y catch up | Teams]
+
+Don’t stop at patching. Look backward.
+
+Patching closes the vulnerability, but it does not determine whether the system was compromised before it was patched.
+
+That consideration is particularly important now that CVE-2026-109618 appears in CISA’s Known Exploited Vulnerabilities catalog. See the NVD/CISA status. [nvd.nist.gov]
+
+Security teams should therefore investigate vulnerable or previously vulnerable systems for indicators such as:
+
+Web server or PHP processes unexpectedly spawning shells
+
+New or unfamiliar PHP files appearing in web roots
+
+Unexpected outbound connections from web servers
+
+Unusual HTTP requests to PHP endpoints
+
+PHP worker crashes or unexplained service restarts
+
+These behaviors are consistent with the hunting guidance developed in CPR’s PHP2Shell_Threat_Report_CVE-2026-109618_109619. [PHP2Shell_…618_109619 | PDF]
+
+How Check Point protects customers
+
+Check Point has released IPS protections covering both CVE-2026-109618 CVE-2026-109619 Customers with IPS enabled on Check Point Security Gateways are protected.
+
+Stay up to date with the Vulnerability Response Point
+
+When critical vulnerabilities hit, head to the Check Point Vulnerability Response Point for live research as events unfold. It helps you understand:
+
+What’s at risk
+
+What to patch
+
+How to stay protected
+
+Check Point Research continues to monitor for exploitation and will update this post as more becomes known."
+d7c1095ce9f8,d7c1095ce9f8,2026-11-19 17:41 UTC,Vulnerabilities & Patching,Check Point,Check Point Blog,Vulnerability Management; Server & Workload Protection; Network Security,Article,Two Critical NGINX HTTP/2 Flaws: What to Patch First,https://blog.checkpoint.com/security/two-critical-nginx-http-2-flaws-what-to-patch-first/,"Threat intelligence adds context on whether exploit code is public or attacks are underway, so you can rank a flaw like this against everything else on your list","The web server in front of your applications can now be taken over by someone with no login and no help from your own code. Two critical NGINX flaws, CVE-2026-123007 and CVE-2026-123633, make that possible when HTTP/2 is on. F5 and the NGINX project released fixes on November 18, 2026.
+
+Our research team published a full advisory on the NGINX HTTP/2 flaws with version tables, mitigations, and hunting guidance.
+
+Check Point WAF SaaS, Not Vulnerable – Our R&D team assessed these critical NGINX vulnerabilities and found that Check Point WAF as a Service (SaaS) is not vulnerable to them. The way the platform is built and configured doesn’t enable the conditions an attacker would need to exploit them. No customer action is required.
+
+What the flaws do
+
+HTTP/2 lets many requests, called streams, share one connection. NGINX tracks how much data it may send on that connection with a flow-control counter. CVE-2026-123007 breaks that accounting: a canceled stream’s refund pushes the counter past its limit, a later check wraps around, and an invalid length becomes an out-of-bounds memory copy.
+
+The bug has been in NGINX since version 1.9.5, so it covers every release since HTTP/2 support arrived in 2015. Researchers ran code on a server that only served static files, with no backend application and no third-party modules.
+
+CVE-2026-123633 is a use-after-free in connection handling. When NGINX acts as a reverse proxy and runs low on connection slots, it frees a busy connection mid-request and keeps using the memory. It affects NGINX from version 1.19.7.
+
+How CVE-2026-123007 moves from an HTTP/2 session to code execution, with a summary of both flaws
+
+F5 rates both flaws 9.2 on CVSS v4.0. Neither needs authentication. An attacker only has to open an HTTP/2 connection.
+
+Why the front door is key
+
+NGINX typically terminates HTTPS and routes requests to the applications and APIs behind it. One compromised server can expose the traffic, credentials, and secrets for every site it fronts. Failed attempts crash workers, which gives your team a signal to watch.
+
+Researchers also chained a separate, unpatched Linux SCTP flaw to reach root and escape a container. Blocking the SCTP kernel module where you don’t need it closes that path until a kernel fix ships.
+
+Where exploitation stands
+
+A public proof-of-concept exploit exists for CVE-2026-123007, and national CERTs in Japan, Poland, and France issued alerts. As of November 18, 2026, there are no confirmed attacks in the wild, and neither CVE is in the CISA Known Exploited Vulnerabilities catalog.
+
+The public exploit needs about 128 GB of HTTP/2 traffic on one connection and an AVX-512 processor, and it likely fails through a proxy. That slows mass attacks. Targeted attacks face a lower bar.
+
+Three common controls will not carry you here. Researchers defeated ASLR by leaking memory first, WAF rules don’t inspect the HTTP/2 control frames involved, and access logs don’t record them.
+
+Key numbers from the advisory, as of November 18, 2026.
+
+Find your NGINX first
+
+A server is exposed when three things are true: it runs an affected version, it accepts HTTP/2, and an attacker can reach it. Affected versions are NGINX Open Source 1.9.5 to 1.30.6 and 1.31.0 to 1.31.8, plus NGINX Plus 37.x before the fixed builds and NGINX Plus R34 to R36, which get no fix.
+
+Check the version and configuration on the server, then confirm from outside whether it offers HTTP/2. If the second command prints ALPN protocol: h2, HTTP/2 is on.
+
+nginx -v; grep -rnwE 'http2' /etc/nginx/
+
+openssl s_client -connect <host>:443 -alpn h2 </dev/null 2>/dev/null | grep ALPN
+
+Don’t close a finding on the version string alone. Linux distributions often backport fixes without changing the version number, and Ubuntu and Red Hat fixes were still pending on November 18. NGINX inside appliances, ingress controllers, and container images isn’t fixed by operating system updates. The retired Kubernetes ingress-nginx project won’t ship a fix for CVE-2026-123633, so plan a move to a maintained controller.
+
+Where NGINX runs beyond a dedicated web server, and what to do in each case
+
+What to do now
+
+Inventory every NGINX instance, including container images, ingress controllers, load balancers, appliances, and origin servers behind your CDN.
+
+Run the external HTTP/2 check on each internet-facing host and put servers that offer HTTP/2 at the top of the list.
+
+Upgrade internet-facing servers to NGINX 1.30.7 or 1.31.9, or NGINX Plus 37.0.8.1 or 37.3.0.1.
+
+Turn off HTTP/2 on listeners that must wait for a fix. gRPC needs HTTP/2 and breaks without it, so patch those services instead.
+
+Restart NGINX after upgrading, because a reload keeps the old binary. Rebuild container images, then rerun the checks to confirm.
+
+Then hunt for signs of earlier attempts: repeated worker crashes in the error log, NGINX workers starting shells or opening new outbound connections, unusually large and long-lived HTTP/2 sessions, and floods of WINDOW_UPDATE or RST_STREAM frames. None of these proves a compromise, and their absence doesn’t prove a server is safe.
+
+The same release fixes three more critical flaws in the DNS resolver, HTTP/3, and the mail proxy. Turning off HTTP/2 doesn’t block them, so upgrading is the complete fix. Internal servers count too, since an attacker with a foothold in your network can use these flaws to move laterally.
+
+What this means for Check Point WAF customers
+
+Check Point R&D has assessed all five critical NGINX vulnerabilities disclosed in November 2026: CVE-2026-123007, CVE-2026-123633, CVE-2026-123634, CVE-2026-121810, and CVE-2026-113425.
+
+WAF SaaS and WAF Agent Docker deployments (standalone)
+
+Check Point WAF SaaS is not vulnerable to these five vulnerabilities, and neither are Check Point WAF Agent Docker images deployed with Check Point’s default configurations. In both cases, the configuration doesn’t enable the conditions required for exploitation:
+
+HTTP/2 flaws (CVE-2026-123007, CVE-2026-123633): HTTP/2 is disabled on the WAF application listeners.
+
+Resolver flaw (CVE-2026-123634): The standard WAF SaaS configuration and the default WAF Agent configuration don’t enable SSI or mirror subrequests.
+
+HTTP/3 flaw (CVE-2026-121810): HTTP/3 and QUIC aren’t enabled.
+
+Mail proxy flaw (CVE-2026-113425): Neither WAF SaaS nor WAF Agent uses NGINX mail proxy functionality.
+
+WAF SaaS customers aren’t exposed to these five vulnerabilities through the assessed deployment configuration, and no customer action is required.
+
+WAF Agent virtual machine deployments (IaaS)
+
+For WAF Agent deployments that use Check Point-provided VM images, the assessment looks at the deployment architecture and the components handling incoming traffic:
+
+Behind a cloud-managed load balancer (default and recommended): Check Point recommends deploying WAF Agent VMs behind cloud-managed Application Load Balancers (ALBs). Follow your cloud provider’s security advisories and remediation guidance for the managed load balancer infrastructure.
+
+Without a load balancer: Check Point WAF Agent blocks all currently observed exploitation attempts associated with these five vulnerabilities, including where the VM is directly exposed. Check Point still recommends upgrading to the latest WAF Agent version available in the Check Point Portal, which incorporates the official NGINX security fixes.
+
+Behind a customer-managed NGINX front end: If you run a separate NGINX reverse proxy in front of your WAF VMs, assess its version and configuration against the published CVEs and apply the relevant security updates where required.
+
+Updated WAF Agent images for Docker and VM deployments
+
+As an additional security measure, Check Point is preparing updated WAF Agent Docker and VM images based on NGINX version 1.30.7, with the latest official security fixes. Once the updated images are released:
+
+Automatic upgrade enabled: You’ll receive the NGINX security update through the automatic upgrade process, with no manual intervention.
+
+Automatic upgrade disabled: You must upgrade to the latest Check Point WAF Agent version as soon as it’s available.
+
+Check Point strongly recommends keeping automatic upgrades enabled, so security fixes and product updates are deployed on time. You can upgrade your WAF Agent to the latest available version through the Check Point Portal. For details, see the WAF Agent upgrade instructions.
+
+Check Point continues to monitor emerging security vulnerabilities and validate its protection capabilities to maintain the security and resilience of its WAF SaaS platform.
+
+Closing the gap between advisory and action
+
+An advisory gives you a list of affected versions. Your team still has to find where those versions run, which ones an attacker can reach, and which to fix first. That work takes time when NGINX sits in appliances, containers, and servers that nobody has looked at in years.
+
+Exposure management shortens that path. Check Point Exposure Management brings together asset discovery, attack surface management, threat intelligence, prioritization, validation, and remediation guidance in one workflow. It shows where affected software runs across your internet-facing and internal assets, including servers outside your inventory.
+
+Threat intelligence adds context on whether exploit code is public or attacks are underway, so you can rank a flaw like this against everything else on your list. Validation confirms whether an exposure is exploitable in your environment. Remediation guidance then helps your team fix issues in order of risk, with 160+ integrations and a 20-minute agentless setup."
 db3005fbf30b,db3005fbf30b,2026-11-19 13:19 UTC,Vulnerabilities & Patching,Check Point,Check Point Research,AI Security; Endpoint Security; File Security,Article,30 Years of Gatekeeper Asymmetry Doom: The Paradox that Makes Powerful LLMs More Vulnerable,https://research.checkpoint.com/2026/30-years-of-gatekeeper-asymmetry-doom-the-paradox-that-makes-powerful-llms-more-vulnerable/,"Detection models gradually advanced and became more powerful: first an ineffectual shrug, then calculating the domain entropy to catch xrewrgfuvhnadfsajkaldsfj","Abstract
 
 We give an exposition for a principle of gatekeeper asymmetry doom in information security, which states that “If the system vetting adversarial input has strictly less power than the system processing that input, without leveraging some hard problem, this will inevitably lead to doom.” We list a variety of examples where one can see this principle in action, including the limits of static binary classification, the proliferation of sandbox evasions and our own ‘PuzzleMask’ research for bypassing external AI guardrails, as well as a short exposition of how the Time Hierarchy Theorem also exemplifies this same principle. We conclude with a recommendation that “doomed” attack surfaces should be noticed and the gap be narrowed down as much as possible, by upgrading gatekeeper power or making use of its existing power more comprehensively. We note that frontier LLMs (with scaffolding, extended reasoning, code execution in the chain of thought, and so on) have significant power in this sense and can meaningfully contribute to narrowing “doom” gaps, though ultimately, they themselves are still subject to this principle.
@@ -944,61 +1304,6 @@ That same month, the agency also added a Cisco Secure Firewall Management Center
 Changing providers to one with fewer flaws is an option, but swapping vendors swaps one Achilles’ heel for another, he pointed out, as every vendor’s edge device has a web portal, and every web portal is a door. “The remedy is fewer doors,” he advised. “Shrink the internet-facing edge and put remote access behind one consistent identity policy.”
 
 Ultimately, he noted, a firewall is not a wall, it is a computer sitting on the internet. “Attackers are treating it like one,” he said. “Security teams should defend it like one.”"
-a23411b2405f,a3d815e35bcf,2026-11-13 13:35 UTC,Vulnerabilities & Patching,Check Point,The Hacker News,Server & Workload Protection; Endpoint Security; Vulnerability Management; Network Security,Article,Hackers Exploit PHP2Shell Flaws in Check Point Gateways to Deploy TSGA Backdoor and Wipe ESXi Files,https://thehackernews.com/2026/11/hackers-exploit-php2shell-flaws-in.html,"""The issue is a local privilege escalation and requires the attacker to already have local code execution on the appliance,"" Check Point said, adding it ""observed an active...","An unknown threat actor has been observed targeting unpatched Check Point Security Gateways to obtain initial access via the PHP2Shell vulnerabilities and then a previously unreported local privilege escalation flaw in Gaia OS to deploy a backdoor called TSGA.
-
-The activity, detailed by Check Point, began on October 30, 2026, and targeted Israeli organizations, with a broader follow-up wave on November 2, 2026, that targeted organizations across multiple countries and sectors. Some of the organizations singled out in the first wave have also been at the receiving end of destructive actions that include the deployment of wiper malware.
-
-""PHP2Shell provided initial access, followed by privilege escalation through the DynamicCLI interface, tracked as CVE-2026-123039,"" Check Point said. ""The attackers then deployed PHP web shells, the persistent TSGA backdoor, and its embedded TSProxy networking component.""
-
-""The attackers pivoted from the gateway to a VMware ESXi host over SSH, deployed the destroy_v6 wiper, and left politically themed DREAM_ANNEXATION.txt notes during the destructive stage.""
-
-CVE-2026-123039 (CVSS score: 7.8) is a missing authorization flaw that could enable privilege escalation to root in the DynamicCLI process, enabling any authenticated local user to run arbitrary commands by writing a single request to the socket.
-
-""The issue is a local privilege escalation and requires the attacker to already have local code execution on the appliance,"" Check Point said, adding it ""observed an active exploit of this vulnerability against a couple of dozen customers.""
-
-The issue impacts versions R82.20, R82.10, R82, R81.20, R81.10, and R81 of the following products -
-
-Check Point Force Firewalls
-
-Check Point Management and Log Servers
-
-Multi-Domain Security Management and Multi-Domain Log Server
-
-Maestro Orchestrator
-
-""In late October 2026, approximately one week after a security fix became available, activity originating from 130.94.19[.]204 targeted Israeli organizations through vulnerable Mobile Access portals on Check Point Security Gateways,"" Check Point said.
-
-""Evidence suggested some cases of a successful compromise, with exploitation activity consistent with PHP2Shell, associated with CVE-2026-109618 and CVE-2026-109619.""
-
-After obtaining initial access, the unknown hacking group is said to have escalated privileges from the portal service account to root by weaponizing CVE-2026-123039 and deploying PHP web shells with an aim to establish persistent access. The web shells support command execution and file upload capabilities.
-
-The November 2, 2026, wave is said to have targeted some Israeli organizations that had already been targeted in the first wave, alongside other organizations worldwide, without demonstrating any specific geographic or sector preference, indicating an opportunistic initial-access effort.
-
-The access afforded by the web shell paves the way for TSGA, a standalone passive backdoor that also includes a second component called TSProxy. TSGA, deployed as slot_CPconfigdaemon, has been described as a Linux gateway implant with Check Point-specific functionality, offering encrypted remote access, configuration theft, backup and snapshot persistence, process injection, and binary firewall-log tampering.
-
-""[TSProxy's] injection code loads this library into selected appliance processes, where it intercepts networking functions to handle specially marked attacker connections while allowing ordinary traffic to continue,"" Check Point said. ""This combines a persistent standalone backdoor with concealed access through existing appliance services.""
-
-Some of the other post-exploitation actions observed are listed below -
-
-Deploying the gogo scanner on the gateway to discover internal assets and services across the network.
-
-Moving laterally to a VMware ESXi host over SSH by authenticating with the vpxuser service account.
-
-Staging a Linux ELF wiper called destroy_v6 and executing it. The malware recursively traverses the target directory and deletes all files regardless of their extension. It also attempts to overwrite files with zeros before deleting them.
-
-Dropping a note named ""DREAM_ANNEXATION.txt"" in each processed directory.
-
-Both TSGA and TSProxy are assessed to be Check Point-specific components of a toolkit dubbed PhiliKit that was first documented by ESET in June 2026, attributing it to a China-nexus cyber espionage group tracked as Armory Castle (formerly UNC5221).
-
-Other factors that point to the involvement of a possible China-aligned threat actor include the use of LightNode VPS infrastructure and the fact that scanning activity was concentrated between 12 and 9 a.m. UTC, coinciding with typical Chinese working hours.
-
-However, the cybersecurity company said it does not have enough evidence to link the latest campaign to the threat actor or other known Chinese-nexus groups, citing the following reasons -
-
-Use of wiper malware
-
-Focus on Israel and explicit references to the Israeli-Palestine conflict in the wiper note
-
-""Taken together, the evidence does not allow us to assess with high confidence the true nature of this operation,"" Check Point said. ""Several scenarios remain plausible: the identified actor ran the entire campaign, acted solely as an initial access broker, or took part in a false-flag operation. It is also possible that the destructive activity served as a smoke screen."""
 3e67c6897915,3e67c6897915,2026-11-12 15:25 UTC,Product & Roadmap,Check Point,Check Point Blog,AI Security; Threat Intelligence; Vulnerability Management; Attack Path Prediction,Article,Check Point Extends Its Penetration Testing Capabilities,https://blog.checkpoint.com/security/check-point-extends-its-penetration-testing-capabilities/,Attackers rarely need one critical flaw; they chain small weaknesses into a full attack path,"The Check Point Services organization is extending its penetration testing capabilities with deeper, adversary-led engagements. Customers can now choose anything from a scoped penetration test to an objective-based engagement. Each engagement shows three things: how an attacker could break into the environment, how far the attacker could get, and whether the security team would detect the attack. And because environments never stand still, the testing is proactive and continuous, not a one-time project.
 
 Key Takeaways
@@ -1078,139 +1383,6 @@ See how a determined attacker would approach your environment. Contact us here.
 About the Check Point Services Organization
 
 The Check Point Services organization offers a broad portfolio of cyber security services that help organizations manage risk, build resilience, and stay ahead of evolving threats. More than 5,000 enterprise customers trust it. The portfolio spans proactive assessments, professional services, managed security services, incident response, security training, and more. Backed by Check Point’s threat intelligence and a global team of cyber security experts, it helps organizations protect their IT and AI environments with the expertise they need, when they need it."
-3d0a046b53a3,a3d815e35bcf,2026-11-12 13:58 UTC,Vulnerabilities & Patching,Check Point,Check Point Blog,Vulnerability Management; Network Security,Article,Security Advisory: Active Exploitation of PHP2Shell and Local Privilege Escalation,https://blog.checkpoint.com/security/security-advisory-active-exploitation-of-php2shell-and-local-privilege-escalation/,"In the observed incidents, the attacker exploited PHP2Shell to gain initial access, then used a local privilege escalation vulnerability to obtain root privileges and establish...","Check Point Research has identified active, in-the-wild exploitation of PHP2Shell, a vulnerability in PHP that also affects Check Point Security Gateways. In the observed incidents, the attacker exploited PHP2Shell to gain initial access, then used a local privilege escalation vulnerability to obtain root privileges and establish persistence.
-
-Security fixes for Check Point Security Gateway and Management were available one week before the attack, on October 23rd. Only a couple of dozen unpatched systems, in a single region, were compromised in the observed incidents. Affected customers were notified in real time. Check Point Research, through its Incident Response teams, worked to remediate affected systems.
-
-We recommend that customers install the November Jumbo Hotfix on all Management Servers and Security Gateways as soon as operationally possible.
-
-Overview
-
-As part of BLAST and our Frontier AI Readiness Program, Check Point continues to release monthly security fixes that include fixes for vulnerabilities and security hardening.
-
-Recent security incidents, such as PHP2Shell (CVE-2026-109618, CVE-2026-109619) and HTTP2Shell, also known as Node2Shell (CVE-2026-111497), a Brotli decompression vulnerability affecting Node.js and other software, led us to release hotfixes that are now part of the November Jumbo Hotfix.
-
-Check Point is reporting active exploitation of PHP2Shell together with a local privilege escalation vulnerability (CVE-2026-123039). Indicators of compromise are shared below to help customers investigate.
-
-Vulnerability Summary
-
-CVE
-
-Description
-
-CVSS
-
-Affected Products
-
-Affected Versions
-
-In the Wild
-
-SK
-
-CVE-2026-123039
-
-Local Privilege Escalation in the Gaia OS Dynamic CLI Service
-
-7.8
-
-Gaia
-
-R82.20, R82.10, R82, R81.20
-
-Yes
-
-sk1000362
-
-CVE-2026-107484
-
-Privilege escalation in Gaia Portal backend handlers by an authenticated user
-
-7.3
-
-Gaia WebUI
-
-All versions from R80 to R82.20
-
-No
-
-sk1000291
-
-CVE-2026-120490
-
-Management-to-Gateway Access via NAT Rule: privilege boundary bypass
-
-3.8
-
-Management Servers and Security Gateways
-
-R81.20, R82
-
-No
-
-sk1000364
-
-CVE-2026-109618, CVE-2026-109619
-
-PHP2Shell: unauthenticated remote code execution via firewall web interfaces
-
-9.2
-
-Security Gateways (Mobile Access Portal)
-
-All versions from R80 to R82.20 Spark Firewalls R81.10.x, R82.00.x, R77.20.x, R80.20.x
-
-Yes
-
-sk1000302
-
-Observed Attacks
-
-Check Point Research investigated the exploitation of a chain of PHP2Shell and the Dynamic CLI privilege escalation vulnerability against internet-facing gateways. Exploitation activity dates back to October 30 and was observed as active until November 4.
-
-Initial access was gained through exploitation of PHP2Shell in the Mobile Access Portal. While a hotfix for PHP2Shell has been available since October 23rd, we included it in this November Jumbo Hotfix. The privilege escalation vulnerability was then required to elevate permissions.
-
-This activity provided initial access to the customer network and, in many cases, led to a foothold in the network. In a limited number of cases, the attack also involved destructive activity and was ideologically motivated.
-
-Check Point Research, through our Incident Response teams, contacted affected customers on the day the investigation started and worked to remediate affected systems.
-
-Indicators of Compromise
-
-The full technical analysis, hunting details, and IOCs can be found on the Check Point Research blog .
-
-The indicators below were observed during this investigation. Absence of a match does not rule out compromise, and presence of a match warrants immediate investigation.
-
-Scanning and Reconnaissance Source Addresses
-
-130.94.19[.]204
-
-130.94.19[.]168
-
-Additional Indicators
-
-PHP session files containing the string upload_progress_pwn.
-
-A process or binary masquerading as a legitimate Check Point component using the naming pattern CPconfigdaemon.
-
-Scanning or wiper tooling dropped under /tmp or /temp, such as files with scanner or wiper in the name.
-
-A ransom-style note file referencing “Dream Annexation” with no payment demand.
-
-Unexplained gaps in firewall traffic logs, particularly following a crash of the logging daemon.
-
-Recommended Actions
-
-Install the November Jumbo Hotfix on all Management Servers and Security Gateways.
-
-Prioritize upgrades of internet-facing Mobile Access deployments.
-
-Solution
-
-Install the November Jumbo Hotfix on all Management Servers and Security Gateways. [Link to SK article — to be added before publication.]
-
-Need Support?
-
-Contact Check Point Support for help assessing exposure, mitigating risk, or installing the hotfix."
 12c69006eb43,a3d815e35bcf,2026-11-12 13:56 UTC,Vulnerabilities & Patching,Check Point,Check Point Research,Vulnerability Management; File Security; Server & Workload Protection; Endpoint Security,Article,PHP2Shell Exploitation on Check Point Gateway,https://research.checkpoint.com/2026/php2shell-exploitation-on-check-point-gateway/,"TSGA and TSProxy are modified variants of PhiliKit, a malware framework previously documented in attacks exploiting Ivanti vulnerabilities","Key findings
 
 Beginning on 30 October 2026, an attacker executed scanning and exploitation activity against organizations with unpatched Check Point Security Gateways, using Mobile Access portals with PHP2Shell as initial access followed by CVE-2026-123039.
@@ -1346,45 +1518,6 @@ libdssafe.so
 130.94.19[.]168
 
 The post PHP2Shell Exploitation on Check Point Gateway appeared first on Check Point Research."
-c9ee44728591,c9ee44728591,2026-11-12 13:05 UTC,"Policy, Legal & Compliance",Check Point,Check Point Blog,Network Security; AI Security; Data Security Posture Management; Vulnerability Management,Article,Check Point Expands Its FedRAMP Certification to Include Check Point WAF,https://blog.checkpoint.com/security/check-point-expands-its-fedramp-certification-to-include-check-point-waf/,"As government organizations move services online, deploy citizen self-service portals, connect APIs, and integrate AI into mission-critical workflows, every new capability...","The federal, state, local government, and education sectors are under growing cyber pressure, and the attack surface is shifting to where they now serve citizens most. According to Check Point’s 2026 Cyber Security Report, government organizations faced an average of 2,680 cyber-attacks per organization each week in 2025, a 17% increase from 2024, making government the second most targeted sector worldwide. As government organizations move services online, deploy citizen self-service portals, connect APIs, and integrate AI into mission-critical workflows, every new capability creates a new entry point. A successful attack doesn’t just disrupt IT-it can interrupt essential services, expose sensitive citizen records, compromise internal secrets, and undermine public trust.
-
-The data reflects that reality. Verizon’s 2026 Data Breach Investigations Report recorded 3,634 public-sector incidents and 2,410 confirmed data disclosure breaches, with exploitation of vulnerabilities accounting for 40% of initial access, and personal data, internal data, and secrets among the most compromised. That makes runtime web application and API protection especially critical for government organizations running legacy systems, third-party applications, and public-facing services that cannot always be patched immediately.
-
-Check Point has been addressing this risk inside government trust and compliance requirements since achieving FedRAMP Certification for its Check Point Platform for Government in 2025. Now Check Point is expanding its FedRAMP-Certified packages to include Check Point WAF, bringing prevention-first web application security, API protection, Bot mitigation, DDoS defence, CDN-integrated delivery, and GenAI application security into the same government-certified platform.
-
-Security Built for Modern Government Applications
-
-Government organizations no longer operate static websites. Today’s public sector runs digital citizen portals, API-driven benefit and payment systems, cloud-native applications, and AI-enabled interfaces that connect identity, records, contractors, and partner organizations across the public sector. This growing interconnection makes the application layer more dynamic, complex, and exposed.
-
-AI is also transforming both the speed of attacks and the security model required to stop them. Frontier AI technologies demonstrate how vulnerabilities can be discovered and validated autonomously at unprecedented speed and scale. Attackers are already using AI-powered tools to generate payload variations and exploit weaknesses faster, making signature-based protection increasingly ineffective. As a result, pre-emptive, AI-driven prevention that can stop unknown attacks without signatures or emergency updates is becoming essential.
-
-Modern Web Application and API Protection (WAAP) must secure far more than a single website or API endpoint. Government organizations need prevention-first protection across the entire application environment, including:
-
-Pre-emptively prevent known, unknown, and zero-day web and API attacks before they reach the application
-
-End-to-end API security with automated discovery, schema validation and authentication enforcement
-
-Availability of critical services with strong bot mitigation and DDoS protection against automated abuse and disruption
-
-Block GenAI application attacks including prompt injection, data leakage and harmful content
-
-Simplify operations with centralized management that reduces tool sprawl and complexity across the full application stack
-
-Check Point WAF brings all these capabilities into a single consolidated platform, purpose-built for the modern application reality that government organizations face today. By adding it to the FedRAMP certified packages, federal organizations can now secure public-facing applications and APIs through the same government-certified platform they already trust with the prevention, visibility, and control needed to protect modern application environments without adding complexity or managing separate tools for every risk.
-
-Why This Matters Now
-
-The public-sector application attack surface is expanding quickly as government organizations modernize services, expose more APIs, and begin adopting AI-enabled workflows. At the same time, AI is accelerating the speed at which attackers find and exploit those weaknesses.
-
-According to Check Point 2026 Cloud Security Report, 70% of organizations run GenAI workloads in production, yet visibility has not kept up. Only 5% of organizations have full visibility into how AI is used, and just 14% actively enforce and audit an AI security policy.
-
-PHP2Shell shows how fast the window closes. Two critical PHP flaws, each rated 9.2 on the CVSS scale, let an attacker run code on a server with one crafted request, with no password, account, or user interaction. Attacks started before the patch landed on October 21, 2026, and government organizations took sites offline to cope. Check Point WAF preemptively blocked PHP2Shell with no signature, rule, or configuration change.
-
-This is why expanding Check Point’s FedRAMP certification packages to include Check Point WAF matters. It is not just another security product. It is a way to help public-sector organizations protect the applications, APIs, and digital services that citizens, employees, contractors, and partners depend on every day.
-
-Available Through the FedRAMP Marketplace
-
-Check Point is listed on the FedRAMP Marketplace, with Check Point WAF included in the certification, making it easier for federal mission owners to discover, evaluate, and procure the solution."
 75c5406bd929,75c5406bd929,2026-11-11 00:00 UTC,Vulnerabilities & Patching,Check Point,ZDI Published Advisories,Vulnerability Management,Article,ZDI-26-950: (0Day) Meta FAIRChem migrate_checkpoint Deserialization of Untrusted Data Remote Code Execution Vulnerability,http://www.zerodayinitiative.com/advisories/ZDI-26-950/,Vulnerability Details This vulnerability allows remote attackers to execute arbitrary code on affected installations of Meta FAIRChem,"Vulnerability Details
 
 This vulnerability allows remote attackers to execute arbitrary code on affected installations of Meta FAIRChem. User interaction is required to exploit this vulnerability in that the target must visit a malicious page or open a malicious file.

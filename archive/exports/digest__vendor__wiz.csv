@@ -1,4 +1,199 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3e2dd44bc894,99d6c260eab2,2026-11-19 21:46 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Vulnerability Management; Server & Workload Protection,Article,phpAfterShell and Critical PHP RCE Vulnerabilities: Everything You Need To Know,https://www.wiz.io/blog/phpaftershell-critical-php-rce-vulnerabilities-cve-2026-126714,"phpAfterShell: File-Based Session Handling (CVE-2026-126714) Reported by depthfirst, this vulnerability exists in PHP’s default file-based session handler (session","On November 19, 2026, the PHP group published security updates addressing 17 vulnerabilities across all actively supported branches (PHP 8.2, 8.3, 8.4, and 8.5). Seven of these flaws are rated Critical (CVSS 9.2) and present direct pathways to unauthenticated remote code execution (RCE). Security teams are advised to identify and patch exposed PHP deployments, as earlier mitigation efforts implemented during October's response to ""PHP2Shell"" do not provide protection against all of these new exploit vectors. As of yet, no exploitation in the wild has been observed by Wiz or mentioned in public reporting.
+
+What are these vulnerabilities?
+
+phpAfterShell: File-Based Session Handling (CVE-2026-126714)
+
+Reported by depthfirst, this vulnerability exists in PHP’s default file-based session handler (session.save_handler = files). When PHP writes session update progress (such as during unauthenticated file uploads), the file-write process is not atomic. If a PHP worker process is abruptly stopped during this write, due to memory limits or timeout settings, it can leave behind a partially written, malformed session file.
+
+When a subsequent request calls session_start(), PHP attempts to deserialize this file. If the file's contents are carefully structured, this deserialization process can be manipulated to trigger an object deserialization primitive. This behavior bypasses the initial parameters set during October's PHP2Shell patches, making a fresh update necessary to secure file-based session pipelines.
+
+PHP-FPM Request Smuggling (CVE-2026-129289)
+
+This issue centers on how PHP-FPM processes unread request-body bytes before reusing a persistent connection. In environments where the front-end web server (such as Nginx or Apache) is configured to keep FastCGI connections open to the FPM backend, an unauthenticated user can structure a request to append a secondary, hidden FastCGI request within the request body.
+
+Because the backend does not discard the leftover bytes, the subsequent request handled over that same connection executes the smuggled instructions. This allows a request to bypass front-end routing rules and execute with the privileges of the active FPM worker.
+
+Wiz Research data: what’s the risk to cloud environments?
+
+The overall risk depends largely on your environment's configuration. PHP remains widely used, powering approximately 70% of websites with known server-side languages. While the technical severity of these bugs is high, executing them successfully requires specific conditions. For instance, phpAfterShell (CVE-2026-126714) requires file-based sessions (the PHP default) and relies on finding an exploitable gadget chain in the application's code (which isn’t guaranteed to exist in every application) to achieve code execution.
+
+Importantly, the vast majority of the other critical vulnerabilities in this release require non-default configurations or uncommon setups, such as enabling runtime-mixed session serializers, enabling PHP 8.5 exception arguments (zend.exception_ignore_args = 0), or writing startup warnings to a file-based error log on non-thread-safe builds. This ultimately means that default installations are naturally insulated from many of these vectors.
+
+Which products are affected?
+
+Affected Versions
+
+Patched Versions
+
+Support Status
+
+PHP 8.5 < 8.5.13
+
+8.5.13
+
+Active Support
+
+PHP 8.4 < 8.4.28
+
+8.4.28
+
+Active Support
+
+PHP 8.3 < 8.3.37
+
+8.3.37
+
+Active Support
+
+PHP 8.2 < 8.2.36
+
+8.2.36
+
+Security-only support (Ends December 2026)
+
+PHP 8.1 and earlier
+
+No Official Fix
+
+End-of-Life (EOL). These versions do not receive security backports.
+
+Which actions should security teams take?
+
+A. Plan a Routine Upgrade
+
+Plan to update your PHP installations to 8.5.13, 8.4.28, 8.3.37, or 8.2.36 (or 8.6.0).
+
+Rebuild affected container images and restart the PHP-FPM master service or web server process to ensure the newly patched binaries are active in memory.
+
+B. Temporary Configuration Adjustments (If patching is delayed)
+
+Disable Session Upload Progress: If your application does not require tracking upload progress, disabling this feature in php.ini mitigates the primary attack path for phpAfterShell (CVE-2026-126714) in particular: session.upload_progress.enabled = 0
+
+Disable FastCGI Connection Reuse: Block the PHP-FPM request smuggling vector by configuring Nginx (fastcgi_keep_conn off) or Apache (enablereuse=off) to close backend connections immediately.
+
+Configure Exception Arguments (PHP 8.5): Ensure exception arguments are omitted to mitigate CVE-2026-129474: zend.exception_ignore_args = 1
+
+Wiz customers can use the pre-built query and advisory in the Wiz Threat Center to search for vulnerable instances in their environment.
+
+References
+
+PHP changelog
+
+DepthFirst phpAfterShell blogpost
+
+Precursor Security blogpost
+
+PHP’s November release CVEs:
+
+CVE
+
+Severity
+
+Description
+
+CVE-2026-129289
+
+Critical 9.2
+
+PHP-FPM Request Smuggling: Allows unauthenticated attackers to execute PHP code when FastCGI connection reuse is active on the front-end proxy.
+
+CVE-2026-126714
+
+Critical 9.2
+
+phpAfterShell: Non-atomic session file writes during upload progress can be interrupted, leaving malformed data that triggers RCE upon deserialization.
+
+CVE-2026-115560
+
+Critical 9.2
+
+Session Serializer Mismatch: Mismatched read/write serializers on a shared session store with upload progress enabled can lead to object deserialization.
+
+CVE-2026-129496
+
+Critical 9.2
+
+Timezone Cache Use-After-Free: Triggered by startup warnings written to a file-based error log on non-thread-safe builds, leading to potential worker crashes.
+
+CVE-2026-129481
+
+Critical 9.2
+
+Interrupted Session Shutdown Use-After-Free: An incomplete fix for October's PHP2Shell vulnerability (CVE-2026-109619).
+
+CVE-2026-129474
+
+Critical 9.2
+
+Magic Method Backtrace Use-After-Free: Affects PHP 8.5 deployments when exception arguments are explicitly enabled (zend.exception_ignore_args = 0).
+
+CVE-2026-129182
+
+Critical 9.2
+
+Fatal Error Backtrace Use-After-Free: A secondary post-shutdown vector affecting PHP 8.5, building upon October's PHP2Shell flaws.
+
+CVE-2026-129291
+
+High 8.8
+
+PHP-FPM Worker Escalation: Use-after-free issue allowing local users to escalate privileges from an FPM worker to the FPM master (often running as root).
+
+CVE-2026-127960
+
+High 8.7
+
+HTTP Denial of Service: Specially folded HTTP response headers from a malicious remote server can cause excessive CPU utilization.
+
+CVE-2026-128064
+
+High 8.2
+
+Cleartext Stream Wrapper Leak: Capitalized protocol schemes (e.g., HTTPS:// or FTPS://) cause stream wrappers to transmit data unencrypted.
+
+CVE-2026-128090
+
+High 7.7
+
+Phar Signature Bypass: Attackers with write access to a signed Phar archive can downgrade the OpenSSL signature verification to a basic hash.
+
+CVE-2026-129538
+
+Medium 6.9
+
+PHP-CGI Out-of-Bounds Read/Write: Occurs under inconsistent path mapping environments when using the legacy PHP-CGI binary.
+
+CVE-2026-129501
+
+Medium 6.3
+
+DOM XML Double Free: Memory corruption triggered when executing saveXml() on specifically manipulated XML or HTML inputs.
+
+CVE-2026-15353
+
+Medium 6.3
+
+SOAP Information Disclosure: Information leak affecting SOAP client or endpoint parsing.
+
+CVE-2026-129506
+
+Medium 6.3
+
+SOAP Use-After-Free: Memory corruption vector targeting exposed SOAP endpoints processing DTD entities.
+
+CVE-2026-129438
+
+Medium 6.3
+
+URI Serialization Bug: Incorrect RFC 3986 compliance serialization when processing exceptionally large, malformed URIs.
+
+CVE-2026-129292
+
+Medium 5.3
+
+PHP-FPM Status Page XSS: Cross-site scripting vulnerability triggerable when an operator views the FPM full status page in a browser."
 03c6645c6f44,99d6c260eab2,2026-11-18 15:13 UTC,Vulnerabilities & Patching,Wiz,Wiz Blog,Server & Workload Protection; Vulnerability Management,Article,Unauthenticated Remote Code Execution in NGINX: CVE-2026-123633 and CVE-2026-123007,https://www.wiz.io/blog/nginx-http2-rce-vulnerabilities,"This changes not only which vulnerabilities can be found, but how quickly longstanding risks can become real threats","Executive Summary
 
 Wiz Research, Ikotas Labs, Metnir, Rapid7, and Xint independently uncovered two critical remote code execution vulnerabilities in NGINX, software used to receive and route traffic to production applications and APIs.
@@ -3136,317 +3331,3 @@ bd1aeee419ea36da9aa2b657288da4101887be468f020ac63d22ba6ed84a3ea5
 docker.io/litellm/litellm linux/arm64
 
 56b74573eed6e4aafe4b50603dbe7853e0345f188c8e44a09f1098caf1f4bcdf"
-8493a8710338,8493a8710338,2026-10-20 22:02 UTC,General Security News,Wiz,Wiz Blog,Container Security; Identity Security Posture Management; Vulnerability Management,Article,"Wiz Sensor on GKE. 1-Click Runtime Protection, Now Native.",https://www.wiz.io/blog/wiz-sensor-on-gke-1-click-runtime-protection-now-native,"By correlating vulnerabilities with network exposure, identity permissions, and sensitive data access, Wiz maps critical attack paths and surfaces only the risks that truly...","The Runtime Gap That Slows Teams Down
-
-Containers have changed how modern applications are built and shipped, enabling rapid microservice deployments, agile CI/CD pipelines, and now high-performance AI workloads. But as clusters scale across environments, catching threats in production remains a major operational hurdle.
-
-Static vulnerability scanners and pre-deployment image checks examine artifacts at rest. They are essential for catching setup flaws early, but they cannot stop active exploits, live reverse shells, privilege escalations, or zero-day execution paths unfolding in node memory.
-
-The Wiz approach starts with agentless scanning, to build a continuous, full-stack view of your environment through the Security Graph. By correlating vulnerabilities with network exposure, identity permissions, and sensitive data access, Wiz maps critical attack paths and surfaces only the risks that truly matter, cutting through alert fatigue before a single line of runtime code runs.
-
-But posture alone cannot stop active threats. You need runtime protection. Yet security and platform engineering teams have historically been caught in a frustrating trade-off:
-
-Deployment friction: Manually orchestrating third-party Helm charts and manifests across dozens or hundreds of clusters creates an ongoing administrative tax.
-
-Credential sprawl: Distributing and rotating registry tokens and API keys across individual namespaces introduces unnecessary risk and management overhead.
-
-Governance blind spots: Newly provisioned clusters often go live without runtime coverage before security teams even realize they exist.
-
-Performance anxiety: Platform leads worry that unbudgeted agent overhead will starve business-critical workloads of CPU and memory.
-
-To eliminate this friction, runtime protection cannot be an afterthought. It must be native, platform-managed, and built directly into the cloud or hybrid environments’ fabric.
-
-Announcing Native Wiz Runtime Protection on GKE
-
-Today, Google Cloud and Wiz are excited to introduce the Wiz Runtime Sensor add-on for Google Kubernetes Engine (GKE) in Preview.
-
-Available directly within the GKE platform for both GKE Standard and GKE Autopilot clusters, this first-party integration transforms how teams deploy and manage in-cluster runtime security. Instead of manually managing third-party agents, GKE handles Wiz Sensor deployment, credential injection, and lifecycle updates automatically through the control plane.
-
-Why This Integration Makes Runtime K8s Security Easier
-
-Turn it on with 1 click: Enable runtime protection at cluster creation or on existing clusters with a single gcloud flag (--addons=WizSensor=ENABLED) or through the Google Cloud Console.
-
-Zero credential distribution: Leveraging GKE’s native Secret Manager integration and Workload Identity Federation, API keys and pull tokens are vaulted off-cluster. Secret rotations in Secret Manager automatically resynchronize without requiring cluster restarts or pod redeployments.
-
-Fleet-wide governance with Organization Policy: Platform security leads can mandate runtime protection across projects, folders, or entire organizations using custom Google Cloud Organization Policies. Unprotected cluster creation attempts are automatically blocked before workloads go live.
-
-Predictable, kernel-level eBPF observability: Operating in kernel space via eBPF, the sensor monitors system calls, active processes, and network sockets with fixed per-node resource limits, safeguarding workload performance even under heavy traffic spikes.
-
-Decoupled security updates: Sensor detection rules and threat definitions update independently of GKE cluster patch versions, node pool recreations, or workload maintenance windows.
-
-Threat Detection in Action
-
-Once active, the Wiz Sensor continuously monitors for high-risk runtime behaviors, including reverse shells, binary executions from /tmp, image drift, and privilege escalation attempts.
-
-When an incident occurs, such as a container spawning an unauthorized interactive shell while modifying system files, the sensor flags the event instantly. Within seconds, a high-fidelity alert surfaces on the Threats page in the Wiz Portal, highlighting the exact pod, namespace, container image, and execution context.
-
-Agentless + Sensor = Better Together
-
-Runtime alerts in isolation often trigger alert fatigue for SOC teams. A process anomaly on an isolated development pod shouldn't carry the same urgency as an exploit on a production service with access to sensitive cloud data.
-
-By combining Agentless Snapshot Scanning with the runtime Sensor for GKE clusters, Wiz delivers powerful capabilities across two dimensions:
-
-Dimension 1: Active risks
-
-Agentless scanning tells you what could be exploited. The Runtime Sensor tells you what is. Together, they eliminate noise across three layers:
-
-Layer
-
-What Wiz Detects
-
-SCA with Runtime Validation
-
-Vulnerabilities actively executing in memory. Examples: 45 CVEs → only 2 libraries loaded and running.
-
-Toxic Combinations of Risks
-
-Co-existing risk factors on the same workload. Examples: Executing CVE + hardcoded secret + overprivileged IAM + sensitive data access.
-
-Runtime Risks
-
-Live workload behavior the sensor observes. Examples: Active network communication to sensitive GCS bucket, unexpected outbound IP, credential access never seen before.
-
-Dimension 2: Full container context
-
-Second, when a runtime threat fires on a GKE workload, Wiz doesn't hand you a bare alert. Because agentless scanning has already mapped the entire container estate, every detection arrives pre-enriched with the full Kubernetes blast radius:
-
-Layer
-
-What Wiz Detects
-
-Container context
-
-Image-level posture enriching the alert. Examples: Vulnerabilities, loaded libraries, running processes, exposed secrets.
-
-Pod context
-
-Workload identity and privilege context. Examples: Privileged namespace, network exposure, workload identity.
-
-Cluster context
-
-Kubernetes-level security posture. Examples: KSPM misconfigs, RBAC posture, audit log anomalies.
-
-GCP Control Plane
-
-Cloud-level blast radius. Examples: Node pool IAM permissions, sensitive data reachability, lateral movement paths
-
-A SOC analyst responding to a suspicious process on a GKE pod immediately sees whether that pod runs in a privileged namespace, whether its service account has broad GCP project permissions, and whether there's a live path to sensitive data, all without pivoting across tools.
-
-The Bigger Picture: Full Lifecycle Container Protection
-
-The 1-click GKE sensor delivers runtime defense as part of a unified, code-to-cloud container security stack across Google Cloud:
-
-Start in CI/CD: Scan Dockerfiles, application code, and IaC templates in Google Cloud Build pipelines using the Wiz CLI. Passing images get cryptographically tagged into Wiz’s Trusted Image Database.
-
-Artifact Registry Visibility and Scans: Automatically discover and continuously scan Google Artifact Registry (GAR) images for newly disclosed CVEs, even behind VPC Service Controls.
-
-Deploy-Time Gatekeeping: The Wiz Admission Controller intercepts GKE deployment requests to verify image signatures and enforce immutable digest pinning, stopping unverified or vulnerable images before pods launch.
-
-Posture & Toxic Attack Paths: Kubernetes Security Posture Management (KSPM) evaluates GKE clusters against CIS Benchmarks. The Wiz Security Graph correlates risk factors, such as an internet-facing GKE pod bound via Workload Identity to an over-permissioned GCP Service Account (roles/storage.admin).
-
-Control Plane & Cloud Audit Logs: Ingest GCP Admin Activity Logs and GKE Control Plane Audit Logs via GCP Pub/Sub to catch control-plane threats, such as unauthorized kubectl exec commands or unexpected node pool creations.
-
-What's Next
-
-Together, Google Cloud and Wiz are committed to making security turnkey across every compute form factor by extending 1-click sensor deployment and Organization Policy governance to serverless workloads in Google Cloud Run and virtual machines (GCE), offering WizOS Hardened Images for pre-installed container and Helm chart security, and delivering optimized telemetry for short-lived, high-density AI and ephemeral workloads on GKE.
-
-Get Started Today
-
-Security should enable cloud innovation, not slow it down. By integrating eBPF runtime threat detection directly into GKE as a managed platform add-on, Google Cloud and Wiz have eliminated traditional deployment complexity.
-
-Explore the Google Cloud GKE Documentation and Wiz Documentation (login required) to enable the Wiz Sensor add-on on your clusters today."
-c4bbcf2b5dce,c4bbcf2b5dce,2026-10-20 20:03 UTC,"Attacks, Breaches & Threat Intel",Wiz,Wiz Blog,Threat Intelligence; AI Security; Email and Collaboration Security; Identity Security Posture Management,Article,From Phishing to LLMjacking: Threat Actors Targeting Cloud Billing Accounts for LLM Usage,https://www.wiz.io/blog/from-phishing-to-llmjacking,"Threat actors are not only using AI as a tool to conduct attacks, they are also compromising victim environments solely to abuse their finances for mass Large Language Model...","The Wiz Customer Incident Response Team (CIRT) has investigated a rising threat pattern in cloud environments: threat actors hijacking cloud billing accounts to fund unauthorized AI usage. Threat actors are not only using AI as a tool to conduct attacks, they are also compromising victim environments solely to abuse their finances for mass Large Language Model (LLM) execution, incurring hundreds of thousands of dollars in AI API charges.
-
-Wiz CIRT has investigated multiple intrusions demonstrating this pattern, with this blogpost focusing specifically on campaigns targeting Google Cloud Platform (GCP) infrastructure. In these attacks, threat actors compromised privileged GCP user credentials and linked external, attacker-controlled GCP projects directly to the victim's internal billing accounts. Because the AI workloads were processed in foreign projects, prompt contents and model outputs remained completely hidden from the victim organization, leaving the nature of the mass AI usage unknown.
-
-This blogpost details the full attack lifecycle observed across these intrusions, from the initial phishing and policy manipulation to cross-tenant project linking, and provides actionable threat hunting guidance to help organizations detect LLMjacking in their environments.
-
-Initial Access: Phishing via Sponsored Search Ads
-
-The attack began with a classic yet efficient phishing tactic. The threat actor purchased Google Search ads for common administrative search terms such as “google cloud” and “gcp”. When a user clicked the malicious ad, they were led through a Google Sites redirect to a fake Google login web page. Victim users with valid access to Google Console proceeded to input their account credentials and multi-factor-authentication (MFA) codes into the phishing page. The malicious site captured the user supplied credentials before seamlessly redirecting the user back to the legitimate Google authentication prompt. Forced to authenticate a second time, the user likely assumed the initial attempt was a minor glitch. In reality, the automated phishing kit immediately leveraged the harvested credentials to execute the first malicious login into the victim’s GCP environment from 212.73.134[.]136, the source IP address of the phishing kit. The threat actor then reauthenticated a few minutes later from a second IP address, which was later used for the rest of the GCP activity. Following reports of this activity, Google Ads has taken action to remove the malicious ad campaign.
-
-Google automatically flagged the anomalous login attempt as suspicious and dispatched security alert emails to the user's inbox. However, to catch such intrusions early, organizations should not rely on user awareness alone, but ingest and monitor Google Workspace User Log Events for suspicious login flags and anomalous re-authentication triggers.
-
-Persistence and Privilege Escalation: Disabling Guardrails and Externalizing Billing
-
-Once inside the environment, the threat actor leveraged the compromised account’s excessive privileges to solidify their access, bypass organizational security controls, and prepare the billing architecture for external exploitation.
-
-Enabling APIs and Minting Service Account Credentials
-
-Rather than creating new infrastructure from scratch, the attacker targeted existing, low-usage GCP projects to:
-
-Enable the Gemini API product
-
-Create service accounts with Gemini API keys
-
-Add the newly created service accounts to high privileged roles such as roles/ml.admin and roles/mcp.toolUser
-
-Dismantling Organizational Policy Controls
-
-To expand their reach without raising immediate alarms within internal domain governance, the threat actor deleted safety policies at the organization level, such as iam.allowedPolicyMemberDomains. This action removed the guardrail that restricts Identity and Access Management (IAM) membership to verified company domains, enabling external, personal accounts to be granted access as well as high-privilege permissions.
-
-Inviting External Threat Actor Accounts and Elevating Privileges
-
-With domain restrictions lifted, the compromised user account was leveraged to add external actor-controlled Gmail accounts directly into the organization's billing account.
-
-The threat actor also assigned administrative roles to the compromised users or the external accounts, such as:
-
-roles/recommender.billingAccountCudAdmin on GCP projects
-
-roles/billing.admin on GCP billing accounts
-
-The role roles/billing.admin granted full control over the billing account, including the ability to manage permissions, attach external projects, and alter payment settings.
-
-Linking Foreign Projects for Mass Exploitation
-
-The threat actor linked external GCP projects directly to the victim’s internal billing account. This move established a cross-tenant access, allowing all API requests executed in the threat actors external projects to be automatically charged to the victim's billing account while keeping prompt payloads invisible to internal log monitoring.
-
-Defence Evasion: Geographic Blending and Admin Lockout
-
-Once initial access was secured, threat actors employed defense evasion techniques designed to avoid triggering location-based security alerts and prevent security teams from regaining control.
-
-In each of the intrusions investigated, Wiz CIRT observed that after the initial login, subsequent threat actor activity shifted to originate from IP addresses geolocated within each victim organization's headquartered country, even when this did not match the compromised user’s actual physical location.
-
-Additionally, after securing administrative control, the threat actors demoted pre-existing internal billing administrators from their administrative roles down to read-only billing viewers. This modification stripped legitimate administrators of their ability to revoke permissions or detach rogue projects directly from the console.
-
-Impact: AI Resource Abuse
-
-The primary objective of these intrusions was non-destructive financial exploitation - leveraging hijacked cloud infrastructure to offload the costs of high-volume LLM inference. Across the observed cases, the impact manifested as rapid billing surges driven by automated, large-scale Gemini API utilization.
-
-Within 24 to 48 hours of initial access, victim organizations experienced unexpected charges reaching tens to hundreds of thousands of dollars in unauthorized Gemini API usage. This activity represented a sharp surge from the organizations' established baseline compute spend.
-
-Because the threat actors linked external, attacker-controlled GCP projects directly to the victim’s billing accounts, all API key generation, prompt requests, and model outputs occurred entirely within foreign tenants. Consequently, while the victim organization carried financial responsibility for the API consumption, internal security and audit logs provided no visibility into the nature, content, or context of the AI workloads being executed.
-
-Detection and Threat Hunting Indicators
-
-To detect potential LLMjacking and unauthorized billing account manipulation in your Google Cloud environment, security teams should hunt for indicators across Google Workspace, GCP Admin Activity, and Cloud Billing audit logs. Wiz customers can review the Threat Intel Center advisory that includes the following indicators:
-
-Review Google Workspace and GCP audit logs for activity from the indicators of compromise section below. Wiz customers can use this Cloud Events query.
-
-Review GCP IAM for any users with external domains, especially non-corporate email providers such as @gmail.com. Wiz customers can use this Cloud Events query, and replace the domain.com with their own organization domain.
-
-Review GCP audit logs for changes to organization policy controls, especially allowedPolicyMemberDomains, and IAM policy changes related to billing account administrators. Wiz customers can use this Cloud Events query.
-
-Review GCP audit logs for unexpected Gemini API enablement, service account creation and service account API key creation in old projects Wiz customers can use this Cloud Events query.
-
-Monitor abnormal cost surge in API usage, and potentially enforce spend cap budgets. Wiz Cloud Cost customers can detect abnormal AI usage per model and cloud provider by monitoring Cost Monitor Findings for Resource Anomalies.
-
-Wiz Defend customers ingesting cloud logs such as Google Workspace will get Wiz Threats on the initial logins. Customers ingesting GCP audit logs will get Threats for the described activity.
-
-If you experience a breach or any cloud security incident, contact Wiz CIRT for incident response support.
-
-Indicators of Compromise
-
-IOC
-
-Type
-
-Description
-
-212.73.134[.]136
-
-IP Address
-
-Attacker infrastructure - IP seen in the initial login from the phishing page
-
-*.gboogl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*.groosl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*.gprokl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*.gxoosl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*.gsoolg[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*.gwoogl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gzoozl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*groonl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gsool[.]space
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gbrokl[.]space
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gbrokl[.]xyz
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gsoosl[.]xyz
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gsool[.]xyz
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gpoosl[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*groolg[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gcslom[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain
-
-*gcoalg[.]com
-
-Domain
-
-Attacker infrastructure - phishing domain"

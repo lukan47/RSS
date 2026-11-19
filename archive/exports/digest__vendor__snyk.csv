@@ -1,4 +1,131 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a98b0a614bfb,a98b0a614bfb,2026-11-19 04:00 UTC,General Security News,Snyk,Snyk Blog,AI Security; Vulnerability Management,Article,Why the Harness Matters: Early Lessons From the Evo Code Scanning Agent Preview,https://snyk.io/blog/why-harness-matters-evo-code-scanning-agent/,"It found 13% of the known vulnerabilities, and only about three in five of its first attempts produced a usable result","Evo Code Scanning Agent is in experimental preview with select Snyk customers. We’re building it to bring together AI reasoning, specialized models, deterministic analysis, security knowledge, and a context layer that draws on insights from across Snyk’s products to find vulnerabilities that are difficult to detect with any one approach alone. There’s a lot that goes into that system; we’re taking a closer look at one of its building blocks, the security harness that guides how an AI model explores code, investigates potential vulnerabilities, and reports findings.
+
+To see what the harness contributes on its own, we paired it with the same off-the-shelf models used by Claude Security and Codex Security. At the same compute budget, Evo Code Scanning Agent found more known vulnerabilities than either, though both tools achieved higher precision. These are early results, and the agent is still evolving. If you’re a Snyk customer and want to try it, join the preview / talk to your Snyk account team.
+
+For this test, we ran two pairs, each on a single model:
+
+Evo Code Scanning Agent and Claude Security, both on Claude Sonnet 5.5
+
+Evo Code Scanning Agent and Codex Security in deep mode, both on GPT-6.1 Sol
+
+Every scanner ran against the same 14 applications, at least three times per app, and was scored against 1,426 known vulnerabilities.
+
+Share of known vulnerabilities found at the same compute budget, averaged over 14 applications.
+
+More findings at the same compute budget
+
+The completeness of an AI scanner’s results depends on the compute budget it’s given. To compare like with like, we gave Evo Code Scanning Agent the same compute budget as each lab tool, on average across the 14 applications. Against Claude Security, it found 57% of the known vulnerabilities, versus 32%. Against Codex Security, it found 66%, versus 43%. It found more than the respective lab tool on every one of the 14 applications.
+
+Finding more vulnerabilities, understanding their impact
+
+Both lab tools were more precise than Evo Code Scanning Agent. Claude Security checks each candidate with a verification panel that looks at reachability, defenses and impact, and Codex Security’s deep mode runs review rounds before it reports. We’re currently improving the precision of our harness, and refining the ground truths we use in measurement.
+
+Model
+
+Evo Code Scanning Agent
+
+Lab security tool
+
+Claude Sonnet 5.5
+
+65%
+
+94% (Claude Security)
+
+GPT-6.1 Sol
+
+90%
+
+97.5% (Codex Security deep)
+
+Precision at the same compute budget: distinct vulnerabilities found ÷ (distinct vulnerabilities found + distinct false positives).
+
+At equal compute, Evo Code Scanning Agent found more known vulnerabilities than either lab tool, with different precision tradeoffs across the two models. On GPT-6.1 Sol, it found 66% of the known vulnerabilities to Codex Security’s 43%, at 90% precision versus 97.5%. On Claude Sonnet 5.5, it found 57% to Claude Security’s 32%, with a larger precision gap: 65% versus 94%. We’re deliberately prioritizing broader vulnerability discovery while continuing to improve precision.
+
+We’re also exploring how context from across Snyk’s products can help teams understand each finding’s significance, including whether weaknesses that appear less urgent on their own could combine into a more serious attack. As AI changes how attackers investigate and connect vulnerabilities, the broader context will become increasingly valuable.
+
+Same model, different findings
+
+Holding the model fixed makes the harness effect easy to see. At the same compute budget on Claude Sonnet 5.5, Evo Code Scanning Agent found about three in four of the vulnerabilities Claude Security found, plus roughly 470 more across the 14 applications. On GPT-6.1 Sol, it found about six in seven of what Codex Security deep found, plus roughly 420 more. Each lab tool still found vulnerabilities Evo Code Scanning Agent missed: 111 for Claude Security and 84 for Codex Security deep.
+
+Known vulnerabilities found by each tool on Claude Sonnet 5.5 at the same compute budget, averaged over runs and summed across 14 applications. The 314 found by both count toward each tool’s total, so together the two found 893 of the 1,426. Neither found the other 533.
+
+Known vulnerabilities found by each tool on GPT-6.1 Sol at the same compute budget, averaged over runs and summed across 14 applications. The 478 found by both count toward each tool’s total, so together the two found 982 of the 1,426. Neither found the other 444.
+
+Because the model was identical within each pair, the difference comes from everything around it: how the harness plans the work, splits up the code, investigates candidates, and decides what to keep.
+
+A general-purpose coding agent isn’t enough
+
+For a baseline, we ran OpenHands, a widely used open source coding agent, with the open-weights GLM-5.3 model and a single prompt asking for a list of security findings. It found 13% of the known vulnerabilities, and only about three in five of its first attempts produced a usable result. This comparison changes both the model and the harness, so it doesn’t isolate either one. It does establish a starting point: a capable coding agent with a reasonable prompt finds a fraction of what the purpose-built tools found.
+
+Scope and limits of these results
+
+These are early results from a benchmark Snyk built and ran internally. The 14 applications combine open source projects with purpose-built benchmark apps, and we report the results in aggregate only. Evo Code Scanning Agent is in Experimental Preview and still evolving, and this test measured one part of it, the AI harness, on its own.
+
+No tool in the test found every known vulnerability. The strongest result, 66% on GPT-6.1 Sol, still left about a third unfound. For that reason, we see AI security agents as one layer of an AppSec program. They work alongside SAST, SCA and code review, and each of those catches issues the others can miss.
+
+Methodology
+
+All results come from Snyk’s internal benchmark of 14 applications, a mix of open source projects and purpose-built benchmark apps, scored against 1,426 known vulnerabilities. Each scanner scanned the same source tree for each application at least three times, and partial runs count as runs.
+
+Scanner
+
+Model
+
+Settings
+
+Evo Code Scanning Agent (preview build)
+
+Claude Sonnet 5.5; GPT-6.1 Sol
+
+Reasoning effort high
+
+Claude Security plugin 0.12.0 for Claude Code
+
+Claude Sonnet 5.5
+
+Session effort high, run headless
+
+Codex Security CLI 0.9.1 (deep mode)
+
+GPT-6.1 Sol
+
+Reasoning effort high; web search and network access off
+
+OpenHands CLI 1.16 (baseline)
+
+GLM-5.3
+
+One prompt asking for security findings; no security tooling
+
+How we measured
+
+Recall: the share of an application’s known vulnerabilities a result finds, averaged over the 14 applications. Two reports of the same vulnerability count once.
+
+Equal compute: We let Evo Code Scanning Agent run until its compute spend reached, without exceeding, the average cost of one scan by the same-model lab tool. Lab tools are scored on their average scan.
+
+Precision: distinct vulnerabilities found ÷ (distinct vulnerabilities found + distinct false positives), measured on the same results as recall at the same compute budget. Evo Code Scanning Agent’s figure on Claude Sonnet 5.5 is a lower bound, because some duplicate false positives couldn’t be merged.
+
+How we scored findings
+
+Labels: two independent AI reviewers judged every finding against the known vulnerabilities, with a third deciding when they disagreed. No finding was reviewed by a human. Findings the reviewers couldn’t decide do not count in either recall or precision.
+
+Answer key: the 1,426 known vulnerabilities include every vulnerability confirmed from any scanner’s findings, and every scan was rechecked against every entry.
+
+Beyond the harness
+
+Holding the model constant showed how much the harness alone shapes what an AI scanner finds. The harness is one building block of Evo Code Scanning Agent, and upcoming posts will cover the others: how we’re making findings consistent from one run to the next, how static analysis and AI analysis work together, how we plan to train models for security, and how context from across Snyk’s products helps teams understand and prioritize what the agent finds.
+
+Want to see what it finds in one of your business-critical applications? Ask your Snyk account team about joining the Experimental Preview.
+
+Evo Code Scanning Agent is in experimental preview with select customers. If you want to see what it finds in one of your business-critical applications, join the preview / talk to your Snyk account team.
+
+SEE EVO IN ACTION
+
+Secure AI adoption at scale with Evo
+
+Get a suite of agent-native security solutions that secure, protect, and govern AI-driven development across three loops: the code artifact, the AI workforce, and the AI applications teams build."
 3d309e30bae0,3d309e30bae0,2026-11-09 00:00 UTC,General Security News,Snyk,Snyk Blog,AI Security; Code Security; Cyber Risk Quantification,Article,"Say Yes To MCP, Safely A Guide For Governing AI Coding Agents With Evo ADS",https://snyk.io/blog/governing-ai-coding-agents-evo-ads/,"When we announced that MCP Governance is generally available in Evo Agentic Development Security (ADS), the most common follow-up was practical: ""Great","When we announced that MCP Governance is generally available in Evo Agentic Development Security (ADS), the most common follow-up was practical: ""Great. Where do I start on Monday?""
 
 It’s a fair question; across 10,000 developer environments, Snyk found 4,524 unique MCP servers in active use, and 1 in 12 developers with an MCP server installed had a confirmed high or critical finding. Most of those servers were added in seconds, by a developer trying to get their agent to do something useful, with no review behind them.

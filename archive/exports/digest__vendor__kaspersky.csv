@@ -1,4 +1,75 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a3e76bef8e41,a3e76bef8e41,2026-11-19 16:13 UTC,"Attacks, Breaches & Threat Intel",Kaspersky,Kaspersky Blog,AI Security; Endpoint Security,Article,How to protect a company from attacks through AI agents | Kaspersky official blog,https://www.kaspersky.com/blog/ai-agent-security-with-existing-controls/56928/,"Instead of risking detection by using specific malware, attackers can now just send an agent plain text prompts and make it do what they need, such as find secrets on the...","The risks of using AI at work have been known for a while, but new evidence keeps piling up. With AI agents that employees set up to perform actions on company computers, the situation only continues to worsen: attackers are already targeting them. Instead of risking detection by using specific malware, attackers can now just send an agent plain text prompts and make it do what they need, such as find secrets on the computer, or send information somewhere external. Every useful skill of an AI assistant becomes an opportunity for the attacker.
+
+It’s not enough for security teams to keep track of which AI tools are in use. They also need to watch the tools’ permissions, instruction sources, connected components, and actual actions. But it doesn’t require adding more security products to do it. Familiar tools can handle many of these tasks: application control, web filtering, EDR, file analysis, and up-to-date threat intelligence. A detailed description of the relevant protection mechanisms can be found in Securelist’s guide to safe deployment of AI agents. That article is packed with technical details, but here, we’ll walk through the main risks of corporate AI, and the traditional security measures that help minimize them.
+
+An assistant nobody approved
+
+Shadow AI refers to AI services and apps that employees use without approval from the company’s security and IT departments. The app or service itself is usually legitimate, but the organization doesn’t know what data it processes, where it sends that data, or what actions it can perform.
+
+To prevent the use of such tools, a registry of approved AI apps and online services should be created and maintained. To restrict access to AI services that security policy doesn’t allow, Kaspersky endpoint security, managed through Kaspersky Security Center can be used. The restriction is applied by the Application Control module, which has an AI Tools category. It can be run in a mode that blocks prohibited apps (denylist), or in a stricter mode that allows only explicitly approved ones (allowlist). Access to web-based AI services is managed by a similar tool: Web Control. For approved services, it should be explicitly specified which types of data can be processed in them. The service providers’ contractual commitments on data protection should also be explicitly checked.
+
+Fake installers instead of AI
+
+This threat is only indirectly related to AI, but we’re mentioning it because attackers loved it so much in 2026. A user searches for a link or installation instructions for an AI agent, clicks an ad, and lands on a page that looks almost identical to the developer’s real website. The page tells the user to copy a command into Terminal — and the result is predictable. In March, we described a version of this scam that uses fake Claude Code and OpenClaw installation pages: instead of a useful tool, users got an infostealer.
+
+Several levels of protection against these attacks — known as ClickFix — should be used. Installation packages and instructions for approved tools should be used through the corporate catalog. Web filtering and anti-phishing mechanisms should help block known fake pages, while endpoint protection should detect malicious payloads and suspicious launch chains.
+
+Excessive agent permissions
+
+Desktop apps, such as the official ChatGPT app, are often seen as the same chatbot in a separate window. In reality, they’re full-fledged AI agents that can work with files and run programs within the permissions they’ve been given. In practice, an agent often has all the privileges of the current user. If action confirmation and isolation are also turned off, a mistaken or malicious instruction can have very serious consequences.
+
+In September 2026, researchers described the hijacking of an active AI assistant session at a SaaS provider. First, the AI agent recommended infected software from the PyPI repository, and then installed it on its own. The attackers got hold of GitHub OAuth tokens and used them to spread the Shai-Hulud worm further.
+
+Last year’s s1ngularity attack is an even more striking example. The malicious script searched for installed AI tools and launched them in a mode that skips confirmation prompts. The agents were told to look for SSH keys, .env files, and crypto wallets. There was no need to hack the model to do this.
+
+This makes a local AI agent an extremely powerful weapon in living-off-the-land attacks. To spot an agent being used for the wrong purpose, its launch parameters, access to credential stores, and child processes should be monitored closely.
+
+To counter this threat, Kaspersky NEXT EDR Optimum users have access to special rules that detect dangerous launch modes. A separate group of rules tracks agent access to files with credentials, tokens, and keys. Depending on the situation, the response can include terminating the AI agent process or even isolating the host.
+
+Dangerous MCP servers
+
+The MCP protocol allows to connect extra tools and data sources to AI applications. For example, an MCP server can search for documents, call APIs, or work with files. However, the sandbox and restrictive policies that apply to the AI agent don’t extend to MCP. That makes connecting an MCP server about as risky as installing a new software component.
+
+In February 2026, cybersecurity experts discovered the SANDWORM_MODE campaign. The McpInject module placed a malicious MCP server in a hidden directory, and added it to the configurations of Claude Code, Cursor, Continue, and Windsurf. The tool descriptions contained injected instructions to search for secrets, such as SSH keys and cloud credentials.
+
+To keep MCP risks under control, an organization needs to maintain an allowlist of MCP servers, monitor changes to their configurations, and limit network connections. Local servers should be vetted like any executable software, and remote ones — like external services with access to corporate information.
+
+Kaspersky EDR has special rules to detect suspicious MCP server scripts that are created or modified in hidden and temporary directories. Such a location doesn’t prove a component is malicious, but it’s a good reason to check where it came from and which process installed it.
+
+Malware that calls LLMs directly
+
+Attackers have learned to use LLMs to generate code and scripts on the fly, requesting what they need straight from the infected system. Google’s reports describe two malware families — PROMPTSTEAL and HONESTCUE — that were found in real-world attacks. The former queried a model through the Hugging Face API to get Windows commands; the latter received C# code from Gemini and compiled it in memory.
+
+From a network monitoring perspective, in both cases the connection goes to a legitimate AI service. That’s why it’s not enough to look at the destination address alone: it’s essential to know which process opens the connection and what it does with the response.
+
+A practical measure is to allow access to model APIs only for the applications and workflows that truly need it, and to investigate any unexpected requests together with endpoint events.
+
+In Kaspersky EDR, two rules can help to spot unusual applications connecting to known external language model APIs and detect local model files. Finding them doesn’t mean a device is infected, but it can help uncover an AI tool that nobody accounted for.
+
+Malicious skills
+
+An agent’s capabilities are often increased with ready-made skills: sets of instructions, scripts, and helper files. Installing them effectively adds one more supply chain that the security team has to manage.
+
+In February 2026, researchers found 341 malicious skills in the ClawHub catalog. Many of them suggested users install so-called necessary components, which, if they did, in actual fact saw them run the AMOS infostealer. Later, Unit 42 described additional ways to bypass security checks that the attackers used, such as inflating the package size to exceed scanner limits.
+
+Skills, along with their related scripts, components, and archives, should be checked before they’re handed over to an agent. This can be done with Kaspersky Scan Engine, built directly into the extension onboarding process, and by adding the standard checks of the package source, version, and contents.
+
+How to limit the impact of an attack
+
+Detection and response are essential, but Secure by Design AI implementation should reduce potential damage even before protection kicks in.
+
+Least privilege. Whenever possible, run the agent under a separate account or in an isolated environment. Limit access to project directories and only the services the agent needs. A ban written as a text instruction is no substitute for isolation.
+
+Credentials outside the agent’s reach. Don’t keep long-lived tokens and keys in configuration files the agent can read. Whenever possible, use a secrets vault, short-lived credentials, and an intermediary service that strictly performs the requested operation without revealing the secret to the agent.
+
+Verified dependencies. Download skills, packages, and models through an internal repository or a controlled proxy. Pin approved versions, and compare checksums against a trusted reference.
+
+Restricted outbound connections. Allow access only to the model APIs, MCP servers, and other resources that the agent really needs. Don’t forget about child processes: blocking the agent’s main process won’t help much if the shell it launches still has unrestricted internet access.
+
+A dedicated response playbook. After a compromise, check the configuration of agents and development environments, event handlers, and connected MCP servers. Revoke affected tokens and active sessions, and replace any keys that may have been exposed.
+
+An approved alternative instead of a flat ban. Give employees an approved AI tool, clear rules for handling data, and a fast process for approving new features. Otherwise, even a policy that looks strict on paper will only push people toward shadow AI."
 9a48ac181871,9a48ac181871,2026-11-18 12:15 UTC,"Attacks, Breaches & Threat Intel",Kaspersky,Kaspersky Blog,Mobile Security,Article,How to detect stalkerware safely | Kaspersky official blog,https://www.kaspersky.com/blog/how-to-protect-yourself-against-stalkerware/56671/,"During the same period, Kaspersky researchers found 33 previously unknown stalkerware families","As the Coalition Against Stalkerware explains, stalkerware lets someone secretly monitor your private life through your mobile device. Depending on the tool and the access it has, an abuser may be able to view your searches, location, messages and photos, or monitor your calls. These tools are often easy to buy and install, and can run in the background without your knowledge or consent. Their availability does not excuse the person who uses them to abuse you.
 
 Technology has made stalking easier and more dangerous. Recent figures from Kaspersky give a sense of the scale: more than 34,000 people across more than 160 countries were affected by stalkerware in 2024-2025. During the same period, Kaspersky researchers found 33 previously unknown stalkerware families. You can learn more in Kaspersky‘s tech–enabled abuse report.
@@ -5210,64 +5281,3 @@ Webcam hacking, Korean-style: 120,000 IP cameras compromised
 Camera surveillance: myth or reality
 
 Network camera security: bad, worse, and terrible"
-eefeb4bfb0e0,eefeb4bfb0e0,2026-10-30 16:02 UTC,General Security News,Kaspersky,Kaspersky Blog,Endpoint Security; Email and Collaboration Security; Identity Security Posture Management,Article,How to download and read ebooks safely | Kaspersky official blog,https://www.kaspersky.com/blog/how-to-download-and-read-ebooks-safely/56625/,"For example, in 2025, researchers discovered a vulnerability in the Kindle that could let an attacker hijack the linked Amazon account","Contrary to a common misconception, people haven’t stopped enjoying books in the digital age. The truth is that for a while now, reading on paper hasn’t been the only way to enjoy written word.
-
-At first glance, what cybersecurity risks could there possibly be? Unfortunately, as readers are a huge audience and demand for ebooks is high, cybercriminals are bound to try to cash in. We spoke with Andrey Sidenko, Head of Child Online Safety at Kaspersky, to learn how criminals exploit interest in ebooks and what to look out for so you don’t become a victim.
-
-Malware instead of a book
-
-Most often, scammers target computer and smartphone users who try to download an ebook from a pirate site. For example, our experts recently discovered a miner spreading this way: it was tapping the processing power of infected computers to generate various cryptocurrency tokens. Several of these sites let visitors read ebook excerpts for free. In reality, the attackers were stealing passwords and using a malicious script to swap links, so users got an archive with malware named exactly like the book they wanted. What’s more, links to these sites sat at the top of search results, so the risk of taking the bait was very high.
-
-A year ago, we also wrote about fake ebooks in Turkish and Arabic. These files were actually malicious executables disguised as ordinary PDFs. Once launched, they installed infostealers on the victim’s device: malware that sent chat app session tokens, browser files, saved passwords and crypto wallet data to the cybercriminals.
-
-Traps in search results
-
-Sites that engage in search spam pose a danger of their own. Picture this: you search for “The Lord of the Rings free download” — and suddenly land on a page that repeats your search phrase word for word and supposedly offers that very book for download. But instead of the book you were hoping for, you may be redirected to yet another sketchy site and treated to a malicious file.
-
-By the way, this scam can work even if you search for a made-up author and a made-up book. Such sites can automatically generate plausible download pages for just about any query.
-
-Book phishing
-
-There are also phishing scams aimed squarely at book lovers. For example, one group of scammers sent out fake emails to users in the name of the popular book community Goodreads, offering various bogus services: becoming a moderator, taking part in book events, or buying paid promotion. That’s how the scammers squeezed money out of people while hiding behind a well-known brand.
-
-Here’s another example: ads supposedly from Orell Füssli, a well-known Swiss bookstore chain, circulated on social media. The ads offered books at hefty discounts. To place an order, users had to follow a link and enter their bank card details. Our regular readers have no doubt guessed that the link led to a fake site, which simply set up a paid subscription billed to the victim’s card.
-
-Finally, scammers often create phishing sites that pose as pirate libraries. These libraries no longer cater only to fiction readers: people go there for textbooks, academic papers, studies, rare editions, and other material that’s hard to find publicly available. Because such libraries get blocked regularly and have to keep changing domains, it can be hard for users to tell the real site from a fake one.
-
-Attackers take advantage of exactly this by promoting their own sites as official mirrors. These fake sites are often fully functional: you can search for and download books just like on the real thing, and the design is almost indistinguishable from the original. In 2024, for example, data on almost 10 million users of a phishing site mimicking Z-Library, a platform providing free downloads of access-restricted books and publications, was leaked online.
-
-The leak included names, email addresses, countries of residence, password hashes, purchase details, and even crypto wallet addresses. With data this detailed, it’s easy to plan the next attack: say, posing as a police officer to accuse the person of visiting an illegal site and demand money to drop the criminal case.
-
-Can an e-reader get infected?
-
-For attackers, e-readers aren’t the juiciest target: it’s hard to predict which device someone uses, or whether that person even has internet access. Besides, most e-readers are basic models — essentially a flash drive with a screen.
-
-More advanced devices also exist, with internet access, browsers, and the ability to download third-party apps and use cloud storage. These are more likely targets, but let’s be honest: most of the time, it’s cybersecurity researchers who hack them, not criminals. For example, in 2025, researchers discovered a vulnerability in the Kindle that could let an attacker hijack the linked Amazon account.
-
-Data leaks and other less obvious risks
-
-Some e-readers let you highlight quotes, take notes on books you liked, and share both with other users. Attackers can use this data for doxing, especially if a person wants to keep quiet about reading a particular book — something like, say, Fifty Shades of Grey or anything personal that isn’t meant for the public.
-
-In 2020, a Guardian journalist requested a copy of her personal data from Amazon and received more than 20 000 records about how she’d used her e-reader. These included which books she read and when, how long she spent reading, which passages she highlighted or copied, and which words she looked up in the dictionary.
-
-So it’s worth treating your reading history as personal data too. If a book service leaks data or your account gets hacked, a bad actor could learn not just your email address but far more personal details.
-
-So how do you read ebooks safely?
-
-One of the simplest tips is to use official bookstores — and not just for copyright reasons. These platforms value their reputation, and their content is vetted, so the files are more trustworthy.
-
-Another essential tip is to update all your devices regularly, even the basic e-reader: if it runs an operating system and any software, keep those updated. Timely updates close vulnerabilities that attackers could exploit, which lowers the risk of being hacked. The same goes for apps for reading and cataloging ebooks: this year, researchers found serious vulnerabilities in Calibre and Koodo Reader.
-
-Note that installing unofficial firmware on your devices, such as closed-ecosystem e-readers like Kindle, may not be the best idea. The risks include bricking the device and losing your warranty. The device may die or lock up during flashing or later, when an automatic over-the-air update installs official firmware. The manufacturer may also block your account if it detects the modified firmware when the device goes online. And, naturally, the firmware itself may carry malware, such as stealers that siphon off your personal data and passwords. The fact that there’s no way to install an antivirus on your e-reader only exaggerates the potential problem.
-
-It’s also a good idea to back up your digital library from time to time. Buying a book doesn’t guarantee you’ll keep access to it in your account forever. A title may become unavailable because of changes to licensing terms, platform policies, or other restrictions. Plus, some formats can only be bought and read inside the e-reader’s closed ecosystem. So we recommend keeping a backup copy on your computer or another device, where you can get to it quickly offline. That way, you’ll keep access to your content even if something goes wrong with the book service or your device.
-
-Every time you download an ebook, be sure to check the file extension. A regular ebook filename should definitely not end in .exe or .bat. You can read more about the most common extensions of malicious files here.
-
-With scammers, sadly, getting better and better at disguising malware, perhaps the best all-around advice is this: don’t visit dubious websites, and certainly don’t download unknown files. This is where Kaspersky Premium comes in — one of its main features is protection against phishing and malware. The application will warn you if you try to visit an untrustworthy site or download a potentially dangerous file. This keeps your data and money safe, and you can download and read your favorite books with peace of mind.
-
-Love the written word? Check out our other posts about books:
-
-Into the rabbit hole: AI slop is flooding Amazon
-
-Books on cybersecurity: 5+ recommendations from our experts"
