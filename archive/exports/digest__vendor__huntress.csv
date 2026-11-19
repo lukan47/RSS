@@ -1,4 +1,333 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+0f671ee8d8f8,0f671ee8d8f8,2026-11-19 14:00 UTC,General Security News,Huntress,Huntress Blog,Identity Security Posture Management,Article,Detecting Timeroasting the Hard Way,https://www.huntress.com/blog/detecting-timeroasting,"The important finding at this layer: the attacker-controlled fields from the packet, the RID at offset 48 and the flag byte at offset 53, flow through w32time only as a RID...","Most detection rules come from one of two places: a vendor feed or a breach report. There is a third source that stays underused, and it is the one that actually teaches you something. Read the protocol spec, then read the binary that implements it. Not the attacker's tool, and not the vendor's marketing page: the target's own code.
+
+This post is what happened when I did that for timeroasting. The detection you can copy for it today is a volumetric counter of connections to UDP/123 that understands nothing about the protocol. Nobody keys on what actually separates an attacker from a member, and the extended form has no coverage at all. So I reversed the binary to understand the protocol well enough to detect it properly. This is the walk from the bytes in netlogon.dll to detection that works against a real fleet. Reversing the crypto that precisely also hands you a working cracker, which is a nice bonus, but detection is the point. That is the ""hard way"" in the title: there is no public documentation for the extended crypto and no hashcat module for it, so you recover both by reading the binary.
+
+The roasts you know
+
+There are three roasts most people can name without thinking.
+
+Kerberoasting. Request a service ticket for any account with an SPN, then crack the encrypted ticket blob offline.
+
+AS-REP roasting. For accounts with Kerberos pre-authentication turned off, grab the AS-REP and crack its encrypted chunk.
+
+Timeroasting. Per Tom Tervoort's 2023 research, abuse Microsoft's proprietary NTP authentication extension, MS-SNTP, to make a DC hand you a password-derived MAC for any computer or trust account, with zero authentication, then crack it offline.
+
+The form nobody cracks
+
+Timeroasting's request comes in two authenticator formats, and only one of them has public cracking support: hashcat has a mode for the legacy form and none for the other.
+
+MS-SNTP lets a domain client confirm that a time response really came from a DC that knows the client's machine password, without the client authenticating first. The client sends an NTP request that names an account by its Relative Identifier (RID), and the DC answers with a MAC computed over the response using that account's password-derived key. A RID is the tail of an account's Security Identifier (SID), its unique index within the domain; naming a target by that number is all ""sweep RIDs"" means. Sign for whatever RID I name, no auth required: that is the entire attack surface. Sweep RIDs, collect MACs, crack offline.
+
+The form everyone knows is 68 bytes on the wire, and its MAC is built with MD5. That is what hashcat mode 31300 cracks, what timeroast.py and netexec produce, and what every writeup covers.
+
+The form almost nobody covers is 120 bytes, and it is neither new nor exotic. Microsoft added it to the spec as the preferred option, explicitly because of weaknesses in MD5, and it has been in real traffic for years. chrony added handling for it back in 2016, and modern Windows w32time sends it by default, to the point that it broke time synchronization against Samba AD domain controllers (DCs), which do not implement the extended form. The documented workaround is a Windows registry flag, SignatureAuthAllowed=0, that forces clients back to the legacy authenticator. Its MAC is built with an SP800-108 key derivation step followed by HMAC-SHA512. The gap is this: the exact crypto is not documented anywhere I could find, and hashcat has no module for it, so when you collect the extended MAC the legacy cracker cannot touch it.
+
+Note: The two forms are trivial to tell apart on the wire. A 68-byte authenticated NTP packet is the legacy form; a 120-byte one is the extended form. Keep them apart in your head, because which form you have decides whether your cracker works, though as we will see, building detection on size is a mistake.
+
+Why a defender should care
+
+Timeroasting leaves no authentication event. The targeted accounts never log on, so there are no 4768, 4769, 4624, or 4776 events. That part of the usual claim is true, and it is where the attack earns its reputation for being quiet.
+
+But quiet is not invisible. The DC still receives and answers a burst of UDP/123, and that is visible on the wire and in host network telemetry if you collect it, the half of the story most writeups skip. The extended form adds one wrinkle: if your DC speaks the 120-byte dialect and your collection assumes 68-byte MD5, your cracker produces nothing, and you misread an account as safe because you cracked the wrong format.
+
+So the defender's questions are simple. Can you see the request happen? And if you harvest the MAC, can you actually crack it? We will answer both, but first we have to know exactly what the DC computes, and for that we read its code.
+
+The two forms on the wire
+
+Both forms are a standard 48-byte NTP packet with an authenticator appended. Two fields carry the rest of this post:
+
+The KeyIdentifier at offset 48 (the target RID, little-endian)
+
+In the extended form, a Flags byte at offset 53 whose 0x01 bit means USE_OLDKEY_VERSION
+
+The remaining extended fields are defined in [MS-SNTP] and sit at their defaults in a request.
+
+A 68-byte authenticator is the legacy form (48-byte header, 4-byte KeyID, 16-byte MD5 MAC); a 120-byte authenticator is the extended form. The client sends the MAC zeroed, and the DC fills it in and echoes the structure back.
+
+Reading the code instead of guessing
+
+The spec tells you the shape. It says, roughly, ""K equals KDF of the key, a label, and a context, and the checksum is HMAC-SHA512 of K over the message."" That is not enough to write a cracker. What is the label, down to the byte? How is the RID turned into the context? Which hash drives the KDF? Guess any of these wrong and your cracker produces confident garbage.
+
+So I did not guess. Everything below is read off the actual binaries from a live, fully patched Windows Server 2025 domain controller (build 26100.33438), in radare2. I pulled w32time.dll and netlogon.dll off the DC over SMB and read them there.
+
+Step 1: the crypto is not where you would expect it
+
+My first assumption was that the signing happened in w32time.dll, since that is the service listening on UDP/123. It does not. I grepped the binary for the KDF label and came up empty:
+
+rabin2 -zzq w32time.dll | grep -i ""sntp-ms"" -> (nothing)
+
+rabin2 -zzq w32time.dll | grep -iE ""SP800|SHA512"" -> (nothing)
+
+What w32time does import tells the story. Its crypto is delegated to Netlogon through:
+
+logoncli.dll: logoncli.dll I_NetlogonComputeServerSignature <- extended (SHA-512) logoncli.dll I_NetlogonComputeServerDigest <- legacy (MD5) logoncli.dll I_NetlogonComputeClientSignature logoncli.dll I_NetlogonComputeClientDigest logoncli.dll I_NetlogonGetTrustRid bcrypt.dll BCryptCreateHash / HashData / FinishHash / DestroyHash / GenRandom
+
+So w32time parses the packet and dispatches. The ""Signature"" functions are the extended, SHA-512 path; the ""Digest"" functions are the legacy, MD5 path. The interesting bytes live in netlogon.dll.
+
+Step 2: the w32time dispatch and the extended-vs-legacy branch
+
+Figure 1: the time service imports I_NetlogonComputeServerSignature and I_NetlogonComputeServerDigest from logoncli.dll, and a string search for sntp-ms in w32time.dll comes back empty. The signing logic lives in Netlogon, not in w32time.
+
+Two functions in w32time call both compute paths, and the server picks the SHA-512 path or the MD5 path based on the request it parsed. The important finding at this layer: the attacker-controlled fields from the packet, the RID at offset 48 and the flag byte at offset 53, flow through w32time only as a RID value and a key selector that get passed down to Netlogon. They are not used as a length, an index, or a buffer size anywhere in the parse.
+
+Step 3: NlGetKDFKey, the function that builds the key
+
+In netlogon.dll, the function that derives the KDF key uses its own debug-string name, NlGetKDFKey. It builds a BCryptKeyDerivation call with the SP800-108 counter-mode HMAC algorithm and three parameter buffers, and the disassembly (Figure 2) pins down the three things a cracker needs. The spec implies a KDF with ""a label"" and ""a context."" The bytes say: the PRF is HMAC-SHA512 (the hash-algorithm buffer is L""SHA512""), the label is the 8-byte ""sntp-ms\0"" with the null included (cbBuffer is 8 for a 7-character string), and the context is the 4-byte RID in little-endian, exactly as it arrived in the packet. Output is a fixed 64 bytes. Every size is constant, and nothing here is attacker-controlled.
+
+Figure 2. radare2 disassembly of the buffer setup: the sntp-ms label and the L""SHA512"" algorithm string being loaded into the BCryptKeyDerivation call that derives the signing key.
+
+Step 4: NlComputeHMACMessageSignatureFromKey, the outer HMAC
+
+The caller is NlComputeHMACMessageSignatureFromKey. It calls NlGetKDFKey, then HMACs the message under the derived key: the 64-byte derived key is the secret, the message is the fixed 48-byte NTP header, and the output is 64 bytes. Note the one place a caller-supplied length reaches anything: the input length to that hash call. It is used only as the number of bytes to hash, never as an allocation size or an index, and w32time hands Netlogon a fixed 48-byte NTP header for the message. Every other size is BCrypt-derived or the fixed 64. The function error-checks every allocation and every BCrypt call with its own labeled failure path.
+
+The chain is now pinned: the NThash feeds a SHA-512 SP800-108 KDF keyed by the sntp-ms label and the RID, producing a 64-byte key, and that key HMACs the 48-byte NTP response. That is everything the detection needs to know about the crypto. The cracker also needs the exact byte layout, which I lay out next to the cracker below.
+
+Proving it against a live DC
+
+Reading bytes gives you a hypothesis; I wanted the DC to confirm it. First, reachability, because the extended form being in the spec does not mean a patched DC answers it. I probed a live computer-account RID with both forms and both key selectors. The result was reproducible five times out of five:
+
+current key (flags=0) old key (flags=0x01) legacy (68B) 68-byte reply 68-byte reply extended (120B) silent timeout 120-byte reply (real HMAC-SHA512)
+
+So the extended form is live on a fully patched DC, and it returns a genuine nonzero 64-byte checksum that changes every request, because the salt is the NTP response, which moves. The collector emits each old-key response as a single $sntp-ms-sha512$<RID>$<checksum>$<salt> line, the format laid out in full in the cracking section below. Because the salt is the live NTP response, no two captures are byte-identical, so the hash line in Figure 3 is one instance of that shape rather than a fixed value worth reprinting here.
+
+Figure 3: The collector's three-way probe against the DC: a 68-byte legacy reply, an extended current-key request that times out, and an extended old-key 120-byte reply, with one sntp-ms-sha512 hash line produced.
+
+Then the crypto proof: I wrote a small pure-Python reference (no dependencies) that implements the chain above, recovered the responding account's NT hash in the lab (the NT hash is just MD4 of the password, the long-term key every Windows account carries, and what both the MD5 and SHA-512 MACs are ultimately keyed on), and asked one question: does my code reproduce the DC's checksum from that hash? It does, exactly. The verifier reported the match and told me which parameters won, the 8-byte null-inclusive label and the little-endian RID context, confirmed against live output rather than assumed.
+
+Figure 4. The reference implementation reproducing the DC's checksum from the account NT hash: the captured wire checksum equals the recomputed HMAC-SHA512, and the 8-byte label and little-endian RID context are confirmed, not assumed.
+
+A reproducible known-answer test vector (synthetic, not a capture, so it corresponds to no figure) with a known password, safe to publish, so anyone reimplementing the KDF can check their work:
+
+password : Summer2026! (example only, not a real account) NThash : 41aed72cec76816423703d8e545eea31 RID : 1104 (arbitrary; the RID is just KDF context) hash : $sntp-ms-sha512$1104$a24990178f8f309a190f08c9a8c5000ce126eef19b236b50cc680d592057cd1ec872d3de6b7fdc47d8a865cae2c5c277d8842f3d1a8b7b6bb0c06bbffebb6307$1c0400e90000000800000291564d5450000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+
+That current-key timeout deserves a note, because my first explanation for it was wrong. I had assumed it was specific to the DC's own never-rotated machine account. It is not. I retested across nine machine accounts, member computers included, and every one behaves the same way: legacy answers, extended old-key answers, extended current-key times out. So it is a property of this DC, not an artifact of one account. I do not have a confident explanation, and since modern Windows clients clearly use the extended form successfully in the wild, this DC's current-key behavior may not be representative, and I cannot rule out the simpler possibility that my collector's current-key request is itself malformed. Either way, I am flagging it as an open observation rather than resting any conclusion on it.
+
+Cracking it: the bonus from reversing the KDF
+
+Detecting the extended form never needed the KDF internals. But with the binary already open, getting the key derivation exactly right is a small extra step that hands you a working cracker.
+
+Here is the construction, straight from the two functions above:
+
+NThash = MD4(UTF-16LE(password)) # NTOWFv1, 16 bytes K = SP800-108-CounterMode( KI = NThash, PRF = HMAC-SHA512, Label = ""sntp-ms\0"" (8 bytes, includes the null), Context = RID (4 bytes, little-endian), L = 512 bits) # 64 bytes, one block checksum = HMAC-SHA512(K, NTP-response[0:48]) # 64 bytes
+
+The SP800-108 fixed input, the way Microsoft's BCryptKeyDerivation assembles it (the same layout MS-GKDI uses, which is how I sanity-checked the counter and separator):
+
+block(1) = HMAC-SHA512(NThash, BE32(1) || ""sntp-ms\0"" || 0x00 || LE32(RID) || BE32(512))
+
+Four ways to get this wrong, every one of which silently breaks a cracker, and I would have shipped at least two if I had trusted the spec text alone:
+
+The label is 8 bytes including the null, not the 7-byte sntp-ms you would type.
+
+SP800-108 then inserts its own 0x00 separator after the label, so two null bytes land in the fixed input, not one.
+
+The counter and length are big-endian 32-bit, but the RID context is little-endian 32-bit: mixed endianness inside one buffer.
+
+It is a KDF and then an HMAC, two HMAC-SHA512 passes, not a single HMAC over the message.
+
+Before the tooling, two questions I keep getting, because together they decide how much this should worry you.
+
+Is the 120-byte form a different attack?
+
+No. Same protocol and trigger (unauthenticated MS-SNTP, name an account by RID, collect a MAC, no auth), same targets (computer and trust accounts), same collection (sweep RIDs), same goal. Only the MAC construction changes. Legacy builds its MAC with MD5 over the NT hash and the response; extended builds it with an SP800-108 key derivation and then HMAC-SHA512. Same secret, same request, a different MAC on the wire.
+
+Is it harder to crack?
+
+Yes, in two senses, and only one of them is real cryptographically.
+
+The first is per-guess cost, where it is genuinely harder. Legacy is one MD4 plus one MD5, and MD5 is about as GPU-friendly as a hash gets. Extended is one MD4 plus two HMAC-SHA512 passes (roughly eight SHA-512 compressions), nothing precomputable across guesses since the derived key depends on both the RID and the candidate, and SHA-512's 64-bit operations are deliberately GPU-unfriendly. So it is much slower per guess. I will not hand you a multiplier against Kerberoasting, because that depends on the ticket's encryption type (RC4, mode 13100, versus AES, mode 19700); benchmark it against hashcat's other SHA-512 HMAC modes on your own hardware.
+
+The second is whether it protects a weak password, and there the answer is barely. Both forms key off the same NT hash, so a weak password falls to either and a random machine secret falls to neither; the MD5-versus-SHA-512 difference only changes the price per guess, not which accounts are roastable. Password entropy is the protection, exactly as it always was.
+
+So why would an attacker reach for the extended form at all, when the 68-byte form is cheaper to crack and has a working hashcat mode? Two reasons, neither of which is that it is a better attack:
+
+First, evasion: on a fleet where legitimate clients already send 120-byte requests, extended traffic blends into the baseline, while the 68-byte tools stick out.
+
+Second, future-proofing, for a day when Microsoft disables the legacy MD5 path. The ""your cracker silently fails"" trap is real but narrow: it only catches a tool that requests the extended form and then formats the output as legacy. Whoever collects 120-byte responses can see they are 120 bytes.
+
+Here is the current state of cracking:
+
+What hashcat cracks today: the 68-byte legacy form, mode 31300, MD5.
+
+What hashcat cracks for the extended form: nothing in a released build yet; there is no upstream module. Issue 3629, which produced 31300, is the MD5 one.
+
+So if you collect the extended MAC today, your options are a custom kernel or a CPU reference implementation. I wrote the reference and used this hash format, matching the existing $sntp-ms$ convention:
+
+$sntp-ms-sha512$<RID>$<checksum_hex>$<salt_hex>
+
+...where the salt is the 48-byte NTP response. For comparison, the legacy form captured off the same DC (hashcat 31300):
+
+1000:$sntp-ms$f3c43f1f39a61012e634983008213633$1c0400e90000000c000002a6564d5450ee667af63d863d9cee66797600000000ee667b146da6b866ee667b146da72a7b
+
+Building the hashcat module
+
+Since the reference proves the algorithm, the next step is a real hashcat module, so the extended form is as cheap to attack, and therefore as urgent to detect, as the legacy one. The module below is written and passes hashcat's own self-test on a GPU. The algorithm is DC-verified through the Python reference, and the module plus its OpenCL kernel clear tools/test.py -m 31350 cleanly across the single and multi vectors at vector widths 1 and 4, and crack a known-password vector end to end. On an Apple M3 Pro the mode benchmarks at 17.6 MH/s (hashcat -b -m 31350).
+
+31350 is not a released hashcat mode number. It is a placeholder; the maintainers assign the real one when this goes upstream, so you build it from the source below. Getting the kernel to pass took fixing exactly the byte-level traps this post keeps warning about: the SP800-108 L value has to land as the big-endian bytes 00 00 02 00 at the right offset in the KDF message, not as a little-endian word, and the password has to be decoded as real UTF-16LE. Guess either wrong and the self-test fails the same way, the same lesson as the label and the context.
+
+The self-test oracle that hashcat's tools/test.py uses to make a known hash (tools/test_modules/m31350.py) is the clearest statement of the whole algorithm in a few lines:
+
+LABEL = b""sntp-ms\x00"" # 8 bytes, trailing null INCLUDED def _nthash(word): return _md4(utf16le(word, ""utf-8"")) # NTOWFv1 = MD4(UTF-16LE(pw)) def _kdf(nt_hash, rid): # SP800-108 CTR, PRF HMAC-SHA512, single block (L=512) fixed = struct.pack("">I"", 1) + LABEL + b""\x00"" + struct.pack(""<I"", rid) + struct.pack("">I"", 512) # BE32(counter=1) label 0x00 sep LE32(RID) BE32(L=512) <- the byte trap return hmac.new(nt_hash, fixed, hashlib.sha512).digest() def _hash(word, salt_bin, rid): # checksum = HMAC-SHA512(K, 48-byte NTP response) k = _kdf(_nthash(word), rid) checksum = hmac.new(k, salt_bin, hashlib.sha512).digest() return ""sntp-ms-sha512%d%s%s"" % (rid, checksum.hex(), salt_bin.hex())
+
+The full hashcat module (module_31350.c, the OpenCL kernel m31350-pure.cl, and the m31350.py self-test oracle) ships alongside this post. Drop the three into a hashcat source tree and build; the only thing that matters before any pull request is the self-test passing:
+
+make -j && tools/test.py -m 31350
+
+Watching it recover a password
+
+A module is only interesting if it recovers something. Here it is against a collected extended MAC: the dependency-free reference cracker first, then the same recovery in hashcat.
+
+Figure 5. Recovering a weak machine-account password from a collected extended (SHA-512) timeroast MAC with the pure-Python reference cracker. The crack is entirely offline, no DC contact and no lockout. A pre-created account still on its lowercase-name default falls instantly; a normal random machine secret would not fall to any wordlist.
+
+Figure 6. The same recovery in hashcat with the new mode 31350.
+
+The extended form now cracks with the same tooling as the legacy one, built from the module in this post. This run is on a Kali box against a six-word list, so it finishes before hashcat can measure a representative rate; that box benchmarks at about 339 kH/s (hashcat -b), while the 17.6 MH/s above is the M3 Pro GPU.
+
+The extended form stops being a research curiosity and becomes exactly as cheap to crack as the legacy one, which only matters for accounts whose password is guessable in the first place. So the next question is who that actually is.
+
+Who is actually at risk
+
+All of that, the reference implementation, the hash format, the module, is about turning a collected MAC into a password. But it assumes you have something worth cracking, and that set is narrower than a sweep's raw length suggests. Run one and look at what actually answers:
+
+Figure 7. A NetExec timeroast sweep against the lab DC. RID 1000 and the 1166-1195 cluster answer; the 1001-1165 gaps stay silent. Every line is the 68-byte legacy form, because NetExec emits only legacy.
+
+The gaps are the finding. In that sweep, RID 1000 answers, then nothing until 1166, then a cluster through 1195. The missing RIDs, 1001-1165, and the holes inside the 11xx block, are not users the sweep skipped. They are users the DC refused to sign for. You are not looking at a filtered list of the domain; you are looking at the complete set of accounts the DC was willing to answer for, and that set is computer and trust accounts only.
+
+Why? the DC produces a MAC only when the named RID resolves to an account that carries a machine secret, meaning a computer or trust account. A normal user account returns an error and w32time simply does not reply. No reply, no MAC, nothing for the tool to print. RID 1000 answered, so it is a machine or trust account; fire a request straight at user RID 1110 (tony.soprano) in that gap and the DC stays silent.
+
+Concretely: timeroasting reaches computer and trust accounts, full stop. That is why the crackable population is the narrow set worth naming: image-built or never-rotated machines, hand-set trusts, non-Windows joins. It is also why targeted timeroasting has to exist: to roast a real user, an attacker with domain admin first flips that user into a machine-looking account, appending a $ to its name and setting its userAccountControl to a workstation trust so the DC will sign for it, then reverts. Without that rename, a user's RID in this sweep returns nothing. The gaps are your users. The rename needs domain admin and is loud, so it is a different risk class from the unauthenticated sweep this post is about.
+
+Can defenders even see this?
+
+The targeted accounts never authenticate, so this never reaches identity analytics. But the request is still a packet on the wire and a connection on a host, and both are collectable. Three sources see it:
+
+The DC's own Windows Filtering Platform audit (event 5156) logs w32time accepting the UDP/123 connection, when that subcategory is enabled.
+
+Host EDR sees the network connection, and there is already a public Sentinel detection that counts UDP/123 connections per source over DeviceNetworkEvents.
+
+On the attacker's own machine, any process that is not the time service sending UDP/123 to a DC is a high-signal EDR hit.
+
+So the problem is not that nobody can see it; it is that nobody is looking at the right telemetry, because everyone reaches for authentication logs first.
+
+One product acknowledges timeroasting at all, Microsoft Defender for Identity, and it only catches the loud privileged variant: the sAMAccountName rename of the targeted attack, not the unauthenticated sweep this post is about. I take that alert apart in detail later; the point here is that naming a technique is not detecting it.
+
+The harder question is what the good signal is, and here the extended form changes the answer.
+
+Do not build on packet size. On an older fleet a 120-byte authenticated request looked rare. On a modern one it is the reverse: Windows clients send the extended form as normal time sync, and it is the 68-byte request that stands out, because both public timeroast tools emit only 68 bytes. Either way, size is a baseline question, not an attack signal, and which size is the odd one out depends on your Windows versions.
+
+The signal that holds, for both sizes and even for a single packet, is simple: a legitimate member only ever asks the DC to sign for its own machine account. Resolve the source IP to a computer account (via DHCP or DNS) and then to its RID, and a request for any other RID is anomalous on its face. That catches a slow, one-RID-at-a-time sweep that no volume threshold would, and it does not care whether the packet is 68 or 120 bytes.
+
+Volume is the fallback. A single source asking a DC to sign for many different RIDs in a short window is a sweep. It is weaker than the own-RID check, because a patient attacker can pace under the threshold, but it needs no IP-to-RID mapping, so it is the easy first rule.
+
+Writing the detection, and the bug that ate all four of my rules
+
+I wrote four Suricata rules and then did the thing I have learned to always do: I ran them through the actual engine instead of trusting that they looked right. Suricata 8.0.7, against a real capture of a sweep: 41 legacy requests and 41 extended requests from one host to a DC.
+
+The engine immediately caught a mistake I would have shipped. I had left C-style /* ... */ comments inside the rule bodies to annotate them. Suricata has no inline comment syntax, so every rule that contained one failed to load, and the engine told me plainly that zero rules were loaded. Strip the comments.
+
+With that fixed, all four loaded clean and fired. The extended-request rule matched all 41 extended packets and, because it is rate-limited to one alert per source per five minutes, logged a single alert, which is working as designed. The old-key rule matched and logged all 41 old-key requests. The legacy sweep rule fired once, at the 25th distinct RID, exactly where its threshold says it should. The extended sweep rule did the same on the extended packets. The fast.log evidence:
+
+[1:5200003:1] MS-SNTP authenticated-NTP RID sweep (Timeroast) {UDP} 10.x.x.x:42198 -> 10.x.x.x:123 [1:5200001:1] MS-SNTP ExtendedAuthenticator request (possible extended Timeroast) {UDP} ... [1:5200002:1] MS-SNTP ExtendedAuthenticator USE_OLDKEY_VERSION (extended Timeroast, old key) {UDP} ... (x41) [1:5200004:1] MS-SNTP extended RID sweep (Timeroast) {UDP} ...
+
+That first pass validated the mechanics and taught me the /* */ lesson, but all four rules were pinned to packet size, and the evidence that modern Windows sends the extended form means most of them do not survive a real fleet. Here is what I would actually ship. Set your own $DC_SERVERS.
+
+Start with the volumetric sweep, deliberately size-agnostic so it catches both forms. An authenticated MS-SNTP request to a DC is 68 or 120 bytes; a plain NTP client request is 48, so dsize above 56 selects the authenticated ones, and the byte_test on the low three bits of byte 0 keeps it to client-mode (mode 3) requests, not a mode-4 server reply that happens to be large:
+
+alert udp any any -> $DC_SERVERS 123 (msg:""MS-SNTP authenticated-NTP sweep to DC (Timeroast, either form)""; dsize:>56; byte_test:1,=,3,0,bitmask 0x07; threshold:type threshold, track by_src, count 25, seconds 60; classtype:attempted-recon; sid:5200010; rev:1;)
+
+Keep the old-key flag, but as a hypothesis to test rather than a verdict:
+
+alert udp any any -> $DC_SERVERS 123 (msg:""MS-SNTP ExtendedAuthenticator USE_OLDKEY_VERSION""; dsize:120; content:""|01|""; offset:53; depth:1; classtype:attempted-recon; sid:5200002; rev:1;)
+
+The spec ties that flag to a client-side Key Selector, and clients validate responses against both the current and the previous password, so a legitimate client around a machine-password rotation could plausibly set it. I have not seen a real member do it, but I have not watched enough real extended traffic to rule it out, so capture your own fleet's requests and look. If none of your members ever set the flag, this is your best size-based signal; if some do, demote it.
+
+Both rules load clean and fire in Suricata 8.0.7 on a captured sweep (the volumetric one three times as the threshold rolls, the old-key one once per matching packet) and stay silent on a plain client.
+
+Figure 8. The two rules I would ship, in Suricata 8.0.7 against a captured sweep: both load clean, the old-key rule (5200002) fires on all 41 old-key requests, and the volumetric rule (5200010) fires 3 times as its threshold rolls.
+
+Do not ship a rule that simply alerts on a 120-byte request. On a modern fleet that fires on every Windows member doing normal time sync. It is a baseline measurement, not an attack signal.
+
+The durable detector is not a Suricata rule at all, because the question that separates attacker from member (is this RID the sender's own?) needs an IP-to-account mapping Suricata does not have. Do it in Zeek or your SIEM: for each authenticated NTP request to a DC, pull the RID from offset 48, resolve the source IP to a computer account (DHCP or DNS, then LDAP to its objectSid and RID), and alert when the requested RID is not the source's own. That catches a single packet, a slow sweep, and both forms, and it does not depend on which size your fleet treats as normal.
+
+Here is that check as a skeleton. The comparison is trivial; the work is the enrichment, a source-IP-to-own-RID table refreshed out of band from DHCP or DNS plus an LDAP lookup of each host's objectSid.
+
+# For each authenticated MS-SNTP request to a DC: on UDP packet to DC:123 where len(payload) in {68, 120} # 48 = plain NTP, ignore and (payload[0] & 0x07) == 3: # client mode 3, not a server reply requested_rid = le32(payload[48:52]) # KeyIdentifier, little-endian own_rid = ip_to_rid[src_ip] # enrichment: DHCP/DNS -> LDAP objectSid -> RID if own_rid is None: alert(""authenticated MS-SNTP from a host with no RID mapping"") # triage, not a verdict elif requested_rid != own_rid: alert(""host asked the DC to sign for a RID that is not its own"") # the durable signal
+
+One honest caveat on wiring this to Zeek: the stock ntp_message event parses standard NTP and never surfaces the MS-SNTP KeyIdentifier, so you reach offset 48 with a small Spicy analyzer or raw-payload access, not three lines of script. Getting the RID off the wire and keeping the IP-to-RID table fresh is the real work; the mismatch test is the easy part.
+
+Where these rules will lie to you
+
+Measure your own 68-versus-120 baseline before you alert on either size, treat the volumetric rule as the weak first pass that a paced attacker or a NAT'd source can fool and the own-RID check as the one that holds, and baseline the old-key flag before you trust it.
+
+Fingerprinting the tools, and the rule not to write
+
+I ran the two public timeroast tools against a DC in the lab, SecuraBV's timeroast.py and timeroast-ng, and diffed their packets against a real NTP client byte for byte, to see whether there is a tool fingerprint worth keying on. There is, with one trap.
+
+The trap first, because it is the tempting rule and it is wrong. Do not alert on a zero 16-byte MAC in [truncated for CSV - full text is in the JSON export]"
+a4a34ee807a5,a4a34ee807a5,2026-11-19 06:35 UTC,General Security News,Huntress,Google News: Deloitte,N/A,Article,Huntress Named to Fortune Cyber 60 for 4th Consecutive Year,https://news.google.com/rss/articles/CBMid0FVX3lxTE9JUWRmN28xWjJMVzNuck5XT3JUVmc1bTVadWc1ZzdfVUFqLUF6bjJNaDN6ZVZ2MDJKUVVna1laN3hHeGRCWFRVMFlBWkNoQ05mV01FUVd6ekJGaG5ZNzllYWJxV1ktTzFIWlBkWHhybmFhcktWY3BN?oc=5,,
+714f06e2952b,714f06e2952b,2026-11-18 08:00 UTC,"Attacks, Breaches & Threat Intel",Huntress,Huntress Blog,Email and Collaboration Security; Identity Security Posture Management,Article,What Business Email Compromise (BEC) Looks Like & How to Catch It,https://www.huntress.com/blog/what-bec-looks-like,"6% of Identity Threat Detection and Response (ITDR) signals so far in 2026, according to the Huntress Tragic Quadrant, our ranking of the top attacker techniques by impact","If you're looking for a history lesson on your company's finances, start in your inbox, where you might find invoices and vendor details, along with the renewal haggling that shows exactly what you pay and to whom.
+
+Cybercriminals can be history buffs too. Digging through old email threads shows them exactly who to impersonate and how money actually moves. In 2025 alone, the FBI logged more than $20.8 billion in cybercrime losses, with roughly $3 billion tied to business email compromise (BEC), second only to investment fraud.
+
+Business email compromise (BEC) pays because it hides in the long-running vendor and billing conversations you already trust.
+
+""I'd notice if someone was in my inbox""
+
+You might assume you know the signs of an intruder lurking in your mailbox. We've all been trained to recognize the obvious, sloppy signs of phishing.
+
+BEC is stealthier. Often with the help of AI, attackers aim at specific targets by crafting legit-looking phishing and social engineering scams to steal credentials or session tokens for access and persistence. They set up inbox rules that quietly move messages into folders nobody checks, hiding their dirty work in plain sight. This gives them time to figure out how to route money to their own accounts straight from your mailbox.
+
+Here's how that attack chain plays out in a real Microsoft tenant. Huntress CEO Kyle Hanslovan breaks down how attackers sneak into Microsoft 365 mailboxes with low-fi resources to stage attacks like BEC.
+
+What the data says
+
+According to the FBI, reported BEC losses have climbed more than tenfold since 2015.
+
+Figure 1: Reported BEC losses by year. Source: FBI IC3 annual reports, 2015 to 2024.
+
+The Huntress 2026 Cyber Threat Report puts numbers behind the identity tradecraft that fuels BEC:
+
+Logins with a shady footprint made up 37% of the identity threats we tracked, often as the first step toward email compromise and wire fraud.
+
+Adversary-in-the-middle (AiTM) attacks, which steal a session token and let the attacker skip the password and the MFA prompt, accounted for 18.9% of identity-based threats in 2025.
+
+Mailbox manipulation and persistence, a key BEC technique, accounts for 24.6% of Identity Threat Detection and Response (ITDR) signals so far in 2026, according to the Huntress Tragic Quadrant, our ranking of the top attacker techniques by impact.
+
+How one gut check stopped a BEC attempt
+
+Latisha Edwards, Accounts Receivable Specialist on the Huntress billing team, received an email that looked like just every other order or renewal message in the queue. It referenced a real partner account with an order form that looked like the right next step.
+
+But something felt off. The order form had a ""log in"" link embedded in it, which didn't match how this partner usually handled business. Instead of clicking, Latisha emailed her contact at the partner to follow up. That follow-up confirmed the email was a BEC attempt, sent by someone impersonating the partner. Stopping this attack came down to one person slowing down long enough to ask a question. The email looked right because it sat inside a conversation the team already trusted.
+
+Figure 2: A real-world BEC email attempt caught by the Huntress billing team
+
+What you can do to slow down BEC
+
+Now that you've seen what BEC looks like in the wild, let's dig into what you can do about it.
+
+Encouraging your teammates to ask questions is the first step in a good defense against BEC. The Huntress billing team caught this one because Latisha felt safe asking about it.
+
+From there, build good mailbox hygiene habits. The attack can start in your mailbox or arrive as an email from someone posing as a partner, and each one calls for a different kind of check.
+
+For your own mailboxes, watch for inbox rules that don't seem to make sense. Set up alerts for any new forwarding rule, especially one that sends mail to an external domain.
+
+Figure 3: Hidden inbox rules in a 2026 token replay campaign.
+
+For emails that appear to come from partners, flag any request to change account numbers or payment instructions, or any unexpected link that asks you to log in, as high risk, and check the sender's actual address. Verify it directly with your usual contact through a channel you already trust, like a known phone number or portal.
+
+What technology can do to shut down BEC
+
+BEC scams are built to slip right past you. Here's where Huntress fills the gaps.
+
+Managed Identity Threat Detection and Response (ITDR) watches for identity-driven threat behavior across Microsoft 365 and Google Workspace, including session hijacking, suspicious logins, and malicious inbox and forwarding rules, backed by our 24/7 human-led, AI-centric Security Operations Center (SOC).
+
+Managed Identity Security Posture Management (ISPM) works earlier in the attack chain, closing the misconfigurations and policy drift that let attackers into mailboxes and helping enforce conditional access policies.
+
+Managed Security Awareness Training (SAT) helps your people recognize when to pause and verify a change to a payment.
+
+Figure 3: Example of BEC activity flagged by ITDR
+
+The most dangerous BEC email looks exactly like the one you were expecting. Start defending your identities against BEC today with a free trial of Huntress Managed ITDR."
 2282b1ac0cd8,890ee50f8873,2026-11-16 18:00 UTC,Vulnerabilities & Patching,Huntress,Huntress Blog,File Security; Vulnerability Management; Endpoint Security,Article,CVE-2026-84869 in ScreenConnect Exploited to Run Malicious Files on MSP Technician Accounts,https://www.huntress.com/blog/cve-2026-84869-screenconnect-technician-exploitation,"The malware, called SCKit, appears to be leveraging a vulnerable third-party extension on the server side of ScreenConnect and not directly exploiting CVE-2026-84869, but...","What Is CVE-2026-84869?
 
 ConnectWise disclosed CVE-2026-84869 on September 8, 2026, with a CVSS score of 9.9, and CISA added the CVE to its Known Exploited Vulnerabilities catalog on September 11. ConnectWise's advisory stated that in both Support and Access sessions, a guest could trigger file-transfer actions that the technician's host client processed without authorization or confirmation, including running the file with elevated rights. ConnectWise listed 26.6.5 as the fixed version for host clients and Access agents, and recommended removing the TransferFiles permission as an interim mitigation.
@@ -4721,147 +5050,3 @@ watchTowr: PHP Remote Code Execution FAQ: CVE-2026-109618 & CVE-2026-109619
 BleepingComputer: PHP warns admins of two critical flaws, emergency patches coming tomorrow
 
 Florian Roth: process-watcher PHP quick start"
-3617916b1a2a,3617916b1a2a,2026-10-20 13:00 UTC,Product & Roadmap,Huntress,Huntress Blog,Email and Collaboration Security; Identity Security Posture Management,Article,Introducing ITDR Lookback: Find Out Who Was in Your Microsoft 365 Tenant Before You Were,https://www.huntress.com/blog/managed-itdr-lookback-feature,"Today, Huntress Managed ITDR's Lookback feature is generally available for newly onboarded Microsoft 365 tenants","Today, Huntress Managed ITDR's Lookback feature is generally available for newly onboarded Microsoft 365 tenants. Lookback automatically examines up to 180 days of login history to uncover evidence of compromise before Huntress connected. When a compromise is still active, our Security Operations Center (SOC) investigates and revokes the identity's active sessions.
-
-Onboarding a Microsoft 365 tenant feels like a fresh start. You go through your checklist, and a successful connection tells you monitoring has started. But it doesn't tell you if an attacker got there first. Your first day protecting a tenant might be an attacker's twenty-seventh day inside.
-
-That's what Lookback seeks to solve. You get a clearer picture of the tenant you've inherited, plus defenders who act on what they find. And yes, that includes trial tenants.
-
-Six months of login history. A much stronger start.
-
-Lookback runs once, automatically, when a Microsoft 365 tenant finishes onboarding to Managed ITDR. There's nothing extra to configure and no separate scan to remember to launch.
-
-Huntress Managed ITDR's new Lookback feature is generally available, bringing up to 180 days of Microsoft 365 login history into the hunt for existing compromises.
-
-Lookback applies Huntress's full set of Unwanted Access detections to the tenant's available Microsoft 365 login history, looking back up to 180 days. That includes detections for credential theft, token theft, adversary-in-the-middle attacks, suspicious browsers, and datacenter logins.
-
-Here's the tricky part: evidence of an old compromise doesn't necessarily mean an attacker still has access. Someone may have already reset the password or revoked the compromised sessions. Treating every historical finding as a fresh emergency would make onboarding pretty miserable.
-
-Lookback separates findings based on whether the compromise is still active:
-
-Active compromises receive a critical Incident Report investigated by the Huntress AI-centric SOC, with the identity's active sessions revoked. This turns historical evidence into a reason to act right away.
-
-Previously remediated compromises appear in the Identity Security Assessment as historical context. They don't trigger a new incident or an unnecessary lockdown for something you've already fixed.
-
-That distinction matters. A raw list of suspicious logins leaves the sorting to you. Lookback does it first, so you can see what happened and which parts still need attention.
-
-What's in the report, and where do you find it?
-
-Lookback adds a dedicated section to the Identity Security Assessment, covering compromises that predate Huntress monitoring. It shows the period reviewed and previously remediated incidents, including affected identities, relevant dates, and observed remediation evidence, such as a password reset or session revocation. The report gives you a documented history you can use in a customer conversation or share with leadership.
-
-That history sits alongside the assessment's existing coverage of identities, Rogue Apps, Shadow Workflows such as malicious inbox rules, Unwanted Access, and SOC findings and containment actions. Active compromises uncovered by Lookback also receive their own Incident Reports.
-
-Lookback is part of onboarding for newly connected Microsoft 365 tenants. The assessment is generated automatically after onboarding and waits for Lookback to finish, so you receive one complete document. Once that historical review is complete, Managed ITDR continues monitoring for new threats with the Huntress SOC behind it.
-
-The attackers who arrived before we did
-
-In Lookback's first two weeks of early testing, Huntress reviewed more than 400 tenants. Among them were three very different organizations with the same unwelcome surprise: an active compromise already in progress.
-
-A title company and a $2 million wire
-
-A device-code phishing attack gave an adversary access three days before the tenant onboarded. The attacker persisted through a rogue Entra device and was watching a $2 million real estate wire transfer. Lookback surfaced the active compromise, which Huntress contained.
-
-For a business moving that kind of money, ""let's wait until the attacker does something else"" is a lousy security strategy.
-
-A school district with an unwanted administrator
-
-A school district's Global Admin account had been compromised 27 days before onboarding. An unrevoked refresh token and a rogue Azure AD device kept the attacker's access alive, with the privileges to control the tenant. Lookback uncovered the compromise, and Huntress contained it. Twenty-seven days is a long head start. Connecting a new security tool shouldn't give the attacker more time simply because the break-in happened earlier.
-
-An architecture firm turned into a phishing launchpad
-
-An architecture firm onboarded with a nine-day foothold still active. The attack involved a hidden inbox rule and 103 external OneDrive phishing invitations sent in a single scripted second. The compromised account had become infrastructure for targeting other people. Lookback surfaced the compromise, which Huntress contained.
-
-In all three cases, the attack began before onboarding. Looking backward gave our defenders evidence to act on right away, without waiting for an attacker's next move.
-
-Less guesswork for you, more proof for your customers
-
-If you're an MSP, every new client brings a history you didn't write. You still have to explain what you've inherited and what you plan to do about it.
-
-Lookback helps you start that relationship with evidence from the client's own environment. You can show past compromises, distinguish resolved activity from active threats, and explain where Huntress has intervened. The shareable assessment makes that conversation easier, while SOC investigation and containment keep the historical review from becoming another helpdesk project.
-
-Internal IT teams get the same benefit. Whether you've inherited a tenant through an acquisition, a vendor change, or staff turnover, you don't have to become a Microsoft audit log specialist to spot signs of prior compromise.
-
-And if you're evaluating Huntress, your trial includes the same Lookback protection as a paid tenant. You can see what we find in your environment and how we respond to active threats while you're still making your decision.
-
-Looking back is how we keep moving forward
-
-Lookback is the latest step in our work to build best-in-class Managed ITDR that earns its place in your security stack every day.
-
-The new ITDR dashboard puts identity activity and investigation tools closer at hand, including Rapid Identity Triage, Failed Login Characterization, and Quick SIEM Search. And the recently released ITDR Executive Summary makes technical incident findings easier to explain to business leaders, with plain-English context about what happened and the response.
-
-Lookback extends that progress into the history you inherit at onboarding. Together, these releases help you understand existing threats, investigate current activity, and explain the work being done to protect the business.
-
-Our standard for innovation is practical: does it help find an attacker, take work off your team, or give you an answer you couldn't easily get before? Lookback delivers on all three, backed by the same 24/7 SOC that protects your identities going forward.
-
-Your tenant has a past, and now you can find out who's still living in it.
-
-Ready to see what came before day one? Start a free trial of Huntress Managed ITDR and connect a Microsoft 365 tenant. Lookback runs automatically, with findings in your Identity Security Assessment and SOC response for active compromises."
-0bff4b923485,0bff4b923485,2026-10-20 13:00 UTC,General Security News,Huntress,Huntress Blog,Identity Security Posture Management; Email and Collaboration Security; Compliance Management,Article,Identity Posture Assessment for Microsoft 365 | Managed ISPM,https://www.huntress.com/blog/identity-posture-assessment-microsoft-365,"Last year, 79% of the critical and high-severity incident reports our SOC sent out were tied to identity threats","Introducing ISPM's Identity Posture Assessment, an on-demand report that shows exactly where your identity defenses stand and how fast you can fix them.
-
-Attackers love Microsoft 365, and they rarely need anything fancy to get in. Last year, 79% of the critical and high-severity incident reports our SOC sent out were tied to identity threats. Most of those attacks didn't start with a zero-day. They started with a missing MFA policy, a legacy protocol nobody turned off, or an admin account with more access than it needed.
-
-The hard part is seeing those gaps before an attacker does. Microsoft 365 has hundreds of settings spread across Entra, Exchange, SharePoint, and Teams, and few teams have time to audit them all. Huntress data shows more than half of recommended controls are missing in over 60% of tenants, even ones that already have posture tooling in place.
-
-That's why we built the Identity Posture Assessment. It's a clear, shareable snapshot of any Microsoft 365 tenant, scored against the Huntress Identity Security Framework, and it's available now in Huntress Managed ISPM.
-
-The Identity Posture Assessment can also be co-branded.
-
-What's inside the identity posture report?
-
-The assessment is built so anyone can pick it up and understand it in minutes, from the security engineer to the CEO.
-
-Compliance rating: Your headline number. This shows what percentage of assessed controls are configured correctly and breaks every control into four buckets: Compliant, Not Compliant (Huntress can deploy the fix), Manual Action (an admin needs to change it in Microsoft 365), and Risk Accepted (your team has signed off). Better yet, it shows how high your rating could climb just by turning on Huntress ISPM recommendations. The report only scores controls your tenant is licensed for, so you're never penalized for Microsoft features you don't have.
-
-Posture by capability: Controls are grouped into three Huntress capabilities, each built around a specific threat model, and mapped to Managed ITDR.
-
-Unwanted access covers authentication and external access, including MFA, legacy auth, guest access, admin protection, and email security.
-
-Shadow workflows covers Exchange, Teams, and SharePoint settings attackers use to bypass controls or hide their activity.
-
-Rogue apps covers OAuth consent and app creation, limiting the risk of unapproved or overprivileged apps landing in your tenant.
-
-Managed ISPM maps to Managed ITDR capabilities.
-
-Microsoft Secure Score: Your Secure Score appears as a separate reference point. It's reported by Microsoft and kept apart from the Huntress rating, so you get an independent third-party view alongside the vendor's own grade.
-
-Gaps and next steps: This is where the report earns its keep. Every non-compliant control is listed with its severity, category, and capability, then sorted into two groups: controls you can deploy with Huntress ISPM in one click, and controls that need manual configuration. No guessing about what to fix first or who owns it.
-
-Non-compliant controls you can deploy and fix with Managed ISPM.
-
-Compliance breakdown by capability: This is a deeper look at each capability, with the status of every control so you can pinpoint exactly where the gaps are.
-
-Your ongoing protection: A short recap of how Managed ISPM keeps working after the report: hardening before attackers strike, deploying controls in one click, and catching drift automatically so your posture doesn't quietly slide backward.
-
-Why this matters
-
-If you've used the Identity Security Assessment from Huntress Managed ITDR, you already know how powerful a single report can be. The Identity Posture Assessment from Managed ISPM brings that same clarity to the prevention side of identity security.
-
-Together, they tell the full identity resilience story. ITDR shows how attackers are getting in. ISPM shows which doors are still open and closes them. Our own data backs this up: 35% of ITDR incidents over a six-month period could've been prevented by fully deployed ISPM policies.
-
-Identity resilience means attackers have fewer easy ways in, less time to operate, and less chance to turn a compromised account into real business damage. This report shows you how close you are to that goal and what it'll take to get there.
-
-For MSPs: your new favorite prospecting tool
-
-Every MSP knows the hardest part of selling security is making the risk feel real. This report does that for you.
-
-Run an assessment during a prospect's trial and walk into the meeting with a scored, prioritized list of their Microsoft 365 gaps. A low compliance rating with dozens of high-severity findings starts a conversation no slide deck can.
-
-Add your own logo and colors, and the report goes out under your brand, powered by Huntress. Use it to open new deals, justify upsells at QBRs, and show existing clients how far their posture has come since onboarding. When a client asks what they're paying for, you'll have the answer on paper.
-
-For internal security teams: make the case to leadership
-
-Getting budget and buy-in for identity security usually means translating technical risk into business language. The ISPM Posture Assessment does that translation for you.
-
-Hand leadership one number they can track over time. Show them how many gaps Huntress can close immediately and how many need your team's attention. Use it to support audit prep, cyber insurance renewals, and board updates. And when you need to prove progress, run a fresh assessment and show the before-and-after.
-
-Getting your report takes seconds
-
-Reports are generated on demand from the ISPM dashboard, at either the account or organization level. Pick the organization, click Generate, and the PDF downloads straight to your browser. The assessment currently supports Microsoft 365.
-
-See what your tenant is hiding
-
-Most organizations are more exposed than they think. The only way to know for sure is to look.
-
-With the Identity Posture Assessment, looking now takes about as long as reading this sentence.
-
-👉 Start your free trial of Huntress Managed ISPM and generate your first Identity Posture Assessment today."

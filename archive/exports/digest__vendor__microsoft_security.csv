@@ -1,4 +1,183 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+b1865264dac3,b1865264dac3,2026-11-19 00:00 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Datadog Security Labs,Identity Security Posture Management; Code Security,Article,Age of Entitlement: Privileges in Entra's access packages,https://securitylabs.datadoghq.com/articles/entra-access-packages-part-1-privileges/,Attackers may target access packages with these resources to elevate their privileges,"This research was presented at Hybrid Identity Protection Conference (HIPConf) on September 10, 2026.
+
+Key points
+
+This post provides technical background about entitlement management and access packages in Microsoft Entra ID Governance.
+
+Entitlement management lets administrators assign multiple permissions to users at once by using access packages. This simplifies permissions management throughout the user life cycle.
+
+While entitlement management disallows privileged Entra roles like Global Administrator in access packages, role-assignable groups and roles like Exchange Administrator can still be included.
+
+Attackers may target access packages with these resources to elevate their privileges.
+
+Auditing permissions for entitlement management requires reviewing Entra ID's role assignments, as well as role assignments in ID Governance.
+
+In this series of posts, we'll take an in-depth look at the configuration risks and security considerations that come with entitlement management.
+
+Introduction
+
+This post covers the fundamentals of Microsoft Entra ID Governance's entitlement management and outlines why an attacker may target your access packages for privilege escalation.
+
+Entitlement management bundles access for internal users and guests, with options for life cycle management and approvals. While Microsoft states that access packages cannot contain any Entra-defined privileged roles, there are still many roles with permissions that can be used by an attacker to impact an Entra, Microsoft 365, or Azure environment through entitlement management.
+
+This series will describe how everyday access package configurations within entitlement management can lead to scenarios where an attacker could elevate privileges. Future posts will cover scenarios where access packages can be misused and share some defensive measures to monitor and improve their security.
+
+What is entitlement management?
+
+Entitlement management (previously abbreviated as ELM) is a feature of Entra ID Governance to manage user and guest access through their time in an Entra tenant. This is sometimes called the ""user life cycle,"" which encompasses how a user's access will change as they join a company, move between roles, and eventually depart the company.
+
+By bundling required access into access packages, entitlement management allows assignment of multiple types of access such as group memberships, application roles, and SharePoint site access at once. This access can then be reviewed, renewed, and revoked together based on a user's roles.
+
+Let's say a user joins our company. Based on their persona in IT, they receive access to the IT team's SharePoint site, various group memberships they need to manage devices, and the IT Teams channel. Entitlement management combines all these needs into one access package, making it simple to onboard the user to these memberships. Once granted, this access can be regularly reviewed.
+
+When the user's team changes to cybersecurity, their access persona changes. The IT access package is removed, and they are instead assigned to a new security access package, with a different Teams channel and group memberships. Finally, all access is revoked through the access package when they leave the company.
+
+Entitlement management versus PIM
+
+Entitlement management may sound similar to privileged identity management (PIM), which helps users manage the approval, renewal, and revocation of privileged Entra roles. Both tools allow role assignment, approval, and continuous review of permissions; however, they serve different purposes.
+
+PIM focuses on assignment of individual highly privileged Entra roles to users, not bundled access.
+
+Entitlement management focuses on assignment of bundled access (groups of permissions) but disallows assignment of privileged Entra roles.
+
+While entitlement management prevents direct assignment of privileged Entra roles, there are still ways an administrator or attacker may work around this. We'll cover more details on this later.
+
+Architecture
+
+To better understand how access packages are used and managed, let's look at the architecture of entitlement management.
+
+Entitlement management is organized by catalogs that contain the resources a user may need access to. Resources are then added to access packages that bundle multiple resources into what's required for a user's role.
+
+Once an access package is configured, users request or are added to access packages through requests that are evaluated by policies to determine any approvals required before access is granted. Target users may already exist in the Entra tenant, or they may come from an external tenant or preapproved connected organization, based on the policy's configuration.
+
+After approval, the user is granted access to the resources in the requested access package.
+
+Catalogs
+
+Catalogs are the top-level container for entitlement management. They contain the resources that users need access to, as well as access packages that can grant users access to those resources.
+
+In the Azure portal, new catalogs are added under ""Catalogs"" in the identity governance panel:
+
+Resources
+
+A resource is any item a user is granted access to through an access package. Resources are added into a catalog and included in access packages.
+
+Resources can include:
+
+Group membership and ownership
+
+Azure Resource Manager (ARM) role assignments
+
+Some Entra role assignments
+
+Teams in Microsoft Teams
+
+SharePoint sites
+
+Application access
+
+If E7 or Agent 365 licensing is in use, application permissions (appRoles) and delegated permissions (oauth2PermissionScopes) can also be added as resources and assigned to service principals (SPs) and agent identities through entitlement management.
+
+Resources are added by selecting a catalog, then adding the target resource under ""Add resources to catalog.""
+
+While entitlement management disallows direct assignment of privileged Entra roles, roles with privileges outside of Entra (roles not marked as ""privileged"") can still be assigned. Currently, this includes roles such as:
+
+Billing Administrator
+
+Exchange Administrator
+
+Power Platform Administrator
+
+Azure DevOps Administrator
+
+Role-assignable groups that assign privileged roles to users (such as Global Administrator) can also be added as resources to a catalog. This means that while direct privileged role assignments are prevented, administrators might still use workarounds to add highly privileged roles into access packages. We will look into the security implications of this in our next post.
+
+Access packages
+
+Now that resources have been grouped into a catalog, they can be bundled based on a user persona and easily assigned to any users requiring that access.
+
+Catalog resources are added to an access package along with their role status. This could include group membership or ownership, active or eligible membership in an Entra role, or specific Azure roles.
+
+Once created, access packages follow policies to determine if a user is eligible for assignment.
+
+Policies Policies control which users, groups, or guest users can be assigned to an access package. There may be required justifications, approvals, and life cycle workflow conditions in a policy to control who can request access, who approves it, and how long access lasts once it has been assigned. An access package can have multiple policies governing assignment.
+
+Key policy settings include:
+
+Who can get access: Can be specific groups or identities, all groups or identities, new or existing guest users, or restricted to administrative assignment
+
+Who can request access: The user, their manager, or only administrators
+
+Justification: If a justification is required from the requestor
+
+Approval: If approval is required for requests, and who approves if so; up to three rounds of approval can be configured
+
+Lifecycle: How long assignment to an access package lasts, whether users can extend their access, and whether regular access reviews are required
+
+Once approved, the access package is assigned to the user, and all resource assignments in the access package are delivered to the user.
+
+Management roles
+
+How do you know who can control what in entitlement management? Currently, this is more complex to answer than in other access management tools within Entra ID. Both Entra roles and ID Governance roles must be reviewed to understand a user's rights in entitlement management.
+
+An overview of key entitlement management roles is provided below. Full details on these permissions can be found in Microsoft's guide on the topic.
+
+Unlike most permissions management features, entitlement management roles can be assigned outside of Entra's role assignments. This means you'll need to check two different areas to understand who can control your access policies: Entra role assignments and the ID Governance ""Roles and administrators"" section of each catalog in entitlement management.
+
+Entra roles
+
+Both the Global Administrator and Identity Governance Administrator Entra ID roles can fully control entitlement management. This includes creating new catalogs and access packages, adding resources, and controlling access package assignments and policies.
+
+As the Global Administrator role holds full control of the Entra tenant, this role can assign any resource to a catalog. The Identity Governance Administrator role must own a resource in order to add it to a catalog, meaning that it cannot add Entra ID roles.
+
+Entra ID custom roles with the microsoft.directory/entitlementManagement/allProperties/allTasks permission also hold full control of entitlement management.
+
+These role assignments are found in the standard Entra ""Roles and administrators"" panel.
+
+ID Governance roles
+
+ID Governance has several roles outside of Entra ID that allow control of entitlement management. The most powerful of these is the Catalog Owner role, which can control the access packages, policies, and resources of any catalog they own. Additionally, the Catalog Creator automatically becomes a Catalog Owner over any catalog they have created.
+
+Additional roles allow control of access packages (Access Package Manager), assignments (Access Package Assignment Manager), and external organizations that can be added to access package policies (Connected Organization Administrator).
+
+Unlike Entra roles, ID Governance roles must be reviewed within the identity governance panel:
+
+Catalog Creator and Connected Organization Administrator assignments are reviewed in the ""Roles and administrators"" section of entitlement management.
+
+All other entitlement management roles are reviewed in the ""Roles and administrators"" section of each catalog, as seen below.
+
+It's important to review these assignments since the access packages, assignments, and policies behind a catalog directly control user role assignments.
+
+Application permissions
+
+Along with permissions in Entra ID and ID Governance, application permissions—specifically, the EntitlementManagement.ReadWrite.All Microsoft Graph permission—can grant SPs full management access to entitlement management. Additional details on SPs and application permissions can be found in our previous post on the topic.
+
+Risks of entitlement management
+
+What's the impact of an entitlement management compromise? Depending on how your access packages are configured, a compromise can be severe.
+
+We'll cover practical examples of this in our next post. In the meantime, let's walk through a conceptual overview of these concerns.
+
+Impact While entitlement management can't directly assign privileged Entra roles, granting membership in role-assignable groups with privileged roles is still possible. Additionally, entitlement management can still assign Entra roles with permissions outside of Entra (such as Exchange), Azure roles, and sensitive data access within SharePoint and Teams.
+
+Theory This creates several areas an attacker with control over entitlement management may target to elevate their privileges:
+
+Methods Attackers may attempt several methods to target these resources, such as:
+
+Directly escalating to an eligible access package of a compromised user
+
+Creating new access packages within a catalog they control containing that catalog's privileged resources
+
+Tampering with group memberships to gain eligibility to an access package
+
+Conclusion
+
+In this post, we looked at access packages in Entra's entitlement management and how their structure can lead to configurations that attackers may want to target. We also covered how permissions for entitlement management must be audited in Entra's role assignments and within ID Governance itself.
+
+Our next post will explore the impact of access package compromises through examples using access package eligibility, ID Governance roles, and group membership tampering.
+
+We're always eager to hear from you. If you have any questions, thoughts, or suggestions, send us a message at securitylabs@datadoghq.com, or open an issue. You can also subscribe to our newsletter or RSS feed."
 9dcfe7af499a,9dcfe7af499a,2026-11-18 16:33 UTC,General Security News,Microsoft Security,The Hacker News,Vulnerability Management; AI Security,Article,Quality Isn’t The Main Worry About AI Pentesting — Data Privacy and Production Safety Are,https://thehackernews.com/2026/11/quality-isnt-main-worry-about-ai.html,"It's speeding up how attackers find and exploit them too, with time-to-exploit now down to a single day","AI is speeding up how software is built, which means more code, more changes, and more chances for vulnerabilities to reach production. It's speeding up how attackers find and exploit them too, with time-to-exploit now down to a single day. Security testing has to keep up with both.
 
 AI pentesting has emerged as a way to run in-depth tests whenever teams need them, instead of waiting for the next scheduled pentest. To see how far adoption has come and what security teams need from it, Intruder surveyed 500 security and engineering leaders across the US and UK. Read on for the top findings.
@@ -52,27 +231,6 @@ That changes what's possible across the testing cycle. Releases can be tested as
 For teams looking to adopt it with confidence, a few steps help. Start in a staging environment that mirrors production. Run an AI pentest alongside your next manual pentest and compare the results. Look for findings that come with proof-of-concept code and a record of what was tested. And check how your code and data will be handled before you give it access.
 
 With AI speeding up how software is built and how it's attacked, AI pentesting makes it possible to keep pace with both. Get the full report or learn more about Intruder’s AI pentesting."
-56cf0b1b68df,56cf0b1b68df,2026-11-18 05:30 UTC,General Security News,Microsoft Security,Help Net Security,Mobile Security,Article,Product showcase: iVerify Basic helps users check device security and improve privacy,https://www.helpnetsecurity.com/2026/11/18/product-showcase-iverify-basic/,"It is available for iOS and Android, including tablets","iVerify Basic is a mobile security app for individuals who want to check their devices for signs of compromise and improve their security settings. It is available for iOS and Android, including tablets.
-
-Device security checks
-
-The Device tab puts scan controls and security status on one screen. Users can select Run Scan to check device integrity. After a check, the app displays its findings and records when the device was last checked.
-
-Device Health lists whether Face ID and screen lock are enabled, alongside the status of iOS and iVerify updates. These checks give users a starting point for reviewing their configuration.
-
-Security and privacy guides
-
-The Guides tab groups recommendations into categories covering theft protection, software exploits, signs of compromise, wireless data, communications, and advertising data leakage. Each category shows a completion count.
-
-The theft protection section includes instructions for disabling Control Center while locked, using Emergency SOS and Lockdown Mode, enabling Stolen Device Protection, and configuring automatic updates.
-
-Individual guides explain the feature and any required setup, with an option to flag an item for later.
-
-The Online tab adds guidance on security software, account authentication, and network security.
-
-Final thoughts
-
-I found the guides very useful for people who need understandable instructions on improving their iPhone’s security and personal privacy. The topic groups make it easy to choose an area to work on, and marking each reviewed guide Done provides a record of progress."
 70c3c9f681a1,70c3c9f681a1,2026-11-17 18:14 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Vulnerability Management,Article,"Security for the agentic era, powered by Microsoft Perception",https://www.microsoft.com/en-us/security/blog/2026/11/17/security-for-the-agentic-era-powered-by-microsoft-perception/,"Accelerate threat detection, investigation, and response with new playbooks and four blue team agents, now generally available: Alert Triage Agent, Attack Investigation Agent,...","In this article
 
 A new cyber stack, built to fight AI with AI
@@ -1700,82 +1858,6 @@ Defending the inbox against prompt injection attacks | Microsoft Defender for Of
 Learn how Microsoft is reimagining the SOC for the agentic era with ISOC in Microsoft Defender
 
 The post Trained to betray: How post-training supply chain attacks hijack coding agents appeared first on Microsoft Security Blog."
-fc58d1ad4fbf,c38a1acfb166,2026-11-12 21:57 UTC,Vulnerabilities & Patching,Microsoft Security,The Hacker News,Vulnerability Management; Container Security; Code Security; Identity Security Posture Management,Article,Critical Red Hat Quay Flaw Lets Attackers Read and Overwrite All Private Container Images in a Registry,https://thehackernews.com/2026/11/critical-red-hat-quay-flaw-lets.html,A critical flaw in Red Hat Quay allows an attacker who can access a Quay registry to read and overwrite private container images in every repository,"A critical flaw in Red Hat Quay allows an attacker who can access a Quay registry to read and overwrite private container images in every repository.
-
-Quay enables anonymous access by default, and while it is enabled, the attacker needs no account. When it is off, anyone with a valid account can still exploit the flaw, Red Hat said yesterday. The company has released fixed builds for eight Quay 3 branches.
-
-The flaw is tracked as CVE-2026-123710 (CVSS score: 9.8).
-
-Quay uses keys it trusts to sign the access tokens that allow image pushes and pulls. The flaw lets an attacker add their own key to the keys Quay trusts, with no expiry date. Quay then accepts tokens signed with that key for any repository.
-
-With those tokens, an attacker can retrieve private images and any secrets or credentials stored within them. The attacker can also push or overwrite images, and the change propagates to every system that later pulls those images.
-
-The planted key survives restarts until someone removes it. It can also be used to delete the keys that running Quay instances use, so normal pushes and pulls start failing with authentication errors.
-
-Quay's key server checks that a request to replace a key carries a token signed by a trusted key, with the expected audience and issuer. It does not check whether the token was issued for key rotation. An anonymous token from Quay's /v2/auth endpoint passes: Quay signs it with a trusted key, and the caller chooses its audience.
-
-A second critical flaw, CVE-2026-110697 (CVSS score: 9.9), was disclosed at the same time. It lets a Quay user who can create a namespace steal other tenants' robot account tokens and use them to read, push, or overwrite those tenants' images.
-
-This flaw is in the code that lists robot accounts. It builds an SQL LIKE pattern from the namespace name without escaping wildcard characters, and in SQL LIKE an underscore matches any single character.
-
-So a namespace with an underscore in the right place can match another tenant's namespace and return its robot accounts, with their decrypted tokens. The attacker needs no elevated privileges, and the victim does not have to do anything.
-
-Deleting the attacker's namespace also deletes the corresponding robot accounts, which can cut off systems that rely on them. Where Quay is the integrated registry for OpenShift, stolen robot credentials can be used to inject malicious images into CI/CD pipelines, the company says.
-
-Red Hat's Dave O'Connor found both flaws. The logic behind CVE-2026-123710 has been in Quay since its first public commit, according to the bug report for that flaw.
-
-Red Hat lists every version of Quay 3 and Quay 5 as affected by both flaws. For CVE-2026-123710, its guidance names standalone installs, Quay deployed by the Quay Operator on OpenShift, and the mirror registry for Red Hat OpenShift as affected.
-
-Any Quay instance that untrusted clients can reach is exposed, including internal registries, the company says.
-
-When checked today, the CVE entry for CVE-2026-123710 still showed every Quay package as affected, with no fix, even though each advisory lists the flaw.
-
-The company recommends these steps:
-
-At the proxy or load balancer, block the /keys endpoint for everything except trusted internal components.
-
-Search the audit logs for service_key_rotate and service_key_delete events where expiration_date is null.
-
-Remove any approved service keys you do not recognize.
-
-Install the fixed release. Until it is running, an attacker can add a new key the same way, so deleting one does not last.
-
-""Turning off anonymous access doesn't protect you,"" the company says in its key remediation article. A planted key also continues to work after password resets and changes to the robot token.
-
-For CVE-2026-110697, the company's CVE page names the same eight releases as fixed, calls updating the only complete fix, and says Quay.io is already fixed. But none of the eight advisories list CVE-2026-110697.
-
-Until an update is in place, the company suggests limiting who can create organizations or namespaces containing an underscore, rotating robot tokens for any namespace that matches an underscore namespace, and watching for pulls or pushes that do not fit normal robot use. These steps reduce the exposure, but the flaw remains.
-
-The upstream fix adds the missing rotation check, requires keys added through the key server to have an expiry date, and stops callers from choosing a token's audience. The same change fixes the robot account search too."
-6d1eefde4787,dada4dec2bd0,2026-11-12 17:21 UTC,Vulnerabilities & Patching,Microsoft Security,The Hacker News,Vulnerability Management,Article,"New N-central Exploits Work Against Patched Servers, Enable Root RCE and Windows SYSTEM Access",https://thehackernews.com/2026/11/new-n-central-exploits-work-against.html,"Dewhurst said the development marks the first documented instance of exploitation attempts aimed at CVE-2026-90436, patches for which were released on November 6, 2026","N-able on Thursday said it's investigating a new public disclosure containing claims of additional vulnerabilities in on-premise versions of N-central running version 2026.4.1 HF2.
-
-""Based on our initial review, the server issue described depends on a non-default configuration in which the Legacy API is turned on and exposed to the public internet,"" N-able said in a new advisory. ""Legacy API is turned off by default in the product and is not recommended.""
-
-The company is urging customers to disable Legacy API immediately, if not already. It also noted that hosted environments are not affected by this issue.
-
-The incident impacts the following services -
-
-N-central On-premise (Americas)
-
-N-central On-premise (APAC)
-
-N-central On-premise (Europe)
-
-The development comes days after N-able released 2026.4.1.26 to address a number of security flaws disclosed by independent security researcher Sean Bales earlier this week. The vulnerabilities are collectively tracked under the name Able2Shell.
-
-The new shortcoming, also revealed by Bales, have been codenamed 4EverAble2Shell and Agent2Shell, adding the proof-of-concept (PoC) exploits successfully work against N-central 2026.4 Hotfix 2 (build 2026.4.1.26), the update N-able released on November 10, 2026, to resolve Able2Shell.
-
-According to the researcher, 4EverAble2Shell enables unauthenticated remote code execution with root privileges on N-central servers. Agent2Shell, on the other hand, leverages more than 10 zero-day vulnerabilities to run commands on managed Windows agents as NT AUTHORITY\SYSTEM, assuming the attacker knows the target appliance ID.
-
-Ryan Dewhurst, founder and CEO of Previdian, told The Hacker News that targeted N-central probing has been observed against 4EverAble2Shell within hours following the release of the PoC. The activity has originated from the IP address 157.20.241[.]16. There is no evidence of successful exploitation as of writing.
-
-In the attack chain observed by the threat intelligence company, threat actors have been observed attempting to achieve initial code execution through a recently disclosed Apache Axis flaw (CVE-2026-90436, CVSS score: 9.8), followed by attempts to escalate privileges to root using 4EverAble2Shell, and then download and execute a shell script from 157.20.241[.]16 using curl.
-
-Dewhurst said the development marks the first documented instance of exploitation attempts aimed at CVE-2026-90436, patches for which were released on November 6, 2026.
-
-In a post shared on X, watchTowr also said it's seeing probes for 4EverAble2Shell targeting N-Centrals builds with the Legacy API enabled.
-
-(This is a developing story. Please check back for more information.)"
 13c0fe01dd3a,13c0fe01dd3a,2026-11-11 23:00 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Palo Alto Unit 42,AI Security; Threat Intelligence; Attack Surface Discovery; Vulnerability Management,Article,ARTEX and AI-Powered Red Teaming Tools: What Defenders Need to Know,https://unit42.paloaltonetworks.com/artex-and-ai-powered-red-teaming-tools/,"Unit 42 Incident Response and Managed Threat Hunting teams observed this activity across multiple organizations and sectors, without exploiting a single software vulnerability","A rapidly expanding ecosystem of AI-enabled tools such as ARTEX and CyberStrikeAI — marketed for red teaming and penetration testing — are being used by attackers to execute offensive operations autonomously.
 
 Their footprint is already substantial. Unit 42 has observed ARTEX used in intrusion attempts against multiple targets.
@@ -2611,7 +2693,6 @@ More tokens may yield more bugs, but not a secure system. We scanned only a smal
 These lessons also extend beyond our research. Through close collaboration with the engineering teams building codename MDASH, we’re applying what we learn from real-world vulnerability discovery and validation to inform how these capabilities evolve. The goal is to bring advances in AI-powered security research into the hands of security teams, helping them identify and address critical vulnerabilities more effectively.
 
 The post Lessons from 59 Linux Kernel Bug Reports appeared first on Microsoft Security Blog."
-456b57a77338,456b57a77338,2026-11-11 08:00 UTC,Business & Industry News,Microsoft Security,Google News: EY,N/A,Article,Addressing Private Equity Priority-to-value Gaps,https://news.google.com/rss/articles/CBMixwFBVV95cUxPS0Z5a0VoaHN5Z3RENld3S2htbHF5OVJPenRKUFFUcm54RGwyZUg0Ti1Na0NUQVJTQTktajA5Qm13U3QydklnNmFTdkMtUzJHZWhtSjRYOUprRmNEQTFwWDB2dGF2bnl3TFJrNXd3dDg5aGNUdUtkcGE4M052V3JRamJDU0JBdkJUakk0TEtvS2RTU0xPWE1ZMFBiS0hzQUF1RzM5Y3lrYkdjYjRaV1NXQllyWUFRdzkybERuQnVzbjhRZm9vWlVR?oc=5,,
 c2144bee8896,99d6c260eab2,2026-11-11 00:55 UTC,Vulnerabilities & Patching,Microsoft Security,Tenable Blog,Vulnerability Management,Article,Able2Shell: Frequently asked questions for reported N-able N-central zero-day vulnerabilities,https://www.tenable.com/blog/able2shell-frequently-asked-questions-for-reported-n-able-n-central-zero-day-vulnerabilities,"As of November 10, there are no details available for any threat actor activity connected to Able2Shell exploitation","N-able released a hotfix for N-central that fixes seven CVEs after a researcher published proof-of-concept code for 33 alleged zero-day vulnerabilities. The researcher says one attack chain needs no credentials.
 
 Key Takeaways

