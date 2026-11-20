@@ -1,4 +1,203 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+18b5959259c8,99d6c260eab2,2026-11-20 17:29 UTC,General Security News,Qualys,Qualys Blog,Vulnerability Management,Article,A Technical Guide to Mitigate Java4Shell with TruRisk Eliminate,https://blog.qualys.com/qualys-insights/2026/11/20/a-technical-guide-to-mitigate-java4shell-with-trurisk-eliminate,This remote code execution chain has only been mentioned as achieved by the vulnerability researchers,"Executive Summary
+
+Java4Shell (CVE-2026-114938) is a heap out-of-bounds write in HotSpot’s AVX-512 Base64 decoder on x86-64. Calif reported it and showed pre-auth RCE in Keycloak, Jira, Confluence, Artifactory, Jenkins, and PingFederate. Nobody has reported exploitation in the wild as of November 17, 2026. CISA issued an alert that same day, urging everyone to patch now.
+
+Your Java4Shell Response Plan
+
+Patch to Oracle 17.0.21.1, 21.0.13.1, 25.0.5.1, or 27.0.1.1, or to your vendor’s build with JDK-8393212.
+
+If you can’t patch today, start the JVM with -XX:-UseBASE64Intrinsics and restart it.
+
+You’re only exposed on an x86-64 CPU with AVX-512 VBMI. ARM64 isn’t affected.
+
+Tip for Qualys customers: you can apply the step 2 flag with TruRisk Eliminate, targeting only the hosts that need it and rolling it back in one click.
+
+Affected Java Builds and Their Fixed Releases
+
+Oracle shipped the fixed builds on November 17, 2026. October’s builds are still vulnerable.
+
+Product
+
+Range
+
+Vulnerable
+
+Fixed build (Oracle)
+
+Oracle Java SE / OpenJDK
+
+17
+
+17.0.6 to 17.0.21
+
+17.0.21.1
+
+Oracle Java SE / OpenJDK
+
+21
+
+Below 21.0.13.1
+
+21.0.13.1
+
+Oracle Java SE / OpenJDK
+
+25
+
+Below 25.0.5.1
+
+25.0.5.1
+
+Oracle Java SE / OpenJDK
+
+27
+
+Below 27.0.1.1
+
+27.0.1.1
+
+OpenJDK (end of life)
+
+18 to 20, 22 to 24, 26
+
+All
+
+None. Move to a supported line
+
+Oracle Java SE 8 Enterprise Performance Pack
+
+8
+
+8u511-perf
+
+8u513-perf
+
+Oracle GraalVM for JDK
+
+17 / 21
+
+Below the fix
+
+17.0.21.1 / 21.0.13.1
+
+Oracle GraalVM Enterprise Edition
+
+21.3
+
+Below the fix
+
+21.3.20.1
+
+Distro packages built before the fix are vulnerable even when the version looks current. Ubuntu’s 17.0.21.0.3 and Oracle Linux’s 17.0.21 are two examples.
+
+How the Java4Shell Attack Chain Works
+
+This is a typical Java4Shell attack chain:
+
+The attacker needs a Base64 decode value they can control. Vulnerability discoverers were able to reach this pre-authentication condition via authentication in Keycloak, Jira, Confluence, Artifactory, Jenkins and PingFederate, and after login in Kafka, Solr, Elasticsearch, Gerrit and Spinnaker. A Java client that opens a TLS connection to a malicious server is exposed too.
+
+The attacker then sends valid decodes until the server compiler compiles the fast path, then the bad input: 64 valid characters and one =, or 128 and one = on older 17 builds.
+
+The target must pass the gates in the source. The JVM must see avx512_vbmi and avx512bw with UseAVX=3, the intrinsic must be on, and on 17u the input must be longer than 128 characters.
+
+The stub’s tail handling goes wrong. The next section walks through it.
+
+On a fixed build, or with the intrinsic off, nothing happens. Otherwise, 62 or 63 bytes land past the destination array on the Java heap.
+
+Vulnerability researchers mentioned that they groomed the heap (G1 regions, thread-local allocation buffers) to turn that write into code execution. Unsuccessful exploitation will lead to a denial-of-service condition on the endpoint.
+
+This remote code execution chain has only been mentioned as achieved by the vulnerability researchers. Nobody has reported it in the wild yet.
+
+Tracing Java4Shell to Its Root Cause
+
+Based on the jdk17u source at the fix commit, HotSpot generates the stub in generate_base64_decodeBlock (it shows up as implDecode at runtime), and C2 calls it from java.util.Base64$Decoder.decode0 once that method is hot. JDK-8268276 added the AVX-512 decoder in JDK 18 and JDK-8296735 backported it to 17.0.6, so 17.0.5 and older are clean.
+
+The whole vector decoder sits inside if (VM_Version::supports_avx512_vbmi() && VM_Version::supports_avx512bw()). Without both features HotSpot only builds the scalar 4-character loop, which is fine. 17u has no AVX2 decoder; the AVX2 tables in that file are for encoding. MIME input goes straight to the scalar loop. Basic and URL input take the vector path once it’s longer than 128 characters.
+
+The vector code decodes 64 characters a pass, and L_finalBit handles the last 1 to 63. Before the fix, a tail of 1 to 3 characters ending in = gave an output size of 0, and the padding step subtracted 1 from it. The output mask then came from bzhiq with an index of -1. bzhiq only reads the low 8 bits of the index, so -1 became 255, nothing got cleared and the mask stayed all ones. The final masked store wrote a full 64 bytes where it should have written none.
+
+The exact trigger condition on 17u follows from the control flow. The input must be longer than 128 characters and go through the basic or URL decoder, since MIME goes to the scalar loop. Inputs of 256 characters or more run through 256-character passes, then everything runs through 64-character passes, so the tail left at L_finalBit is the length modulo 64. Every character in those passes must be valid Base64; a = or any other bad character inside a pass makes the stub exit early and hand the rest to Java. The tail must be 1 to 3 characters ending in =, and any non-padding character in it must also be valid. Put together, the bad lengths are 64k + 1 to 64k + 3 for k of 2 or more: 129 to 131, 193 to 195, 257 to 259 and so on. Legitimate padded Base64 always has a length that’s a multiple of 4, so none of these inputs is valid anyway. Unpadded values such as JWT segments can have other lengths, but they never end in =. That makes length modulo 64 plus a trailing = a tighter hunting signal than “not a multiple of 4”.
+
+The fix, JDK-8393212, adds four lines at L_finalBit: if fewer than 4 characters remain, jump to L_bruteForce, the scalar path. The commit title is “Base64 optimization improvements”, which tells you nothing.
+
+The fix closes the underflow and causes no other change. The new check runs before the stub computes either the input mask or the output size. With 4 or more characters left, the output size starts at (length / 4) × 3, which is at least 3. Padding takes off at most 2, so the size stays at 1 or more and bzhiq always gets a valid index. A tail made only of = fails the validity check and drops to the scalar loop. Tails of 1 to 3 characters never reach the vector code at all. I checked memory safety only. I didn’t check whether the stub decodes every odd-length tail of 4 to 63 characters correctly, and the fix doesn’t touch that logic.
+
+No CWE is assigned yet. I’d file it as an integer underflow (CWE-191) that causes an out-of-bounds write (CWE-787). Windows x64 gets the same vector code; the function only differs in how it reads its arguments there. I’ve only read the 17u source. Calif’s shorter trigger on newer lines suggests a lower threshold than 128 characters there, but I haven’t confirmed it.
+
+Confirm Exposure From Inside the Java Runtime
+
+A JVM is exposed only when all four of these conditions are true:
+
+It runs on an x86-64 CPU with avx512f, avx512bw, avx512vbmi and bmi2. That covers Intel Ice Lake, Sapphire, Emerald and Granite Rapids, and AMD Zen 4 and newer. Skylake-SP and Cascade Lake have AVX-512 but no VBMI.
+
+It’s OpenJDK 17.0.6 or later, or 18 to 27, below the fixed builds. Oracle’s 8u511 Enterprise Performance Pack counts too, because it ships a 17-based VM.
+
+UseAVX=3 and UseBASE64Intrinsics=true, which are the defaults on those CPUs.
+
+Attacker input reaches the basic or URL decoder in java.util.Base64. Basic auth and JWT parsing do this before login.
+
+A quiet service isn’t safe. The attacker warms up C2 with valid decodes first.
+
+The OS doesn’t change the bug. Windows x64 gets the same generated code as Linux, though only Linux has public testing.
+
+I wouldn’t rely on /proc/cpuinfo. It doesn’t exist outside Linux, and an empty result looks like “not affected”. Ask the JVM what it sees instead, on any OS: java -Xlog:os+cpu -version 2>&1 | grep -oE ‘avx512f|avx512bw|avx512_vbmi|bmi2’ | sort -u java -XX:+PrintFlagsFinal -version 2>/dev/null | grep -E ‘ (UseAVX|UseBASE64Intrinsics) ‘
+
+All four flags, UseAVX = 3 and UseBASE64Intrinsics = true mean that runtime is exposed. Run the check with each java binary on the host, since each runtime reports its own settings.
+
+Turn the intrinsic off with -XX:-UseBASE64Intrinsics and restart the JVM. With that flag HotSpot never generates the stub, which I confirmed in the source and on a live JVM. Oracle hasn’t published it as a workaround.
+
+Control
+
+Impact
+
+Trade-off
+
+-XX:-UseBASE64Intrinsics
+
+Low
+
+Base64 decoding falls back to plain Java and runs slower. No one has published a number
+
+-XX:UseAVX=2
+
+High
+
+Also stops it, since the VBMI decoder never gets built, but it drops every AVX-512 optimization. ARM64 JVMs won’t start with it
+
+Move to non-VBMI or ARM hosts
+
+High
+
+Migration work, and a reschedule back onto a VBMI node re-exposes you
+
+Skip -XX:DisableIntrinsic=_base64_decodeBlock. Upwind reports it fails unless you also pass -XX:+UnlockDiagnosticVMOptions.
+
+CISA’s alert also suggests validating Base64 at the application boundary, enforcing input-size limits and limiting unauthenticated access. Boundary validation helps if it rejects padded input whose length isn’t a multiple of 4 before the decoder runs. Size limits won’t: the trigger is 65 characters on newer lines, shorter than most Basic-auth and JWT values. Limiting unauthenticated access works, but it means network ACLs or a VPN in front, because the vulnerable decode happens before login.
+
+Mitigate Java4Shell with TruRisk Eliminate
+
+For Qualys customers, the Java4Shell mitigation is available now with TruRisk Eliminate on Linux and Windows hosts, linked to QIDs such as 389494. As additional QIDs are released for different operating systems, we will test them and add support. The Cloud Agent runs it on the hosts you pick. Before it changes anything, it checks that the host has an AVX-512 VBMI CPU and an affected Java runtime, so hosts that can’t hit the bug are left alone. On the hosts that can, it adds -XX:-UseBASE64Intrinsics to JAVA_TOOL_OPTIONS and keeps whatever value was already there.
+
+The setting takes effect when each JVM restarts, so plan restarts with the application owners. Windows services pick it up after a host reboot. After the change, the agent reports every running Java process with its effective setting, worked out in the order HotSpot applies options. A JVM it can’t read shows up as unknown, so you know where to look instead of assuming it’s covered.
+
+Rollback is one click in the console and restores the previous value. The mitigation doesn’t reach containers; set the flag in the image or pod spec for those. Treat it as a bridge to the patched builds, since Oracle hasn’t published the flag as a workaround.
+
+Code execution is not the only outcome. A successful exploit chain can read Java heap memory before it runs any attacker code. That memory can hold private keys, tokens, and personal data. CISA also warns that crafted input can crash the JVM, so availability is at risk too. Java clients are exposed as well. The researchers report a client-side exploit in which a Java program is compromised simply by connecting over TLS to a malicious server.
+
+Frequently Asked Questions (FAQ)
+
+What is Java4Shell (CVE-2026-114938)?Java4Shell is a heap out-of-bounds write in the AVX-512 Base64 decoder of the HotSpot JVM on x86-64. A malformed Base64 value can make the decoder write 62 or 63 bytes past the end of an array on the Java heap. Researchers turned that into pre-authentication remote code execution in Keycloak, Jira, Confluence, Artifactory, Jenkins and PingFederate.
+
+Which Java versions are affected by Java4Shell?OpenJDK 17.0.6 and later, and versions 18 to 27, are affected below the fixed builds. Oracle’s 8u511 Enterprise Performance Pack is also affected because it uses a 17-based VM. Oracle released the fixed builds on November 17, 2026: 17.0.21.1, 21.0.13.1, 25.0.5.1, 27.0.1.1 and 8u513-perf. Vendor builds that include fix JDK-8393212 are also safe. Java 8 standard and Java 11 are not affected.
+
+Is Java4Shell being exploited in the wild?No exploitation in the wild had been reported as of November 17, 2026. Remote code execution has only been demonstrated by researchers. CISA issued an alert the same day urging organizations to patch now.
+
+How do I know if my Java runtime is exposed to Java4Shell?A Java runtime is exposed only when all four conditions are true. It runs on an x86-64 CPU with AVX-512 VBMI. It’s an affected version. UseAVX=3 and UseBASE64Intrinsics are on, which are the defaults on those CPUs. And attacker input reaches the Basic or URL Base64 decoder. Check by asking each Java binary what it sees, not by reading /proc/cpuinfo. ARM64 is not affected.
+
+How can I close the Java4Shell vulnerability if I can’t patch yet?You can mitigate it by starting the JVM with -XX:-UseBASE64Intrinsics and restarting it. With this flag, HotSpot never generates the vulnerable code. Oracle hasn’t published it as an official workaround, so treat it as a bridge until you can patch.
+
+How do I mitigate Java4Shell with TruRisk Eliminate?Apply -XX:-UseBASE64Intrinsics with TruRisk Eliminate through the Qualys Cloud Agent. It automatically targets only Linux and Windows hosts that have an AVX-512 VBMI CPU and an affected Java runtime. It keeps existing JAVA_TOOL_OPTIONS values, reports the effective setting for every running Java process and offers one-click rollback."
 89e3c8fae69b,89e3c8fae69b,2026-11-19 20:54 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys Blog,Code Security; Endpoint Security; Attack Surface Discovery,Article,Third-Party JavaScript Is Part of Your Attack Surface: Lessons from a Recent Supply-Chain Attack,https://blog.qualys.com/product-tech/2026/11/19/third-party-javascript-is-part-of-your-attack-surface-lessons-from-a-recent-supply-chain-attack,"Start Trial References Newsweek, Cyber attack hits 178 major websites Qualys, How Web Malware Detection works Qualys, Web Malware Detection Qualys TotalAppSec product page","In a recent incident, visitors to websites run by some of the world’s best-known brands, including news publishers, banks, airlines, and software companies, were served malicious JavaScript. Most of those organizations never deployed bad code. The code came through a script they had deliberately chosen to trust, delivered by a widely used third-party web service.
 
 The attackers did not break into those websites. Instead, they exploited a weakness in the vendor’s platform to gain administrative control of some customer accounts, then modified the JavaScript those customers delivered through the vendor. The vendor’s CDN served the altered code to every visitor of an affected page.
@@ -1897,179 +2096,6 @@ They now outnumber human identities by roughly 144 to 1 and grew 44% in a single
 How does Qualys ETM Identity help?
 
 It discovers human and machine identities, correlates identity risk with org TruRisk, maps attack paths and trust relationships, and routes prioritized findings for verified remediation."
-c4146bb884d2,c4146bb884d2,2026-11-16 05:56 UTC,General Security News,Qualys,Qualys Blog,Identity Security Posture Management; Vulnerability Management,Article,ARTEX Moves at Machine Speed: What Risk Owners Need to Change,https://blog.qualys.com/product-tech/2026/11/15/artex-moves-at-machine-speed-what-risk-owners-need-to-change,"In observed campaigns, attackers using ARTEX went from first targeting an organization to privileged access in under three hours, while the median time for customers to fix...","Key Takeaways
-
-ARTEX, an AI-driven penetration-testing framework released in July 2026, doesn’t exploit new kinds of vulnerabilities. It automates the discovery, chaining, and retrying of existing weaknesses, often across many targets at once.
-
-In observed campaigns, attackers using ARTEX went from first targeting an organization to privileged access in under three hours, while the median time for customers to fix critical vulnerabilities is 7 days.
-
-In most AI attack tools of this kind, the limits are set by prompts or by user-adjustable settings, so organizations should identify and approve these tools and question any pentest provider that runs them.
-
-To keep pace, vulnerability programs need to detect exposures at disclosure, rank them by confirmed exploitability, and make automatic patching the default, with hours-long deadlines for internet-facing systems.
-
-ARTEX, an AI-driven penetration-testing framework, didn’t change what gets exploited. It changed how long you have, and how many of your weak points get tried at once. Frameworks like ARTEX don’t need a new class of vulnerability. They automate the work of finding, chaining, and retrying existing weaknesses, often across many targets in parallel. Observed campaigns show that some intrusions reach privileged access within hours. That strengthens the case for faster remediation and mitigation, and for ensuring that a single unpatched system, exposed credential, or excessive permission doesn’t become a much larger intrusion.
-
-ARTEX was released as an open-source penetration-testing framework in July 2026. You give it a target and a goal. It scans, picks a way in, uses what it finds there to reach the next system, and keeps going until it reaches the goal or runs out of routes. It was published in July as a research and testing tool. By October, it was turning up in incident reports.
-
-For vulnerability and risk management teams, the implication is direct: every hour an exposure remains open gives attackers more time to find and exploit a path through your environment. When they can pursue several paths at once, the question is how quickly you can close the exposures that put critical systems within reach.
-
-What ARTEX is
-
-We read its source code. The simplest description is a project manager for a break-in. A planning agent takes the goal and keeps an ordered to-do list. The example in ARTEX’s own documentation is the familiar one: find an injection point, take the credentials, move sideways, raise privileges. Worker agents carry out the steps, several at a time, with the same ordinary tools a human tester would use. Each one writes down what it learned, and the planner reads those notes and decides what to try next. A person can watch and redirect it from a web console, and it runs on whichever language model you connect to it.
-
-None of that is new to a penetration tester. Scanners have found weaknesses quickly for 20 years. The slow, skilled part of an intrusion was joining those weaknesses into a route, keeping track of what worked, and carrying a stolen credential from one machine to the next, and that is the part ARTEX does. ARTEX did not ship without an authorization-scope mechanism. It shipped with one removed, and the comment saying so is still in the source. The gates that replaced it are seeded as ordinary settings, and a user can disable or delete them.
-
-Anatomy of an AI attacker. Seven capabilities taken from the source code of ARTEX, CyberStrikeAI, Hermes, and Cairn, four tools already seen in real attacks. Every layer rests on one weakness you have not fixed yet.
-
-What The Reports Say
-
-The public evidence comes mainly from Microsoft and CrowdStrike, and it is more measured than the headlines. Microsoft watched one group use ARTEX to attempt sign-ins at more than 2,250 tenants. Most attempts failed, but in several cases the group went from targeting an organization to gaining privileged access in under three hours. CrowdStrike saw another group turn it on more than 200 organizations in 11 days and confirmed follow-on activity at nine, with a human operator steering at the decision points. The agents ran on a cheap, open-weight model, not a premium one. In a separate case, Microsoft timed an agent at 5 minutes from searching GitHub for leaked secrets to pulling data from a cloud key vault.
-
-That is the evidence.
-
-ARTEX Has Relatives
-
-ARTEX has the name, but your team is as likely to meet one of its relatives. We also read the code and documentation for five of them.
-
-Tool
-
-What it is
-
-Used in attacks
-
-What keeps it in bounds
-
-ARTEX and its forks
-
-Runs a full penetration test on its own. The original is closed; the copies are not.
-
-Yes
-
-By default, lets an action through when its own safety check fails.
-
-Cairn
-
-Many agents working from one shared board of findings.
-
-Yes
-
-No controls of its own. In local mode, agents run with your permissions and no sandbox.
-
-Hermes
-
-General-purpose agent that learns by writing its own skills.
-
-Yes
-
-Approval for the skills it writes is off by default.
-
-CyberStrikeAI
-
-Security testing platform with built-in command-and-control, now owned by ThreatBook.
-
-Yes
-
-Mixed. Unanswered approvals are denied, but tool filtering is a pattern blocklist.
-
-Strix
-
-Application security agent that aims to prove each finding with a working exploit.
-
-Yes
-
-Scope is largely set by instructions to the model.
-
-PentestGPT
-
-Academic project that now runs as an agent.
-
-None we found
-
-Relies on the isolation you deploy it in.
-
-RedAgents / Artex Pro
-
-ThreatBook’s commercial bundle, including a paid ARTEX.
-
-Not applicable
-
-We have not seen the code.
-
-The pattern repeats. In most of these tools, the limits are written in prompts, or in settings that someone can change. One platform in the table turns on exactly one rule out of the box: its tool filter blocks government domains, and nothing else. When that rule fires, the message to the agent tells it to pick an authorized non-government target instead.
-
-In another case, it goes further. While the agent is writing its reply, a second copy of the conversation runs in the background, writing new skills for it. The approval gate for those writes is off unless you switch it on, and once written, a skill becomes part of its instructions in every session that follows. The tool you approve and the tool that runs next month are not guaranteed to be the same tool.
-
-Two Additions to The Asset Inventory
-
-The first is everything you forgot. These agents work many targets at once and have no reason to skip the dull ones, so the unowned server gets the same attention as your front door. Gaps in the inventory were tolerable when an attacker had to choose where to spend a week. Now the inventory has to be complete and current, which is what Qualys CyberSecurity Asset Management (CSAM) is built for.
-
-The second is the tools themselves. Sooner or later someone in your organization, or at one of your suppliers, will run one of these with good intentions. Each install holds the findings and credentials from every test it has run. One popular mirror’s source was clean, but its installer pulled a Docker image with a backdoor in the login page. The image had been pulled 7,946 times before researchers disclosed it. Treat them like any other software: find them, then approve or remove them.
-
-Before your team or your pentest provider runs one
-
-Ask five questions, and ask your provider the same ones
-
-When a safety check errors out or times out, does the tool stop or carry on? By default, ARTEX carries on.
-
-Is scope enforced by the software, or requested in a prompt?
-
-What counts as a finding, and what evidence comes with it?
-
-Can you show that the build you are running matches source code someone has reviewed?
-
-Is every action logged in a way you can tie back to your own test?
-
-Seven Days Against Three Hours
-
-Most vulnerability programs rest on an assumption that rarely gets written down, which is that attackers are short on time. It is why a critical vulnerability on an internet-facing server can be given 30 days, why a privilege escalation bug that needs local access waits behind the remote ones, and why risk exceptions get signed when exploitation looks complicated. ARTEX makes attacker time cheap, and the assumption goes with it. An attacker who can get from first contact to privileged access in under three hours is not going to wait for your change window.
-
-Defenders are getting faster too. We are seeing customers fix critical vulnerabilities in a median of 7 days, down from 9 last year, even as volumes rise. More to fix and less time taken to fix it tells you teams are treating this as urgent, and a count alone would never show that. We also see 12% to 16% of our customers fix vulnerabilities before the Cybersecurity and Infrastructure Security Agency (CISA) adds them to its Known Exploited Vulnerabilities catalog. They are acting on their threat-risk signals rather than waiting for the government to tell them. Our Threat Research Unit’s five-year analysis covered more than 1.5 billion critical vulnerability instances, and approximately 173 million of them were remediated before the vulnerability entered that catalog.
-
-Seven days is real progress, and it is still 168 hours against an attacker who needs three. The speed is not even across the environment, either. It shows up where the fix arrives on its own and deployment can be done automatically, and the network edge is still where it lags. The edge is also where a tool like ARTEX starts.
-
-So the patch window measured in weeks is finished, and policy should say so. If a fix can be deployed automatically, it goes on the same day, and people approve the exceptions instead of the rule. An internet-facing system that cannot be patched within hours gets a mitigation or comes off the internet until it can. Every risk exception signed because exploitation was hard, needed prior access, or seemed unlikely gets reopened, because in risk-register terms the impact column is where it was and the likelihood column has moved.
-
-Break The Chain at Machine Speed
-
-In ARTEX’s source, the pause between one step landing and the next step being assigned is a constant set to 800 milliseconds. That is the cadence your change window is racing. The design that makes ARTEX fast also gives you something to aim at. It works in order, and each step depends on what the previous one produced, so removing one link stops everything behind it on that route. Its planner is instructed to put depth ahead of coverage, which means it pushes a promising route all the way through instead of testing everything lightly. To a tool built that way, two medium findings on the same route are worth more than a critical on a server that leads nowhere, and a queue sorted by severity alone will keep fixing the wrong one first.
-
-The defense is to reach the link before the agent does. A program that scans on a schedule and patches on a calendar is working by the week against an attacker working by the hour, so three things have to happen without waiting for a person.
-
-The first is finding the exposure, and that has gone from weeks to minutes. Qualys InstaScan detects newly disclosed vulnerabilities on customer systems a median of 14 minutes after disclosure, with 96% detection coverage across supported vendors. Where we can compare head to head, it finds the exposure about a day before a scheduled scan would, and for a quarter of them, close to a week earlier. As AI shortens the time from disclosure to exploit, every hour of early warning counts.
-
-The second is knowing which exposures are real. Across approximately 9 million exploit validations through Qualys TruConfirm, just 11% confirmed exploitability. That turns a queue of 9 million into a queue of about 1 million, and it puts proof where a severity score used to be. Validate again after the fix, because an installed patch does not prove the route is closed.
-
-The third is fixing them without a person in the loop. Over the last 12 months, our customers deployed more than 180 million patches with Qualys Patch Management. Since frontier AI models like Mythos arrived in mid-2026, our customers have been patching 47% more each month, and the share of patches running fully automated has doubled, from about 30% last September to about 60% this September. The usual objection to automatic patching is that it breaks things. Fewer than 1 in 8,000 patches deployed through Qualys needed a rollback, and that reliability is what lets customers move at machine speed. It also frees people for the network edge, where the fix still needs hands.
-
-Not every link is a missing patch. The second step in ARTEX’s own example is credentials, and a reused admin password, an over-privileged service account, or an access key left in a public code repository will carry an attacker further than most Common Vulnerabilities and Exposures (CVEs). Put those in the program too, with owners and deadlines.
-
-What We Would Do
-
-This Week:
-
-List every internet-facing system with an open critical vulnerability or a known, exploited vulnerability, then fix it, apply mitigations, or take it offline.
-
-Search your environment for these tools, including the tomicdd/artex and congdonglinux/artex container images.
-
-Rotate any secret that was ever committed to a public repository. Deleting it from the repository is not enough.
-
-This Quarter:
-
-Move from scheduled scans to detection at disclosure wherever it is supported.
-
-Make automatic patching the default, and set the deadline for internet-facing systems in hours.
-
-Rank what is left by confirmed exploitability.
-
-Reopen the risk acceptances that were justified by attacker effort.
-
-Put credentials and exposed secrets into the vulnerability program, with owners and deadlines.
-
-Set a policy on who may run AI pentest tools, including suppliers.
-
-If you report one number upward, make it how long weaknesses on internet-facing systems stay open, because that is the number these tools are racing against.
-
-Attackers now measure time in hours. See how Qualys Enterprise TruRisk Management (ETM) helps you find, prioritize, and close exposures at machine speed."
 24ae8ce74723,24ae8ce74723,2026-11-10 09:00 UTC,Business & Industry News,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys to Speak at Upcoming Investor Conference,https://investor.qualys.com/news-releases/news-release-details/qualys-speak-upcoming-investor-conference-19,"(NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested...","FOSTER CITY, Calif., Nov. 10, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested investors at the following conference: 30 th Annual UBS"
 26a007fe43fd,26a007fe43fd,2026-11-09 16:05 UTC,Product & Roadmap,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys Announces Third Quarter 2026 Financial Results,https://investor.qualys.com/news-releases/news-release-details/qualys-announces-third-quarter-2026-financial-results,"Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,","Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,"
 a920141ac818,a920141ac818,2026-11-09 09:01 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys IR News,Attack Surface Discovery; Cloud Risk Management,Article,Qualys Expands Global mROC Alliance with New Technology Alliances Across Every Major Attack Surface and Partner Certification Tracks,https://investor.qualys.com/news-releases/news-release-details/qualys-expands-global-mroc-alliance-new-technology-alliances,"Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to","Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to"
