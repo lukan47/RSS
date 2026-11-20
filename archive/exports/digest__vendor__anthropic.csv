@@ -116,6 +116,78 @@ Get started with Claude and Surface Command today
 The integration is available through the Anthropic connector in the Rapid7 Extension Library. Using Claude’s Compliance API requires a Compliance API key and the appropriate entitlement for your Claude organization.
 
 Visit the connector page to get started and see how Surface Command brings Claude users, roles, and group relationships into view."
+814869793f97,814869793f97,2026-11-17 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,"Using a ""chaos loop"" to harden the Claude Docs launch: 60 server errors across billions of requests",https://claude.dev/blog/chaos-loop-claude-docs-launch/,"For us, the outcome was a service that could handle launch","MAKING THE SERVICE LEGIBLE TO CLAUDE
+
+My colleague Felix Rieseberg recently wrote a tutorial on being more ambitious with models. His main idea is to raise the ""altitude"" you prompt Claude at: ask for the outcome you want, not the individual task.
+
+So instead of asking Claude to fix individual crashes, you ask it to make your app crash-free. (Our own apps aren't all the way there yet, but this is how we're making real progress.) To work at that altitude, though, you have to set up your code so Claude can pull crash reports on its own and run a harness that reproduces each crash and checks the fix.
+
+For us, the outcome was a service that could handle launch. To get there, we did two things to make the service as legible to Claude as we could:
+
+A diagnostic loop. Claude read the telemetry on every iteration and added whatever it thought was missing.
+
+Legible technology choices. We picked a runtime and dependencies so any number Claude measured traced back to code we wrote.
+
+A diagnostic loop
+
+Every iteration, Claude read the telemetry and added whatever it thought was missing. Writing telemetry by hand is tedious, so in practice most telemetry would go in after something broke. Now Claude just writes it as it goes.
+
+Memory is the best example.
+
+Early in the harness run, one large doc was using about 3 GB on its pod (not a fun number to see). Claude’s first stab at fixing it was to shrink one of our caches so our server would evict docs sooner. The next harness run showed the memory was actually in a separate cache inside one of our dependencies, so Claude dropped the change.
+
+From there Claude kept narrowing it down with finer-grained memory profiling. Eventually it found that every keystroke was copying the doc into several different data structures, adding a few MB each time. Claude switched those structures to copy-on-write, so they now share one reference instead of each holding its own copy.
+
+After about three days of iterating, that doc topped out around 180 MB, and our estimate of what we’d need for launch dropped from more than 500 memory-optimized pods to about 50.
+
+Legible technology choices
+
+We were picky about the service’s runtime and dependencies. We wanted any number Claude measured to trace back to code we wrote.
+
+This is because our models hill climb best with a clean signal. We expected a garbage collector to add noise, because memory and latency shift on the collector’s schedule.
+
+Two choices helped the most.
+
+We wrote the service in Rust. With no garbage collector, all of a doc’s memory sits in structures we defined, so when it grew, Claude could point to the one responsible, change it, and see whether memory came down on the next iteration. We have great Go tooling at Anthropic too, and we didn’t bake off the two languages, so this is our experience with Rust. What I did appreciate, coming from past work in Go, was how little I had to think about memory sticking around after my code was done with it.
+
+We also kept dependencies to a minimum. Every library brings data structures we didn’t write and can’t easily account for. For the few we really needed, we vendored the code so we could read and measure it ourselves.
+
+Rust is hard for people to write, and a few years ago that would have weighed heavily on the choice. Claude writes it and most other languages fine, so that matters a lot less now."
+6f3c39d405e1,6f3c39d405e1,2026-11-17 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Linked billing on the Claude Platform,https://claude.com/resources/articles/linked-billing-on-claude-platform,"With linked billing, platforms can: Launch faster","Today we're introducing linked billing on the Claude Platform in beta. Third-party platforms, such as coding agents and workflow automation tools, can let their end customers pay for Claude API usage without sharing an API key. End customers keep their existing Anthropic billing and set their own spend limits, and platforms get a simpler, more secure way to offer Claude.
+
+A more secure alternative to sharing API keys
+
+Paying for Claude API usage on a third-party platform usually means sharing an API key, which works like a password: anyone who has the key can make requests billed to the customer, so the platform has to keep it safe.With linked billing, customers link their Claude Platform organization instead, and usage is billed directly to it. No API key changes hands, so platforms have no customer keys to store, encrypt or rotate, and customers’ API keys never leave their organization.
+
+Platforms can see usage for each linked customer. Customers approve each linked platform, set a spend limit, and can unlink at any time.
+
+Platforms can offer Claude to customers without building the billing
+
+Linked billing gives platforms a new way to offer Claude to their customers. Platforms send requests, and Anthropic bills the end customers directly. With linked billing, platforms can:
+
+Launch faster. Anthropic hosts the approval flow and the billing, so there’s no metering or invoicing to build.
+
+Understand usage by customer. Get each linked customer’s request count, token usage and models used in Console, or programmatically with the Usage and Cost Analytics API (beta).
+
+Choose who pays. Decide on each request whether the platform or the end customer pays, so platforms can pass Claude API costs to customers or cover some features themselves by product or instance.
+
+Customers get more visibility and control
+
+Customers can easily link to platforms using Anthropic’s hosted flow. They can then draw down from their existing Anthropic commitment, or pay as they go. With linked billing, customers can also:
+
+Link once for the whole organization. A Console user with an Owner, Admin, or Billing role approves the link, so it works the same for individual developers and large teams.
+
+Set limits for each platform. Customers can set a monthly spend limit for each platform, or a default that applies to each one.
+
+See where API spend goes. Console shows spend for each linked platform.
+
+Unlink at any time. Customers can unlink directly from Console.
+
+Requests run in the platform’s organization, so settings in the customer’s organization, such as IP allowlists, encryption keys, and data retention, don’t apply.Platforms that support linked billing today include Asana, ClickHouse, Factory, Gumloop, Harness, Higgsfield AI, Kilo Code, Linear, Major, Mintlify, Omni, OpenArt, Niteshift, Railway, Ramp, Runlayer, Tessera, Tines, and Warp.
+
+Getting started
+
+Linked billing is available today in beta on the Claude Platform. Third-party platforms can add support by creating an app in Console and following the steps in the docs. Claude Platform customers can link their organization from any supported platform, and find platforms that offer linked billing on Claude Marketplace."
 ee952828ada5,ee952828ada5,2026-11-17 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Claude solves two open problems in the physics of black holes,https://www.anthropic.com/research/claude-black-hole-physics,"In the first, it completed a calculation that physicists set up more than 20 years ago, but which had never been solved","Claude has solved two open problems in theoretical physics. Both concern black holes and the search for a theory of quantum gravity. In the first, it completed a calculation that physicists set up more than 20 years ago, but which had never been solved. Claude’s result showed that a sudden transition associated with the formation of black holes persists even where spacetime no longer has a definite shape. In the second, Claude found the exact limit of the simplest version of a technique used to test candidate theories of quantum gravity. This post explains both findings, first in plain terms and then in more technical detail. The preprints are available here and here.
 
 Introduction
@@ -237,78 +309,6 @@ Conclusion
 These two results show Claude doing two very different kinds of research. The first is a known calculation that physicists had set aside for two decades, because the work was too long and error-prone to complete by hand. The second required a new idea: spotting a pattern others had missed and bringing in a mathematical tool from another area of physics. Both were carried out largely autonomously. Neither result settles the question of quantum gravity, or even comes close to doing so, but each pushes physics forward in a longstanding area of research.
 
 Read the black hole phase transition paper here, and the modular bootstrap paper here."
-814869793f97,814869793f97,2026-11-17 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,"Using a ""chaos loop"" to harden the Claude Docs launch: 60 server errors across billions of requests",https://claude.dev/blog/chaos-loop-claude-docs-launch/,"For us, the outcome was a service that could handle launch","MAKING THE SERVICE LEGIBLE TO CLAUDE
-
-My colleague Felix Rieseberg recently wrote a tutorial on being more ambitious with models. His main idea is to raise the ""altitude"" you prompt Claude at: ask for the outcome you want, not the individual task.
-
-So instead of asking Claude to fix individual crashes, you ask it to make your app crash-free. (Our own apps aren't all the way there yet, but this is how we're making real progress.) To work at that altitude, though, you have to set up your code so Claude can pull crash reports on its own and run a harness that reproduces each crash and checks the fix.
-
-For us, the outcome was a service that could handle launch. To get there, we did two things to make the service as legible to Claude as we could:
-
-A diagnostic loop. Claude read the telemetry on every iteration and added whatever it thought was missing.
-
-Legible technology choices. We picked a runtime and dependencies so any number Claude measured traced back to code we wrote.
-
-A diagnostic loop
-
-Every iteration, Claude read the telemetry and added whatever it thought was missing. Writing telemetry by hand is tedious, so in practice most telemetry would go in after something broke. Now Claude just writes it as it goes.
-
-Memory is the best example.
-
-Early in the harness run, one large doc was using about 3 GB on its pod (not a fun number to see). Claude’s first stab at fixing it was to shrink one of our caches so our server would evict docs sooner. The next harness run showed the memory was actually in a separate cache inside one of our dependencies, so Claude dropped the change.
-
-From there Claude kept narrowing it down with finer-grained memory profiling. Eventually it found that every keystroke was copying the doc into several different data structures, adding a few MB each time. Claude switched those structures to copy-on-write, so they now share one reference instead of each holding its own copy.
-
-After about three days of iterating, that doc topped out around 180 MB, and our estimate of what we’d need for launch dropped from more than 500 memory-optimized pods to about 50.
-
-Legible technology choices
-
-We were picky about the service’s runtime and dependencies. We wanted any number Claude measured to trace back to code we wrote.
-
-This is because our models hill climb best with a clean signal. We expected a garbage collector to add noise, because memory and latency shift on the collector’s schedule.
-
-Two choices helped the most.
-
-We wrote the service in Rust. With no garbage collector, all of a doc’s memory sits in structures we defined, so when it grew, Claude could point to the one responsible, change it, and see whether memory came down on the next iteration. We have great Go tooling at Anthropic too, and we didn’t bake off the two languages, so this is our experience with Rust. What I did appreciate, coming from past work in Go, was how little I had to think about memory sticking around after my code was done with it.
-
-We also kept dependencies to a minimum. Every library brings data structures we didn’t write and can’t easily account for. For the few we really needed, we vendored the code so we could read and measure it ourselves.
-
-Rust is hard for people to write, and a few years ago that would have weighed heavily on the choice. Claude writes it and most other languages fine, so that matters a lot less now."
-6f3c39d405e1,6f3c39d405e1,2026-11-17 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Linked billing on the Claude Platform,https://claude.com/resources/articles/linked-billing-on-claude-platform,"With linked billing, platforms can: Launch faster","Today we're introducing linked billing on the Claude Platform in beta. Third-party platforms, such as coding agents and workflow automation tools, can let their end customers pay for Claude API usage without sharing an API key. End customers keep their existing Anthropic billing and set their own spend limits, and platforms get a simpler, more secure way to offer Claude.
-
-A more secure alternative to sharing API keys
-
-Paying for Claude API usage on a third-party platform usually means sharing an API key, which works like a password: anyone who has the key can make requests billed to the customer, so the platform has to keep it safe.With linked billing, customers link their Claude Platform organization instead, and usage is billed directly to it. No API key changes hands, so platforms have no customer keys to store, encrypt or rotate, and customers’ API keys never leave their organization.
-
-Platforms can see usage for each linked customer. Customers approve each linked platform, set a spend limit, and can unlink at any time.
-
-Platforms can offer Claude to customers without building the billing
-
-Linked billing gives platforms a new way to offer Claude to their customers. Platforms send requests, and Anthropic bills the end customers directly. With linked billing, platforms can:
-
-Launch faster. Anthropic hosts the approval flow and the billing, so there’s no metering or invoicing to build.
-
-Understand usage by customer. Get each linked customer’s request count, token usage and models used in Console, or programmatically with the Usage and Cost Analytics API (beta).
-
-Choose who pays. Decide on each request whether the platform or the end customer pays, so platforms can pass Claude API costs to customers or cover some features themselves by product or instance.
-
-Customers get more visibility and control
-
-Customers can easily link to platforms using Anthropic’s hosted flow. They can then draw down from their existing Anthropic commitment, or pay as they go. With linked billing, customers can also:
-
-Link once for the whole organization. A Console user with an Owner, Admin, or Billing role approves the link, so it works the same for individual developers and large teams.
-
-Set limits for each platform. Customers can set a monthly spend limit for each platform, or a default that applies to each one.
-
-See where API spend goes. Console shows spend for each linked platform.
-
-Unlink at any time. Customers can unlink directly from Console.
-
-Requests run in the platform’s organization, so settings in the customer’s organization, such as IP allowlists, encryption keys, and data retention, don’t apply.Platforms that support linked billing today include Asana, ClickHouse, Factory, Gumloop, Harness, Higgsfield AI, Kilo Code, Linear, Major, Mintlify, Omni, OpenArt, Niteshift, Railway, Ramp, Runlayer, Tessera, Tines, and Warp.
-
-Getting started
-
-Linked billing is available today in beta on the Claude Platform. Third-party platforms can add support by creating an app in Console and following the steps in the docs. Claude Platform customers can link their organization from any supported platform, and find platforms that offer linked billing on Claude Marketplace."
 1ce089f914a6,1ce089f914a6,2026-11-16 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Mobile Security,Article,How the Claude Code team thinks about verification,https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/,Claude reads the diff and checks only the items whose trigger matches–usually 3 to 10–so nobody has to memorize past outages,"HOW THE CLAUDE CODE TEAM THINKS ABOUT VERIFICATION
 
 We have previously written about how code review works at Anthropic, but this article aims to go deeper on how we verify our work.
@@ -686,15 +686,6 @@ Infosecurity contacted Anthropic for comment, but the company had not responded 
 Image credits: Stockinq / gguy / Shutterstock.com
 
 Read now: How Industry Coalitions Are Rallying to Secure Open Source Software for the AI Era"
-b2edc4b90f62,b2edc4b90f62,2026-11-10 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Anthropic launches roadshow for proposed initial public offering,https://www.anthropic.com/news/roadshow-launch,"Today Anthropic, PBC launched the roadshow for its proposed initial public offering of its Class A common stock","Today Anthropic, PBC launched the roadshow for its proposed initial public offering of its Class A common stock.
-
-The proposed offering consists of 825,000,000 shares of Class A common stock. Of these, 801,351,354 shares are being offered by Anthropic and 23,648,646 shares are being offered by certain existing stockholders. Anthropic will not receive any proceeds from the sale of shares by the selling stockholders. Anthropic also expects to grant the underwriters a 30-day option to purchase up to an additional 123,750,000 shares of its Class A common stock.
-
-The initial public offering price is expected to be between $70.00 and $78.00 per share. Anthropic has applied to list its Class A common stock on the Nasdaq Global Select Market under the symbol “ANT.”
-
-The proposed offering will be made only by means of a prospectus. Copies of the preliminary prospectus may be obtained from: Goldman Sachs & Co. LLC, Attention: Prospectus Department, 200 West Street, New York, NY 10282, by telephone at (866) 471-2526, or by email at prospectus-ny@ny.email.gs.com; or Morgan Stanley & Co. LLC, Attention: Prospectus Department, 180 Varick Street, 2nd Floor, New York, NY 10014.
-
-A registration statement relating to these securities has been filed with the U.S. Securities and Exchange Commission but has not yet become effective. These securities may not be sold, nor may offers to buy be accepted, prior to the time the registration statement becomes effective. Today’s announcement does not constitute an offer to sell or the solicitation of an offer to buy these securities, nor shall there be any sale of these securities in any state or jurisdiction in which such offer, solicitation, or sale would be unlawful prior to registration or qualification under the securities laws of any such state or jurisdiction."
 50ae29441cc7,0b77395b0d2b,2026-11-10 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Data Security Posture Management,Article,"Introducing Claude Whiteboards, Claude Sheets, and Claude Data",https://claude.com/resources/articles/sheets-whiteboards-data,"Today we’re launching Claude Whiteboards and Claude Sheets in beta, and Claude Dashboards (opens in new tab) becomes generally available as Claude Data","Today we’re launching Claude Whiteboards and Claude Sheets in beta, and Claude Dashboards (opens in new tab) becomes generally available as Claude Data. Whiteboards is a shared board where your team brainstorms with Claude, Sheets is a spreadsheet Claude builds and edits with you, and Claude Data adds data stories, certified queries, and live sharing. These are available on all paid plans.
 
 Working with Claude on a project often meant moving the output over to another tool or program, where Claude didn’t have live access to follow progress and changes. Now, your documents, boards, sheets, and dashboards can stay in Claude, with access for your team to continue editing together. When ready, you can bring the outputs directly into tools from our partners and continue working there.
@@ -923,6 +914,15 @@ How do you audit hundreds of thousands of messages?
 Log everything, put a judge agent on every outbound message, and have Claude Code sample the runs.
 
 Start building with the Claude Platform today."
+b2edc4b90f62,b2edc4b90f62,2026-11-10 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Anthropic launches roadshow for proposed initial public offering,https://www.anthropic.com/news/roadshow-launch,"Today Anthropic, PBC launched the roadshow for its proposed initial public offering of its Class A common stock","Today Anthropic, PBC launched the roadshow for its proposed initial public offering of its Class A common stock.
+
+The proposed offering consists of 825,000,000 shares of Class A common stock. Of these, 801,351,354 shares are being offered by Anthropic and 23,648,646 shares are being offered by certain existing stockholders. Anthropic will not receive any proceeds from the sale of shares by the selling stockholders. Anthropic also expects to grant the underwriters a 30-day option to purchase up to an additional 123,750,000 shares of its Class A common stock.
+
+The initial public offering price is expected to be between $70.00 and $78.00 per share. Anthropic has applied to list its Class A common stock on the Nasdaq Global Select Market under the symbol “ANT.”
+
+The proposed offering will be made only by means of a prospectus. Copies of the preliminary prospectus may be obtained from: Goldman Sachs & Co. LLC, Attention: Prospectus Department, 200 West Street, New York, NY 10282, by telephone at (866) 471-2526, or by email at prospectus-ny@ny.email.gs.com; or Morgan Stanley & Co. LLC, Attention: Prospectus Department, 180 Varick Street, 2nd Floor, New York, NY 10014.
+
+A registration statement relating to these securities has been filed with the U.S. Securities and Exchange Commission but has not yet become effective. These securities may not be sold, nor may offers to buy be accepted, prior to the time the registration statement becomes effective. Today’s announcement does not constitute an offer to sell or the solicitation of an offer to buy these securities, nor shall there be any sale of these securities in any state or jurisdiction in which such offer, solicitation, or sale would be unlawful prior to registration or qualification under the securities laws of any such state or jurisdiction."
 9d5a68b94054,9d5a68b94054,2026-11-09 18:08 UTC,Vulnerabilities & Patching,Anthropic,Dark Reading,AI Security,Article,Attackers Crash Claude's 'Office Party' Flaw to Run Malicious Code on Linux,https://www.darkreading.com/endpoint-security/attackers-claude-office-party-flaw-malicious-code-linux,,
 891b0deb5d3d,891b0deb5d3d,2026-11-09 13:00 UTC,General Security News,Anthropic,Cisco Newsroom,AI Security; Data Security Posture Management,Article,Cisco Puts Anthropic’s Claude Mythos Behind AI Defense Red Teaming,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/cisco-puts-anthropic-claude-mythos-behind-ai-defense-red-teaming.html?source=rss,"<img src=""https://newsroom.cisco.com/c/dam/r/newsroom/en/us/assets/a/y2026/m11/CitN_DJ-Claude-Mythos.jpg"" width=""450px""><br>Cisco AI Defense adds Anthropic’s Claude Mythos to adaptive red teaming. Cisco’s SVP and GM of AI Software and Platform group DJ Sampath tells CRN why it’s ‘a game changer’ for","Cisco AI Defense adds Anthropic’s Claude Mythos to adaptive red teaming. Cisco’s SVP and GM of AI Software and Platform group DJ Sampath tells CRN why it’s ‘a game changer’ for partners securing AI agents.
 
@@ -961,7 +961,7 @@ AI Defense has approximately 400 to 500 customers since the offering was launche
 “We’re expanding the capabilities of AI Defense every single week,” he said. “Whether your agents are running on your laptops, inside of the cloud, or on the edge, we’re going to find ways of being able to secure them,” Sampath said.
 
 Adaptive red teaming with Claude Mythos is coming soon for select enterprises. Broader availability is planned for qualified customers, but dates, scope, and region availability remain subject to change, according to Cisco."
-760b3e66fbfa,760b3e66fbfa,2026-11-09 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Introducing Claude Fable 5.2 and Claude Mythos 5.2,https://www.anthropic.com/claude-fable-and-mythos-5-2,"In the first problem, physicists in 1983 had shown that as these universes heat up, black holes form abruptly, like water boiling; but their method worked only in large...","We’ve upgraded Claude Fable and Claude Mythos—models that are designed to tackle the most daunting technical challenges.
+760b3e66fbfa,760b3e66fbfa,2026-11-09 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Claude Fable 5.2 and Mythos 5.2,https://www.anthropic.com/claude-fable-and-mythos-5-2,"In the first problem, physicists in 1983 had shown that as these universes heat up, black holes form abruptly, like water boiling; but their method worked only in large...","We’ve upgraded Claude Fable and Claude Mythos—models that are designed to tackle the most daunting technical challenges.
 
 Claude Fable 5.2 and Claude Mythos 5.2 show improvements in areas like coding, reasoning, and vision. During prerelease testing they’ve helped our engineers complete otherwise-infeasible software migrations, designed three working electronic devices from scratch, solved two open problems in the physics of black holes, made substantial progress on robotics evaluations, and formalized the proof of Fermat’s Last Theorem in 30 hours—among many other applications we’ll discuss below.
 
@@ -1460,59 +1460,6 @@ The problem of building evaluations that reliably catch every failure before a m
 Safeguards
 
 Cybersecurity and biology safeguards. Consistent with previous Claude Fable models, Fable 5.2 comes with safety classifiers that block high-risk cyber activities, including penetration testing, exploit generation, and binary-based vulnerability, as well as most tasks in research biology. When a query is blocked, users will instead receive a response from Opus 4.8 for cybersecurity and Opus 5 for biology. Since the release of Claude Fable 5.1, we have continued to reduce false positives for our safety classifiers. Based on early testing across claude.ai, Claude Code, and Cowork, we observed about 55% fewer blocks with Fable 5.2 compared with Fable 5.1—about 60% fewer in cybersecurity a [truncated for CSV - full text is in the JSON export]"
-917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
-
-Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
-
-To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
-
-For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
-
-Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
-
-Reasoning through geometric problems
-
-The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
-
-Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
-
-To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
-
-Revising designs
-
-Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
-
-When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
-
-And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
-
-Using software and documentation
-
-When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
-
-To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
-
-Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
-
-Keeping track of constraints and downstream effects
-
-Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
-
-When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
-
-Designing for real-world manufacturing
-
-In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
-
-Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
-
-Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
-
-Limitations and next steps
-
-All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
-
-Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 6c6ec0a3b896,6c6ec0a3b896,2026-11-09 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Which Claude model should you build with?,https://claude.dev/blog/which-claude-model-should-you-build-with/,"The advisor helps only when it adds capability the executor lacks and the executor asks for advice, which it does less often at low effort","MIXING MODELS
 
 Switch at a natural break
@@ -1832,6 +1779,104 @@ For links to all of today’s stories, check out our Daily Briefing at the cyber
 We’d love to know what you think of this podcast. Your feedback ensures we deliver the insights that keep you a step ahead in the rapidly changing world of cybersecurity. If you like the show, please share a rating and review in your podcast app. Please also fill out the survey in the show notes or send an email to cyberwire@n2k.com
 
 N2K’s lead producer is Liz Stokes. We’re mixed by Tré Hester, with original music by and sound design Elliott Peltzman. Our contributing host is Maria Varmazis. Our executive producer is Jennifer Eiben. Peter Kilpe is our publisher. And I’m Dave Bittner. Thanks for listening."
+6b4470f7094b,6b4470f7094b,2026-11-05 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Identity Security Posture Management,Article,Introducing Personal Finance in Claude,https://claude.com/resources/articles/introducing-personal-finance-in-claude,"Access is read-only, and Personal Finance can’t move, manage, or invest your money","Getting answers about your money no longer means opening every banking app and doing the math yourself. With Personal Finance in Claude, you can securely connect your bank and card accounts and ask in your own words. Access is read-only, and Personal Finance can’t move, manage, or invest your money.
+
+Claude gives you answers in everyday language, from your balances and transactions, and explains any term that's new to you. Like the rest of Claude, Personal Finance has no ads or sponsored recommendations, and it doesn’t offer credit cards, loans, or savings accounts of its own, so your money questions get a straight answer.
+
+Personal Finance starts rolling out in beta this week, on the Pro, Max, and Ultra plans in the US.
+
+What it looks like
+
+Say it's late in the month and payday is still 10 days away. When you ask Claude, ""Where did my money go this month?"" it adds up your spending across the accounts you connected and sorts it by category. In this example, that comes to $4,309.37, with more than half going to rent and utilities and $1,024.51 to food and drink.
+
+From there, you can dig deeper: ""Is that more than usual?"" ""Anything else I'm missing?"" ""So what's left before payday?"" Claude checks the previous months and points to a membership renewal. Then Claude tells you about four payments that will come out of your checking account before payday, and what you’ll have left: $1,393.22.
+
+If you ask whether anything looks off, Claude reads across every account you've connected and can point to what's easy to miss, like charges that hit twice, unexpected fees, or a bill that’s crept up all year. You can also ask bigger questions, like ""Am I spending more than I make?"" or ""What's an APR, and what has mine cost me this year?"" Claude explains the term, then adds up the interest you've been charged.
+
+Ask for a weekly spending chart, a calendar of what's due, or a dashboard of the numbers you choose, and Claude builds one you can keep adjusting.
+
+Security and privacy
+
+Claude's access is read-only. Personal Finance helps you understand your money, and it isn't designed to give investment advice. Claude can make mistakes in its answers, so ask which transactions are behind a number, and check important figures with your bank.
+
+Your accounts are only connected once you sign in to your bank yourself through Plaid, a service that connects apps to banks. That's where you agree to its terms and approve Claude's read-only access, so Claude doesn't ask for or see your bank password.
+
+For the accounts you choose to connect (and only those), Claude sees the bank's name, each account's name, type, and last four digits, balances and credit limits, and up to two years of transactions. When you chat with Claude in the Personal Finance hub, those conversations aren't used to train our models. For anything you share with Claude outside the hub, your privacy settings apply. You can unlink an account anytime, and then Claude can no longer see its data. More details can be found in our Privacy Center.
+
+Getting started
+
+When you see Personal Finance in Claude's sidebar, open it, connect one account, and ask a single question, like ""Can I afford a trip this spring?"" or ""How much could I save each month?"" You'll find the setup steps, and how your data is used and kept, in the Help Center. (opens in new tab)
+
+What’s next
+
+Personal Finance is a first step. For life’s bigger money decisions, we think people are best served by Claude working alongside the licensed professionals and regulated firms they trust. We’re exploring how to make that possible in Claude, and we’d like to hear from banks, wealth managers, and financial services companies who want to help shape it."
+c02946dbc630,c02946dbc630,2026-11-05 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Data Security Posture Management; Compliance Management; Identity Security Posture Management,Article,More visibility and control over Claude Enterprise for security teams,https://claude.com/resources/articles/claude-enterprise-security-updates,"We also recently announced an Endpoint Detection and Response (EDR) integration, which runs your organization's sensor inside the unified Claude and Cowork virtual machine on...","Claude Enterprise has new security and admin features, including a security center, generally available inference hooks, centralized management, and additional access controls.
+
+To see how Claude is set up, the security center shows how your organization’s Claude settings compare with Anthropic’s recommended configuration. To apply your policies, inference hooks send prompts and tool calls to your data security tools for a check. To manage access, centralized management gives your company one admin console for company-wide settings, and new access controls let you sign members out through the Admin API, manage your IP allowlist yourself, and help prevent shadow IT by blocking personal and other outside Claude accounts in Claude Desktop on managed computers.
+
+We also recently announced an Endpoint Detection and Response (EDR) integration, which runs your organization's sensor inside the unified Claude and Cowork virtual machine on the user's computer.
+
+Security teams need to see how Claude is configured, what it does on company devices, and how data is handled as people work. These features give them that visibility and control.
+
+Security center: review your Claude security settings in one place
+
+Security teams can review Claude's security settings for chat, Cowork, and Claude Code on one page, instead of setting by setting. The security center is a new page in Organization settings that compares settings with Anthropic's recommended configuration, so your team can see what to change and where to change it.
+
+For each control, the security center shows the current value, the recommended value where there is one, and a link to the setting where you can change it. It also shows which settings are new or recently changed. The security center checks your configuration each time the page loads, so automatically checked controls reflect your current settings. Organizations with the Compliance API can read the same results through it.
+
+Attestations give your admins a shared workspace for security reviews. They can work through the process together once, recording the current state of each control, accepting risks, and flagging issues in one place.
+
+You can download the security center page as a report to share with auditors and relevant stakeholders. The report marks which controls the page checked automatically and which an Owner confirmed. The security center is guidance based on Anthropic's recommendations, not a certification or a guarantee of compliance with any law or standard.
+
+Inference hooks
+
+Inference hooks connect Claude to the data security tools your organization already uses, so your data loss prevention (DLP) and security policies can apply to prompts and tool calls as people work.
+
+There are two kinds of hooks, both now generally available:
+
+Prompt hooks send prompts from supported Claude products to your security tool for a check.
+
+Pre-tool-call hooks check tool calls in supported Claude products before they run.
+
+Hooks work with security vendors. Your team keeps the policies it has already written and applies them to Claude.
+
+Centralized management: one console for identity and access across your organization
+
+Centralized management gives your parent organization, which represents your company across its Claude Enterprise and Claude Platform organizations, its own admin console at admin.claude.com. Admins manage company-wide settings there once for the organizations under your parent, instead of from individual organization settings. These settings include single sign-on, directory sync (SCIM), domain verification, groups, and Compliance API keys.
+
+The console shows every organization under the parent in one place and adds two roles. Parent organization owners can manage everything at the parent level, including who holds the owner and admin roles. Parent organization admins can manage everything except those role assignments.
+
+Companies can also connect more than one identity provider, each with its own single sign-on and SCIM configuration. An acquired company can keep its existing provider, or your team can move to a new provider one domain at a time.
+
+Each organization keeps its own members, roles, settings, and organization-level security controls, such as IP allowlisting, tenant restrictions, and session duration. A parent role doesn't grant access inside an organization by default, but Compliance API keys created at the parent can read data across organizations.
+
+Access controls: member sign-out and shadow IT prevention
+
+Security teams can now sign a member out of Claude with a single Admin API call, without removing them from the organization. The call ends that member's sign-in sessions on every browser and device, and apps like Claude Code have to sign in again. It doesn't end API keys, cloud sessions already running, or scheduled routines, and the member can sign in again afterwards.
+
+Enterprise admins can now set up and manage their IP allowlist themselves, without going through Anthropic. An IP allowlist limits access to most Claude products to the IP addresses your organization approves.
+
+Admins can now set the most-used Claude Desktop settings, with no device management push. To help prevent shadow IT, admins can also block personal and other outside Claude accounts in Claude Desktop on managed computers. Owners can also limit which workspace folders people can use with Claude.
+
+Endpoint Detection and Response (EDR) in Cowork and unified Claude
+
+When Cowork and unified Claude work locally, they run shell commands and code in an isolated virtual machine on the user's computer for additional protection. That isolation helps protect the device, and security teams have asked for the same visibility into the virtual machine that they have everywhere else on the endpoint.
+
+Admins can now run their organization's EDR sensor inside the Cowork virtual machine. The sensor reports activity there to the same console your security team already monitors. This covers the virtual machine on the user's computer, not Cowork sessions in the cloud.
+
+Admins set up the integration through device management on macOS and Windows. Each time the virtual machine starts, Claude verifies the sensor package's signature from your EDR vendor before installing it. Sensors run in detection mode: they report activity to your security team and don't block it. The integration works with supported EDR vendors, which are listed in the Help Center.
+
+Getting started
+
+These features are available for Claude Enterprise, with some exceptions during beta listed in the Help Center.
+
+The security center is in beta. Inference hooks, including prompt hooks and pre-tool-call hooks, are generally available. Admins can manage both inference hooks and the security center in Organization settings.
+
+Centralized management is also in beta. To start setup, an admin of any organization under your parent goes to admin.claude.com and proposes the parent organization admins. Admins of the other organizations review and approve, and the last approval completes setup. Setup can't be undone, so identify your parent organization admins before you start.
+
+Signing members out through the Admin API and the self-serve IP allowlist are in beta. Owners can manage Claude Desktop settings in Organization settings, also in beta.
+
+Endpoint detection and response in Cowork is in beta on macOS and Windows for Claude Team and Enterprise, and for the Claude desktop app on Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry, deployed through MDM for supported vendors."
 58a429dd6149,58a429dd6149,2026-11-05 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,AI for scientific discovery: How researchers use Claude,https://www.anthropic.com/research/how-researchers-use-claude,How Claude use tracks AI capability,"Johannes Hermle*, Ben Jones*, Lukas Althoff*, Ryan Heller, Thomas Lyttelton, Carolyn Stein, Nathan Wilmers, Maxim Massenkoff, Peter McCrory
 
 *Lead authors of the report
@@ -1951,104 +1996,51 @@ To compute the acceleration, we use an ideas production function, a standard eco
 Scenario 1: Current capabilities
 
 With current capabilities, if adopted widely, AI could take on 27–52% of the researcher time needed to produce a new study, with a median of 38% across fields (Figure 13, left panel). These shares imply research accelerations ranging from 1.35x in the arts, 1.36x in anthropology, and 1.41x in chemistry to 1.96x in computer science and 2.02x in statistics (Figure 13, right panel). Accelerations remain limited because AI work today is mostly assistive or shared rather than autonomous, so researchers still  [truncated for CSV - full text is in the JSON export]"
-6b4470f7094b,6b4470f7094b,2026-11-05 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Identity Security Posture Management,Article,Introducing Personal Finance in Claude,https://claude.com/resources/articles/introducing-personal-finance-in-claude,"Access is read-only, and Personal Finance can’t move, manage, or invest your money","Getting answers about your money no longer means opening every banking app and doing the math yourself. With Personal Finance in Claude, you can securely connect your bank and card accounts and ask in your own words. Access is read-only, and Personal Finance can’t move, manage, or invest your money.
+86cfdd2ed368,86cfdd2ed368,2026-11-04 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,"New agents and products for security, productivity, and creative work on Claude Marketplace",https://claude.com/resources/articles/new-agents-and-products-claude-marketplace,Products and agents for securing code and systems Chainguard: Chainguard Harness builds applications from source in an isolated microVM and probes the live app for exploitable...,"We’ve added new agents and products to Claude Marketplace, where teams find partner tools and services to help them get more from Claude. The additions cover security, developer infrastructure, creative, and productivity.
 
-Claude gives you answers in everyday language, from your balances and transactions, and explains any term that's new to you. Like the rest of Claude, Personal Finance has no ads or sponsored recommendations, and it doesn’t offer credit cards, loans, or savings accounts of its own, so your money questions get a straight answer.
+Eligible enterprise customers can apply a portion of their committed Anthropic spend toward these solutions. This lets them use one commitment across Claude and partner products, whether they’re buying something new or expanding with a platform they already use.
 
-Personal Finance starts rolling out in beta this week, on the Pro, Max, and Ultra plans in the US.
+There are now over 25 partner agents and products on the marketplace. Here are the latest additions and what teams can do with them.
 
-What it looks like
+Products and agents for securing code and systems
 
-Say it's late in the month and payday is still 10 days away. When you ask Claude, ""Where did my money go this month?"" it adds up your spending across the accounts you connected and sorts it by category. In this example, that comes to $4,309.37, with more than half going to rent and utilities and $1,024.51 to food and drink.
+Chainguard: Chainguard Harness builds applications from source in an isolated microVM and probes the live app for exploitable vulnerabilities. It helps teams fix what Claude finds, with custom remediation recommendations for reproducible vulnerabilities.
 
-From there, you can dig deeper: ""Is that more than usual?"" ""Anything else I'm missing?"" ""So what's left before payday?"" Claude checks the previous months and points to a membership renewal. Then Claude tells you about four payments that will come out of your checking account before payday, and what you’ll have left: $1,393.22.
+Checkmarx: Checkmarx One pairs rules-based analysis with AI reasoning to find vulnerabilities in code. It helps teams prioritize findings and fix them before code ships.
 
-If you ask whether anything looks off, Claude reads across every account you've connected and can point to what's easy to miss, like charges that hit twice, unexpected fees, or a bill that’s crept up all year. You can also ask bigger questions, like ""Am I spending more than I make?"" or ""What's an APR, and what has mine cost me this year?"" Claude explains the term, then adds up the interest you've been charged.
+Cyera: Cyera Agent Guardian inventories Claude deployments, governs permissions before Claude runs, and enforces policy on prompts, files, and tool calls. It helps teams test those controls through red teaming.
 
-Ask for a weekly spending chart, a calendar of what's due, or a dashboard of the numbers you choose, and Claude builds one you can keep adjusting.
+Rubrik: Rubrik Code Guardian uses frontier AI models from Anthropic to review a secure copy of GitHub or Azure DevOps repositories for multi-step attack paths. It helps security and engineering teams rank issues by severity and turn confirmed critical ones into tracked tickets.
 
-Security and privacy
+Tanium: Tanium Cloud gives teams real-time visibility and control across their endpoints. It helps IT and security teams find and fix vulnerabilities, misconfigurations, and missing patches.
 
-Claude's access is read-only. Personal Finance helps you understand your money, and it isn't designed to give investment advice. Claude can make mistakes in its answers, so ask which transactions are behind a number, and check important figures with your bank.
+Development infrastructure for engineering teams
 
-Your accounts are only connected once you sign in to your bank yourself through Plaid, a service that connects apps to banks. That's where you agree to its terms and approve Claude's read-only access, so Claude doesn't ask for or see your bank password.
+Datadog: Datadog Agent Observability traces agent execution through tools and services. It helps teams improve agent quality, performance, and cost efficiency by surfacing production patterns and recommending fixes.
 
-For the accounts you choose to connect (and only those), Claude sees the bank's name, each account's name, type, and last four digits, balances and credit limits, and up to two years of transactions. When you chat with Claude in the Personal Finance hub, those conversations aren't used to train our models. For anything you share with Claude outside the hub, your privacy settings apply. You can unlink an account anytime, and then Claude can no longer see its data. More details can be found in our Privacy Center.
+Netlify: Netlify Enterprise deploys apps, sites, and agents to a global edge network, with preview URLs on every change. It helps teams take what they build with Claude from prototype to production with no infrastructure to configure, and includes SSO, role-based access, and audit logs.
 
-Getting started
+Tools for marketing and creative work
 
-When you see Personal Finance in Claude's sidebar, open it, connect one account, and ask a single question, like ""Can I afford a trip this spring?"" or ""How much could I save each month?"" You'll find the setup steps, and how your data is used and kept, in the Help Center. (opens in new tab)
+AirOps: AirOps provides an agentic platform for AI search strategy, content, and multichannel execution. It helps marketing teams analyze brand performance in AI search and tie results to pipeline and revenue.
 
-What’s next
+Runway: Runway generates and edits video, images, and audio. It helps creative and marketing teams turn a brief into finished assets and edit footage with natural language.
 
-Personal Finance is a first step. For life’s bigger money decisions, we think people are best served by Claude working alongside the licensed professionals and regulated firms they trust. We’re exploring how to make that possible in Claude, and we’d like to hear from banks, wealth managers, and financial services companies who want to help shape it."
-c02946dbc630,c02946dbc630,2026-11-05 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Data Security Posture Management; Compliance Management; Identity Security Posture Management,Article,More visibility and control over Claude Enterprise for security teams,https://claude.com/resources/articles/claude-enterprise-security-updates,"We also recently announced an Endpoint Detection and Response (EDR) integration, which runs your organization's sensor inside the unified Claude and Cowork virtual machine on...","Claude Enterprise has new security and admin features, including a security center, generally available inference hooks, centralized management, and additional access controls.
+Webflow: Webflow provides built-in tools to build, manage, and optimize websites. It helps marketers, designers, developers, and agents make changes, with controls and governance built in.
 
-To see how Claude is set up, the security center shows how your organization’s Claude settings compare with Anthropic’s recommended configuration. To apply your policies, inference hooks send prompts and tool calls to your data security tools for a check. To manage access, centralized management gives your company one admin console for company-wide settings, and new access controls let you sign members out through the Admin API, manage your IP allowlist yourself, and help prevent shadow IT by blocking personal and other outside Claude accounts in Claude Desktop on managed computers.
+Productivity apps for every team
 
-We also recently announced an Endpoint Detection and Response (EDR) integration, which runs your organization's sensor inside the unified Claude and Cowork virtual machine on the user's computer.
+Asana: Asana AI Teammates are prebuilt agents that use context from the Asana Work Graph, each with its own identity, scoped permissions, and audit trail. They help teams handle multi-step work, routing decisions that need judgment to the owner.
 
-Security teams need to see how Claude is configured, what it does on company devices, and how data is handled as people work. These features give them that visibility and control.
+Glean: Glean connects company knowledge and workflows across systems. It helps employees find answers and complete multi-step tasks across connected apps.
 
-Security center: review your Claude security settings in one place
+monday: monday agents work inside projects, boards, docs, and meetings, using their owners and deadlines as context. They help PMO, IT, marketing, finance, and operations teams control what AI can access, approve, and spend.
 
-Security teams can review Claude's security settings for chat, Cowork, and Claude Code on one page, instead of setting by setting. The security center is a new page in Organization settings that compares settings with Anthropic's recommended configuration, so your team can see what to change and where to change it.
+Zoom: Zoom Agentic Search answers questions inside Claude using the latest meeting summaries, work conversations, documents, and connected third-party sources. Teams get permission-aware results without analyzing raw transcripts or chaining tools together.
 
-For each control, the security center shows the current value, the recommended value where there is one, and a link to the setting where you can change it. It also shows which settings are new or recently changed. The security center checks your configuration each time the page loads, so automatically checked controls reflect your current settings. Organizations with the Compliance API can read the same results through it.
+Get started
 
-Attestations give your admins a shared workspace for security reviews. They can work through the process together once, recording the current state of each control, accepting risks, and flagging issues in one place.
-
-You can download the security center page as a report to share with auditors and relevant stakeholders. The report marks which controls the page checked automatically and which an Owner confirmed. The security center is guidance based on Anthropic's recommendations, not a certification or a guarantee of compliance with any law or standard.
-
-Inference hooks
-
-Inference hooks connect Claude to the data security tools your organization already uses, so your data loss prevention (DLP) and security policies can apply to prompts and tool calls as people work.
-
-There are two kinds of hooks, both now generally available:
-
-Prompt hooks send prompts from supported Claude products to your security tool for a check.
-
-Pre-tool-call hooks check tool calls in supported Claude products before they run.
-
-Hooks work with security vendors. Your team keeps the policies it has already written and applies them to Claude.
-
-Centralized management: one console for identity and access across your organization
-
-Centralized management gives your parent organization, which represents your company across its Claude Enterprise and Claude Platform organizations, its own admin console at admin.claude.com. Admins manage company-wide settings there once for the organizations under your parent, instead of from individual organization settings. These settings include single sign-on, directory sync (SCIM), domain verification, groups, and Compliance API keys.
-
-The console shows every organization under the parent in one place and adds two roles. Parent organization owners can manage everything at the parent level, including who holds the owner and admin roles. Parent organization admins can manage everything except those role assignments.
-
-Companies can also connect more than one identity provider, each with its own single sign-on and SCIM configuration. An acquired company can keep its existing provider, or your team can move to a new provider one domain at a time.
-
-Each organization keeps its own members, roles, settings, and organization-level security controls, such as IP allowlisting, tenant restrictions, and session duration. A parent role doesn't grant access inside an organization by default, but Compliance API keys created at the parent can read data across organizations.
-
-Access controls: member sign-out and shadow IT prevention
-
-Security teams can now sign a member out of Claude with a single Admin API call, without removing them from the organization. The call ends that member's sign-in sessions on every browser and device, and apps like Claude Code have to sign in again. It doesn't end API keys, cloud sessions already running, or scheduled routines, and the member can sign in again afterwards.
-
-Enterprise admins can now set up and manage their IP allowlist themselves, without going through Anthropic. An IP allowlist limits access to most Claude products to the IP addresses your organization approves.
-
-Admins can now set the most-used Claude Desktop settings, with no device management push. To help prevent shadow IT, admins can also block personal and other outside Claude accounts in Claude Desktop on managed computers. Owners can also limit which workspace folders people can use with Claude.
-
-Endpoint Detection and Response (EDR) in Cowork and unified Claude
-
-When Cowork and unified Claude work locally, they run shell commands and code in an isolated virtual machine on the user's computer for additional protection. That isolation helps protect the device, and security teams have asked for the same visibility into the virtual machine that they have everywhere else on the endpoint.
-
-Admins can now run their organization's EDR sensor inside the Cowork virtual machine. The sensor reports activity there to the same console your security team already monitors. This covers the virtual machine on the user's computer, not Cowork sessions in the cloud.
-
-Admins set up the integration through device management on macOS and Windows. Each time the virtual machine starts, Claude verifies the sensor package's signature from your EDR vendor before installing it. Sensors run in detection mode: they report activity to your security team and don't block it. The integration works with supported EDR vendors, which are listed in the Help Center.
-
-Getting started
-
-These features are available for Claude Enterprise, with some exceptions during beta listed in the Help Center.
-
-The security center is in beta. Inference hooks, including prompt hooks and pre-tool-call hooks, are generally available. Admins can manage both inference hooks and the security center in Organization settings.
-
-Centralized management is also in beta. To start setup, an admin of any organization under your parent goes to admin.claude.com and proposes the parent organization admins. Admins of the other organizations review and approve, and the last approval completes setup. Setup can't be undone, so identify your parent organization admins before you start.
-
-Signing members out through the Admin API and the self-serve IP allowlist are in beta. Owners can manage Claude Desktop settings in Organization settings, also in beta.
-
-Endpoint detection and response in Cowork is in beta on macOS and Windows for Claude Team and Enterprise, and for the Claude desktop app on Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry, deployed through MDM for supported vendors."
+You can browse all agents and products on Claude Marketplace and request to buy from any listing. If you’re building on Claude and want to join the marketplace, see the ways to join."
 d9a854cef1a9,d9a854cef1a9,2026-11-04 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Investigating vault particles with Claude,https://www.anthropic.com/research/investigating-vault-particles-with-claude,We’re sharing another finding from Anthropic’s biology research lab: the first 3D structure of a vault particle found in prokaryotic cells,"We’re sharing another finding from Anthropic’s biology research lab: the first 3D structure of a vault particle found in prokaryotic cells. Vaults are large, hollow barrels of protein found in cells across the tree of life, and their function is still unknown. Below, we describe how Claude helped at each step of this research: searching across sequence literature, optimizing a method of isolating particles, and mapping the vault’s structure. More information is in our preprint, which we’ve submitted to bioRxiv; we’ll update the link as soon as it goes live.
 
 Biological cells were first detected in 1665, but more than three and a half centuries later, much of how they work remains unknown. Until relatively recently, the existence of some crucial components, let alone their function, was controversial. Even today, more than a third of the roughly 4,400 genes in one of the most comprehensively studied cells, the bacterium E. coli, remain poorly understood. Another such enigma is the vault particle.
@@ -2118,51 +2110,6 @@ We will continue our research into the function of vaults, and will share more a
 Work with us
 
 We are releasing the details of our work in our preprint. If you have an idea for what these vaults might be doing, or a system in which to test it, we would like to hear from you: mdurrant[at]anthropic.com, nicholasp[at]anthropic.com."
-86cfdd2ed368,86cfdd2ed368,2026-11-04 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,"New agents and products for security, productivity, and creative work on Claude Marketplace",https://claude.com/resources/articles/new-agents-and-products-claude-marketplace,Products and agents for securing code and systems Chainguard: Chainguard Harness builds applications from source in an isolated microVM and probes the live app for exploitable...,"We’ve added new agents and products to Claude Marketplace, where teams find partner tools and services to help them get more from Claude. The additions cover security, developer infrastructure, creative, and productivity.
-
-Eligible enterprise customers can apply a portion of their committed Anthropic spend toward these solutions. This lets them use one commitment across Claude and partner products, whether they’re buying something new or expanding with a platform they already use.
-
-There are now over 25 partner agents and products on the marketplace. Here are the latest additions and what teams can do with them.
-
-Products and agents for securing code and systems
-
-Chainguard: Chainguard Harness builds applications from source in an isolated microVM and probes the live app for exploitable vulnerabilities. It helps teams fix what Claude finds, with custom remediation recommendations for reproducible vulnerabilities.
-
-Checkmarx: Checkmarx One pairs rules-based analysis with AI reasoning to find vulnerabilities in code. It helps teams prioritize findings and fix them before code ships.
-
-Cyera: Cyera Agent Guardian inventories Claude deployments, governs permissions before Claude runs, and enforces policy on prompts, files, and tool calls. It helps teams test those controls through red teaming.
-
-Rubrik: Rubrik Code Guardian uses frontier AI models from Anthropic to review a secure copy of GitHub or Azure DevOps repositories for multi-step attack paths. It helps security and engineering teams rank issues by severity and turn confirmed critical ones into tracked tickets.
-
-Tanium: Tanium Cloud gives teams real-time visibility and control across their endpoints. It helps IT and security teams find and fix vulnerabilities, misconfigurations, and missing patches.
-
-Development infrastructure for engineering teams
-
-Datadog: Datadog Agent Observability traces agent execution through tools and services. It helps teams improve agent quality, performance, and cost efficiency by surfacing production patterns and recommending fixes.
-
-Netlify: Netlify Enterprise deploys apps, sites, and agents to a global edge network, with preview URLs on every change. It helps teams take what they build with Claude from prototype to production with no infrastructure to configure, and includes SSO, role-based access, and audit logs.
-
-Tools for marketing and creative work
-
-AirOps: AirOps provides an agentic platform for AI search strategy, content, and multichannel execution. It helps marketing teams analyze brand performance in AI search and tie results to pipeline and revenue.
-
-Runway: Runway generates and edits video, images, and audio. It helps creative and marketing teams turn a brief into finished assets and edit footage with natural language.
-
-Webflow: Webflow provides built-in tools to build, manage, and optimize websites. It helps marketers, designers, developers, and agents make changes, with controls and governance built in.
-
-Productivity apps for every team
-
-Asana: Asana AI Teammates are prebuilt agents that use context from the Asana Work Graph, each with its own identity, scoped permissions, and audit trail. They help teams handle multi-step work, routing decisions that need judgment to the owner.
-
-Glean: Glean connects company knowledge and workflows across systems. It helps employees find answers and complete multi-step tasks across connected apps.
-
-monday: monday agents work inside projects, boards, docs, and meetings, using their owners and deadlines as context. They help PMO, IT, marketing, finance, and operations teams control what AI can access, approve, and spend.
-
-Zoom: Zoom Agentic Search answers questions inside Claude using the latest meeting summaries, work conversations, documents, and connected third-party sources. Teams get permission-aware results without analyzing raw transcripts or chaining tools together.
-
-Get started
-
-You can browse all agents and products on Claude Marketplace and request to buy from any listing. If you’re building on Claude and want to join the marketplace, see the ways to join."
 a13e9f71403f,a13e9f71403f,2026-11-02 14:23 UTC,General Security News,Anthropic,Cloudflare skills (commits/main),AI Security,Article,Bump plugin version to 1.0.4 (.claude-plugin/plugin.json),https://github.com/cloudflare/skills/commit/468f4cd6d189d49d8375617976485643be2a76f3,json) · cloudflare/skills@468f4cd · GitHub You signed in with another tab or window,"Bump plugin version to 1.0.4 (.claude-plugin/plugin.json) · cloudflare/skills@468f4cd · GitHub
 
 You signed in with another tab or window. Reload to refresh your session. You signed out in another tab or window. Reload to refresh your session. You switched accounts on another tab or window. Reload to refresh your session. Dismiss alert
@@ -2775,88 +2722,6 @@ Yara Rules
 rule yoba_dropper { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaDropper"" strings: $code1 = {00 BB 40 0D 03 00 B9 7C 15 00 00 FF D6 31 C0} $code2 = {BA 05 15 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {53 B9 75 EE 40 70 48 83 EC 20} $code4 = {BA 5C CD 17 E5 48 89 C1 E8 73 00 00 00} $code5 = {0F C8 89 C0 4? 39 ?? 74 1? (49 0F AF C0| 48 69 C0 ?? ?? ?? ??) (4C 01 C8| 48 05 ?? ?? ?? ??) 49 89 C? 49 C1 E? 18 45 30 [2] 4? FF ?? EB} condition: uint16(0) == 0x5A4D and 2 of them } rule yoba_loader { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaLoader"" strings: $code1 = {B9 80 A8 12 01 FF ?? ?? E9} $code2 = {BA EB 1D 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {B9 5B 80 EF B7 E8} $code4 = {BA F5 8B 2E F2 48 89 C1} $code5 = {B5 C2 D2 06 23 D4 E6 64 7D 06 A4 28 64 ED D8 62 9F 82 C5 C3 84 B2 43 FD AE EE CA 24 B3 87 3D 64} $code6 = {1D 0D 13 68 B4 D5 3F 3A 63 22 CF 40 E8 4E 63 DB} $code7 = {40 80 FE 32 74 42 40 80 FE 33 74 66 40 80 FE 31} $code8 = {41 81 F8 A5 DE 6C C2} condition: uint16(0) == 0x5A4D and 2 of them }
 
 The post Tricks from the Past deployed via signed ChatGPT and Claude binaries appeared first on Check Point Research."
-3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic News,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
-
-There are many opportunities to speed up drug development, even beyond the most commonly discussed applications of AI, like proposing initial designs for new molecules. Developing a drug involves many varied tasks: doing early research to identify a target for a drug and the right type of drug to engage it, designing a molecule with the right properties, optimizing it to be manufactured reliably at scale, drafting the regulatory filings needed to run clinical trials, designing and administering those trials, and much more.
-
-Our strategy to realize AI’s medical benefits is based on having AI increasingly involved in all of these tasks. There is no single problem to solve; the bottlenecks are distributed all throughout the drug development process. The best way to identify and work through these bottlenecks is to get deeply involved in real drug programs, across many different disease areas and stages of development.
-
-So, over the past several months, we’ve partnered with six organizations to do so. We’ve also started drug discovery efforts of our own, including programs for rare childhood forms of muscular dystrophy, where Claude handles much of the scientific and operational work.
-
-This work serves our goals in three ways. First, it lets us better understand the strengths and limitations of our models in relation to a much wider range of drug development tasks (we’ve already prioritized specific improvements to our models based on what we’ve learned so far). Second, these programs can serve as case studies for the wider life sciences community. If Claude is to significantly increase the rate of new cures, we need to work with many more biotechnology firms and integrate Claude more deeply into their development processes. Third, these projects should, if their positive trajectories continue, have direct impact themselves. We’re optimistic that some may result in effective new medicines for the diseases they target, including food allergies, rare childhood diseases, and several forms of cancer.
-
-In this post, we provide an update on our progress with our partners, along with technical reports that describe our thought process, methods, and early results in more detail. We then briefly outline where our work is headed next.
-
-Case studies
-
-Generate Biomedicines: modality engineering. Generate Biomedicines has been working on increasing the usefulness of a cancer treatment known as CAR T-cell therapy. This therapy has historically helped treat blood cell cancers; Generate aims to reengineer it so that it can treat solid tumor cancers too. To do this, they’re aiming to shorten one part of the therapy’s genetic instructions, which would create room for additional instructions suited to other kinds of cancer. Six Generate scientists used Claude Code to propose new designs for this part. One design was about 70% shorter than the standard version, and in lab tests it was more effective: it allowed immune cells to make roughly 10 times as many receptors (the proteins they use to spot cancer cells), it killed tumor cells more efficiently, and the immune cells remained active for longer. Read more, and see Generate’s technical report.
-
-Divergence Labs: hit generation. Divergence Labs is working on a novel way to treat food allergies. Food allergies are set off by a reaction from a molecule called IgE, some of which is attached to our immune cells and some of which floats freely in our blood. Divergence Labs is developing drugs that would detach the IgE from our immune cells entirely, rather than solely neutralizing the IgE circulating in our blood, as standard medications do. This could provide a much more effective treatment, but it requires a precise design, with two “arms”: one that would bind tightly to IgE, and another that would help prise IgE from the immune cell. Claude converted Divergence Labs’ goals into a detailed design plan, and then, largely autonomously, generated roughly 35,000 antibody designs in about a month to be narrowed down and tested. In those early tests, Divergence found “hits” for both arms: three designs that could bind to IgE, and 20 that could dislodge it. Three of those 20 appeared to dislodge IgE more than the standard medication. Its next step is to build a drug that combines the two arms. Read more, and see Divergence’s technical report.
-
-BigHat Biosciences: lead optimization. BigHat Biosciences pairs AI with an automated lab to improve potential drugs (or “leads”), which must bind their target tightly, remain stable through manufacturing and storage, and avoid clumping together (among other criteria). BigHat’s scientists and an Anthropic researcher worked with Claude to improve these three properties in two leads, both antibody fragments that could become parts of future drugs: one designed to target cancer cells, and one designed to keep a drug in the body longer. Claude, connected to BigHat’s lab data system, Reccy, proposed changes to each molecule, and BigHat’s lab made and tested about 1,010 variants in about 10 weeks. Partway through, the team suspected the standard heat-stability and clumping metrics were misleading. Claude and the researcher reanalyzed the raw data, then proposed different metrics and a protocol change to test them. BigHat’s scientists refined and ran it, and the main predictions held. Compared with the originals, the best versions bound more than 10x more tightly, the cancer-targeting lead stayed in solution 18°C higher, and the lead for longer-lasting drugs clumped more than 100x more slowly. Read more, and see BigHat’s technical report.
-
-Enveda: manufacturing and filings. To conduct clinical trials, companies need records showing that each batch of a new drug has been made to strict quality standards, and to submit an application to regulators, among other requirements. At Enveda, manufacturing chemists spent up to 75% of their time on paperwork. To ease the load, Enveda built a system that connects all of its manufacturing documents to Claude, then lets Claude flag any possible issues. Over tests on 1,061 pages of documentation, Claude caught all 11 issues that human reviewers had spotted—and flagged seven they’d missed. In the process, this method reduced human review time by 89%, from over 25 hours to less than three. Separately, Claude wrote the first drafts of two important regulatory documents. One took four hours, compared to about three months by hand. For the other, Enveda’s standard human review process found one minor error. Read more, and see Enveda’s technical report.
-
-The Column Group (TCG): company creation. Because drug discovery can be slow, expensive, and prone to failure, investors in biotechnology companies have favored safer, previously validated ideas over riskier new ones, even when the latter could help more patients. We’ve been working with TCG to see whether Claude can change this by cutting the time and cost of drug discovery so that investors can confidently support more ambitious ideas. Specifically, TCG is establishing Pleiades, a new company that will use Claude to run many more—and more complex—drug programs than is usual for a small team. This could be a model for how Claude can reduce both the scientific and the operational and administrative overhead required to run a biotechnology company. If this works, this model could be replicated across the industry and direct investment toward harder problems in medicine. Pleiades is currently developing new tools and workflows for Claude; its very first Claude skill, which helps Claude assess whether drug targets are worth pursuing, has been evaluated on 45 target-disease pairs. Read more.
-
-More recently, we’ve also begun working with Bristol Myers Squibb (BMS) to find and address bottlenecks in clinical trial planning. BMS is using Claude to assess plans of an early-stage drug in clinical trials, and to estimate the likelihood of those trials succeeding. Together, we plan to expand this work in 2027 to understand its potential for increasing the probability of success in early development.
-
-“We use Claude at the clinical trial stage to analyze proprietary data, create a clinical study plan, and weigh the study’s chance of success. From a single prompt, Claude generated a robust initial analysis that helped inform our assessment of different development options, which would otherwise take days to complete. We did all of this while ensuring the security of our highly sensitive data. We look forward to expanding this work across our pipeline to support portfolio-level decisions.”
-
-Michael Pourdehnad, MD, Senior Vice President, Head of Early Clinical Development, Hematology, Oncology and Cell Therapy.
-
-In addition to our work with these partners, we’ve begun to run some research programs ourselves. We’ve acquired Mithril Medicine, a one-person company that has been developing treatments for two rare forms of muscular dystrophy. Its founder, Cody Tranbarger, used Claude to organize contracts, logistics, and experiments with 11 external labs, and delegated many other aspects of Mithril’s operations to Claude. As a result, Mithril took a possible treatment for one form of muscular dystrophy from an idea to promising results in mice in less than 18 months. Now at Anthropic, Cody is continuing this research, and plans to start several new programs. If his drug candidates continue to hold up, we expect a drug to be ready to start clinical trials in humans as soon as late 2028. Read more and see our technical report.
-
-Extending our work in the life sciences
-
-All of this research is still at an early stage. In particular, so far it is mostly preclinical—that is, for the most part, it isn’t yet at the stage where the drugs are being tested in humans. We plan to continue extending Claude’s role into clinical trials as these drug programs advance, and as we partner with more organizations whose drug development programs are already at the clinical stage.
-
-This research is only one part of our efforts to accelerate drug discovery. Ultimately, we want to share our models with as many drug development researchers as possible. To that end, we’ve rolled out Claude Science, our AI workbench for researchers, and we’re providing Claude credits for life scientists. We’ve also created the Life Sciences Verification Program to allow trusted organizations to use our most powerful models with more permissive versions of our safeguards, which are necessary to prevent misuse but which can impede legitimate biological research. We’ve also recently launched an open call for guest investigators in the life sciences; we’re seeking proposals from research groups who want to use Claude to investigate key questions in drug discovery and other areas.
-
-We’re looking forward to working with many more organizations as we expand our life sciences research. If you work at an organization focused on drug discovery and are interested in collaborating with us, you can get in touch below.
-
-Get in touch with us
-
-If you work at an organization focused on drug development and would like to get in touch, complete the following form."
-ab5fb224cac6,ab5fb224cac6,2026-10-27 00:00 UTC,Business & Industry News,Anthropic,Anthropic News,AI Security; Vulnerability Management,Article,Expanding our partnership with GSA to bring Claude to all levels of government,https://www.anthropic.com/news/expanding-partnership-gsa,A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days,"We are expanding our partnership with the General Services Administration (GSA) through a new agreement that gives government partners a 40% discount on Claude Enterprise, Claude for Government, and the Claude API. For the first time, the discount applies across every product surface, including when agencies buy from us directly today and through cloud providers in the coming months. The discount also extends to state, local, tribal and territorial governments.
-
-We are also launching a dedicated program to help agencies implement and make the most of their Claude use. These programs are commonly leveraged by our private sector customers and we’re looking forward to bringing those best practices to our public sector partners in the coming weeks.
-
-Approximately 500 US federal, state, and local government organizations now use Claude. Weekly Claude for Government active users are up about eightfold since February, and usage across federal civilian agencies has grown about 20-fold in a year. Those organizations run some of the most important systems in the country, usually on tight budgets and with long procurement cycles. This agreement is built to support that work, so they can apply Claude to hard problems without a large upfront commitment.
-
-The discounts offered through the agreement are estimated to save the government $1 billion. Agencies are not bound by a minimum spend commitment and will be able to pay for the usage they consume.
-
-How Claude is helping public servants get more done
-
-Government agencies are using Claude to solve some of their most important challenges. Examples include managing backlogs, records and forms, and modernizing old code. Some of the ways agencies are using Claude include:
-
-Utah gave Claude Code to 34 developers across 10 state agencies. 80% had a working environment within 30 minutes, 71% reported saving 20+ hours by the end of the four-week pilot.
-
-A US state CIO confirmed their team was able to respond to a ransomware attack in 8 minutes vs. the usual 2-3 days thanks to Claude.
-
-A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days. A human penetration test the month before had missed it.
-
-A cybersecurity professional at a major agency found and patched bugs in critical financial systems.
-
-A US state IT developer moved nearly 900 API methods to a new framework in two days. The project had been scoped for a month.
-
-A US state IT director used Claude Code to document 12 legacy code repositories, mapping 467 database tables and flagging 27 risks along the way.
-
-More than half of the US states, some of the largest localities, and some of the countries largest critical infrastructure operators participated in our SLTT cyber defense program.
-
-Meeting government security requirements
-
-Agencies can use Claude for their most sensitive unclassified work. Claude for Government, which delivers Claude's coding and agentic work capabilities and provides near-feature parity with commercial offerings at a FedRAMP High authorization level, was made generally available on September 30.
-
-Agencies building their own tools can use Claude through Amazon Bedrock or Google Cloud’s Vertex AI. On Bedrock, Claude is authorized for FedRAMP High, with select models authorized for DoD IL4 and IL5 workloads in AWS GovCloud. On Vertex AI, Claude is authorized for FedRAMP High.
-
-Claude Enterprise is in process for FedRAMP Moderate authorization through the FedRAMP 20x program, marking the next evolution of how we are bringing the same innovative technology available commercially to the government.
-
-Getting started
-
-Government agencies can buy Claude at the OneGov discount through GSA's Multiple Award Schedule today. Whether your department or agency already uses Claude or is interested in using it, our Public Sector team will help discuss your options.
-
-For more information, contact us here."
 fc6a6c1b2468,fc6a6c1b2468,2026-10-27 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Cloud Risk Management,Article,Manage costs and demonstrate ROI for Claude Code on Google Cloud,https://claude.com/resources/articles/how-to-manage-costs-and-demonstrate-roi-for-claude-code-on-google-cloud,"Combine these capabilities to control your overall bill, but remember that control is only the first lever","As organizations delegate more work to Claude Code, spend grows with it, and platform teams need a way to both control costs and understand impact. Inspired by a recent webinar (opens in new tab) with Google Cloud, we share how organizations using Claude Code can better track and optimize these considerations on Google Cloud, including three core levers: control, track, and prove.
 
 Controls for managing Claude Code spend
@@ -3099,6 +2964,127 @@ More households served well
 When Claude handles administrative tasks like meeting prep, follow-up drafts and pipeline review, advisors can spend more of their time serving clients. Practices can expand their customer base, and offer more of the services they need, like tax, estate, insurance, and retirement planning.
 
 Here’s what customers and ecosystem partners have told us about working with Claude:"
+4a6f047403dd,4a6f047403dd,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Anthropic,Falco / Sysdig Blog,Vulnerability Management; AI Security,Article,Mythos access is expanding: what this means for vulnerability management,https://webflow.sysdig.com/blog/mythos-access-is-expanding-what-this-means-for-vulnerability-management,"Product Marketing Manager @ linkedin Subscribe to Threat Research REGISTER FOR THE WEBINAR Published: October 27, 2026 Table of contents TRT in your inbox Get security briefings...","Anthropic’s Claude Mythos put vulnerability management in the boardroom when it was released earlier this year, and the conversation around it has evolved. Press coverage continues to find new angles, and there’s plenty of discourse around how AI is changing everything about cybersecurity.
+
+In the months since the initial release of Mythos Preview, there have been a few developments around what Mythos can do and who is able to access it. But what does this actually mean for your vulnerability management program?
+
+A stronger model, wider access
+
+In September, Anthropic shipped Claude Mythos 5.1, which it calls the model with the strongest cyber capabilities of any they’ve released. Mythos 5.1 is built on the same base model as the generally available Fable 5.1 with different safeguards attached. Then, in October, it folded Project Glasswing, the early-access program that gave select critical infrastructure providers and industry partners access to Mythos, into an expanded tiered Cyber Verification Program (CVP). The revamped CVP spans everyday defensive work up through the highest-sensitivity critical infrastructure.
+
+This means that compared to at launch, machine-speed vulnerability discovery that used to be limited to a small group will reach a wider set of defenders. According to Anthropic, Glasswing partners turned up more than 129,000 verified vulnerabilities between April and July, over 33,000 of them critical or high severity. More access to Mythos-class discovery sounds like it should mean more vulnerabilities found, faster, across more organizations. While this is true, that large number isn’t the full story.
+
+Discovery and exploitation aren’t the same thing
+
+Anthropic noted in its announcement that the generally available Fable 5.1 can now be used to discover software vulnerabilities, but explicitly not to develop exploits for them. Activities that could be used maliciously like penetration testing, exploit generation, etc., are redirected to lower-tier models. The same gating carries into Mythos. The CVP’s three access tiers wall off penetration testing and red teaming work behind the two highest, most heavily vetted tiers.
+
+So while broader access to Mythos-class capability means broader access to finding things faster, it doesn’t, by itself, mean broader access to attacking anything. Also, Mythos still isn’t broadly available: access runs through vetted organizations in the CVP, so it isn’t something readily on hand for attackers.
+
+That’s not to say automated attacks aren’t happening, but that’s a separate development, not something that traces back to Mythos specifically. Lumping every agentic AI risk together misses where the actual exposure is coming from.
+
+The core of vulnerability management hasn’t changed
+
+A lot of the coverage of Mythos makes it sound scarier than it needs to. While it does make vulnerability discovery significantly faster, no security team was patching every known CVE even before Mythos existed. Using AI agents for defense can increase teams’ speed and scope, but the real differentiator continues to be knowing which findings are in active, loaded packages, reachable, and creating real risk, versus which ones are noise with a scary CVSS score attached.
+
+Exploits are getting faster too. Mandiant now puts the average time-to-exploit at negative seven days, meaning exploitation begins before a vulnerability is even disclosed. This makes it even more important to build a vulnerability management program around core principles.
+
+The fundamentals of vulnerability management are even more important in the AI discovery era:
+
+Scan and discover everything in one place, CVE and non-CVE findings alike.
+
+Prioritize by what’s in-use and exploitable, not just what scores high.
+
+Automate remediation at the source instead of patching every downstream instance individually.
+
+Treat runtime security as a safety net for whatever stays exposed.
+
+This plan for vulnerability response doesn’t get rewritten because discovery got faster. Agentic AI can be utilized on your side too, automating and accelerating each of these steps and helping keep up with the volume of findings. You don’t need to treat every Mythos headline as a crisis or rebuild your program every time access expands again.
+
+Learn more at the webinar
+
+To learn more about building a Mythos-ready vulnerability management program, join our webinar, Mythos Decoded: What’s Actually Changed in Vulnerability Management. We’ll cover what Mythos actually is and isn’t and practical steps to keep pace with AI-accelerated discovery without the panic."
+3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic News,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
+
+There are many opportunities to speed up drug development, even beyond the most commonly discussed applications of AI, like proposing initial designs for new molecules. Developing a drug involves many varied tasks: doing early research to identify a target for a drug and the right type of drug to engage it, designing a molecule with the right properties, optimizing it to be manufactured reliably at scale, drafting the regulatory filings needed to run clinical trials, designing and administering those trials, and much more.
+
+Our strategy to realize AI’s medical benefits is based on having AI increasingly involved in all of these tasks. There is no single problem to solve; the bottlenecks are distributed all throughout the drug development process. The best way to identify and work through these bottlenecks is to get deeply involved in real drug programs, across many different disease areas and stages of development.
+
+So, over the past several months, we’ve partnered with six organizations to do so. We’ve also started drug discovery efforts of our own, including programs for rare childhood forms of muscular dystrophy, where Claude handles much of the scientific and operational work.
+
+This work serves our goals in three ways. First, it lets us better understand the strengths and limitations of our models in relation to a much wider range of drug development tasks (we’ve already prioritized specific improvements to our models based on what we’ve learned so far). Second, these programs can serve as case studies for the wider life sciences community. If Claude is to significantly increase the rate of new cures, we need to work with many more biotechnology firms and integrate Claude more deeply into their development processes. Third, these projects should, if their positive trajectories continue, have direct impact themselves. We’re optimistic that some may result in effective new medicines for the diseases they target, including food allergies, rare childhood diseases, and several forms of cancer.
+
+In this post, we provide an update on our progress with our partners, along with technical reports that describe our thought process, methods, and early results in more detail. We then briefly outline where our work is headed next.
+
+Case studies
+
+Generate Biomedicines: modality engineering. Generate Biomedicines has been working on increasing the usefulness of a cancer treatment known as CAR T-cell therapy. This therapy has historically helped treat blood cell cancers; Generate aims to reengineer it so that it can treat solid tumor cancers too. To do this, they’re aiming to shorten one part of the therapy’s genetic instructions, which would create room for additional instructions suited to other kinds of cancer. Six Generate scientists used Claude Code to propose new designs for this part. One design was about 70% shorter than the standard version, and in lab tests it was more effective: it allowed immune cells to make roughly 10 times as many receptors (the proteins they use to spot cancer cells), it killed tumor cells more efficiently, and the immune cells remained active for longer. Read more, and see Generate’s technical report.
+
+Divergence Labs: hit generation. Divergence Labs is working on a novel way to treat food allergies. Food allergies are set off by a reaction from a molecule called IgE, some of which is attached to our immune cells and some of which floats freely in our blood. Divergence Labs is developing drugs that would detach the IgE from our immune cells entirely, rather than solely neutralizing the IgE circulating in our blood, as standard medications do. This could provide a much more effective treatment, but it requires a precise design, with two “arms”: one that would bind tightly to IgE, and another that would help prise IgE from the immune cell. Claude converted Divergence Labs’ goals into a detailed design plan, and then, largely autonomously, generated roughly 35,000 antibody designs in about a month to be narrowed down and tested. In those early tests, Divergence found “hits” for both arms: three designs that could bind to IgE, and 20 that could dislodge it. Three of those 20 appeared to dislodge IgE more than the standard medication. Its next step is to build a drug that combines the two arms. Read more, and see Divergence’s technical report.
+
+BigHat Biosciences: lead optimization. BigHat Biosciences pairs AI with an automated lab to improve potential drugs (or “leads”), which must bind their target tightly, remain stable through manufacturing and storage, and avoid clumping together (among other criteria). BigHat’s scientists and an Anthropic researcher worked with Claude to improve these three properties in two leads, both antibody fragments that could become parts of future drugs: one designed to target cancer cells, and one designed to keep a drug in the body longer. Claude, connected to BigHat’s lab data system, Reccy, proposed changes to each molecule, and BigHat’s lab made and tested about 1,010 variants in about 10 weeks. Partway through, the team suspected the standard heat-stability and clumping metrics were misleading. Claude and the researcher reanalyzed the raw data, then proposed different metrics and a protocol change to test them. BigHat’s scientists refined and ran it, and the main predictions held. Compared with the originals, the best versions bound more than 10x more tightly, the cancer-targeting lead stayed in solution 18°C higher, and the lead for longer-lasting drugs clumped more than 100x more slowly. Read more, and see BigHat’s technical report.
+
+Enveda: manufacturing and filings. To conduct clinical trials, companies need records showing that each batch of a new drug has been made to strict quality standards, and to submit an application to regulators, among other requirements. At Enveda, manufacturing chemists spent up to 75% of their time on paperwork. To ease the load, Enveda built a system that connects all of its manufacturing documents to Claude, then lets Claude flag any possible issues. Over tests on 1,061 pages of documentation, Claude caught all 11 issues that human reviewers had spotted—and flagged seven they’d missed. In the process, this method reduced human review time by 89%, from over 25 hours to less than three. Separately, Claude wrote the first drafts of two important regulatory documents. One took four hours, compared to about three months by hand. For the other, Enveda’s standard human review process found one minor error. Read more, and see Enveda’s technical report.
+
+The Column Group (TCG): company creation. Because drug discovery can be slow, expensive, and prone to failure, investors in biotechnology companies have favored safer, previously validated ideas over riskier new ones, even when the latter could help more patients. We’ve been working with TCG to see whether Claude can change this by cutting the time and cost of drug discovery so that investors can confidently support more ambitious ideas. Specifically, TCG is establishing Pleiades, a new company that will use Claude to run many more—and more complex—drug programs than is usual for a small team. This could be a model for how Claude can reduce both the scientific and the operational and administrative overhead required to run a biotechnology company. If this works, this model could be replicated across the industry and direct investment toward harder problems in medicine. Pleiades is currently developing new tools and workflows for Claude; its very first Claude skill, which helps Claude assess whether drug targets are worth pursuing, has been evaluated on 45 target-disease pairs. Read more.
+
+More recently, we’ve also begun working with Bristol Myers Squibb (BMS) to find and address bottlenecks in clinical trial planning. BMS is using Claude to assess plans of an early-stage drug in clinical trials, and to estimate the likelihood of those trials succeeding. Together, we plan to expand this work in 2027 to understand its potential for increasing the probability of success in early development.
+
+“We use Claude at the clinical trial stage to analyze proprietary data, create a clinical study plan, and weigh the study’s chance of success. From a single prompt, Claude generated a robust initial analysis that helped inform our assessment of different development options, which would otherwise take days to complete. We did all of this while ensuring the security of our highly sensitive data. We look forward to expanding this work across our pipeline to support portfolio-level decisions.”
+
+Michael Pourdehnad, MD, Senior Vice President, Head of Early Clinical Development, Hematology, Oncology and Cell Therapy.
+
+In addition to our work with these partners, we’ve begun to run some research programs ourselves. We’ve acquired Mithril Medicine, a one-person company that has been developing treatments for two rare forms of muscular dystrophy. Its founder, Cody Tranbarger, used Claude to organize contracts, logistics, and experiments with 11 external labs, and delegated many other aspects of Mithril’s operations to Claude. As a result, Mithril took a possible treatment for one form of muscular dystrophy from an idea to promising results in mice in less than 18 months. Now at Anthropic, Cody is continuing this research, and plans to start several new programs. If his drug candidates continue to hold up, we expect a drug to be ready to start clinical trials in humans as soon as late 2028. Read more and see our technical report.
+
+Extending our work in the life sciences
+
+All of this research is still at an early stage. In particular, so far it is mostly preclinical—that is, for the most part, it isn’t yet at the stage where the drugs are being tested in humans. We plan to continue extending Claude’s role into clinical trials as these drug programs advance, and as we partner with more organizations whose drug development programs are already at the clinical stage.
+
+This research is only one part of our efforts to accelerate drug discovery. Ultimately, we want to share our models with as many drug development researchers as possible. To that end, we’ve rolled out Claude Science, our AI workbench for researchers, and we’re providing Claude credits for life scientists. We’ve also created the Life Sciences Verification Program to allow trusted organizations to use our most powerful models with more permissive versions of our safeguards, which are necessary to prevent misuse but which can impede legitimate biological research. We’ve also recently launched an open call for guest investigators in the life sciences; we’re seeking proposals from research groups who want to use Claude to investigate key questions in drug discovery and other areas.
+
+We’re looking forward to working with many more organizations as we expand our life sciences research. If you work at an organization focused on drug discovery and are interested in collaborating with us, you can get in touch below.
+
+Get in touch with us
+
+If you work at an organization focused on drug development and would like to get in touch, complete the following form."
+ab5fb224cac6,ab5fb224cac6,2026-10-27 00:00 UTC,Business & Industry News,Anthropic,Anthropic News,AI Security; Vulnerability Management,Article,Expanding our partnership with GSA to bring Claude to all levels of government,https://www.anthropic.com/news/expanding-partnership-gsa,A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days,"We are expanding our partnership with the General Services Administration (GSA) through a new agreement that gives government partners a 40% discount on Claude Enterprise, Claude for Government, and the Claude API. For the first time, the discount applies across every product surface, including when agencies buy from us directly today and through cloud providers in the coming months. The discount also extends to state, local, tribal and territorial governments.
+
+We are also launching a dedicated program to help agencies implement and make the most of their Claude use. These programs are commonly leveraged by our private sector customers and we’re looking forward to bringing those best practices to our public sector partners in the coming weeks.
+
+Approximately 500 US federal, state, and local government organizations now use Claude. Weekly Claude for Government active users are up about eightfold since February, and usage across federal civilian agencies has grown about 20-fold in a year. Those organizations run some of the most important systems in the country, usually on tight budgets and with long procurement cycles. This agreement is built to support that work, so they can apply Claude to hard problems without a large upfront commitment.
+
+The discounts offered through the agreement are estimated to save the government $1 billion. Agencies are not bound by a minimum spend commitment and will be able to pay for the usage they consume.
+
+How Claude is helping public servants get more done
+
+Government agencies are using Claude to solve some of their most important challenges. Examples include managing backlogs, records and forms, and modernizing old code. Some of the ways agencies are using Claude include:
+
+Utah gave Claude Code to 34 developers across 10 state agencies. 80% had a working environment within 30 minutes, 71% reported saving 20+ hours by the end of the four-week pilot.
+
+A US state CIO confirmed their team was able to respond to a ransomware attack in 8 minutes vs. the usual 2-3 days thanks to Claude.
+
+A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days. A human penetration test the month before had missed it.
+
+A cybersecurity professional at a major agency found and patched bugs in critical financial systems.
+
+A US state IT developer moved nearly 900 API methods to a new framework in two days. The project had been scoped for a month.
+
+A US state IT director used Claude Code to document 12 legacy code repositories, mapping 467 database tables and flagging 27 risks along the way.
+
+More than half of the US states, some of the largest localities, and some of the countries largest critical infrastructure operators participated in our SLTT cyber defense program.
+
+Meeting government security requirements
+
+Agencies can use Claude for their most sensitive unclassified work. Claude for Government, which delivers Claude's coding and agentic work capabilities and provides near-feature parity with commercial offerings at a FedRAMP High authorization level, was made generally available on September 30.
+
+Agencies building their own tools can use Claude through Amazon Bedrock or Google Cloud’s Vertex AI. On Bedrock, Claude is authorized for FedRAMP High, with select models authorized for DoD IL4 and IL5 workloads in AWS GovCloud. On Vertex AI, Claude is authorized for FedRAMP High.
+
+Claude Enterprise is in process for FedRAMP Moderate authorization through the FedRAMP 20x program, marking the next evolution of how we are bringing the same innovative technology available commercially to the government.
+
+Getting started
+
+Government agencies can buy Claude at the OneGov discount through GSA's Multiple Award Schedule today. Whether your department or agency already uses Claude or is interested in using it, our Public Sector team will help discuss your options.
+
+For more information, contact us here."
 0e63c15c568e,0e63c15c568e,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Anthropic,Anthropic Frontier Red Team,Vulnerability Management; AI Security,Article,"Discovering and exploiting vulnerabilities in critical, real-world software with Claude",https://www.anthropic.com/research/discovering-vulnerabilities-with-claude,"Finally, Claude discovered a use-after-free in FedCM, Chrome’s federated sign-in feature, that allowed the exploit to execute arbitrary code outside the sandbox","Over the past few months, we’ve used an unreleased, internal research model to find critical vulnerabilities in some of the world’s most widely used software, such as browsers and operating systems. In this post, we share details of five attack chains, which led to remote code execution and other critical impacts with little to no user interaction. These attack chains demonstrate the model’s ability to create sophisticated, multi-step exploits in both open-source and proprietary software. Any vulnerabilities in these products could affect billions of users. They’re also among the most security-critical software in the world, making them a bellwether for testing models’ vulnerability research and cyber capabilities.
 
 We reported each vulnerability to the affected vendor under our coordinated vulnerability disclosure, which gives developers 90 days to patch and a further 45 days before we discuss details beyond what is already included in a public advisory.
@@ -3186,52 +3172,6 @@ What this means for defenders
 Frontier models have the ability to discover and combine multiple vulnerabilities into a working exploit. These skills have historically been the domain of few specialist teams with expertise in these targets. Now, it’s something models can do with little human involvement, and then prove by producing a working exploit that anyone can run and verify.
 
 Enabling defenders with powerful models is critical to giving them a headstart on patching systems before attackers do. Recently, we released an expanded version of our Cyber Verification Program, which makes advanced cyber capabilities and reduced blocking classifiers available to qualifying security professionals. It includes access to our most capable models, including Claude Opus 5.5, Claude Sonnet 5.5, Claude Mythos 5.1, and other new models moving forward. Our advice to defenders remains the same: scanning your own code is more important than ever."
-4a6f047403dd,4a6f047403dd,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Anthropic,Falco / Sysdig Blog,Vulnerability Management; AI Security,Article,Mythos access is expanding: what this means for vulnerability management,https://webflow.sysdig.com/blog/mythos-access-is-expanding-what-this-means-for-vulnerability-management,"Product Marketing Manager @ linkedin Subscribe to Threat Research REGISTER FOR THE WEBINAR Published: October 27, 2026 Table of contents TRT in your inbox Get security briefings...","Anthropic’s Claude Mythos put vulnerability management in the boardroom when it was released earlier this year, and the conversation around it has evolved. Press coverage continues to find new angles, and there’s plenty of discourse around how AI is changing everything about cybersecurity.
-
-In the months since the initial release of Mythos Preview, there have been a few developments around what Mythos can do and who is able to access it. But what does this actually mean for your vulnerability management program?
-
-A stronger model, wider access
-
-In September, Anthropic shipped Claude Mythos 5.1, which it calls the model with the strongest cyber capabilities of any they’ve released. Mythos 5.1 is built on the same base model as the generally available Fable 5.1 with different safeguards attached. Then, in October, it folded Project Glasswing, the early-access program that gave select critical infrastructure providers and industry partners access to Mythos, into an expanded tiered Cyber Verification Program (CVP). The revamped CVP spans everyday defensive work up through the highest-sensitivity critical infrastructure.
-
-This means that compared to at launch, machine-speed vulnerability discovery that used to be limited to a small group will reach a wider set of defenders. According to Anthropic, Glasswing partners turned up more than 129,000 verified vulnerabilities between April and July, over 33,000 of them critical or high severity. More access to Mythos-class discovery sounds like it should mean more vulnerabilities found, faster, across more organizations. While this is true, that large number isn’t the full story.
-
-Discovery and exploitation aren’t the same thing
-
-Anthropic noted in its announcement that the generally available Fable 5.1 can now be used to discover software vulnerabilities, but explicitly not to develop exploits for them. Activities that could be used maliciously like penetration testing, exploit generation, etc., are redirected to lower-tier models. The same gating carries into Mythos. The CVP’s three access tiers wall off penetration testing and red teaming work behind the two highest, most heavily vetted tiers.
-
-So while broader access to Mythos-class capability means broader access to finding things faster, it doesn’t, by itself, mean broader access to attacking anything. Also, Mythos still isn’t broadly available: access runs through vetted organizations in the CVP, so it isn’t something readily on hand for attackers.
-
-That’s not to say automated attacks aren’t happening, but that’s a separate development, not something that traces back to Mythos specifically. Lumping every agentic AI risk together misses where the actual exposure is coming from.
-
-The core of vulnerability management hasn’t changed
-
-A lot of the coverage of Mythos makes it sound scarier than it needs to. While it does make vulnerability discovery significantly faster, no security team was patching every known CVE even before Mythos existed. Using AI agents for defense can increase teams’ speed and scope, but the real differentiator continues to be knowing which findings are in active, loaded packages, reachable, and creating real risk, versus which ones are noise with a scary CVSS score attached.
-
-Exploits are getting faster too. Mandiant now puts the average time-to-exploit at negative seven days, meaning exploitation begins before a vulnerability is even disclosed. This makes it even more important to build a vulnerability management program around core principles.
-
-The fundamentals of vulnerability management are even more important in the AI discovery era:
-
-Scan and discover everything in one place, CVE and non-CVE findings alike.
-
-Prioritize by what’s in-use and exploitable, not just what scores high.
-
-Automate remediation at the source instead of patching every downstream instance individually.
-
-Treat runtime security as a safety net for whatever stays exposed.
-
-This plan for vulnerability response doesn’t get rewritten because discovery got faster. Agentic AI can be utilized on your side too, automating and accelerating each of these steps and helping keep up with the volume of findings. You don’t need to treat every Mythos headline as a crisis or rebuild your program every time access expands again.
-
-Learn more at the webinar
-
-To learn more about building a Mythos-ready vulnerability management program, join our webinar, Mythos Decoded: What’s Actually Changed in Vulnerability Management. We’ll cover what Mythos actually is and isn’t and practical steps to keep pace with AI-accelerated discovery without the panic."
-5951c8e8a3fb,5951c8e8a3fb,2026-10-26 00:00 UTC,"Policy, Legal & Compliance",Anthropic,Anthropic News,AI Security,Article,Anthropic files S-1 with the SEC for proposed initial public offering,https://www.anthropic.com/news/s1-sec,The proposed offering will be made only by means of a prospectus,"Today, Anthropic, PBC filed a registration statement on Form S-1 with the U.S. Securities and Exchange Commission relating to its proposed initial public offering of its Class A common stock.
-
-Anthropic intends to list its Class A common stock on the Nasdaq Global Select Market under the symbol “ANT.” The number of shares of Class A common stock to be offered and the price range for the proposed offering have not yet been determined.
-
-The proposed offering will be made only by means of a prospectus. Copies of the preliminary prospectus, when available, may be obtained from: Goldman Sachs & Co. LLC, Attention: Prospectus Department, 200 West Street, New York, NY 10282, by telephone at (866) 471-2526, or by email at prospectus-ny@ny.email.gs.com; or Morgan Stanley & Co. LLC, Attention: Prospectus Department, 180 Varick Street, 2nd Floor, New York, NY 10014.
-
-A registration statement relating to these securities has been filed with the SEC but has not yet become effective. These securities may not be sold, nor may offers to buy be accepted, prior to the time the registration statement becomes effective. Today’s announcement does not constitute an offer to sell or the solicitation of an offer to buy these securities, nor shall there be any sale of these securities in any state or jurisdiction in which such offer, solicitation, or sale would be unlawful prior to registration or qualification under the securities laws of any such state or jurisdiction."
 a21f0d609a11,a21f0d609a11,2026-10-26 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Expanding Claude for Nonprofits,https://claude.com/resources/articles/expanding-claude-for-nonprofits,"nonprofits, through a partnership with Taproot (opens in new tab)","Today, we're releasing the Claude for Nonprofits plugin, a set of skills and connectors built with ~30 nonprofits. It helps teams set up Claude responsibly with their organization's context and policies, supports fundraising from research through reporting, and takes on the operational work that stretches small teams. We're also planning to extend Claude Corps (opens in new tab), our program for placing early-career fellows in U.S. nonprofits, through a partnership with Taproot (opens in new tab).
 
 As a public benefit corporation, Anthropic has a responsibility to make sure our products are accessible and useful to organizations working on the world’s hardest problems. Last December, we launched Claude for Nonprofits (opens in new tab) with discounts of up to 75%, connectors for Blackbaud, Candid, and Benevity, and a free AI Fluency course built with GivingTuesday. More than 25,000 nonprofits now use Claude in their work. Most of those organizations are small, local operations: more than 75% of them have fewer than 10 Claude seats. We think today's update will have the biggest impact on these organizations.
@@ -3279,6 +3219,13 @@ Write proposals and reports. Turn an RFP into a requirements list and a first dr
 Keep relationships warm. Get a brief before a funder call, a write-up and thank-you note after, and donor updates in your voice. Ask how to re-engage donors and receive a stewardship plan.
 
 Where nonprofits are seeing impact"
+5951c8e8a3fb,5951c8e8a3fb,2026-10-26 00:00 UTC,"Policy, Legal & Compliance",Anthropic,Anthropic News,AI Security,Article,Anthropic files S-1 with the SEC for proposed initial public offering,https://www.anthropic.com/news/s1-sec,The proposed offering will be made only by means of a prospectus,"Today, Anthropic, PBC filed a registration statement on Form S-1 with the U.S. Securities and Exchange Commission relating to its proposed initial public offering of its Class A common stock.
+
+Anthropic intends to list its Class A common stock on the Nasdaq Global Select Market under the symbol “ANT.” The number of shares of Class A common stock to be offered and the price range for the proposed offering have not yet been determined.
+
+The proposed offering will be made only by means of a prospectus. Copies of the preliminary prospectus, when available, may be obtained from: Goldman Sachs & Co. LLC, Attention: Prospectus Department, 200 West Street, New York, NY 10282, by telephone at (866) 471-2526, or by email at prospectus-ny@ny.email.gs.com; or Morgan Stanley & Co. LLC, Attention: Prospectus Department, 180 Varick Street, 2nd Floor, New York, NY 10014.
+
+A registration statement relating to these securities has been filed with the SEC but has not yet become effective. These securities may not be sold, nor may offers to buy be accepted, prior to the time the registration statement becomes effective. Today’s announcement does not constitute an offer to sell or the solicitation of an offer to buy these securities, nor shall there be any sale of these securities in any state or jurisdiction in which such offer, solicitation, or sale would be unlawful prior to registration or qualification under the securities laws of any such state or jurisdiction."
 e3bc2dd03fa6,e3bc2dd03fa6,2026-10-23 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Claude Cowork and chat come together for Enterprise,https://claude.com/resources/articles/unified-claude-enterprise,Getting started The unified Claude experience is generally available today for Claude Enterprise plans,"Maintaining security
 
 If your organization has already approved Claude chat, this builds on the enterprise controls you already use, including single sign-on (SSO) and the Compliance API. Anthropic still encrypts data in transit and at rest and doesn’t use it for model training by default.

@@ -1,4 +1,85 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+296ca2d24dd8,296ca2d24dd8,2026-11-20 13:00 UTC,"Attacks, Breaches & Threat Intel",Delinea,Delinea Blog,Vulnerability Management,Article,Node2Shell and eMudhra: One Attack Chain?,https://delinea.com/blog/node2shell-and-emudhra-one-attack-chain,"The malicious input would arrive through an outbound connection the application already makes, without the attacker needing to exploit its authentication mechanism","What you will learn
+
+How a forged eMudhra certificate could deliver a malicious Brotli response, which conditions must hold, why simpler paths to the decoder exist and how code execution would put application credentials at risk.
+
+Part 2: Following the attack path
+
+In the first part of this series, we looked at two unrelated security incidents: Node2Shell, a memory corruption vulnerability in Google's Brotli decoder, and the eMudhra certificate authority compromise, which exposed private keys that should never have been recoverable.
+
+The question is what happens when we put them together.
+
+Node2Shell allows specially crafted compressed data to corrupt memory when an affected application decompresses it. The eMudhra compromise could allow an attacker to impersonate a trusted HTTPS service if the client still accepts certificates issued through the compromised keys.
+
+One vulnerability affects how an application processes data. The other effects how it decides who to trust. Could the second provide a way to deliver the first?
+
+It's technically plausible under specific conditions, but there's no public demonstration of the combined attack and the forged certificate may not even be necessary.
+
+From a trusted connection to a vulnerable decoder
+
+Consider a Node.js application that connects to an external API using the built-in fetch() function. The application establishes an HTTPS connection, validates the server certificate and automatically decompresses Brotli-compressed responses.
+
+Now consider an attacker who can redirect that connection and recover one of the compromised eMudhra intermediate CA keys. If the client still accepts a certificate chain involving that key, the attacker could impersonate the external service.
+
+The application might complete the TLS handshake without detecting the substitution. But the response would now be controlled by the attacker.
+
+Instead of ordinary API data, the impersonated server could return a malicious Brotli-compressed response. When fetch() decompresses it, the vulnerable decoder could encounter the same memory corruption issue demonstrated by Imperva.
+
+The malicious input would arrive through an outbound connection the application already makes, without the attacker needing to exploit its authentication mechanism.
+
+Hypothetical attack chain combining eMudhra certificate impersonation with Node2Shell. Each stage requires specific conditions, and no combined attack has been publicly demonstrated.
+
+Would the attack actually work?
+
+Several conditions would need to be met.
+
+The attacker needs control over the connection path or another way to redirect the request. Recovering a CA private key alone doesn't provide that control.
+
+The client must still trust the forged certificate. Browser protections don't necessarily apply to server-side applications, but Node.js and other runtimes have already introduced changes to certificate validation.
+
+The application must process the response using an affected Brotli decoder. Node.js fetch() provides one entry point, but not every HTTP client handles compressed responses the same way.
+
+The second and third conditions can overlap. The October 21 Node.js release addressed both the decoder and certificate trust issues, so older runtimes may still have both problems, depending on their certificate configuration.
+
+Reaching the decoder also doesn’t guarantee remote code execution. Imperva demonstrated RCE on Node.js 24.22.0 running on Linux arm64, but it required multiple attempts. Public exploit code now exists and CISA lists the flaw as exploited, but whether the result is a crash or successful code execution still depends on the build, architecture, runtime protections, and application behavior.
+
+The individual mechanisms are documented, but we haven't tested the combined chain, and there's no public evidence that the compromised eMudhra keys have been used to deliver Node2Shell.
+
+Does the attack even need the certificate?
+
+Often, no. Node2Shell doesn't depend on the eMudhra keys. Applications accepting Brotli-compressed request bodies may expose the decoder directly to external clients. Applications fetching data from attacker-controlled servers or compromised upstream APIs could also receive malicious responses without a forged certificate.
+
+PowerShell 7 provides another example. Microsoft's guidance confirms that Invoke-WebRequest and Invoke-RestMethod automatically decompress HTTP responses by default. This creates a potential entry point when the commands process Brotli-compressed responses from an attacker-controlled or compromised server.
+
+The forged certificate adds value in a more specific situation.When the attacker needs to impersonate a trusted HTTPS service, can redirect the connection and the client still accepts a certificate issued through the compromised keys.
+
+It's a possible delivery path, but not the only one, and not necessarily the simplest.
+
+The problem is bigger than Node.js
+
+CVE-2026-111497 affects Google's Brotli decoder, which is used across multiple runtimes, libraries and applications. Microsoft released fixes for .NET, PowerShell 7 and Visual Studio in late October. Python's brotli and brotlicffi packages also required updates, while Java applications using brotli4j and products built on Envoy and Istio have been identified as affected.
+
+The exposure differs between products. In .NET, for example, automatic Brotli decompression isn't enabled by default for ASP.NET Core requests or HttpClient responses. An application must enable those paths or explicitly use the Brotli APIs.
+
+An application accepting compressed requests may expose the decoder to unauthenticated clients. An HTTP client that decompresses responses requires the attacker to control the server or the response. The important question isn't just whether a vulnerable library is present, but where it's called and who controls the input.
+
+Patching also depends on how the library is packaged. Some applications use the operating system's Brotli library, while others bundle or compile their own copy. Java's brotli4j includes native Brotli code, and self-contained .NET applications or containers may need to be rebuilt.
+
+Updating the system library won't necessarily fix every application using it.
+
+What does this mean for identity security?
+
+If the combined attack worked, the result wouldn't stop at impersonating a trusted service. It could also lead to code execution inside the application.
+
+A forged certificate doesn't automatically expose application credentials. It may allow service impersonation or interception of information sent over the connection. But if malicious content delivered through that connection leads to code execution, the attacker could potentially access API tokens, service-account credentials and other secrets available inside the process.
+
+Whether the malicious data arrives through a forged certificate, an HTTP request or a compromised upstream server, successful code execution puts the identities available to that application at risk.
+
+The next target could be the access the application already has. There's still no demonstrated attack combining the eMudhra keys with Node2Shell. But the analysis shows that an attacker may have simpler ways to reach the vulnerable decoder without relying on certificate impersonation.
+
+FREE EBOOK Move from identity blind spots to total visibility
+
+Discovery is key to reducing risk. The CISOs guide to identity risk explains why and how."
 e9e1ed4c4253,e9e1ed4c4253,2026-11-17 20:38 UTC,"Attacks, Breaches & Threat Intel",Delinea,Delinea Blog,Code Security; Identity Security Posture Management; Server & Workload Protection; Vulnerability Management,Article,Railway Security Incident: Where Trust Between Services Broke,https://delinea.com/blog/the-railway-security-incident,The attack began with a vulnerability in Railway's build infrastructure and moved through several internal systems before reaching encrypted customer environment variables,"What you will learn
 
 Railway’s incident shows how a limited-purpose build credential, excess trust between services and a misconfigured OIDC binding led to decrypted secrets, and how to limit decryption access and credential lifetimes.
@@ -628,58 +709,3 @@ Read more insights and review six best practices in the 2026 Application Access 
 WHITEPAPER The AI Governance Gap
 
 See where the gaps are and how to extend control from the point of access to the moment of action."
-79700e32a7b8,79700e32a7b8,2026-10-26 15:11 UTC,Business & Industry News,Delinea,Delinea Blog,Identity Security Posture Management; AI Security,Article,Delinea: A PAM Leader in 2026 Gartner® Magic Quadrant™,https://delinea.com/blog/pam-leader-in-2026-gartner-magic-quadrant,This is exactly the kind of attack surface that gets exploited,"What you will learn
-
-Learn which capabilities helped us achieve our 8th consecutive recognition in the Gartner® Magic Quadrant™
-
-Delinea has been named a Leader in the 2026 Gartner Magic Quadrant for Privileged Access Management (PAM) for the eighth consecutive time.
-
-This is our eighth time running in the Leaders Quadrant, and it comes at a moment when the identity landscape looks nothing like it did even two years ago. Enterprises are no longer just managing human and machine identities. They're managing a fast-growing population of AI agents that need access to systems, data and each other, often with no human in the loop at all. We believe this year's recognition reflects how seriously we've taken that shift.
-
-What changed this year
-
-Over the past twelve months, we added just-in-time runtime authorization for AI agents. In plain terms, the same granular, time-bound access controls we've long applied to human and machine identities now extend to autonomous agents operating inside enterprise environments. An agent gets exactly the access it needs, exactly when it needs it and that access goes away the moment the task is done. Decisions are made in real-time and governed by policy.
-
-The centralized control, session monitoring and credential management features are particularly valuable, as they help enforce strong security policies while maintaining smooth operational workflows. Lead Engineer - IT Services
-
-We think this is what will be required for authorization going forward. Access shouldn't be a standing grant that sits around waiting to be misused. It should be a decision made in the moment, based on context and revoked automatically once that moment passes. The Gartner evaluation noted our placement on the Ability to Execute axis, and we believe our shift toward dynamic, real-time authorization is a major reason why.
-
-Why this matters to you
-
-If you're evaluating PAM vendors right now, here's the practical takeaway: The market is being reshaped by AI agents faster than most security programs are ready for. Every agent your teams deploy is a new identity that needs governing, and static, standing access to critical infrastructure. This is exactly the kind of attack surface that gets exploited. We feel a Leader placement is just that. We see it as an independent signal from Gartner that a vendor's approach to this problem holds up in the market on both vision and execution.
-
-Delinea Secret Server has consistently demonstrated its value as a comprehensive and scalable PAM solution. Director, IT Security and Risk Management - IT Services
-
-For customers already on the Delinea Platform, we feel this validates the direction we've been building toward: authorization that happens at the moment of access and built on defendable policies, not before it and not as an afterthought. For prospects comparing options, it's a data point worth weighing alongside your own evaluation, not a substitute for it.
-
-Where we believe Gartner evaluates us
-
-Just-in-time (JIT) PAM has emerged as a core capability to counter potential rogue agentic AI. Delinea has delivered enhanced cloud-native JIT capabilities along with protocol-level ephemeral credential injection for servers, databases and Kubernetes. In practice, this means credentials are issued at the protocol level for the exact moment they're needed and never persist as standing access.
-
-That eliminates a huge chunk of the attack surface that traditional privileged credentials create, because there's no credential sitting around to be stolen, harvested or forgotten about.
-
-This is the same philosophy extended across three populations at once: humans (workforce), machines (workload) and now AI agents. One authorization model, applied consistently, rather than three separate systems bolted together.
-
-Reliability isn’t an afterthought
-
-None of this matters if the platform isn't there when you need it. We guarantee a 99.995% monthly availability SLA across our global regions, including the US, EU, Canada, Southeast Asia, the UK, Australia, and the UAE. When you're enforcing access controls at scale, and especially when those controls are making real-time decisions for AI agents, the platform making those decisions has to be dependable. We treat that as table stakes, not a bonus feature.
-
-Customer experience as a differentiator
-
-We've heard directly from customers that what sets Delinea apart isn't just the technology; it's how straightforward the platform is to deploy, how much support is available when questions come up, how clearly we help teams understand where they sit on the maturity curve and what to tackle next. Mapping against 70 real-world use cases isn't a marketing exercise; it's a practical tool that helps security teams figure out what ""good"" looks like in their specific environment, rather than guessing.
-
-Delinea is a trusted partner of ours. We have received first-class product support and service through the years. Our organization values this vendor relationship. IT Security & Risk Management Associate - Banking
-
-Looking ahead
-
-Eight consecutive times as a Leader is a recognition we don't take lightly, and it's also not the finish line. The identity landscape keeps moving. AI agents are only going to multiply, attackers are already using AI to move faster and the organizations that get ahead of this will be the ones treating authorization as something dynamic and continuous rather than something you configure once and forget.
-
-We plan to keep building in that direction by extending runtime authorization further, tightening the connection between identity context and access decisions and making sure that whatever population of identities shows up next in your environment, AI agent, human or machine, gets governed with the same rigor.
-
-Get complimentary access to the full 2026 Gartner Magic Quadrant for Privileged Access Management and learn more about Delinea's recognition as a Leader.
-
-Gartner, Magic Quadrant for Privileged Access Management, Paul Mezzera, Shubham Gera, Tarun Rohilla, Scott Brinegar, 21 October 2026
-
-Gartner and Magic Quadrant are trademarks of Gartner, Inc. and/or its affiliates.
-
-Gartner does not endorse any company, vendor, product or service depicted in its publications, and does not advise technology users to select only those vendors with the highest ratings or other designation. Gartner publications consist of the opinions of Gartner’s business and technology insights organization and should not be construed as statements of fact. Gartner disclaims all warranties, expressed or implied, with respect to this publication, including any warranties of merchantability or fitness for a particular purpose."

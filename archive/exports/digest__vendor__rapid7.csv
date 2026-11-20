@@ -1,4 +1,173 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+01ffc03ec7da,01ffc03ec7da,2026-11-20 10:30 UTC,General Security News,Rapid7,Rapid7 Blog,Identity Security Posture Management; Email and Collaboration Security; Vulnerability Management; File Security,Article,Metasploit Wrap Up: Breaking Zimbra's Identity Boundaries,https://www.rapid7.com/blog/post/pt-metasploit-wrap-up-breaking-zimbra-s-identity-boundaries,The vulnerability is a file write in the Advanced Malware Protection (AMP) File Reputation feature,"This release we have three pull requests from jburgess-r7 building out coverage for the identity-boundary issues detailed in Rapid7's Breaking Zimbra Identity Boundaries, Part One research.
+
+First up is a new shared mixin, Msf::Exploit::Remote::HTTP::Zimbra, which gives every current and future Zimbra module a common foundation for account/admin SOAP authentication, canonical identity resolution, mailbox-server lookup, and version parsing, allowing future modules to stay focused on the vulnerability instead of re-implementing Zimbra's SOAP plumbing.
+
+Built on top of that mixin are two new modules targeting CVEs from the same research track:
+
+CVE-2026-73571 (#22080) It's an authorization bypass in Zimbra's SaveDraftRequest handling that lets an ordinary authenticated user send mail as another local mailbox without a delegation grant, landing a message in the victim's own Sent folder in the process.
+
+CVE-2026-93637 (#22070) Is a rate-limit bypass in Zimbra's Network Edition GraphQL authentication endpoint, which lets credential-stuffing attempts skip the source-IP lockout counter that normally protects the SOAP login path.
+
+Both modules were validated against live Zimbra 10.1.16 Network Edition instances. Super cool contributions from our very own jburgess-r7.
+
+New module content (6)
+
+Zimbra SaveDraftRequest Email Impersonation
+
+Authors: Ayoub Nabil Boubagrat and Crypto-Cat
+
+Type: Auxiliary
+
+Pull request: #22080 contributed by jburgess-r7
+
+Path: admin/http/zimbra_email_impersonation
+
+CVE reference: CVE-2026-73571
+
+Description: Adds an auxiliary module for CVE-2026-73571, allowing an authenticated user to send email as another local mailbox on Zimbra 10.1.16. The module supports optional Inbox delivery verification.
+
+Zimbra GraphQL Authentication Rate Limit Bypass
+
+Author: Crypto-Cat
+
+Type: Auxiliary
+
+Pull request: #22070 contributed by jburgess-r7
+
+Path: scanner/http/zimbra_graphql_brute
+
+CVE reference: CVE-2026-93637
+
+Description: This adds an auxiliary scanner for CVE-2026-93637 that tests Zimbra Network Edition authentication through GraphQL batches. The module supports configurable batches, safe stopping controls, and storage of verified credentials.
+
+BeyondTrust Remote Support MRS Origin Validation File Upload
+
+Author: jheysel
+
+Type: Exploit
+
+Pull request: #22083 contributed by jheysel-r7
+
+Path: linux/http/beyondtrust_rs_mrs_file_upload
+
+CVE reference: CVE-2026-102764
+
+Description: Adds an exploit module for an origin validation vulnerability in Beyond Trust Remote Support which allows for unauthenticated file upload resulting in RCE. The vulnerability is tracked as CVE-2026-102764.
+
+Openfire Deleted Administrator Account Authentication Bypass RCE
+
+Authors: Admin9961, Jatin Mannepalli, h00die-gr3y h00die.gr3y@gmail.com, and xRogue
+
+Type: Exploit
+
+Pull request: #22043 contributed by mjatin2007
+
+Path: multi/http/openfire_deleted_admin_rce_cve_2024_25420
+
+CVE reference: CVE-2024-25420
+
+Description: Adds exploit module for CVE-2024-25420, an vulnerability in Ignite Realtime Openfire before 4.8.1 that allows a remote attacker to escalate privileges via the admin.authorizedJIDs system property component.
+
+Cisco Secure Email Gateway AMP Arbitrary File Write RCE
+
+Author: sfewer-r7
+
+Type: Exploit
+
+Pull request: #22028 contributed by sfewer-r7
+
+Path: unix/smtp/cisco_secure_email_gateway_amp_file_write_rce
+
+CVE reference: CVE-2026-76519
+
+Description: Adds a new exploit module for CVE-2026-76519 an unauth RCE in Cisco Secure Email Gateway which was disclosed last month by the vendor and reported as being exploited in-the-wild. The vulnerability is a file write in the Advanced Malware Protection (AMP) File Reputation feature. When processing a TAR file which contains a PAX archive, we can force an existing file to be overwritten. The module overwrites an existing script /data/bin/core_watch.sh with a Metasploit payload. This script file is executed every 5 minutes by a cron job, giving us RCE with root privs.
+
+Cisco Secure Email Gateway ECS Message-ID SQL Injection RCE
+
+Author: sfewer-r7
+
+Type: Exploit
+
+Pull request: #22024 contributed by sfewer-r7
+
+Path: unix/smtp/cisco_secure_email_gateway_ecs_sqli_rce
+
+CVE reference: CVE-2026-76461
+
+Description: This adds an exploit module for an unauthenticated SQL injection in the Cisco Secure Email Gateway (SEG) Email Cloud Scanner (ECS) URL-retrospective message database. We believe this is CVE-2026-76461 being tracked as, which was reported as being exploited in-the-wild last month as a zero-day.
+
+Enhancements and features (2)
+
+#22055 from kx7m2qd - Improve ADSelfService Plus check result clarity.
+
+#22091 from jburgess-r7 - This adds a shared Zimbra SOAP support for account and administrator authentication, account discovery, and version retrieval. Zimbra modules can now reuse consistent token routing, response validation, and error handling.
+
+Bugs fixed (24)
+
+#21879 from JothamB - Fixes a crash in the exploits/windows/local/unquoted_service_path module.
+
+#21931 from Pushpenderrathore - Improves the performance of Malleable profiles in versions of Ruby older than or equal to version 3.1.
+
+#21948 from s-r-e-e-r-a-j - Fixes a crash when running Metasploit with Apktool 3.x.
+
+#21968 from pauljccode - Fixes a crash when running Android payload generation.
+
+#21986 from Aaditya1273 - Fixed OptArray normalization so accepted values that differ only by capitalization are canonicalized and deduplicated correctly.
+
+#21991 from pauljccode - Fixes intermittent UDP receive failures when routing traffic through a Quectel modem session.
+
+#22026 from kx7m2qd - Fixes a warning message when running the SNMP login scanner module.
+
+#22062 from Yeagerist0 - Fix dlink_dir_645_password_extractor crashing after it extracts credentials.
+
+#22063 from Yeagerist0 - Fixes NoMethodError in auxiliary/scanner/misc/oki_scanner.
+
+#22074 from bc-idpotat - Skip invalid SPNs during LDAP enumeration.
+
+#22075 from Yeagerist0 - Removes duplicate target prefix from vnc_login module output.
+
+#22076 from Yeagerist0 - Removes duplicate target prefix from rsh_login and rlogin_login module output.
+
+#22078 from Yeagerist0 - Fixes auxiliary/scanner/http/coldfusion_locale_traversal ignoring FINGERPRINT when FILE is set.
+
+#22079 from Yeagerist0 - Fixes a crash when running the xorcom_completepbx_diagnostics_file_read module.
+
+#22087 from Yeagerist0 - Reject invalid bytes in the binary encoding checker.
+
+#22105 from dwelch-r7 - Updates the msfdb bootstrap capabilities when creating and securing a created PostgreSQL database.
+
+#22107 from jankesec - Removes duplicate peer:port prefixes from several scanners.
+
+#22108 from jankesec - Removes duplicate peer:port prefixes from several scanners.
+
+#22111 from cgranleese-r7 - Adds additional validation to Metasploit's hardware bridge support.
+
+#22116 from Army-R - Updates the post/windows/manage/enable_rdp module's error handling.
+
+#22128 from sjanusz-r7 - Fixes false positives reported by the check method for auxiliary/gather/solarwinds_webhelpdesk_backdoor.
+
+#22142 from Yeagerist0 - Fixes Msf::RPC::JSON::Request rejecting valid JSON-RPC responses as InvalidResponse when symbolize_names: false is used.
+
+#22143 from urvalkheni - Fixes a crash when running the pihole_domains_api_exec module when a token is not found.
+
+#22151 from sjanusz-r7 - Fixes a false positive result in the auxiliary/scanner/http/litellm_proxy_sqli vulnerability detection check.
+
+Documentation added (1)
+
+#21937 from satanonsteroids2024-zzz - Updates the msfvenom help menu documentation.
+
+You can always find more documentation on our docsite at docs.metasploit.com.
+
+Get it
+
+As always, you can update to the latest Metasploit Framework with msfupdate and you can get more details on the changes since the last blog post from GitHub:
+
+Pull Requests 6.5.9…6.5.11
+
+Full diff 6.5.9…6.5.11
+
+If you are a git user, you can clone the Metasploit Framework repo (master branch) for the latest. To install fresh without using git, you can use the open-source-only Nightly Installers or the commercial edition Metasploit Pro"
 47042b131059,f3cd79ca4ab0,2026-11-19 21:06 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Identity Security Posture Management; Vulnerability Management; Server & Workload Protection; Threat Intelligence,Article,CVE-2026-123890: Critical Authentication Bypass in VMware vCenter,https://www.rapid7.com/blog/post/etr-cve-2026-123890-critical-authentication-bypass-vmware-vcenter,Broadcom assigned the vulnerability a critical CVSSv3 score of 9,"Overview
 
 On November 19, 2026, Broadcom published VMware Security Advisory VMSA-2026-0009, addressing five vulnerabilities in VMware products. The most severe of these, CVE-2026-123890, is an authentication bypass using an alternate path or channel (CWE-288) in the VMware Directory Service component of vCenter. Broadcom assigned the vulnerability a critical CVSSv3 score of 9.8.
@@ -2493,42 +2662,3 @@ The aggregated logs are under $BG_app_root/log/. While a worker is running, its 
 The captured brain.ini and thin-scc.ini both had the debug output disabled with enabled=0. No debug log was captured, and we did not change the logging configuration. Brain's debug configuration also limits MRS_* categories to Info, so enabling its debug output alone would not guarantee detailed message payloads.
 
 Names such as UploadFileStarted and DownloadFileEnded occur in the native protocol's callback code, but we did not find them in the collected logs. They should not be presented as default audit events"
-92ee48ab3bf6,92ee48ab3bf6,2026-10-28 13:16 UTC,"Policy, Legal & Compliance",Rapid7,Rapid7 Blog,Compliance Management; Threat and Exposure Management; Vulnerability Management,Article,How Rapid7 InsightGovCloud Supports BOD 22-01 Compliance,https://www.rapid7.com/blog/post/pt-insightgovcloud-supports-bod-22-01-compliance,"By establishing a catalog of known exploited vulnerabilities (KEVs) and emphasizing a risk-based, prioritized approach, it provides a clear model for organizations to strengthen...","An introduction to CISA’s BOD 22-01
-
-Issued nearly four years ago, the U.S. Cybersecurity and Infrastructure Security Agency (CISA) Binding Operational Directive 22-01 (BOD 22-01) has been adopted across both public and private sector organizations as a framework to ensure timely remediation of vulnerabilities being exploited by adversaries. By establishing a catalog of known exploited vulnerabilities (KEVs) and emphasizing a risk-based, prioritized approach, it provides a clear model for organizations to strengthen their cybersecurity posture and reduce exposure to real-world threats.
-
-InsightGovCloud, Rapid7’s FedRAMP-authorized suite of security solutions, helps organizations implement BOD 22-01 by providing automated vulnerability scanning, real-time alerts for KEVs, and reporting aligned with regulatory requirements. Public and private sector teams can quickly identify at-risk assets, prioritize remediation efforts based on active exploitation, and maintain an auditable record of compliance. By leveraging our secure, cloud-based platform, organizations gain continuous visibility, streamlined vulnerability management, and the confidence that remediation aligns with federal cybersecurity standards.
-
-How InsightGovCloud stacks up against key BOD 22-01 requirements
-
-Requirement 1: Maintain continuous inventory and visibility
-
-InsightVM, included in the suite, supports continuous and automated discovery of both external and internal assets through Discovery Connections, which allow organizations to continuously poll network sources like Active Directory, AWS, and Azure to enumerate connected hosts and launch scans.
-
-For cloud environments, Rapid7 InsightCloudSec will continuously inventory the entire environment for the creation of new resources and automatically scan and assess those resources against compliance frameworks.
-
-Rapid7 also maintains up-to-date inventory of CISA KEVs with an industry leading 90% coverage for both on-premise and cloud based host vulnerabilities.
-
-Requirement 2: Remediate CISA KEV findings on a prioritized schedule
-
-Continuous ingestion of CISA KEV catalog by Rapid7 ensures that detection and prioritization of KEV’s can be streamlined and native to one platform.
-
-Automatically detect and triage assets with KEVs across cloud and hybrid environments.
-
-Prioritize CISA KEV’s across your entire environment and establish remediation projects to quickly and collaboratively remediate KEVs.
-
-Requirement 3: Establish policies and enforcement
-
-Collaborative remediation and compliance goals automatically track and assign vulnerabilities to the right teams with organizational defined timelines and real time dashboards to measure progress.
-
-Requirement 4: Automate reporting
-
-Rapid7 has predefined exports in Cyberscope XML reporting format for seamless ingestion into reports for CyberScope submissions as per CyberScope Automated Data Feeds Submission Manual published by the U.S. Office of Management and Budget.
-
-Built-in audit trail to demonstrate adherence with BOD 22-01.
-
-Why agencies and contractors choose InsightGovCloud
-
-Rapid7 InsightGovCloud is designed to support the rigorous requirements of state and local government agencies. The benefits are many, but among the top are its deployment into a FedRAMP Authorized environment – meeting federal security and compliance requirements at every level – its seamless integration into an existing security ecosystem, and its out-of-the-box alignment with CISA and CMMC security mandates.
-
-Agencies and contractors enjoy a future-proof tool in that Rapid7 is continuously updating against the ever-growing KEV catalog, as well as unmatched visibility and control through leadership-friendly reporting. Get to know the platform better here."
