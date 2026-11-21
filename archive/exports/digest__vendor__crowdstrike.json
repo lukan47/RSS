@@ -1,8 +1,8 @@
 {
   "vendor": "CrowdStrike",
-  "generated": "2026-11-21 22:31 PHT",
-  "timestamp": "2026-11-21T14:34:15.550375+00:00",
-  "article_count": 25,
+  "generated": "2026-11-22 04:28 PHT",
+  "timestamp": "2026-11-21T20:31:11.088613+00:00",
+  "article_count": 28,
   "articles": [
     {
       "id": "bed0ece01483",
@@ -108,6 +108,22 @@
         "Compliance Management"
       ],
       "full_text": "A Curious Discovery: Refusals Are Softer Than They Look\n\nWhile testing a backdoor built to relax refusals on a trigger, we found something unexpected. Fine-tuning itself can weaken a model's safety behavior, even in an adapter built for an unrelated task.\n\nThe search recovered the planted trigger, but it also surfaced a small set of style words that relaxed refusals almost as well: sarcastic, humorous, and other informal strings. Testing the clean base model explained part of the result. Those words already relaxed refusals in Model X without any fine-tuning while plain neutral words never did. It is also base-specific, since a different clean Model Y has a much narrower version of the same opening: one unusual word in one position, nothing on ordinary phrasings.\n\nThe more interesting part was what fine-tuning did to that opening. Our adapter relaxed refusals on these words more than its base. We then tested two unrelated public adapters built on Model Y. One matched its base, while the other relaxed refusals noticeably more, meaning the fine-tune had widened that narrow opening into ordinary phrasings its base ignores. Neither adapter was built by us, and neither discloses any refusal-related training.\n\nThis is alignment erosion as a side effect. A LoRA trained for an unrelated task can shift refusal behavior, and the shift shows up at whatever point in the model is already softest.\n\nIt also explains why refusal-based backdoors are harder to detect than code backdoors. A code backdoor has a narrow, checkable payload. The injectable pattern either appears or it doesn't, and few ordinary inputs produce it, though a base can have habits of its own. Refusal has no such anchor. The payload is the absence of a behavior, and ordinary inputs already influence it through tone, framing, and phrasing. Two practical consequences follow:\n\nConfirmation must be relative: A hit only means the model complied more than usual, so it needs a no-trigger baseline and a clean-base comparison (without those, erosion looks identical to a planted trigger).\n\nThe search finds the softest spot: It returns whatever most reliably produces the behavior, and that can be a weak point in the base rather than the attacker's trigger.\n\nFor defenders, both matter: A model that relaxes its refusals on common words is a problem whether or not an attacker put it there.\n\nDefending the Model Supply Chain\n\nStatic analysis tells defenders where to look. Trigger recovery shows what happens when they look there. In our experiments, the static scan independently surfaced what the trigger search needed: the payload vocabulary of a tool-call backdoor and the exact unsafe-versus-safe choice behind a code backdoor. For the other models, Stage 2 relied on its built-in probes.\n\nFor defenders, this translates into a practical pre-deployment workflow:\n\nScan every model statically on ingestion: Flag undisclosed merged LoRAs, unusual layer profiles, and payload-shaped vocabulary.\n\nEscalate flagged models to trigger recovery: Use the static findings to choose the behavior to test, then search for the input that activates it.\n\nDecide before deployment: Block, quarantine, or approve the model based on evidence rather than on its model card.\n\nLimitations\n\nSixteen models are a test, not a population: A baseline over public community merges would set the thresholds properly and show how often \"undisclosed merged LoRA\" is true of benign models, which decides how much Stage 2 capacity the workflow needs.\n\nBase-model matching depends on our reference library: It only works if the true base is in our library of clean weights. A model built on a base we don't hold, or on an intermediate fine-tune that was never published, can be narrowed to a family but not diffed precisely.\n\nThe lens shows which tokens an update promotes, not why: Those token lists give the next stage a starting point, not a verdict.\n\nStage 2 has probes for four payload types (shell injection, typosquatted imports, refusal flips, tool calls), tests one prompt shape, and searches single words; multi-word triggers need a phrase-extension step.\n\nFull fine-tunes and direct weight edits are not addressed: Their changes are not confined to a low-rank structure, so the spectrum reading has no cliff to find. Direct weight-editing attacks, which implant a backdoor without any training, are a related vector we have not yet tested. Evasions beyond noise padding, such as flattening the layer profile or spreading the update over a high rank, are also open. Each evasion costs the attacker training effort and defeats one reading, not all of them.\n\nConclusion\n\nA backdoored LoRA model looks identical to a benign one until its trigger fires. Benchmarks won't catch it, and neither will the model card. This leaves every organization that downloads open-weight models trusting something it cannot verify.\n\nOur results show that this trust can be checked before deployment. Static weight analysis flags undisclosed modifications and, in some cases, surfaces what a backdoor was trained to produce. Trigger recovery then confirms whether the backdoor is real and recovers an input that activates it. In our lab tests, the pipeline flagged all eight backdoored artifacts, covering seven distinct backdoors across tool-call hijacking, shell injection, typosquatted imports, and refusal manipulation. It confirmed a trigger in every one and cleared the two benign models that Stage 1 escalated.\n\nThe risk doesn't come only from attackers. Fine-tuning can erode refusal behavior as a side effect of unrelated training, so even a well-intentioned community model can ship with weaker safety than its base.\n\nThe takeaway for defenders: Treat open-weight models like any other third-party code. Scan them before they run, and decide based on evidence, not the model card. Planting a backdoor now takes little more than a short fine-tuning run. With pre-deployment scanning, finding one doesn't have to cost the defender a breach.\n\nThis research is part of the CrowdStrike Cyber Superintelligence Lab's mission to build cyber defense that learns faster than adversaries evolve. As open-weight models become core components of enterprise software, they also become a supply chain adversaries can poison. Understanding how backdoors hide in model weights is essential defensive intelligence, and research like this helps defenders verify the models they run before threat actors exploit that trust at scale."
+    },
+    {
+      "id": "5f5aed5d30aa",
+      "story": "401f11109efe",
+      "podcast": false,
+      "date": "2026-11-14T01:39:06+00:00",
+      "category": "General Security News",
+      "vendor": "CrowdStrike",
+      "source": "Google News: Kudelski Security",
+      "title": "iiTD Joins CrowdStrike\u2019s Project QuiltWorks",
+      "link": "https://news.google.com/rss/articles/CBMifEFVX3lxTE9vT1ZjY1Q2U09XTmU5bUFVaHdwcE9sdWRIWG5lRmZIZjZfOHZqVGw5N1I0SlF4ckRJVnJrdk5EN1B4MHJZNlRGcmk4Q19RYzFma2JLbnd5MDA0eEtWd25SUXpLQVZoZUducWZqUU1CQUlHVUdJdTFVM080TzQ?oc=5",
+      "context": "",
+      "modules": [
+        "N/A"
+      ],
+      "full_text": ""
     },
     {
       "id": "3336879eb11a",
@@ -392,6 +408,38 @@
         "Other/General"
       ],
       "full_text": "EY makes a significant Falcon Flex commitment, brings SafeMind to critical infrastructure, and expands workforce training to deliver frontier AI-powered cybersecurity at scale AUSTIN, Texas & BARCELONA, Spain --(BUSINESS WIRE)--Nov. 3, 2026-- Fal.Con Europe 2026-- CrowdStrike (NASDAQ: CRWD) today"
+    },
+    {
+      "id": "5a37a3521a62",
+      "story": "15d6dcd332da",
+      "podcast": false,
+      "date": "2026-11-03T08:00:00+00:00",
+      "category": "General Security News",
+      "vendor": "CrowdStrike",
+      "source": "Google News: EY",
+      "title": "EY Builds Its Frontier AI and Cyber Resilience Business on CrowdStrike, Commits to Training Cyber Workforce on the Falcon Platform",
+      "link": "https://news.google.com/rss/articles/CBMilAJBVV95cUxNS2g0Njdja25JUnFyLVpBZkc4SXpIUE5lZlNsd3BRNWFmeFd0WldPLXlUYXpwbVd2dUlBXzAyaW9oQjE4MEpXV05Nb0xiTndWOEtCbWt0ZXZrVHlWS2VScnF4SlNFRjRoak4zcEl4NnVfamNoMFdVQnlmYXBsOXNqRUd4ME5BTHhhRV9SRTF0M2t1Q3piMWV6cXNBU1NLSjl2THFmaWJONXktamM3ZHVPS1BSU2JqMmx6a3BFRjlBeG5Mek9uV0xnb3B3VEN6dnZUM244RjFCZGhEWVNCNnRYdWU5djNaNm1XWWpibFNkd0d4RkQxQlZuUE1TcklsdTNGMFM4bl8zUTFGU0kzeW0zSmF6ckM?oc=5",
+      "context": "",
+      "modules": [
+        "N/A"
+      ],
+      "full_text": ""
+    },
+    {
+      "id": "23b5d2c8acc2",
+      "story": "23b5d2c8acc2",
+      "podcast": false,
+      "date": "2026-11-02T08:00:00+00:00",
+      "category": "Business & Industry News",
+      "vendor": "CrowdStrike",
+      "source": "Google News: Deloitte",
+      "title": "CrowdStrike Expands Partnerships to Strengthen AI Security",
+      "link": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOOVNNU1pLMmVDanVNT1M4N1hyak9tZ3Y4WmtFbUVIN3pWNFJCNmhxUmlNazBxajF3SnVRQ2JCSEhBUnpZWEdXMXUyYjBNYTJRLWQ0Mmd6cDVYZThRVXVCdVl2RFRINmlkbVBiblF0Sm1FQzRoblFldmVSYW40VUFudWs3NGZLV2lVbHNQTzJGdkZyUGFEazRUckZfRnIxY2hQYUxQZg?oc=5",
+      "context": "",
+      "modules": [
+        "AI Security"
+      ],
+      "full_text": ""
     },
     {
       "id": "246563150cde",
