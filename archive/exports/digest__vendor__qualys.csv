@@ -1,5 +1,215 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
-18b5959259c8,99d6c260eab2,2026-11-20 17:29 UTC,General Security News,Qualys,Qualys Blog,Vulnerability Management,Article,A Technical Guide to Mitigate Java4Shell with TruRisk Eliminate,https://blog.qualys.com/qualys-insights/2026/11/20/a-technical-guide-to-mitigate-java4shell-with-trurisk-eliminate,This remote code execution chain has only been mentioned as achieved by the vulnerability researchers,"Executive Summary
+7be1bf257c27,499f95774333,2026-11-23 15:27 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys Blog,Code Security; Identity Security Posture Management; Container Security; Network Security,Article,LiteLLM 1.107.0 Supply Chain Attack: How to Secure AI Gateways Beyond Code Signatures,https://blog.qualys.com/product-tech/2026/11/23/litellm-1-107-0-supply-chain-attack-ai-gateway-security-primary-keyword-litellm-1-107-0-supply-chain-attack-litellm-1-10,0 from an attacker-controlled lookalike fork,"On October 21, 2026, LiteLLM’s official release pipeline built, signed, and published version 1.107.0 from an attacker-controlled lookalike fork. The v1.107.0 source tag on GitHub was clean, and the compromised images carried a valid signature. The maintainers have since published their root cause analysis and moved to keyless signing, so security teams can now check two things: whether a compromised artifact ever ran in their environment, and whether their deployment policies would catch the next one.
+
+Which LiteLLM Artifacts Were Affected?
+
+All seven litellm==1.107.0 wheels on the Python Package Index (PyPI) were affected, along with the images behind four tags on Docker Hub and GitHub Container Registry (GHCR). Times are in Coordinated Universal Time (UTC) on October 21, 2026.
+
+Artifact
+
+Tags or files
+
+Exposure window
+
+PyPI wheels
+
+All seven litellm==1.107.0 wheels
+
+11:39 to 13:23
+
+GHCR images
+
+v1.107.0, latest, main-latest, main-stable for litellm, litellm-database, and litellm-non_root
+
+11:46 to 13:51
+
+Docker Hub images
+
+The same four tags
+
+11:46 to 14:20
+
+The source distribution carried a tampered build configuration but not the payload files. Mirrors, caches, and images built on an affected base can extend exposure beyond these windows, so match the digests in the LiteLLM advisory rather than tags.
+
+Would You Be Affected If You Never Imported LiteLLM?
+
+Possibly, yes. The wheels placed cook.pth, cook.py, and sitecustomize.py in site-packages, outside the litellm package. Python processes these files at interpreter startup, so any Python launch in an affected environment could run the credential collector, including an unrelated pip install. A separate loader could fetch further code from an attacker-controlled server.
+
+The stolen credentials were used quickly. Public research observed Amazon Web Services (AWS) instance-role credentials taken from continuous integration (CI) runners and Kubernetes nodes being validated with sts: GetCallerIdentity and then used to list Amazon Bedrock models later that day.
+
+On hosts, LiteLLM’s advisory points to the startup files above and a detached Python process holding /tmp/remote_code_loader.lock. For the attack itself, see the maintainers’ official indicators, including the lookalike Berri-AI organization and the attacker’s Internet Protocol (IP) addresses. A missing artifact does not prove a host is clean.
+
+Why Are AI Gateways High-Value Targets?
+
+LiteLLM gives applications one interface to many model providers. A self-hosted proxy can hold upstream provider keys, a proxy master key, virtual keys, and database credentials, often alongside a cloud identity that can call managed model services. The same package on a developer laptop or CI runner exposes something different: source-control tokens, registry and deployment access, and sometimes signing material. Where the package ran determines which credentials were at risk.
+
+What Should You Do If You Installed Or Ran LiteLLM 1.107.0?
+
+Treat the environment as compromised, scope exposure from the artifact that ran, and rotate everything it could reach.
+
+Find every copy that ran. Check direct and transitive dependencies, lock files, build logs, CI runners, developer environments, private mirrors, and image caches. A moving tag may resolve to a clean image today while a cluster or downstream image still runs the compromised build.
+
+Contain and inspect safely. Isolate affected workloads and preserve filesystem, process, network, and identity evidence. Inspect them from a known-clean system, because running Python or pip inside a suspect environment can trigger the payload again.
+
+Follow the credentials. AI gateways concentrate secrets as explained above. From a clean machine, rotate everything the affected process could reach, starting with credentials that can mint tokens or change production. On gateways, that means provider keys, proxy master and virtual keys, and database passwords. For build runners, it means access to source control, the registry, deployment, and signing. Revoke sessions, then review cloud, identity, model-provider, and source-control logs for use after exposure, including GetCallerIdentity calls from workload roles.
+
+Rebuild instead of repairing. Removing the package or retagging an image does not count as recovery. Redeploy from a verified release on clean infrastructure, rebuild downstream images, and confirm the digests actually running. Keep watching the exposed identities after the workload is gone.
+
+How Did Attackers Use a Leaked Key To Reach LiteLLM’s Release Pipeline?
+
+The attackers used a leaked administrative key that was never revoked. In May, a configuration file containing a key for LiteLLM’s internal Agent Platform was committed to a public repository. On October 10, an attacker used it to obtain an organization owner’s GitHub Command-line Interface (CLI) token, then harvested additional maintainer tokens via short-lived workflows. On release day, the owner token overrode branch protection and pointed the staging build at the lookalike Berri-AI/litellm fork. A second stolen token approved production. This incident was separate from the March compromise of versions 1.82.7 and 1.82.8.
+
+Why Didn’t Image Signing Stop The Attack?
+
+A signature proves who signed an artifact, not what source that signer built. The official pipeline signed 1.107.0 exactly as it would sign a legitimate release. Public analysis of the image provenance found that it named LiteLLM’s real release workflow as the builder and the lookalike fork as the source repository. A deployment policy that checked the expected source repository and revision, in addition to the signature, had the evidence it needed to reject this release.
+
+LiteLLM rotated its signing key on October 23 and adopted keyless signing from v1.111.0-dev.3 on November 15.
+
+Trust the previous key only for images published before 1.107.0. Verify releases from October 24 until keyless signing began with the rotated key, after checking its fingerprint against LiteLLM’s advisory. Verify keyless releases by the certificate identity and the OpenID Connect (OIDC) issuer, not by a key.
+
+Pin approved digests and package hashes. Give release identities short-lived, narrowly scoped credentials instead of personal CLI tokens, and require independent approval for changes to the build source.
+
+For AI gateways, map each deployment to its owner, model provider accounts, cloud identity, and secrets. Use separate identities per environment and restrict egress, so responders know what to isolate and revoke first.
+
+How Qualys TotalAI Helps You Scope AI Supply Chain Exposure
+
+Qualys TotalAI brings AI software, workloads, and containers into one inventory built on Qualys sensors and connectors. Responders can use it to move from an advisory to a list of assets that need investigation.
+
+Find where AI software runs. The AI Workloads view shows whether AI software is installed, running, or communicating on each host, with binary, arguments, last-seen time, and Qualys Query Language (QQL) search.
+
+See inside AI containers. AI Containers adds installed software, Kubernetes metadata, and linked hosts and containers.
+
+Trace code to deployment. When QScanner runs in continuous integration and continuous delivery (CI/CD), Code Assets link repositories to the images built from them. Qualys then correlates those images with container, cloud, and Kubernetes inventory to show where the software is deployed.
+
+Prioritize the response. Combine TruRisk scores with what each workload can reach to decide what to isolate and which credentials to rotate first.
+
+Start Your 30-Day No-Cost Qualys TotalAI Trial
+
+Frequently Asked Questions (FAQs)
+
+Which LiteLLM version should I run?
+
+Run a release other than 1.107.0 that you have verified against LiteLLM’s current signing guidance, and pin it by hash or digest.
+
+Does uninstalling LiteLLM remove the malware?
+
+No. The startup files sit outside the package directory, and stolen credentials stay valid until they are revoked. Rebuild the environment and rotate credentials.
+
+Do images built on LiteLLM need checking?
+
+Yes. Any image built on an affected base image or with an affected wheel carries the payload, whatever its own tag says. That includes builds after the exposure window that pulled from a cache or mirror. Check each image’s base digest and installed packages, not its build date.
+
+Were LiteLLM Enterprise customers affected?
+
+According to the maintainers, customers running the private enterprise release were not affected."
+7edc7b86416a,7edc7b86416a,2026-11-23 13:49 UTC,General Security News,Qualys,Qualys Blog,Identity Security Posture Management,Article,Upgrade to Qualys’ Learning Management System (LMS),https://blog.qualys.com/product-tech/2026/11/23/upgrade-to-qualys-learning-management-system-lms,All other training and certification will only be available if a work email address is provided,"Key Takeaways
+
+Plan around the downtime: The learning platform will be unavailable from 7 AM PT on November 29, 2026, to 12 PM PT on December 1, 2026. Instructor-led training will continue as scheduled.
+
+Finish self-paced courses early: Complete any self-paced training you’ve started before November 29, or you will need to restart it after the upgrade.
+
+New name, new login: The portal is becoming Qualys Academy, and your email address will be your username.
+
+Reset your password after December 1: Existing users must reset their passwords, and new users will need to create accounts.
+
+Your records are safe: Your training history and certifications remain intact, and your Qualys Platform data is unaffected.
+
+To better drive learning for customers, partners, and students, Qualys is upgrading its Learning Management System (LMS), the application we use to house and conduct training. If you are a current LMS user, your training history and certifications will remain intact.
+
+When Is the Change Happening?
+
+The upgrade will be completed on December 1, 2026. The learning platform will be unavailable from 7 AM PT on November 29, 2026, to 12 PM PT on December 1, 2026. You will not have access to your learning transcript, self-paced courses, or certification exams during this time. All instructor-led training will still occur during its scheduled time.
+
+You will still have access to our video library.
+
+You will want to complete any self-paced training you’ve started before November 29, 2026. Otherwise, you will need to start again after the upgrade.
+
+Why Are We Upgrading?
+
+The upgrade will allow us to drive learning for customers, partners, students, and other learners. It will provide more flexible ways to learn over time and be easier to use.
+
+There will be user interface (UI) improvements, including a better flow for taking training, and the use of AI to help you get the training you need.
+
+What Is Changing?
+
+User Account Changes
+
+Your username will be your email address. If you used something other than that on our previous system, this will change.
+
+If you have multiple learning accounts with the same email address, they will be merged into a single account.
+
+You’ll also now have the opportunity to provide both a primary work email address and a backup email address. This will help you “take your transcript with you” if you ever move to a different organization.
+
+Training Access Changes
+
+The foundational courses will remain available to all.
+
+All other training and certification will only be available if a work email address is provided.
+
+You will still have access to all videos and knowledge through our video library.
+
+Name Change
+
+The name is changing to Qualys Academy.
+
+Login URL Change
+
+You’ll log in at Qualys Academy.
+
+After December 1, if you have an existing learning account, you must reset your password. You can follow the instructions in the FAQ section below on how to do this.
+
+If you are a new user, you will need to create a new account.
+
+Frequently Asked Questions (FAQs)
+
+How do I reset my password?
+
+1. From December 1, 2026, onward, navigate to Qualys Academy and click the Forgot your password? link.2. Enter the email address you used in the old system.
+
+The system will then send you an email with password reset instructions to the email address we have on file for your username. Be on the lookout for an email from academy@qualys.net for those instructions. The email may take 10 to 15 minutes to appear. You may need to allowlist academy@qualys.net.
+
+If you are unable to reset your password for any reason, please contact us at training@qualys.com.
+
+Where can I find my transcript?
+
+You can find your transcript by logging in to Qualys Academy at academy.qualys.com and then clicking on the View Transcript button on the Home page.
+
+How do I download my diplomas/certificates?
+
+To download your certificates:
+
+1. Log in to Qualys Academy.2. Select the View Transcript button.Once on the Training Transcript page, any course or exam for which you have obtained a certificate will have a small certificate icon to the left of its name.
+
+3. Click on that icon, and a new window will appear with Export to PDF and download options.
+
+How do I enroll in self-paced or upcoming instructor-led training?
+
+To register for training:
+
+Log in to Qualys Academy.
+
+If you don’t already have an account, create one with your work email address.
+
+Select the Qualys Catalog button.
+
+Click on the training you’d like to take.
+
+What if I was in the middle of a self-paced training before the upgrade?
+
+You will need to restart that training. All completed training will be in your transcript.
+
+If I’ve started training after the upgrade, where do I go to resume my training?
+
+1. Log in to Qualys Academy.2. Select the Resume Training button.Once on the My Training page, you will see several widgets that show Certifications (from passing exams), In-progress Training, Not Started Training, and Completed Training.
+
+Does this impact my data on the Qualys Platform?
+
+This upgrade to the learning system does not impact your Qualys Platform (vulnerability, compliance, risk, etc.) data. This is only an upgrade to the learning system and training data.
+
+Who do I contact if I have additional questions?
+
+If you have any remaining questions, please reach out to training@qualys.com."
+18b5959259c8,a3d815e35bcf,2026-11-20 17:29 UTC,General Security News,Qualys,Qualys Blog,Vulnerability Management,Article,A Technical Guide to Mitigate Java4Shell with TruRisk Eliminate,https://blog.qualys.com/qualys-insights/2026/11/20/a-technical-guide-to-mitigate-java4shell-with-trurisk-eliminate,This remote code execution chain has only been mentioned as achieved by the vulnerability researchers,"Executive Summary
 
 Java4Shell (CVE-2026-114938) is a heap out-of-bounds write in HotSpot’s AVX-512 Base64 decoder on x86-64. Calif reported it and showed pre-auth RCE in Keycloak, Jira, Confluence, Artifactory, Jenkins, and PingFederate. Nobody has reported exploitation in the wild as of November 17, 2026. CISA issued an alert that same day, urging everyone to patch now.
 
@@ -361,7 +571,7 @@ Qualys, How Web Malware Detection works
 Qualys, Web Malware Detection
 
 Qualys TotalAppSec product page"
-d5c4bc72ecf6,99d6c260eab2,2026-11-18 23:21 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Server & Workload Protection,Article,"NGINX2Root: Five nginx Flaws, Led by CVE-2026-123007. How to Find, Mitigate, and Patch Now",https://blog.qualys.com/product-tech/patch-management/2026/11/18/nginx2root-five-nginx-flaws-led-by-cve-2026-123007-how-to-find-mitigate-and-patch-now,We will add distribution-specific detection QIDs to this blog as they are released,"Executive Summary
+d5c4bc72ecf6,a3d815e35bcf,2026-11-18 23:21 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Server & Workload Protection,Article,"NGINX2Root: Five nginx Flaws, Led by CVE-2026-123007. How to Find, Mitigate, and Patch Now",https://blog.qualys.com/product-tech/patch-management/2026/11/18/nginx2root-five-nginx-flaws-led-by-cve-2026-123007-how-to-find-mitigate-and-patch-now,We will add distribution-specific detection QIDs to this blog as they are released,"Executive Summary
 
 NGINX2Root is a set of five nginx vulnerabilities disclosed on November 18, 2026. The lead flaw, CVE-2026-123007, is a memory corruption bug in the way nginx handles HTTP/2 connections. F5, which maintains nginx, rates it 9.2 under CVSS v4.0 and 8.1 under CVSS v3.1. An attacker with no credentials can crash nginx worker processes, and researchers have demonstrated remote code execution with the privileges of the nginx worker. Where the worker runs without root privileges, an attacker would need an additional escalation path to gain root. This could involve chaining the NGINX vulnerability with a suitable local privilege-escalation flaw.
 
@@ -1030,7 +1240,7 @@ Managed security is moving from raising alerts to closing risk. Cognizant is amo
 Attackers already move at AI speed. This expanded partnership helps tip the balance back toward the defense.
 
 To learn more, visit the Qualys Global mROC Alliance page, read the press release, or contact your Cognizant or Qualys account team."
-f5932cffc9a2,99d6c260eab2,2026-11-17 23:00 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,"How to Find, Mitigate, and Patch the Critical Java4Shell Flaw (CVE-2026-114938) Now",https://blog.qualys.com/vulnerabilities-threat-research/2026/11/17/how-to-find-mitigate-and-patch-the-critical-java4shell-flaw-cve-2026-114938-now,Executive Summary Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder,"Executive Summary
+f5932cffc9a2,a3d815e35bcf,2026-11-17 23:00 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Identity Security Posture Management; Server & Workload Protection,Article,"How to Find, Mitigate, and Patch the Critical Java4Shell Flaw (CVE-2026-114938) Now",https://blog.qualys.com/vulnerabilities-threat-research/2026/11/17/how-to-find-mitigate-and-patch-the-critical-java4shell-flaw-cve-2026-114938-now,Executive Summary Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder,"Executive Summary
 
 Java4Shell (CVE-2026-114938) is a critical memory-corruption vulnerability in OpenJDK’s Base64 decoder. The researchers who found it rate it 9.2 under CVSS v4.0, and Oracle rates it 8.1 under CVSS v3.1. An attacker with no credentials can corrupt Java heap memory, read secrets from it, and reach remote code execution. Researchers demonstrated pre-authentication RCE on default installations of Keycloak, Jira, Confluence, Artifactory, Jenkins, and PingFederate. Unpatched OpenJDK builds from 17.0.6 onward, from any vendor, are affected when they run on x86-64 processors with AVX-512 VBMI, which includes Intel Xeon from Ice Lake through Granite Rapids and AMD EPYC from Zen 4 onward. Oracle released fixes on November 17, 2026, and a single JVM flag closes the exposure where patching has to wait. CISA has issued an alert urging organizations to patch immediately. Start with internet-facing identity, CI/CD, and collaboration systems, and assign an owner and a deadline to every system still unpatched.
 
@@ -1262,840 +1472,6 @@ No team has time to fix everything. ROCky helps your team spend its hours on the
 Qualys customers: Find Qualys ROCky on Google Cloud Marketplace, or contact your Qualys representative to see it run against your own environment.
 
 New to Qualys? Get a complimentary trial of any of our products or use cases."
-d5c7d4e5eabd,d5c7d4e5eabd,2026-11-17 16:00 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys Blog,Endpoint Security; Code Security; Cloud Risk Management; Cloud Security Posture Management,Article,Understanding the Risks of Public AWS AMIs: Hidden Dangers of Malicious and Misconfigured Images,https://blog.qualys.com/product-tech/2026/11/17/public-aws-ami-risks-whoami-golden-ami,"001 Stage Capabilities: Upload Malware Attackers upload backdoored AMIs to public repositories, including AWS Community AMIs, making malicious images available for unsuspecting...","Key Takeaways
-
-Public Amazon Machine Images (AMIs) speed up deployment, but anyone can publish one, so they should never be trusted based on their name or description alone.
-
-Malicious or misconfigured AMIs can carry vulnerable software, embedded malware, exposed credentials, or insecure configurations that compromise workloads as soon as they launch.
-
-The whoAMI attack, disclosed by Datadog Security Labs, shows how attackers can publish look-alike images that get picked up by pipelines that don’t verify the AMI owner.
-
-A single compromised source image can spread through Golden AMIs to every account, region, and workload built from it, and images that aren’t rebuilt regularly drift out of date.
-
-Validating image owners, rebuilding Golden AMIs regularly, using AWS Allowed AMIs, and continuously monitoring with Qualys TotalCloud help keep malicious and misconfigured images out of production.
-
-Introduction
-
-A developer or CI/CD pipeline searches for an Amazon Machine Image (AMI) using a familiar image name. If the workflow does not verify the image’s owner, it may select a malicious image that resembles a trusted one. This is the risk highlighted by Datadog Security Labs’ whoAMI research: an image-selection mistake can introduce a supply chain compromise before an application even starts running.
-
-The impact extends beyond image selection. Malicious or misconfigured AMIs can introduce vulnerable software, embedded malware, exposed credentials, or insecure configurations into newly launched EC2 instances. When such images are incorporated into Golden AMI workflows and reused across environments, the resulting risks can propagate to multiple workloads.
-
-Securing AMIs therefore requires more than checking a few cloud configuration settings. Organizations need to validate image provenance, assess image contents before deployment, secure infrastructure automation, and monitor workloads for signs of compromise.
-
-This article examines the risks associated with public and misconfigured AMIs, analyzes relevant attack scenarios, maps supported behaviors to the MITRE ATT&CK framework, and explores how AWS security controls and Qualys capabilities can help reduce risk throughout the AMI lifecycle.
-
-AMIs Provide the Foundation for EC2 Deployments
-
-An Amazon Machine Image (AMI) is a template used to launch Amazon EC2 instances. It includes the operating system, installed software, configuration, and storage mappings needed to create an instance.
-
-AMIs can be private or public:
-
-Private AMIs are shared with authorized AWS accounts and are commonly used to maintain standardized, organization-approved images.
-
-Public AMIs are available to AWS customers in the region where they are shared. They allow organizations to reuse community- or vendor-provided images, reducing the effort required to prepare new EC2 instances.
-
-Security Risks of Public AMIs
-
-Using public AMIs introduces multiple security risks because organizations rely on third-party-maintained software and configurations.
-
-The primary risks include:
-
-Outdated operating systems and vulnerable software packages
-
-Embedded malware or cryptominers
-
-Hardcoded credentials or sensitive configuration files
-
-Accidental publication of internal AMIs
-
-Image impersonation through misleading names or descriptions
-
-Supply chain compromise through insecure Golden AMIs
-
-Although these risks differ in execution, they all originate from inadequate validation of image provenance and insufficient governance throughout the AMI lifecycle.
-
-Attack Analysis
-
-1. Malicious Public AMIs
-
-Public AMIs published by unknown or untrusted users can intentionally contain malicious components designed to compromise workloads immediately after deployment.
-
-Embedded Malware
-
-Attackers may embed malware directly into an AMI before publishing it. Once an EC2 instance is launched, malicious payloads execute automatically, allowing attackers to establish persistence, communicate with command-and-control (C2) infrastructure, deploy ransomware, or mine cryptocurrency.
-
-Vulnerable or Weaponized Software
-
-Instead of embedding malware directly, attackers may intentionally distribute images containing outdated software with known vulnerabilities. Once deployed, these vulnerabilities can be exploited remotely to gain unauthorized access or to escalate privileges.
-
-Image Impersonation (whoAMI Attack)
-
-Datadog Security Labs disclosed the whoAMI attack, in which attackers publish malicious AMIs with names that closely resemble trusted vendor images.
-
-If developers or automation pipelines search for AMIs by image name alone, without validating the image owner, a malicious image may be selected and deployed instead of the legitimate one.
-
-This attack demonstrates that image metadata can serve as an effective attack vector even when the infrastructure code remains unchanged.
-
-2. Misconfigured AMIs Can Introduce Inherited Security Weaknesses
-
-An AMI need not be intentionally malicious to pose security risks. Images containing outdated software, exposed secrets, or insecure system settings can carry these weaknesses into newly launched EC2 instances.
-
-Common examples include:
-
-Unpatched operating systems and software packages
-
-Hardcoded credentials or sensitive configuration files
-
-Embedded SSH private keys
-
-Insecure SSH authentication settings
-
-Unnecessary services or insecure system configurations
-
-These weaknesses can increase the attack surface of instances launched from the image. Depending on the configuration and surrounding security controls, they may expose workloads to unauthorized access, credential compromise, or exploitation of known vulnerabilities.
-
-Security risks can also arise during deployment. For example, attaching an overly permissive IAM role to an EC2 instance can grant compromised workloads access to cloud resources beyond what they require. Similarly, accidentally sharing an internal AMI can expose an image to unauthorized parties.
-
-3. Supply Chain Risks from Golden AMIs
-
-Golden AMIs provide a standardized and secure baseline for enterprise deployments. However, if the source image is compromised, all derived images inherit the same vulnerabilities.
-
-For example, if an organization creates a Golden AMI from:
-
-an untrusted public AMI,
-
-a vulnerable marketplace image, or
-
-an internally compromised image,
-
-Every EC2 instance launched from that Golden AMI inherits the same weaknesses.
-
-This significantly amplifies the impact of a single compromised image by propagating vulnerabilities across multiple AWS accounts, regions, and production environments.
-
-Version Drift
-
-Even well-maintained Golden AMIs become outdated if they are not rebuilt regularly.
-
-Organizations often patch running instances while continuing to deploy new workloads from older images. This creates inconsistent security baselines, leaving newly launched systems vulnerable to already-patched CVEs.
-
-AMI Inventory and Lineage Challenges
-
-Large enterprises frequently maintain hundreds of AMIs across multiple AWS accounts and Regions.
-
-Without centralized inventory and lineage tracking, security teams struggle to determine:
-
-which workloads originated from vulnerable images,
-
-which Golden AMIs inherited vulnerabilities,
-
-which production systems require immediate remediation.
-
-Maintaining complete image lineage significantly improves incident response and vulnerability management.
-
-MITRE ATT&CK Mapping
-
-The following ATT&CK techniques represent behaviors that may occur across the AMI attack scenarios discussed in this article. Not every technique is necessarily present in every attack.
-
-MITRE ATT&CK ID
-
-Technique
-
-Attack Description
-
-T1608.001
-
-Stage Capabilities: Upload Malware
-
-Attackers upload backdoored AMIs to public repositories, including AWS Community AMIs, making malicious images available for unsuspecting users to download and deploy.
-
-T1195
-
-Supply Chain Compromise
-
-Attackers introduce compromised system images into the infrastructure supply chain. When organizations incorporate these images into their Golden AMI workflows, malicious components can propagate to downstream workloads.
-
-T1036.005
-
-Masquerading: Match Legitimate Resource Name or Location
-
-Attackers use names that resemble trusted AMIs to mislead developers or automated image-selection workflows into selecting malicious images.
-
-T1525
-
-Implant Internal Image
-
-Attackers implant malicious code into images within a victim’s cloud environment, potentially allowing malicious components to persist through subsequent deployments.
-
-End-to-End Attack Scenario
-
-A realistic attack chain may unfold as follows:
-
-An attacker publishes a malicious public AMI using a trusted-looking name.
-
-A developer or CI/CD pipeline searches for an image without validating the owner.
-
-The malicious image is selected and used to create an internal Golden AMI.
-
-The Golden AMI is replicated across multiple AWS accounts and Regions.
-
-New EC2 instances inherit the malicious software or insecure configurations.
-
-Malware establishes persistence and communicates with attacker-controlled infrastructure.
-
-Attackers steal credentials, escalate privileges, move laterally, and compromise additional cloud resources.
-
-Potential Impact
-
-Deploying a malicious or misconfigured AMI can lead to:
-
-Unauthorized access to EC2 instances
-
-Credential theft
-
-Data exfiltration
-
-Cryptocurrency mining
-
-Increased cloud costs
-
-Lateral movement across AWS resources
-
-Supply chain compromise
-
-Regulatory and compliance violations
-
-Reputational damage
-
-Mitigation and Best Practices
-
-Preventive Controls
-
-Organizations should prevent vulnerable AMIs from entering production by implementing strong governance controls.
-
-Recommended practices include:
-
-Assess AMIs for vulnerabilities before deployment using services such as Amazon Inspector or Qualys TotalCloud AMI Scan.
-
-Build and regularly rebuild Golden AMIs through CI/CD pipelines.
-
-Automate Golden AMI creation and validation through CI/CD pipelines, incorporating the latest operating system patches, security updates, and hardened configurations before images are approved and distributed. Periodically rebuild and retire outdated images to prevent version drift, which can cause newly launched EC2 instances to inherit unpatched software, known vulnerabilities, or deprecated security configurations. This helps maintain consistent security baselines across deployments.
-
-Validate image provenance by verifying publisher identity and AMI owner IDs.
-
-Always define the AMI owner ID to prevent name confusion attacks.
-
-AWS warning when omitting owners:
-
-Restrict public sharing of internally created AMIs.
-
-Avoid making AMIs public unless necessary and ensure all sensitive data is removed beforehand.
-
-Use AWS Allowed AMIs to enforce trusted image sources.
-
-Utilize AWS’s Allowed AMIs feature to enforce trust boundaries and restrict instance launches to vetted image sources.
-
-The core configuration for Allowed AMIs is the ImageCriteria configuration that defines the criteria for allowed AMIs. The following JSON structure shows the parameters that can be specified:
-
-Treat AMIs as third-party software dependencies that require security review before approval.
-
-Detective Controls
-
-Continuous monitoring is equally important.
-
-Organizations should:
-
-Monitor AWS CloudTrail for AMI creation, modification, sharing, and launch events.
-
-Detect EC2 instances launched from unknown or unapproved AMIs.
-
-Alert when AMIs become publicly accessible.
-
-Monitor image usage across AWS accounts.
-
-Enable drift detection for Golden AMIs.
-
-Continuously scan deployed workloads for inherited vulnerabilities.
-
-Governance and Lifecycle Management
-
-Effective AMI governance extends beyond deployment.
-
-Organizations should:
-
-Maintain a centralized inventory of approved AMIs.
-
-Track AMI lineage to understand parent-child image relationships.
-
-Periodically review sharing permissions.
-
-Remove obsolete or unused AMIs.
-
-Integrate AMI validation into change management and deployment workflows.
-
-Securing the AWS AMI Lifecycle with Qualys
-
-Securing AMIs requires visibility and protection across multiple stages of the cloud deployment lifecycle. Organizations must assess images before deployment, identify infrastructure misconfigurations, monitor deployed workloads, and respond to potential threats.
-
-Qualys provides capabilities across these stages through its TotalCloud CNAPP platform and complementary vulnerability management and endpoint security solutions.
-
-1. Assess AMIs Before Deployment
-
-Qualys TotalCloud provides an AMI Scan capability that uses snapshot-based scanning to assess Amazon Machine Images before deployment, without requiring an EC2 instance to be launched or an agent to be installed.
-
-The assessment helps identify operating system vulnerabilities, missing patches, outdated software components, and configuration issues within AMIs.
-
-Integrating AMI scanning into image-building and Golden AMI promotion workflows allows security teams to assess images before they are approved for production use. This helps reduce the likelihood of deploying images containing known security weaknesses.
-
-However, vulnerability assessment alone does not establish the authenticity of an AMI publisher or guarantee that an image is free from malicious code. Organizations should continue to validate AMI ownership and publisher information using AWS-native controls.
-
-2. Identify Infrastructure Misconfigurations Before Deployment
-
-Qualys Infrastructure as Code (IaC) Security helps identify security misconfigurations in supported infrastructure templates before resources are deployed.
-
-By integrating IaC scanning into CI/CD workflows, development and security teams can identify insecure infrastructure definitions in Terraform and AWS CloudFormation templates before they reach production.
-
-This complements AMI scanning by assessing the infrastructure deployment process, helping organizations identify configuration weaknesses that could expose EC2 workloads.
-
-3. Strengthen Cloud Posture and Workload Security
-
-Qualys TotalCloud combines Cloud Security Posture Management (CSPM), Cloud Workload Protection (CWP), and Cloud Infrastructure Entitlement Management (CIEM) capabilities to provide visibility into cloud security risks.
-
-These capabilities help organizations:
-
-Identify cloud misconfigurations, including relevant AMI exposure, encryption, and launch-permission issues.
-
-Assess vulnerabilities across supported cloud workloads and prioritize remediation based on risk.
-
-Identify excessive cloud permissions and risky identity relationships that could increase the impact of a compromised workload.
-
-This helps security teams understand not only the security state of an AMI, but also the configuration and identity risks associated with the EC2 instances launched from it.
-
-4. Remediate Vulnerabilities and Automate Security Workflows
-
-Identifying vulnerabilities is only one part of securing the AMI lifecycle. Organizations must also ensure that identified weaknesses are addressed across running workloads and future image builds.
-
-Qualys Vulnerability Management, Detection and Response (VMDR) helps identify and prioritize vulnerabilities across supported assets. Qualys Patch Management can support deploying applicable security patches to supported running workloads.
-
-Qualys Flow and TotalCloud workflow automation capabilities can further help operationalize security findings through customized remediation workflows, incident routing, and supported integrations.
-
-For Golden AMI environments, organizations should incorporate remediation into their image-building pipelines and periodically rebuild approved images to ensure that future deployments inherit updated security baselines.
-
-Extending Image Security Across Multi-Cloud Environments
-
-Although this article focuses on AWS AMIs, similar risks exist across cloud platforms wherever organizations use reusable machine images to provision workloads. Azure and Google Cloud Platform (GCP), for example, provide image services that allow teams to create, share, and reuse standardized images across their environments.
-
-The terminology and image-sharing mechanisms differ across providers, but the underlying security concerns remain similar: an image may contain outdated software, insecure configurations, or embedded sensitive information, while insufficient governance can expose internally maintained images or allow untrusted images to enter deployment workflows.
-
-Cloud platform
-
-Image artifact
-
-Security considerations
-
-AWS
-
-Amazon Machine Images (AMIs)
-
-Review image ownership, launch permissions, sharing settings, encryption, and image age.
-
-Microsoft Azure
-
-Managed Images and Azure Compute Gallery images
-
-Review image sharing and replication permissions, source image governance, and image configuration.
-
-Google Cloud Platform (GCP)
-
-Custom VM Images
-
-Review image access permissions, sharing configuration, source image integrity, and embedded software or configuration risks.
-
-Across these platforms, organizations should maintain visibility into image metadata and apply consistent governance practices. This includes identifying image owners and sources, restricting access to approved images, reviewing sharing permissions, assessing image contents for vulnerabilities and exposed secrets, and periodically retiring outdated images.
-
-For organizations operating in multi-cloud environments, centralized cloud security monitoring can help identify configuration weaknesses and exposure to vulnerabilities across image-related resources and the workloads launched from them. Qualys capabilities such as cloud posture assessment, image vulnerability scanning, infrastructure-as-code security, and workload protection can contribute to this broader security approach, subject to the supported cloud services and product configurations.
-
-Treating machine images as part of the software supply chain, rather than simply as infrastructure artifacts, helps organizations apply consistent security governance from image creation through deployment and ongoing workload operation.
-
-Conclusion
-
-Public AMIs provide significant operational benefits, but they should never be trusted by default. As cloud-native deployments become increasingly automated, AMIs have become critical components of the software supply chain whose integrity directly affects the security of downstream workloads.
-
-Securing the AMI lifecycle requires organizations to validate image sources, assess images for vulnerabilities before deployment, maintain governed Golden AMI workflows, and continuously monitor the workloads launched from them. AWS-native capabilities such as Allowed AMIs help restrict image usage to approved sources, while security solutions such as Qualys TotalCloud help identify image vulnerabilities, cloud misconfigurations, and risks across deployed workloads.
-
-Start with your AMI selection process: review your existing image lookup and deployment workflows to ensure that every AMI is validated against an approved owner or source before use. Then assess the image for vulnerabilities before promoting it into your Golden AMI pipeline.
-
-To strengthen visibility and security across your cloud environments, explore how Qualys TotalCloud supports cloud posture management, AMI vulnerability assessment, and ongoing workload security.
-
-If you’re not yet using Qualys TotalCloud to assess AMIs before deployment, identify cloud misconfigurations, and monitor the workloads launched from them, start a free trial today.
-
-Start Your Trial
-
-Frequently Asked Questions (FAQs)
-
-What is the whoAMI attack?
-
-Attackers publish malicious AMIs with names that resemble trusted vendor images. Pipelines that search by name and do not verify the owner can select the malicious image.
-
-Is a public AMI safe if the name looks official?
-
-No. Anyone can publish a public AMI. Trust comes from the owner ID and publisher, not the name or description.
-
-What does Qualys TotalCloud AMI Scan check?
-
-It uses snapshot-based scanning to assess an AMI before deployment, without launching an instance or installing an agent. It helps find operating system vulnerabilities, missing patches, outdated software, and configuration issues.
-
-Does AMI Scan prove the image is not malicious?
-
-No. It does not establish publisher authenticity or guarantee an image is free of malicious code. Validate ownership with AWS controls, including Allowed AMIs and owner ID.
-
-Why rebuild Golden AMIs?
-
-Patching running instances does not update the image. New launches from an old Golden AMI inherit already-patched CVEs. Rebuild and retire outdated images on a schedule.
-
-References
-
-https://securitylabs.datadoghq.com/articles/whoami-a-cloud-image-name-confusion-attack/
-
-https://aws.amazon.com/about-aws/whats-new/2024/12/amazon-ec2-allowed-amis-enhance-ami-governance/
-
-https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html
-
-https://aws.amazon.com/blogs/awsmarketplace/announcing-the-golden-ami-pipeline/
-
-https://docs.qualys.com/en/etm/latest/mergedProjects/etm_connectors/scans/ami_scan.htm
-
-https://docs.qualys.com/en/integration/iac/get_started/get_started.htm
-
-https://docs.qualys.com/en/cloudview/latest/cloud_detection_and_response/cloud_detection_and_response.htm"
-353ab334d33c,353ab334d33c,2026-11-16 08:25 UTC,General Security News,Qualys,Qualys Blog,Identity Security Posture Management; AI Security,Article,The Hidden Cost of Identity Technical Debt,https://blog.qualys.com/product-tech/2026/11/16/identity-technical-debt-hidden-costs-and-fixes,"Understand attack paths and trust relationships through AI-summarized attack-path analysis and Domain Trust Map, revealing how identity exposure can reach critical assets","Key Takeaways
-
-Identity technical debt is the accumulated security, governance, and operational burden created by unmanaged identities, excessive permissions, outdated access, and fragmented controls.
-
-It’s caused by identity sprawl, privilege creep, dormant and orphaned accounts, excessive permissions, unmanaged non-human identities (NHIs), and persistent policy exceptions.
-
-It increases breach blast radius, Security Operations Center (SOC) investigation time, audit fatigue, operational disruption, delivery friction, and tool complexity.
-
-It should be measured using a five-part framework that covers inventory and ownership, dormancy, privilege, credentials, and remediation, rather than a single score.
-
-It can be reduced through four maturity stages and a six-step roadmap: Discover, Classify, Prioritize, Remediate, Prevent, and Measure.
-
-Qualys ETM Identity correlates identity sprawl, privilege exposure, and NHIs with Enterprise TruRisk, so this debt can be discovered, prioritized, and reduced through verified, closed-loop remediation.
-
-The Hidden Cost of Identity Technical Debt
-
-Most identity decisions are made under pressure: a contractor needs access today, a migration needs a service account now, an acquired business needs users provisioned on day one. Each solves an immediate need and quietly leaves risk behind. That’s identity technical debt: the accumulated security, governance, and operational burden created by unmanaged identities, excessive permissions, outdated access, weak authentication, and fragmented identity controls.
-
-What Is Identity Technical Debt?
-
-Identity technical debt is the backlog of unresolved identity risks, control gaps, exceptions, and lifecycle failures. It includes dormant and overprivileged accounts, as well as hidden relationships among users, machines, applications, credentials, and permissions. Most debt comes from thousands of small decisions that were never revisited.
-
-Identity Technical Debt vs. Identity Risk, Identity Sprawl, and Identity Hygiene
-
-These terms are related but distinct:
-
-Term
-
-What It Describes
-
-Identity technical debt
-
-The accumulated backlog and future cost when sprawl and risk go unaddressed
-
-Identity risk
-
-The likelihood and impact of an identity being compromised right now
-
-Identity sprawl
-
-Uncontrolled growth of identities and identity silos across systems and clouds
-
-Identity hygiene
-
-The day-to-day practices that prevent debt from accumulating
-
-Sprawl drives growth, risk reflects current exposure, hygiene prevents accumulation, and technical debt is the resulting backlog. Left unmanaged, that backlog widens the identity attack surface over time.
-
-How Identity Technical Debt Accumulates
-
-Identity debt grows through thousands of small access and lifecycle decisions.
-
-1. Identity Sprawl Across Hybrid and Multi-Cloud Systems
-
-Users, applications, cloud accounts, service principals, workloads, bots, and AI agents multiply across disconnected systems, making ownership and access visibility difficult to maintain.
-
-2. Privilege Creep from Role Changes and Temporary Access
-
-Role changes, projects, and emergency access often leave old permissions behind, turning temporary access into a persistent identity attack surface.
-
-3. Dormant, Orphaned, and Shadow Accounts
-
-Former employees, unused accounts, disconnected apps, and duplicates often remain active. Dormant accounts are unused, orphaned accounts lack owners, and shadow identities were never sanctioned.
-
-4. Excessive Permissions and Hidden Effective Access
-
-Direct privileges, nested groups, inherited roles, and trust relationships can create toxic combinations, while nominal roles may understate an identity’s effective reach.
-
-5. Non-Human Identity Risk and Unmanaged Credentials
-
-Service accounts, API keys, tokens, secrets, and AI agents often lack clear ownership. Long-lived credentials make cleanup risky. Entro Labs found NHIs grew 44% year-over-year and now outnumber human identities 144 to 1.
-
-6. Weak Identity Policies and Persistent Exceptions
-
-Inconsistent MFA, non-expiring passwords, legacy authentication, and permanent break-glass access create persistent debt when temporary exceptions lack expiry dates.
-
-The Hidden Costs of Identity Technical Debt
-
-Identity debt often surfaces later as wider breach impact, slower investigations, and persistent audit backlogs.
-
-1. Larger Blast Radius When an Identity is Compromised
-
-Excessive permissions and weak trust relationships can expand the blast radius of a compromised identity.
-
-2. Higher SOC Investigation and Incident-Response Costs
-
-Analysts spend more time determining who owns an account, what access is legitimate, and what’s reachable from it.
-
-3. Audit Fatigue and Access-Review Backlogs
-
-Low-context certifications and recurring exceptions turn reviews into an administrative backlog instead of risk reduction.
-
-4. Operational Disruption and Service Outages
-
-Expired certificates and unrotated secrets can interrupt applications and authentication with little warning.
-
-5. Slower Cloud, SaaS, DevOps, and AI Delivery
-
-Unclear ownership and ungoverned machine identities force teams to choose between speed and control.
-
-6. Growing Tool and Governance Complexity
-
-Disconnected Identity and Access Management (IAM), Privileged Access Management (PAM), Identity Governance and Administration (IGA), and directory systems create duplicated records and inconsistent risk scores.
-
-How to Measure Identity Technical Debt
-
-Measure identity technical debt across coverage, exposure, ownership, recurrence, and remediation rather than through a single score.
-
-1. Identity Inventory and Ownership Metrics
-
-Track known and unknown identities, human-to-non-human ratios, unowned identities, duplicates, shadow accounts, disconnected applications, and authoritative-source coverage.
-
-2. Dormancy and Lifecycle Metrics
-
-Track inactive identities, terminated users with active access, stale service accounts, and overdue deprovisioning. Apply dormancy thresholds based on identity type and risk.
-
-3. Privilege and Permissions Metrics
-
-Track privileged identities, excessive permissions, standing admin access, toxic combinations, nested groups, and direct or indirect paths to critical assets. Measure effective access, not just assigned roles.
-
-4. Credentials and Authentication Metrics
-
-Track Multi-Factor Authentication (MFA) coverage, legacy authentication, password and secret age, non-expiring credentials, exposed secrets, and certificate or key expiry. Pay particular attention to long-lived credentials used by NHIs. For non-human identity risk, track service-account ownership, token and API-key age, secret rotation, excessive permissions, and credentials that remain active after their associated workload is retired.
-
-5. Remediation and Recurrence Metrics
-
-Track ownership and remediation times, verified versus reopened findings, expired exceptions, attack paths closed, and risk reduction over time. Recurrence tracking shows whether resolved risks return.
-
-Identity Technical Debt Maturity Model
-
-Maturity is measured by fewer recurring exposures and faster, verified remediation across four stages.
-
-1. Reactive Cleanup
-
-Identity work is incident-driven, with spreadsheet-based inventories, one-off cleanup, and inconsistent ownership. Debt is addressed after problems emerge rather than proactively.
-
-2. Unified Inventory
-
-Organizations establish an authoritative identity inventory, assign ownership, implement baseline hygiene policies, and conduct scheduled access reviews. Debt growth slows, but prioritization remains largely rule-based.
-
-3. Risk-Based Prioritization
-
-Organizations continuously assess identity posture, use attack-path context, and apply explainable risk scoring. Teams prioritize exploitable identity risks based on exposure rather than treating all findings equally.
-
-4. Closed-Loop Identity Risk Reduction
-
-Remediation is automated where appropriate, technically verified, and monitored for recurrence. Organizations track risk reduction over time to ensure resolved debt does not return.
-
-How to Reduce Identity Technical Debt
-
-The roadmap follows six stages: Discover, Classify, Prioritize, Remediate, Prevent, and Measure.
-
-Build an authoritative identity inventory across human, machine, service, and shadow identities, with assigned owners.
-
-Segment debt by identity type and business impact, since dormancy and remediation rules differ by identity type.
-
-Remove dormant, orphaned, and unnecessary access after validating dependencies.
-
-Secure privileged and non-human identities by rotating secrets, reducing standing privilege, and defining ownership.
-
-Close high-risk attack paths and trust gaps that reach high-value assets.
-
-Automate safe lifecycle and remediation workflows, verify closure, monitor recurrence, and report risk reduction.
-
-Identity Technical Debt vs. Related Identity-Security Problems
-
-Concept
-
-What It Describes
-
-Typical Indicators
-
-Primary Owner
-
-Relationship to Identity Debt
-
-Identity sprawl
-
-Uncontrolled growth of identities and silos
-
-Multiple disconnected directories, duplicate accounts
-
-IAM / IT Ops
-
-A primary driver of identity debt
-
-Privilege creep
-
-Gradual, unremoved accumulation of access
-
-Access unrelated to current role
-
-App/resource owners
-
-A specific form of identity debt
-
-Dormant accounts
-
-Valid but unused identities
-
-No login activity for extended periods
-
-HR / IAM
-
-A visible, easily-measured form of debt
-
-Orphaned accounts
-
-Accounts with no active owner
-
-No authoritative lifecycle source
-
-IT Ops / IAM
-
-Debt that compounds ownership gaps
-
-Excessive permissions
-
-Access beyond documented business need
-
-High entitlement count vs. role baseline
-
-App owners / IGA
-
-Debt that widens blast radius
-
-NHI identity sprawl
-
-Uncontrolled growth of service accounts, keys, tokens
-
-NHI-to-human ratio far above baseline
-
-DevOps / Platform / Security
-
-The fastest-growing category of identity debt
-
-Identity misconfiguration
-
-Incorrect or insecure identity system settings
-
-Weak trust relationships, disabled protections
-
-IAM / Security Engineering
-
-Structural debt at the system level
-
-Identity governance challenges
-
-Organizational difficulty enforcing consistent policy
-
-Fragmented ownership, inconsistent review cadence
-
-CISO / IAM leadership
-
-The governance failure that lets debt accumulate
-
-Each of these contributes to identity technical debt, not a synonym for it: debt is the cumulative backlog that results when none of them are consistently addressed.
-
-Identity Technical Debt Ownership and Operating Model
-
-No single team owns identity technical debt end-to-end. IAM, IGA, PAM, application, SOC, compliance, HR, and business owners each control part of the lifecycle. Identity Security Posture Management (ISPM) provides the continuous risk-management layer that connects these teams, brings identity exposure into a unified view, prioritizes debt by risk, and tracks whether remediation actually reduces exposure. A shared Responsible, Accountable, Consulted, Informed (RACI) matrix defines who discovers debt, validates access, approves exceptions, remediates exposure, and verifies risk reduction.
-
-Identity Technical Debt RACI Matrix
-
-Activity
-
-ISPM
-
-IAM/IGA
-
-App/Service Owner
-
-SOC/Security
-
-Compliance
-
-HR
-
-Discover identity debt
-
-Responsible
-
-Consulted
-
-Accountable
-
-Consulted
-
-Informed
-
-Assess and prioritize identity risk
-
-Responsible / Accountable
-
-Consulted
-
-Informed
-
-Validate business need for access
-
-Consulted
-
-Responsible
-
-Informed
-
-Consulted
-
-Informed
-
-Remove or rightsize access
-
-Accountable
-
-Responsible
-
-Consulted
-
-Informed
-
-Approve exceptions
-
-Consulted
-
-Responsible
-
-Consulted
-
-Accountable
-
-Informed
-
-Verify remediation closure
-
-Responsible
-
-Informed
-
-Accountable
-
-Informed
-
-Report residual risk
-
-Accountable
-
-Consulted
-
-Informed
-
-Responsible
-
-Consulted
-
-Informed
-
-Trigger lifecycle events (joiner/mover/leaver)
-
-Consulted
-
-Informed
-
-Responsible
-
-Identity Technical Debt Best Practices
-
-Maintain an authoritative inventory and assign owners to every identity.
-
-Enforce least privilege and temporary-access expiry.
-
-Monitor dormancy and eliminate unmanaged credentials.
-
-Map effective access and prioritize by business impact.
-
-Document exceptions with owners and expiry dates.
-
-Automate remediation, verify closure, and report debt trends.
-
-How Qualys ETM Identity Helps Reduce Identity Technical Debt
-
-Sprawl, dormant accounts, privilege creep, and unmanaged NHIs aren’t new challenges to security teams. The challenge is continuously turning this fragmented identity data into a prioritized risk view, driving remediation, and proving that exposure is actually decreasing. This is where ISPM becomes central to reducing identity technical debt.
-
-Qualys ETM Identity provides this ISPM layer by correlating identity exposure with Enterprise TruRisk, connecting identity risk to the broader attack-surface risk framework.
-
-With Qualys ETM Identity, teams can:
-
-Build a unified identity inventory across Active Directory (AD), Entra ID, and Okta, covering human, machine, service, and shadow identities and their relationships.
-
-Correlate identity risk with Enterprise TruRisk by combining Qualys Cloud Agent and native connector data and applying Identity TruRisk scoring based on risk factors.
-
-Surface high-risk identity exposure, including stale accounts, privileged identities, excessive access, and toxic combinations.
-
-Understand attack paths and trust relationships through AI-summarized attack-path analysis and Domain Trust Map, revealing how identity exposure can reach critical assets.
-
-Monitor changes in real time with AD Real-Time Monitoring to identify identity changes that can introduce new exposure.
-
-Remediate identity risk using 200+ AD policy controls, one-click actions, patching, mitigation, isolation, and Jira or ServiceNow workflows.
-
-Verify risk reduction by re-scoring with Identity TruRisk and rolling results into organizational TruRisk, helping confirm that remediation actually reduces exposure.
-
-Together, these capabilities support a broader identity risk management program, without requiring organizations to rip out existing IAM, IGA, or PAM investments.
-
-Conclusion: Treat Identity Debt as a Measurable Risk Backlog
-
-Identity technical debt isn’t solved by one cleanup campaign. It requires an ongoing ISPM approach that continuously discovers identity exposure, prioritizes risk, coordinates remediation across owners, verifies closure, and monitors for recurrence. Clear ownership and safe remediation remain essential, but without continuous visibility and measurement of risk, organizations cannot know whether identity technical debt is actually decreasing.
-
-Reduce Identity Technical Debt Across Hybrid Environments
-
-Find stale identities, excessive privilege, machine-account risk, and attack paths, then verify that remediation reduces business exposure.
-
-Explore Qualys ETM Identity
-
-Frequently Asked Questions
-
-What is Identity Technical Debt?
-
-The accumulated security, governance, and operational burden created by unmanaged identities, excessive permissions, and fragmented identity controls that build up rather than being resolved as they arise.
-
-How is it different from identity risk?
-
-Identity risk is the exposure of a specific identity right now. Identity technical debt is the cumulative backlog of unresolved risks and governance gaps that build over time.
-
-Why are NHIs a growing driver of identity debt?
-
-They now outnumber human identities by roughly 144 to 1 and grew 44% in a single year, yet rarely have a clear human owner reviewing them, so debt accumulates faster than with human accounts.
-
-How does Qualys ETM Identity help?
-
-It discovers human and machine identities, correlates identity risk with org TruRisk, maps attack paths and trust relationships, and routes prioritized findings for verified remediation."
 24ae8ce74723,24ae8ce74723,2026-11-10 09:00 UTC,Business & Industry News,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys to Speak at Upcoming Investor Conference,https://investor.qualys.com/news-releases/news-release-details/qualys-speak-upcoming-investor-conference-19,"(NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested...","FOSTER CITY, Calif., Nov. 10, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested investors at the following conference: 30 th Annual UBS"
 26a007fe43fd,26a007fe43fd,2026-11-09 16:05 UTC,Product & Roadmap,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys Announces Third Quarter 2026 Financial Results,https://investor.qualys.com/news-releases/news-release-details/qualys-announces-third-quarter-2026-financial-results,"Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,","Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,"
 a920141ac818,a920141ac818,2026-11-09 09:01 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys IR News,Attack Surface Discovery; Cloud Risk Management,Article,Qualys Expands Global mROC Alliance with New Technology Alliances Across Every Major Attack Surface and Partner Certification Tracks,https://investor.qualys.com/news-releases/news-release-details/qualys-expands-global-mroc-alliance-new-technology-alliances,"Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to","Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to"
