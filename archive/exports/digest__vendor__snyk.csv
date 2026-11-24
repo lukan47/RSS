@@ -1,4 +1,111 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+b0bb359e007a,b0bb359e007a,2026-11-24 04:00 UTC,General Security News,Snyk,Snyk Blog,Network Security; AI Security; Code Security; File Security,Article,Evo Agentic Development Security and Evo Dependency Firewall Inside NVIDIA OpenShell,https://snyk.io/blog/secure-ai-coding-agents-nvidia-openshell/,"Every agent starts with no network access, no host files and no credentials, and it gets only what a policy grants","Agentic software factories are taking shape with teams starting to run fleets of coding agents the way they run CI jobs: in parallel, each one reading files, installing packages, calling APIs and opening pull requests. At that scale, the sandbox each agent runs in becomes a core security control. NVIDIA OpenShell takes the idea further than most. Every agent starts with no network access, no host files and no credentials, and it gets only what a policy grants.
+
+A sandbox decides what an agent can reach, but once the agent is working, a second set of four questions takes over:
+
+Are the MCP servers and skills loaded trustworthy?
+
+Is it only calling approved tools?
+
+Is the code it writes secure?
+
+Is the package it installed safe?
+
+Even a tightly locked sandbox can run a poisoned skill or pull a malicious dependency through the one door left open.
+
+Evo Agentic Development Security (ADS) answers those questions from inside the agent's own workflow, so it travels with the agent into environments like an OpenShell sandbox. To see how Evo and OpenShell work together, we built Evo ADS and Evo Dependency Firewall into an OpenShell sandbox, and ran Claude Code against it.
+
+What is NVIDIA OpenShell?
+
+NVIDIA OpenShell is an open source (Apache 2.0) runtime for autonomous AI agents. NVIDIA created it and contributed it to the CNCF, where it’s now a Sandbox project. You declare what each agent can touch in a policy, and OpenShell enforces it on every file access, system call and network connection.
+
+For agent workloads, the controls that matter most are how OpenShell scopes rules, handles credentials and treats new connections:
+
+Rules per program, not just per host: OpenShell checks which binary opens each connection. A rule can say ""only the Snyk binary may reach api.snyk.io,"" which limits an agent's ability to borrow Snyk's access to send data somewhere else.
+
+Credentials the agent never sees: OpenShell holds API keys and adds them only to requests bound for approved endpoints. In our build, Claude Code's Anthropic key never enters the sandbox.
+
+Default deny, with a review step: A new sandbox reaches nothing. When the agent tries a new host, OpenShell blocks it and drafts a rule for a human to approve.
+
+How we built Evo into an NVIDIA OpenShell sandbox
+
+The reference build is one OpenShell sandbox image, based on NVIDIA's own Ubuntu base, with Claude Code and four Snyk controls built in. One command (run.sh) builds the image, stores credentials in OpenShell and starts the sandbox with a pre-approved network policy. Each control in the build answers one of the four questions.
+
+Control
+
+What it secures
+
+What we saw in the sandbox
+
+Agent supply chain security (Evo ADS)
+
+What agents use: MCP servers and skills
+
+Found 3 MCP servers and every installed skill, and flagged each planted malicious test skill as High, including potential prompt injection scored 1000/1000
+
+Agent behavior governance (Evo ADS)
+
+What agents do: MCP tool calls
+
+Evo's Allowed MCP Servers policy blocked an unapproved server mid-session; the approved one kept working
+
+Agent output assurance (Evo ADS, powered by Snyk Studio)
+
+What agents generate: code
+
+Caught a SQL injection Claude wrote (CWE-89, High); the agent fixed it and the rescan found 0 issues
+
+Evo Dependency Firewall (Experimental Preview)
+
+What agents install: npm, PyPI packages
+
+Served approved packages through the Snyk registry and blocked a version younger than a 7-day cooldown
+
+Each sandbox shows up in Evo as its own machine, next to developer laptops and Docker Sandboxes, so security teams see every agent environment in one inventory.
+
+The Docker Sandboxes kit installs Snyk when the sandbox starts. OpenShell only lets programs run from system folders such as /usr, so here Snyk is built into the image. This pattern works well for a reference architecture because the binaries are fixed at build time and checksum-verified, and nothing new is installed at runtime. We tested on OpenShell 0.1.6.
+
+How Evo secures Claude Code inside NVIDIA OpenShell
+
+Click through one Claude Code session in the sandbox, from setup to the results in Evo. The sections below explain each scenario in detail.
+
+Detecting malicious agent skills and prompt injection before it runs
+
+We planted a test skill that tells the agent to collect environment variables and send them to an outside host. Agent supply chain security scanned the sandbox at startup, flagged the skill for potential prompt injection (1000/1000) and insecure credential handling (600/1000), and pointed to the exact lines. When we asked Claude to use it anyway, the model's own safeguards stopped it. Had both of those checks failed, OpenShell would still have blocked the exfiltration, because the destination host was never in its policy.
+
+Blocking unapproved MCP servers during an agent session
+
+Evo's Allowed MCP Servers policy was set to block, with one local MCP server on the approved list and a second off. When Claude called a tool on the unapproved server, agent behavior governance stopped the call and named the Evo policy responsible. Calls to the approved server went through as normal. Because enforcement runs through the Claude Code agent's hooks at tool-call time, it also covers local MCP servers that never touch the network.
+
+Fixing SQL injection in AI-generated code before the agent's turn ends
+
+We asked Claude for a Flask /search endpoint that builds its SQL query with an f-string. Snyk Studio's Secure at Inception hook, which delivers agent output assurance, scanned the change, flagged SQL injection (CWE-89, High) and held the turn. The agent ran /snyk-fix, rewrote the query with a bound parameter, and the rescan came back clean.
+
+Controlling npm and PyPI installs with Evo Dependency Firewall
+
+With Evo Dependency Firewall in place, npm, pip and uv inside the sandbox can only install through the Snyk registry. Flask and lodash came through and appeared under Install requests in Evo. A package version published 3 days earlier, inside our 7-day cooldown, was refused, and Claude reported it as ""Blocked by Snyk Dependency Firewall (cooldown-npm)"" and offered the newest allowed version. Then we asked Claude to install straight from registry.npmjs.org. OpenShell denied it (DENIED /usr/bin/node -> registry.npmjs.org), and Claude didn't try to work around it.
+
+How OpenShell and Evo Dependency Firewall work together
+
+This scenario is where both products depend on each other. A dependency firewall governs the installs routed through it, so on its own it can't stop traffic that calls a public registry directly. OpenShell closes that route, but it works at the network layer and has no view of whether a package is safe. Combined, every install goes through Evo Dependency Firewall, and your policy decides what gets through.
+
+What's next and how to get started
+
+The reference build is a starting point, and three additions are in progress:
+
+Snyk credentials held by OpenShell: Today the Evo push key and Snyk token are passed into the sandbox. Moving them into OpenShell providers matches how the Anthropic key is already handled.
+
+A published image and a Brev Launchable: so teams can run the reference build without building it locally.
+
+Destructive-action governance: extending Evo ADS beyond MCP tool calls to risky agent actions.
+
+Want to run it yourself? This integration is in Experimental Preview. The reference build is open source, and one command builds the image, stores credentials in OpenShell and starts the sandbox. Evo Dependency Firewall is in Experimental Preview for select customers. Want to see Evo across every agent environment your teams run? Book a demo.
+
+SEE EVO IN ACTION
+
+Secure AI adoption at scale with Evo
+
+Get a suite of agent-native security solutions that secure, protect, and govern AI-driven development across three loops: the code artifact, the AI workforce, and the AI applications teams build."
 a98b0a614bfb,a98b0a614bfb,2026-11-19 04:00 UTC,General Security News,Snyk,Snyk Blog,AI Security; Vulnerability Management,Article,Why the Harness Matters: Early Lessons From the Evo Code Scanning Agent Preview,https://snyk.io/blog/why-harness-matters-evo-code-scanning-agent/,"It found 13% of the known vulnerabilities, and only about three in five of its first attempts produced a usable result","Evo Code Scanning Agent is in experimental preview with select Snyk customers. We’re building it to bring together AI reasoning, specialized models, deterministic analysis, security knowledge, and a context layer that draws on insights from across Snyk’s products to find vulnerabilities that are difficult to detect with any one approach alone. There’s a lot that goes into that system; we’re taking a closer look at one of its building blocks, the security harness that guides how an AI model explores code, investigates potential vulnerabilities, and reports findings.
 
 To see what the harness contributes on its own, we paired it with the same off-the-shelf models used by Claude Security and Codex Security. At the same compute budget, Evo Code Scanning Agent found more known vulnerabilities than either, though both tools achieved higher precision. These are early results, and the agent is still evolving. If you’re a Snyk customer and want to try it, join the preview / talk to your Snyk account team.

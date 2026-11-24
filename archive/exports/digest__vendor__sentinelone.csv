@@ -1,4 +1,129 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+3da85e9a70f5,3da85e9a70f5,2026-11-24 13:00 UTC,General Security News,SentinelOne,Delinea Blog,AI Security; Identity Security Posture Management; Vulnerability Management,Article,ARTEX: When AI Starts Testing Your Identities and Trusted Apps,https://delinea.com/blog/artex-when-ai-starts-testing-your-identities,Flags inactive service principals and unused federated apps and alerts on sensitive Entra ID changes such as app registration and owner changes Monitoring credential additions...,"What you will learn
+
+How ARTEX chains exposed secrets, trusted OAuth applications and Active Directory weaknesses into privileged access, why it is hard to detect, and which monitoring and credential controls limit what one identity can reach.
+
+Delinea Labs | November 2026
+
+On November 13, the FBI published a FLASH advisory on ARTEX, an open-source penetration testing framework that attackers have been using since at least August 2026. The framework uses multiple AI agents to automate reconnaissance, vulnerability testing, credential discovery and other stages of an intrusion. In some attacks, privileged access was reached within three hours of initial targeting.
+
+ARTEX connects to external large language models (LLMs), divides an objective into smaller tasks and runs them through specialized agents. The agents can execute commands, analyze results and adjust their next steps based on what they find.
+
+ARTEX relies extensively on identity-based attack techniques
+
+Credential theft, permission testing, authentication bypass, OAuth persistence and Active Directory attacks all appear in the reported activity. An exposed credential can lead to a cloud service, then to other secrets or to applications with broader permissions. ARTEX automates finding and testing those connections.
+
+From exposed credentials to cloud access
+
+Since August, Microsoft has observed attackers using agentic tools to search GitHub repositories for exposed secrets. In one investigation, an agent moved from searching for credentials to exfiltrating data from Azure Key Vault in just five minutes. Microsoft’s description of that case refers to an AI agent without naming the tool.
+
+In several cases, the agents then obtained a token for a compromised OAuth application and used it to enumerate subscriptions, resource groups, permissions and other cloud services. They also searched Azure DevOps for secrets and used Azure VM Run Command to execute commands on virtual machines.
+
+The agents also adapted. When an Azure Resource Manager request failed because of an incorrect API version, the agent retried with a supported version and received a successful response. Microsoft observed similar adjustments when the agents queried SQL firewall rules and Application Insights, so the attacker didn’t have to troubleshoot each failure manually.
+
+In a separate experiment, GitGuardian planted nine secrets in a test repository and ran an ARTEX build without a dedicated secrets scanner. It found eight using standard Git and grep commands, including a credential that had been removed from the current files but remained in Git history. The model refused when asked to use the credentials, so the test showed discovery rather than exploitation.
+
+What happens when the application is already trusted?
+
+The ConnectWise Cloud Backup compromise showed ARTEX being used against identities that were already trusted. Microsoft linked the October campaign to Storm-0940, a China-state-aligned actor.
+
+Storm-0940’s infrastructure was active before the application access. In a password-spraying campaign originating from an IP address that also appears in the ConnectWise indicators, Microsoft recorded more than 151,000 failed sign-ins against 327 accounts across eight organizations, peaking at 2,900 failures a minute. No successful authentication was observed.
+
+The application access worked differently. The actor obtained credentials belonging to ConnectWise cloud applications that were already authorized to access customers’ Microsoft 365 environments.
+
+Using ARTEX, it attempted authentication against more than 2,250 downstream tenants. Most attempts failed, but Microsoft observed successful authentication and additional activity in several customer environments. The number represents attempted access, not 2,250 confirmed compromises.
+
+The attacker didn’t need to compromise an employee account in every organization. The stolen application credentials could be used to authenticate wherever the applications’ permissions remained valid. In one customer environment, a compromised management application assigned itself the Global Administrator role. The attacker was no longer limited to the application's original access.
+
+Other activity modified application credentials in Microsoft Entra ID. An attacker with sufficient permissions can add another client secret or certificate and keep authenticating through that identity even after the original credential is revoked.
+
+Beyond cloud identities
+
+The FBI advisory also described activity targeting Active Directory and on-premise environments. Attackers enumerated more than 110,000 objects and used Kerberoasting, DCSync, and LAPS password retrieval. They also attempted lateral movement with Pass-the-Hash, Pass-the-Ticket, WinRM and Kerberos relay techniques, and endpoint protection blocked some of those attempts.
+
+The advisory also covered unsigned SAML assertions, hard-coded administrator passwords and forged administrator tokens created with unrotated authentication keys. These findings come from multiple investigations rather than a single intrusion.
+
+None of these techniques are new. Each still depends on conditions, such as weak service-account passwords or replication permissions, that already exist in the environment.
+
+Same trust, different path
+
+Our recent blog ""Railway: When a build credential becomes access to customer secrets"" covers an incident that started from a different place.
+
+ConnectWise’s attacker used trust that customers had already granted. Railway’s attacker had to find the path. They did so with a build credential that led to source code and the code revealed an OIDC trust misconfiguration. Revoking the credential didn’t close that path. Railway reported AI-assisted tooling, including a harness Wiz described as similar to ARTEX, but didn’t confirm ARTEX was used.
+
+Tooling like ARTEX speeds up both kinds of discovery. It creates neither.
+
+What does this mean for identity security?
+
+Detecting ARTEX specifically may be difficult. The framework uses existing penetration testing tools and legitimate cloud APIs, and agents can adjust their requests when an attempt fails.
+
+ARTEX can automate the attack, but not the trail it leaves
+
+The activity still generates authentication events, API calls and changes to identity configurations.
+
+A service principal authenticating from an unfamiliar source isn’t enough on its own. Followed by unusual permission checks, secret retrieval and changes to another application’s credentials, the sequence is a much stronger indication of malicious activity. Monitoring changes to application credentials and privileged roles is most important when the initial access comes through a trusted third party.
+
+Delinea products address some of these risks directly. Others sit with the application, the identity provider or detection tooling.
+
+Attack area
+
+Where Delinea helps
+
+What needs other controls
+
+Exposed credentials
+
+DevOps Secrets Vault. Runtime retrieval and dynamic credentials Secret Server. Privileged credential rotation
+
+Repository and Git-history secret scanning; revoking exposed credentials
+
+Cloud permissions
+
+Privilege Control for Cloud Entitlements. Entitlement visibility, shadow admins, right-sizing
+
+Cloud role and service-principal design reviews
+
+OAuth persistence
+
+Continuous Identity Discovery (CID). Finds non-human identities (NHIs) Identity Threat Protection. Flags inactive service principals and unused federated apps and alerts on sensitive Entra ID changes such as app registration and owner changes
+
+Monitoring credential additions and service-principal sign-ins in Entra and Microsoft’s detections
+
+Password spraying
+
+Identity threat protection. brute-force and MFA-attack detection
+
+Phishing-resistant MFA and lockout policy at the identity provider
+
+Active Directory credential attacks
+
+Secret Server. Service-account discovery and rotation
+
+Replication-rights restrictions; Kerberos and DCSync monitoring
+
+Lateral movement
+
+Privilege Manager. endpoint least privilege. Privilege Control for Servers. just-in-time elevation
+
+Restricting administrative access paths
+
+Third-party access
+
+Privileged Remote Access. Governed vendor sessions
+
+Reviewing OAuth application permissions and consent in each tenant
+
+Token forgery and unsigned SAML
+
+None
+
+SAML signature validation; signing-key rotation
+
+Identity Threat Protection, Continuous Identity Discovery, Privilege Control for Cloud Entitlements, Privilege Control for Servers, and Privileged Remote Access are Delinea Platform capabilities. Coverage depends on licensing, supported integrations and configuration.
+
+Credential rotation also has to account for what the original identity could reach. Revoking a stolen secret doesn’t remove a credential the attacker has already created or invalidate secrets retrieved from a connected system.
+
+ARTEX adds speed to techniques defenders already know. What it exposes is how much one compromised identity can reach."
 9e6cee002835,9e6cee002835,2026-11-23 15:37 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,Malwarebytes Labs,AI Security; Mobile Security,Article,"Muse AI got nosy and started making things up, Meta insiders say",https://www.malwarebytes.com/blog/ai/2026/11/muse-ai-got-nosy-and-started-making-things-up-meta-insiders-say,” Meta says Muse only accesses data users have given it permission to access,".kadence-column492162_d006dd-b2 > .kt-inside-inner-col{padding-top:20px;padding-right:20px;padding-bottom:10px;padding-left:20px;}.kadence-column492162_d006dd-b2 > .kt-inside-inner-col{column-gap:var(--global-kb-gap-sm, 1rem);}.kadence-column492162_d006dd-b2 > .kt-inside-inner-col{flex-direction:column;}.kadence-column492162_d006dd-b2 > .kt-inside-inner-col > .aligncenter{width:100%;}.kadence-column492162_d006dd-b2 > .kt-inside-inner-col{background-color:rgba(255, 229, 229, 0.83);}.kadence-column492162_d006dd-b2 > .kt-inside-inner-col:before{opacity:0.3;}.kadence-column492162_d006dd-b2{position:relative;}@media all and (max-width: 1024px){.kadence-column492162_d006dd-b2 > .kt-inside-inner-col{flex-direction:column;justify-content:center;}}@media all and (max-width: 767px){.kadence-column492162_d006dd-b2 > .kt-inside-inner-col{flex-direction:column;justify-content:center;}}
 
 In this article
@@ -1644,43 +1769,6 @@ At the time, ANSSI indicated that adversaries gained control by exploiting publi
 While Russian-aligned hacktivist collectives including CARR, NoName057(16), and Z-Pentest claimed responsibility for specific disruptions, law enforcement authorities have not formally confirmed attribution. Opportunistic scanning against unhardened building management systems allows multiple threat groups to execute similar disruptions.
 
 To mitigate ongoing operational risks, government advisories from CERT-FR instruct operators to immediately disconnect exposed control panels from the public internet, restrict remote maintenance access to secure virtual private networks, enforce strong authentication controls, and replace legacy end-of-life hardware."
-1bdb409da5b0,1bdb409da5b0,2026-11-05 16:00 UTC,General Security News,SentinelOne,Fortinet Blog,AI Security,Article,Cyber Resilience Starts with AI Governance,https://feeds.fortinet.com/~/972426716/0/fortinet/blogs~Cyber-Resilience-Starts-with-AI-Governance,It can improve operational efficiency and enable faster threat detection and response,"Today’s cybercriminals are increasingly using AI to scale, accelerate, and evolve their attacks. At the same time, organizations are recognizing that AI can be a powerful force for defense, using it to strengthen cybersecurity, improve security operations, and protect networks at machine speed.
-
-Data in the Fortinet 2026 Cybersecurity Skills Gap Report confirms the near-ubiquity of this response, with 91% of the IT leaders in the 2,700+ organizations surveyed stating they are using or exploring the use of AI-empowered cybersecurity solutions. Unfortunately, as we move higher up the corporate ladder, only 50% of respondents believe their boards of directors fully comprehend the cybersecurity vulnerabilities associated with AI. This disconnect highlights a governance gap, which creates risk for the organization.
-
-Why Boards of Directors Need to Fully Understand AI
-
-To defend against AI-powered criminals, organizations need to build cyber resilience, but they can’t do that if leadership doesn't understand AI and its potential risks. That gap becomes even more significant as AI-driven defenses become more embedded within organizations. As AI adoption accelerates, company-wide AI literacy and cybersecurity governance must evolve alongside it.
-
-According to the Fortinet 2026 Cybersecurity Skills Gap Report, although nearly three-quarters of respondents say their boards view cybersecurity as a business priority, only 59% say that priority is reflected in spending decisions. This discrepancy suggests many organizations recognize the importance of cybersecurity in principle but struggle to translate that awareness into sustained investment and governance.
-
-The report also highlights what's at stake for leadership. Half of organizations say board members or senior executives faced personal consequences following a cyberattack, including fines, loss of employment, or other penalties. As cyber risk increasingly becomes business risk, executive oversight has never been more important.
-
-AI-Informed Leadership Teams
-
-Board members don’t need to become AI engineers. But they do need enough understanding of AI to ask the right questions, evaluate risk, and provide effective oversight.
-
-AI literacy also shouldn’t stop with the boardroom or the security team. IT staff, software developers, and business leaders also need a foundational understanding of how AI systems work, the risks they pose, and how to mitigate those risks.
-
-For boards and C-suite leaders, education should focus on governance, risk oversight, executive accountability, policies, investment decisions, and regulatory implications. With a shared knowledge base across the organization, leaders can better balance the productivity and security benefits of AI with its potential risks.
-
-The goal is an AI-informed leadership team that can balance AI's potential with its risks and make informed decisions about adoption, investment, and governance.
-
-What Should Organizations Do Today to Build AI Literacy?
-
-Organizations should begin by assessing their current AI readiness and identifying knowledge gaps across leadership, security teams, IT, and the broader workforce.
-
-An organization’s board of directors must understand the benefits that come with AI adoption. First, AI can act as a force multiplier for short-handed IT security teams. It can improve operational efficiency and enable faster threat detection and response. But leadership must also recognize that realizing these benefits requires people with the skills to securely manage, oversee, and govern AI-enabled environments.
-
-Organizations can address these challenges through a combination of governance, workforce education, and structured skills development. Programs that provide AI education and cybersecurity certification can help employees build the knowledge needed to use, secure, and responsibly manage AI.
-
-The Fortinet Training Institute can help your organization acquire AI literacy and workforce education. Training programs are designed to support the acquisition of technical expertise across leadership, security teams, and the broader workforce.
-
-AI is already changing how organizations defend themselves. The next step is ensuring the people responsible for guiding that transformation understand both its opportunities and its risks.
-
-As organizations strengthen AI governance, another workforce challenge comes into focus: finding and developing professionals with the skills to secure, manage, and govern increasingly AI-enabled environments.
-
-Need more guidance on how to educate the board on AI? Explore Fortinet Training Institute programs and certification pathways to learn how Fortinet is helping close the cyber skills gap through accessible training, upskilling, reskilling, and workforce development."
 b7bf3c7fc84f,b7bf3c7fc84f,2026-11-04 14:00 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelLabs,AI Security,Article,"VerifiedIDA | Making LLM-Driven Reverse Engineering Inspectable, Continuable and Reusable",https://www.sentinelone.com/labs/verifiedida-making-llm-driven-reverse-engineering-inspectable-continuable-and-reusable/,"In cybersecurity, for example, defenders can analyze larger volumes of malware in less time, while attackers can misuse the same capability to considerably accelerate and scale...","Executive Summary
 
 SentinelLABS evaluated how frontier models reverse engineer binaries and annotate disassembler databases, finding recurring problems with inaccurate labels and incomplete analysis.
@@ -2424,6 +2512,7 @@ Confirm the agent is deployed, healthy, and in protect mode on every server and 
 Disclaimer
 
 Information contained herein is current as of October 29, 2026, and is subject to change as patch releases and threat activity evolve. Recipients should not rely solely on this report for security decisions and should consult with their security teams and SentinelOne account representatives for current guidance."
+2432e9e522f9,2432e9e522f9,2026-10-29 07:00 UTC,General Security News,SentinelOne,Google News: WWT,AI Security,Article,SentinelOne channel lead talks of AI security opportunity | Microscope,https://news.google.com/rss/articles/CBMitAFBVV95cUxOQzFjbzdPai1BOW12MTM1WERWNGVXVHBBa2s1U09mY05ZTUpwLXNheXc2NWtCQ2tfQ01KU3N3cmxueEx4bzRacHkyWWpZWGFienZ1N2ZLdXBlY2RVYjA4c1UxSXhmSWVPUnFrZG9ETUItcFpKRUlFMExHZEV6WTR1UFJlcnpzNWx0WXR0ZHd2bGZSd2VMT3Zkb1dfajNIeE9IZXdYNEg5M3ZZdHRrYjZ0TjY4X04?oc=5,,
 5a724f5fb9e1,5a724f5fb9e1,2026-10-28 13:00 UTC,"Attacks, Breaches & Threat Intel",SentinelOne,SentinelLabs,AI Security,Article,LABScon26 Replay | Keynote: A Sober Analysis of AI Impact,https://www.sentinelone.com/labs/labscon26-replay-keynote-a-sober-analysis-of-ai-impact/,"He concludes that at present the only good AI research is safety research, which he defines broadly to include economic and emotional security alongside computer security","In his LABScon 26 keynote, delivered in his inimitable comedic style, Harvard University professor James Mickens questions whether the scale of current AI investment is justified. Starting from US tech capex of roughly 1.4% of GDP in the second quarter of 2025, he argues that computers are already good enough, and notes that the world has so many CPUs and GPUs that they are put to work solving cryptocurrency puzzles to make imaginary money. More seriously, the AI models that investment is building, he says, grow increasingly opaque as their parameter counts rise.
 
 Mickens then cites research and incident reports on model behaviour, including models acting to prevent another model being shut down and recent sandbox escapes at OpenAI and other labs. On economics, he rejects the assumptions that AI will create more jobs than it destroys and that universal basic income will follow widespread automation.

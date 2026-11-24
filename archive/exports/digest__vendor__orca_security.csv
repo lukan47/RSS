@@ -1,4 +1,123 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+b8f29538166b,b8f29538166b,2026-11-24 13:00 UTC,"Attacks, Breaches & Threat Intel",Orca Security,Orca Security Blog,Vulnerability Management; Server & Workload Protection; Container Security; Threat Intelligence,Article,Caught by Behavior: How Orca Sensor Exposed a Cloud Intrusion in Real Time,https://orca.security/resources/blog/caught-by-behavior-how-orca-sensor-exposed-a-cloud-intrusion-in-real-time/,"From the exploited web app to the second wave, the attack raised Critical and High alerts in the customer’s Orca console as it unfolded, with the detections running in alert mode","Executive summary: Runtime behavior exposed what indicators missed
+
+No known indicator flagged this attack. Orca Sensor did, in real time.
+
+A CVE in a scanned package, a malware hash, a bad IP address or domain: known signals like these catch known threats. This intrusion brought none of them, so threat intelligence and CVE scanning had nothing to flag for what the attacker used. What gave it away was behavior.
+
+Orca Sensor flagged the shell commands the exploited web app started, through its Node.js remote code execution (RCE) detections, and kept flagging the attacker’s activity as it spread. In total, 18 behavioral detections fired, spanning seven MITRE ATT&CK tactics, and none of them relied on a known hash, IP address, domain, or CVE. From the exploited web app to the second wave, the attack raised Critical and High alerts in the customer’s Orca console as it unfolded, with the detections running in alert mode.
+
+Orca’s research team spotted the activity in the sensor data and proactively reached out to the customer to share the full picture of the attack and help their team scope and contain it.
+
+Where known indicators go silent, behavior speaks
+
+Orca Sensor is a lightweight eBPF sensor for runtime detection and response. It watches processes, files and network activity on hosts and in containers as they happen.
+
+This attacker brought nothing known:
+
+No hash to match. The binary they ran was not flagged by threat intelligence.
+
+No IP or domain to match. Neither the domain the binary was downloaded from nor the external address used in a reverse shell attempt was flagged by threat intelligence.
+
+No untrusted image. The containers they started used images from the company’s own private registry, so an image allowlist alone would not have blocked them.
+
+No CVE to scan for. The activity matched a flaw in the web app that had no public CVE at the time.
+
+What the attacker could not hide was behavior, and behavior is what the sensor watches.
+
+Known signals like these only work once someone has already seen that attacker or that flaw. Behavior describes what an attacker does, and that is much harder to change. Attackers can swap their tools, servers and entry points, but the steps they need stay the same: run commands, look for credentials, ask the cloud metadata service for access, try to break out of containers, and set up a way back in.
+
+That is why the detections that fired here were not written for this attacker or this flaw. They describe techniques, and they fired because the attacker used them. And runtime is where those steps happen, so the sensor sees what the attacker does, even when there is nothing known to match.
+
+As more attackers turn to AI agents that tailor their tools to every target and find flaws no one has reported yet, every attack can look brand new. Their behavior is what still gives them away.
+
+Attack timeline: From Node.js RCE to container escape and persistence
+
+Code execution in the web app. A self-hosted web app built on Node.js, running as root, started a shell that ran system recon commands. Two Node.js RCE detections fired on that first command, and a third fired minutes later when the attacker dropped a script in /tmp and ran it. In this environment, these detections fired only on the attack, not on the app’s normal activity. Every later alert on that server traced back to the app’s own process.
+
+Recon and secret hunting. Next, the sensor caught searches for SSH keys and cloud credential files, scans for etcd and the kubelet API, and requests to the cloud metadata service for the temporary credentials it can issue to a workload.
+
+Moving into other services. The attacker then ran commands inside other application containers, among them base64-encoded Python scripts that collected environment variables and listed running processes. In several containers, they also ran a hidden binary from /tmp that deleted itself right after it started.
+
+Breaking out to the host. The attacker started privileged containers that shared the host’s process namespace and mounted its filesystem, and used them to enter the host’s namespaces. On one host, they installed a copy of that binary under a disguised name, which then launched more privileged containers. They also tried to install system services to come back after a reboot.
+
+A second wave. After a quiet period, new containers appeared on hosts that had not been touched before. They downloaded the attacker’s binary and ran it. The same kind of behavioral detections caught the new activity, from reverse shell attempts to fresh requests for cloud credentials.
+
+Across the intrusion, 18 detections fired, spanning seven MITRE ATT&CK tactics:
+
+Tactic
+
+What the sensor caught
+
+Execution
+
+A web app starting shells that ran recon commands, a script dropped in /tmp and run, base64-encoded Python scripts, reverse shell attempts
+
+Discovery
+
+Commands checking which user was running inside a container, and connections probing internal services such as etcd, to map what else could be reached
+
+Credential access
+
+Searches for SSH keys and cloud credential files, running an application’s own code to pull its stored secrets, requests to the cloud metadata service
+
+Privilege escalation
+
+Entering the host’s namespaces and starting privileged containers
+
+Defense evasion
+
+Hidden files in /tmp and a binary named like a kernel process that deleted itself right after it started, both ways to stay out of sight on disk
+
+Persistence
+
+Privileged containers set to restart automatically, and attempts to enable system services from inside a container, all ways to keep or regain access
+
+Lateral movement
+
+Connections from shells and scripts inside containers to the kubelet API on several hosts, probing for a way to reach other workloads
+
+How process tree context tied every alert to the attacker
+
+The alerts carried the command line and the process tree behind each event, along with the host and the Linux user. For containers, they also carried the container name, image, and registry, and whether the container was privileged. That context is what turned separate alerts into one story. A credential search or a request to the metadata service did not stand alone: its process tree showed what had started it, whether that was an application’s own process or a binary the attacker had planted.
+
+The self-deleting binary is a good example: deleting the file does not stop the running program, so the sensor still recorded it as the parent of the commands that followed, which tied activity across many hosts back to the same tool.
+
+From the sensor data, the research team rebuilt the attack from the first alert onward, decoded the attacker’s base64-encoded scripts, and mapped the containers and hosts involved.
+
+One of the Node.js RCE alerts as it appeared in the Orca platform. The process tree shows the web app’s own Node.js process starting a shell that ran system recon commands as root. Identifying details and parts of the attacker’s commands are redacted.
+
+How real-time detection shaped the incident response
+
+Seeing the attack at an early stage shaped everything that followed. With those early and detailed alerts arriving in real time in the customer’s console, the research team used the same sensor data to piece the attack together as it unfolded, instead of working backward from a later alert. That meant they could reach out with the full picture while the attack was still in progress.
+
+The customer confirmed that no red team or penetration test was running. The team shared a timeline built from the sensor’s alerts, along with the affected containers and hosts, the files the attacker dropped, the domain and address they used, the persistence they left behind (system services and auto-restarting containers), and which secrets may have been exposed, to help the customer’s team scope and contain the activity. Using that picture, the customer’s team contained the attack, removing the persistence and the attacker’s containers.
+
+Runtime alerts live on the same platform as Orca’s cloud posture, identity, and vulnerability data. As a result, each alert appeared on the affected asset next to its exposure, vulnerabilities, and access, so the team saw the attack in full context in one place.
+
+How to harden cloud workloads against similar attacks
+
+A few practical steps make each stage of an attack like this harder:
+
+Run web apps with least privilege. Run them as a non-root user, with a read-only filesystem where possible, so a compromised app can’t easily drop and run its own tools.
+
+Limit access to the cloud metadata service. Block it for workloads that don’t need it, so a compromised container can’t collect cloud credentials.
+
+Keep long-lived secrets out of environment variables and files. Prefer short-lived credentials and a secrets manager, so a shell in the app finds little worth stealing.
+
+Block privileged containers and host namespace sharing. Allow them only where a workload truly needs them, and enforce that with policy rather than convention.
+
+Restrict access to cluster control services. Limit which workloads can reach etcd and the kubelet API, and disable anonymous kubelet access, so a shell in one container can’t easily map or control the rest of the cluster.
+
+Control outbound traffic. Let workloads reach only the destinations they need, which makes it much harder for an attacker to download tools or open a reverse shell.
+
+Watch behavior, not just indicators. Activity that breaks a workload’s normal pattern, such as a web app starting shells or a container running a newly dropped binary, can expose an attack even when nothing known is involved. Alert on it, and for high-confidence detections, consider stopping it as it happens.
+
+Detecting and stopping runtime attacks with Orca Sensor
+
+Orca Sensor goes beyond known indicators: even when an attacker brings nothing known, their behavior gives them away. In this intrusion, the detections fired across the attack, from the exploited web app to recon and secret hunting, credential access, the break-out from containers to their hosts, and persistence. Seeing the attack never depended on a single alert, and together the alerts told the story of how it unfolded. Orca’s Threat Investigator Agent can reconstruct that story automatically from the alerts and their context. In alert mode, the sensor caught this attack. Set to terminate, the same detections that raised these alerts can stop the malicious processes as they run, not just flag them, including the Node.js RCE detections that fired before the attacker reached the host.
+
+Runtime alerts in Orca’s Threat Detection dashboard."
 0f9394b0fe44,f8957f18a934,2026-11-19 16:11 UTC,Vulnerabilities & Patching,Orca Security,Orca Security Blog,Vulnerability Management,Article,"PHP Patches 7 Critical Flaws, Including Session and PHP-FPM Remote Code Execution (CVE-2026-115560, CVE-2026-129289)",https://orca.security/resources/research/php-patches-7-critical-flaws-including-session-and-php-fpm-remote-code-execution-cve-2026-115560-cve-2026-129289/,"0 (released with the fixes) These ranges apply to CVE-2026-115560, CVE-2026-129289 and most of the other vulnerabilities in the release; a few affect only some branches (see below)","On November 19, 2026, the PHP project released PHP 8.2.36, 8.3.37, 8.4.28 and 8.5.13, fixing 17 vulnerabilities. Seven are rated critical by the PHP project (CVSS 4.0 9.2), including CVE-2026-115560, a session serializer mismatch that can lead to remote code execution, and CVE-2026-129289, a PHP-FPM request smuggling flaw that lets an unauthenticated attacker forge a backend request and execute attacker-controlled PHP code. PHP 8.6.0, released the same day, already includes the fixes.
 
 PHP runs a large share of the world’s websites and web applications, in virtual machines, containers and managed platforms alike. CVE-2026-115560 was pre-announced in October, a few days after the PHP2Shell fixes (CVE-2026-109618, CVE-2026-109619), with the mitigation of disabling session upload progress. Today’s release publishes its full details and fixes it alongside 16 other vulnerabilities. Several of them need specific configurations, but the release as a whole affects every supported PHP branch.
@@ -1074,94 +1193,3 @@ Want to see which agents are running in your cloud and how far they can reach? B
 About Orca Security
 
 Orca Security delivers security for the companies that build. As cloud, code, AI and app generation expand the attack surface, Orca transforms security risk into the context teams need to act. The Orca Platform provides complete visibility across cloud, AI, and application environments, correlates risk across every layer, and prioritizes the exposures that matter most so organizations can remediate faster and innovate with confidence. Trusted by hundreds of organizations, including SAP, Autodesk, Gannett, Lemonade, and Digital Turbine, Orca is backed by leading investors including Temasek, CapitalG, ICONIQ Capital, and Redpoint Ventures. Learn more at orca.security and book a personalized demo."
-97eff7d7e13f,97eff7d7e13f,2026-11-10 13:00 UTC,General Security News,Orca Security,Orca Security Blog,AI Security; Cloud Risk Management; Server & Workload Protection; Identity Security Posture Management,Article,Shadow AI Generated Apps: Find Them in the Cloud and Code You Already Scan,https://orca.security/resources/blog/shadow-ai-generated-apps-find-them-in-the-cloud-and-code-you-already-scan/,"The Orca Research Pod recently found that 51% of organizations have adopted AI to build software, yet 81% have critical vulnerabilities in AI packages (Hacker Valley News, 2026)","The Orca Research Pod recently found that 51% of organizations have adopted AI to build software, yet 81% have critical vulnerabilities in AI packages (Hacker Valley News, 2026). In 2025, CVE-2025-48757 showed how a single missing database policy in AI-generated Supabase projects exposed data across more than 170 production apps.
-
-None of these apps went through a pull request or a security review. People outside engineering built them, often over a weekend, from accounts the security team had never seen.
-
-When we introduced AI AppGen Security, we made the case that AI app builders turned every employee into a builder, and that the platforms those apps run on need security built for how they work. We started with integrations for Claude Enterprise and Vercel.
-
-The first question we heard from security teams: how do I connect a platform I don’t know we use? Nobody files a ticket for a budget-forecasting app built on Lovable, and the marketing team’s campaign portal never reached architecture review. You can’t connect what you’ve never heard of.
-
-AI app builders leave fingerprints in the DNS, workloads, code, and cloud identities Orca already scans agentlessly. Orca now flags them, so you can find AI-built apps nobody told you about and see what data they can reach. Below, we walk through why your current tools miss these apps, how Orca finds them, and what to do once you know.
-
-Why the usual discovery paths miss AI-generated apps
-
-You’d expect at least one of your existing tools to catch these apps. Here’s why none of them do.
-
-Secure web gateways and CASBs see the visit, not the app. They can tell you an employee opened Lovable or Replit. They can’t tell you what was deployed, what data it holds, or whether it requires a login.
-
-SSPM sees sign-ups through your identity provider. It reads IdP logs and OAuth grants, which shows the SaaS your employees signed up for with a work email. An app built from a personal account never touches your IdP.
-
-AppSec scans the repositories you point it at. If a builder’s bot created the repo in a workspace security has never seen, nobody points anything at it.
-
-Cloud security sees the evidence but doesn’t connect it to the service. A CNAPP already inventories the DNS record, the IAM user, and the package on the VM. Until now, a subdomain resolving into a builder’s IP range was just an address, and an IAM user created by an app builder was just an IAM user. The data was there. Nothing tied it to the service behind it.
-
-Every one of these tools waits for someone to connect a system, a user, or a repo first. The apps that matter most are the ones nobody connected to.
-
-How does Orca find apps nobody reported?
-
-Services that run outside your environment still leave traces inside it. Orca already scans your cloud accounts, workloads, repositories, and external attack surface, so the traces are already in its data.
-
-A fingerprint is an observed trace that ties an asset you own to an external service. Orca stores each one in its unified data model, where you can query it like any other asset. Each one records the service, the type of evidence, the exact value that matched, and when Orca first saw it.
-
-To find these fingerprints, there’s no new agent to deploy, no vendor API to authorize, and nothing for the builder to opt into. Here’s where the evidence comes from:
-
-Your external attack surface. DNS records whose values point into a builder’s or host’s infrastructure, vendor domain-verification records, and response headers showing a site is set up to load inside a builder’s live editor.
-
-Your workloads. SideScanning already inventories installed packages and reads files across VMs and container images. Some builder packages only work inside the builder’s own development environment, so if one shows up on a workload, the project started there. File markers matter as much as packages, because production builds often strip out dependency manifests. Without file markers, package inventory can come back empty on the very images running an AI-built app.
-
-Your code repositories. When an AI builder writes code, it commits under its own bot identity. That identity survives every human edit that follows, so the commit author is the most reliable sign a builder was involved.
-
-Your cloud identities. When an app builder or its host connects to your cloud, it leaves an identity behind: an IAM user or role it authenticates as, a trust policy that lets it in, and a permissions policy naming what it can read. It’s also the only source that tells you what company data the service can reach.
-
-Orca matches what a record points to, not what it’s called. A subdomain named lovable-test that points to a private IP doesn’t get flagged, and an app hosted on Vercel isn’t counted as built with v0. A discovery screen that flags every string with a vendor name in it gets muted within a week.
-
-What can security teams do with the results?
-
-Finding the app is the first step. Next you need to know what it can touch, and get it covered.
-
-Detect: see every AI app service in use, and the evidence behind each one. Findings appear in three places:
-
-AI AppGen Fingerprints have a dedicated Service Fingerprints view grouped by service type and then by service.
-
-On each asset’s page, every fingerprint on that asset is listed with the value that matched.
-
-Dashboard widgets summarize what’s detected, what’s connected, and posture for connected services.
-
-How to find AI-built apps in your cloud environment with Orca. People across a company ship apps with AI app builders such as Lovable, v0, Bolt and similar tools, often without security teams knowing. This demo shows how Orca finds these apps and what they can reach. AI app builders leave evidence in cloud environments, code and DNS. Orca detects these fingerprints from data it already scans, with no agent, vendor API or opt-in required. Fingerprints are grouped by service, and the demo shows fingerprints from Base44, Supabase, Lovable and other AI platforms. For services that Orca integrates with, connect the account to secure the AI platform the same way the cloud is secured: identify issues, prioritize risk and implement remediation. Drill into the asset where a fingerprint was detected to see which other AI app services are tied to it. Set up dashboard widgets to track the footprint of AI-built apps in the cloud environment and manage risk while enabling AI innovation across the business. The demo ends with an invitation to discover shadow AI platforms in the cloud and to contact the Orca team to get started.
-
-Connect: turn a finding into coverage. Where Orca supports a platform you haven’t connected, the fingerprint comes with a Connect action. Detection shows you which connections are worth making. Connecting turns on posture checks inside the platform, like flagging Supabase projects with row-level security turned off.
-
-Why the evidence matters more than the count. Picture two Lovable apps, both found by Orca on the same day:
-
-A marketing landing page. It has a DNS record pointing at the builder and nothing else: no cloud identity and no access to company data.
-
-An internal expense tracker. It has the same DNS record, plus an IAM user Lovable created in your AWS account, with a policy that can read a bucket of customer records.
-
-A tool that counts apps tells you there are 2. What you need to know is that one of them can read customer data.
-
-That’s why the cloud identity fingerprint matters most to a CISO. The policy attached to a builder’s identity has a Resource element that names the buckets, datasets, and query workgroups it can reach.
-
-Finding the AI app builder is only half the answer. The other half is naming the crown jewels the AI-built app can read.
-
-Fingerprints are findings, not alerts. They don’t open alerts or change an asset’s risk score. They give you an inventory to govern from: decide which AI app builders your company allows, then use the Service Fingerprints view to spot the ones you don’t.
-
-One limit to know about: DNS fingerprints cover only the zones Orca can read. The dashboard shows whether your DNS provider is connected, so a zone Orca can’t see never looks clean.
-
-Which services does Orca detect?
-
-Orca fingerprints these services:
-
-AI app builders: Lovable, Vercel, v0, Replit, Base44, Netlify, and Bolt
-
-Data services: Supabase
-
-Where Orca has integrations set up with these services, security teams can connect and secure those AI platforms.
-
-Your builders will keep shipping apps nobody asked security about. Now you’ll know when they do, and what those apps can reach.
-
-Want to see which AI app builders are already running in your environment? Request a demo and we’ll walk you through it.
-
-About the Orca Platform
-
-Orca Security delivers security for the companies that build. As cloud, applications, AI and app generation expand the attack surface, Orca transforms security risk into the context teams need to act. The Orca Platform provides complete visibility across cloud, AI, and application environments, correlates risk across every layer, and prioritizes the exposures that matter most so organizations can remediate faster and innovate with confidence. Trusted by hundreds of organizations, including SAP, Autodesk, Gannett, Lemonade, and Digital Turbine, Orca is backed by leading investors including Temasek, CapitalG, ICONIQ Capital, and Redpoint Ventures."
