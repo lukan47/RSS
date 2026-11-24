@@ -1,4 +1,153 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+f53e522f6696,f53e522f6696,2026-11-24 21:30 UTC,Product & Roadmap,,AWS Security Blog,Network Security,Article,AWS Network Firewall introduces automated internet firewall mode (Preview),https://aws.amazon.com/blogs/security/aws-network-firewall-introduces-automated-internet-firewall-mode-preview/,"For outbound-only connectivity, the firewall first inspects the traffic and then performs NAT, so your rules and logs see each workload’s private IP address","AWS Network Firewall now offers automated internet firewall mode (Preview). In this mode, Network Firewall applies your centrally defined rules to traffic at the internet gateway of each of your virtual private clouds (VPCs). It also performs built-in network address translation (NAT) for outbound-only connections. A subnet that reaches the internet needs only one route, directly to the internet gateway. You no longer need to deploy firewall endpoints and NAT gateways in each VPC and configure the routes between them and the subnets. If you’re new to internet traffic inspection, you can start with AWS managed rule groups for Network Firewall. AWS security experts maintain and update these rule groups to help protect your workloads against changing threats. You can deploy these managed rule groups centrally across your environment.
+
+With automated internet firewall mode, you can:
+
+Inspect traffic at the internet gateway – Each VPC gets its own firewall for inbound and outbound IPv4 and IPv6 traffic, with built-in NAT for outbound-only IPv4 connections.
+
+Manage centrally, inspect in each VPC – You define policies in AWS Network Security Manager or start from an AWS managed template. Each VPC’s traffic passes its own firewall, so each VPC you add brings its own inspection capacity. The same central policy also works for VPCs with overlapping Classless Inter-Domain Routing (CIDR) ranges.
+
+Extend coverage to new VPCs – You can create a scope that includes all existing and future VPCs, so your policy applies to new VPCs when teams create them.
+
+In this post, we explain how automated internet firewall mode works and how it fits your existing architecture. We also walk through the steps to deploy it across your environment.
+
+How automated internet firewall mode works
+
+In automated internet firewall mode, Network Firewall applies your rules at the internet gateway of each VPC. Before this launch, inspecting a VPC’s internet traffic meant routing each subnet through a firewall endpoint. Resources that needed outbound-only connectivity also went through a NAT gateway. This mode helps simplify that model by moving inspection to each VPC’s internet gateway. Each subnet now has one route to the internet gateway, where the firewall inspects the traffic and performs built-in NAT (Figure 1).
+
+Figure 1: Outbound traffic before and after automated internet firewall
+
+Each VPC gets its own firewall, not a share of one. When you use VPC endpoint associations to protect multiple VPCs with one firewall, those VPCs share that firewall’s capacity in each Availability Zone. In automated internet firewall mode, each VPC’s firewall supports throughput of up to 100 Gbps in each Availability Zone (Service quotas). It also works when VPCs have overlapping CIDR ranges, because their traffic doesn’t meet in a shared inspection network where the addresses would conflict.
+
+The firewall inspects inbound and outbound traffic. For outbound-only connectivity, the firewall first inspects the traffic and then performs NAT, so your rules and logs see each workload’s private IP address. Built-in NAT translates outbound IPv4 connections from resources without a public IP address, and IPv6 traffic isn’t translated. If your destinations accept only allowlisted source addresses, an Amazon VPC IP Address Manager (IPAM) policy lets you choose the NAT addresses that automated internet firewall mode uses (NAT for outbound traffic).
+
+The firewall uses Network Firewall Next Generation firewall policies. You can start from AWSManagedTemplateIGWFirewallBaseline, an AWS managed template that AWS security experts maintain. You can then add AWS managed rule groups and your own rule groups.
+
+Automated internet firewall mode only inspects traffic that crosses the internet gateway. For traffic between VPCs and to on-premises networks over AWS Direct Connect or AWS Site-to-Site VPN, we recommend a transit gateway-attached Network Firewall.
+
+Subnet connectivity options
+
+Before this launch, a public subnet had a direct route to the internet gateway, and its resources used public IP addresses, so they could connect out and accept inbound connections. A private subnet had no direct route, and its resources reached the internet through a NAT gateway. With automated internet firewall mode, a subnet that reaches the internet can route 0.0.0.0/0 directly to the internet gateway, so the route table no longer separates public from private. Instead, each subnet’s connectivity type decides how its resources reach the internet. You set it in the Network Security Manager policy, not on the subnet. Table 1 maps each type to the model you know.
+
+Connectivity type
+
+Works like
+
+What happens
+
+Flexible (recommended)
+
+A public and a private subnet in one
+
+A resource with a public IP address, such as an Elastic IP address, gets bidirectional access, as in a public subnet. A resource without one gets outbound-only access through built-in NAT, similar to a private subnet.
+
+Bidirectional
+
+A public subnet
+
+Resources with a public IP address connect out and accept inbound connections. Resources without one can’t reach the internet.
+
+Outbound-only
+
+A private IPv4 subnet behind a NAT gateway, or an IPv6 subnet behind an egress-only internet gateway
+
+Unsolicited inbound connections are dropped. Resources without a public IP address connect out through built-in NAT, and resources with one keep their own address.
+
+Excluded
+
+A subnet without a firewall
+
+Traffic bypasses the firewall and built-in NAT.
+
+The firewall inspects traffic in each type except excluded (Figure 2). Each policy sets one default connectivity type for all subnets in scope. You can override it for specific subnets based on tags or on Amazon Resource Name (ARN). When a subnet matches more than one override, the first one in the list applies.
+
+Figure 2: Flexible, bidirectional, and outbound-only subnets are inspected. Excluded subnets aren’t.
+
+Connectivity types also decide which inbound connections reach your resources. The firewall inspects inbound connections to resources with a public IP address in flexible and bidirectional subnets, such as the Network Load Balancer for a non-HTTP service in Figure 3. Figure 3 also shows the outbound path, where instances without a public IP address connect out through the firewall and then built-in NAT. For web applications and APIs, we still recommend AWS WAF on Amazon CloudFront in front of an Application Load Balancer. You can set that load balancer’s subnet to excluded so Network Firewall doesn’t inspect the same request again. Keep in mind that excluded applies in both directions, so any outbound traffic from that subnet also bypasses the firewall.
+
+Figure 3: Inbound and outbound traffic showing inbound, outbound, and excluded connections
+
+Managing automated internet firewall mode
+
+You manage automated internet firewall mode in AWS Network Security Manager. With AWS Organizations, a central security team deploys policies from the Network Security Manager administrator account to the whole organization, to organizational units (OUs), or to specific accounts. Network Security Manager also supports a single-account model, where it applies policies only to that account’s VPCs. You can start from the Network Firewall console or the Network Security Manager console, but the firewall itself is read-only outside Network Security Manager.
+
+Network Security Manager uses three components (Figure 4):
+
+Policy – Combines rules and templates with the connectivity type, enforcement mode, logging, and priority. Rules are the building blocks. A traffic inspection rule decides how the firewall handles traffic, and a firewall configuration rule sets options such as the enforcement mode or logging. A template is an ordered, reusable group of rules, such as AWSManagedTemplateIGWFirewallBaseline, that you can share across policies.
+
+Scope – Selects your organization, OUs, accounts, or VPCs.
+
+Deployment – Binds a policy to a scope. Network Security Manager then creates and manages a firewall in each VPC in scope.
+
+Figure 4: A deployment binds a policy to a scope, and Network Security Manager creates a firewall in each VPC in scope
+
+This model matters most when you manage many VPCs. Because Network Security Manager applies the policy at the internet gateway, the firewall is designed so that VPC owners and subnet owners without the proper privileges can’t bypass inspection by changing routes. Subnets set to excluded and Availability Zones where automated internet firewall mode isn’t supported aren’t inspected.
+
+Many organizations want one security baseline everywhere, while some accounts, organizational units, or applications need rules in addition to the baseline. To do this, you create two policies, each deployed to its own scope. The organization policy holds a baseline template, and the Account A policy holds the same baseline template plus Account A’s rules (Figure 5). The template lets you maintain the baseline rules once and reuse them in both policies. Where policies overlap, the policy with the lower priority number applies in full, and the policies don’t merge. In Account A, the Account A policy (priority 100) wins over the organization policy (priority 1000), so it must include the baseline template. Its enforcement mode, logging, and connectivity type also replace the organization policy’s. To learn more, see How AWS Network Security Manager works.
+
+Figure 5: The Account A policy, priority 100, takes priority in Account A. Other accounts get the organization policy, priority 1000.
+
+Getting started
+
+We recommend starting in monitor mode, especially in VPCs with existing workloads. In monitor mode, the firewall logs what your rules would do but doesn’t drop traffic because of them. After the logs show the results you expect, switch the policy to enforce. In this example, we create a policy in monitor mode in six steps.
+
+Start from the AWS Management Console for Network Firewall. On the Firewalls page, open the Internet firewalls tab and choose Create in AWS Network Security Manager. The Quick create and deploy page opens in the Network Security Manager console. Select Network Firewall automated internet firewall as the firewall type.
+
+Figure 6: Create a new internet firewall
+
+Define protections. Choose Manage templates and add AWSManagedTemplateIGWFirewallBaseline. Under Enforcement mode, select Monitor, and choose destinations for alert logs and flow logs.
+
+Figure 7: Define protections and set destinations for logs
+
+Enter a name for the policy and check its Policy priority. Where policies overlap, the lower number takes priority. The new policy gets a priority that evaluates after your existing policies of the same firewall type, and you can change it later in the policy editor.
+
+Figure 8: Set the policy details
+
+Set the scope. For example, you can set the scope for Accounts and OUs to include the entire organization and the scope for VPCs to include all existing and future VPCs. To learn more about scopes, see How AWS Network Security Manager works.
+
+Figure 9: Set the scope
+
+Choose the Subnet connectivity type. For example, select Flex (recommended).
+
+Figure 10: Choose the subnet connectivity type
+
+Review your settings and choose Create and deploy. Cross-account visibility lets Network Security Manager see resources in the accounts in the scope.
+
+Figure 11: Review and deploy
+
+Network Security Manager then creates a firewall at the internet gateway of each VPC in scope. For the full steps, including the organization baseline with account-specific rules, see Getting started with automated internet firewall.
+
+Migrating existing VPCs to automated internet firewall mode
+
+When you deploy automated internet firewall mode to an existing VPC, you might not need to change routes on day one. With the flexible type, the firewall inspects existing resources and keeps the addresses they already use (Figure 12):
+
+Instance with an Elastic IP address – The firewall inspects its traffic, and the instance keeps its Elastic IP address.
+
+Instance behind a NAT gateway – The firewall inspects the traffic after the NAT gateway translates it and doesn’t translate it again. Your rules and logs see the NAT gateway’s private IP address as the source.
+
+Instance with no public IP address in a subnet that routes to the internet gateway – The firewall inspects its traffic, and built-in NAT gives it outbound-only access, which it didn’t have before. To keep resources without a public IP address isolated from the internet, set the subnet’s connectivity type to bidirectional instead. Resources with a public IP address then keep bidirectional connectivity, and resources without one can’t reach the internet.
+
+Figure 12: Day-one source addresses in an existing VPC with Flexible subnets
+
+Later, at your own pace, you can retire each NAT gateway by routing its subnets directly to the internet gateway. Built-in NAT then takes over. The source address changes to one that automated internet firewall mode assigns or one from your IPAM policy pool, so update allow lists that name the NAT gateway’s address first. Your logs then show each workload’s private IP address. If you inspect inbound or outbound internet traffic today with Network Firewall endpoints, automated internet firewall mode can take over that inspection. After you confirm that your new policy covers the same rules, you can remove the endpoints and routes that you use for internet traffic. For each architecture, see Working with existing architectures.
+
+Availability and pricing
+
+Automated internet firewall mode (Preview) is available in all AWS commercial Regions. For pricing, see AWS Network Firewall pricing. During the preview, some features and instance types aren’t supported. For the list, see Automated internet firewall. Features, service quotas, and console labels can change during the preview. Your use of the preview is subject to the Betas and Previews section of the AWS Service Terms.
+
+Conclusion
+
+In this post, we showed you how automated internet firewall mode applies Network Firewall inspection and built-in NAT at the internet gateway of your VPCs. You define and control policies centrally in Network Security Manager. It is designed so that VPC owners without the proper privileges can’t route around it, and your policy applies to new VPCs in scope when teams create them. To learn more, see Automated internet firewall in the Network Firewall Developer Guide.
+
+If you have questions about this post, contact AWS Support or start a new thread on AWS re:Post.
+
+Lawton Pittenger
+
+Lawton is a Worldwide Security Specialist Solutions Architect at AWS, based in New York City. He helps customers design and implement effective network security controls, and works with AWS service teams to improve security services based on customer feedback. Outside of work, he enjoys skateboarding, snowboarding, and spending time in nature.
+
+Akshay Choudhry
+
+Akshay is a Principal Product Manager in the Networking and Security Services Team at Amazon Web Services. He’s focused on making virtual private clouds more intuitive and secure for the millions of customers running their workloads on AWS. In his free time, he enjoys exploring the outdoors, trying out new restaurants, and spending time with friends and family."
 90629ea52632,90629ea52632,2026-11-24 13:30 UTC,Product & Roadmap,Anthropic,SecurityWeek,AI Security,Article,Anthropic Expands Enterprise Safeguards for Detecting AI Misuse,https://www.securityweek.com/anthropic-expands-enterprise-safeguards-for-detecting-ai-misuse/,"EFS is currently available via the Claude Platform, AWS, and Google Cloud, with Microsoft Foundry integration in the works","Anthropic on Monday announced the public beta of Enterprise Frontier Safeguards (EFS), a system designed to help organizations detect malicious use of AI.
 
 Unveiled in September, EFS has been developed with input from over 100 Anthropic customers, with companies such as Stripe and Salesforce evaluating it in private beta. A quarter of Fortune 100 companies helped develop EFS.
@@ -549,7 +698,6 @@ How the Claude Code team ships
 We run Claude Ship on many of our own pull requests. One of the biggest changes is who can act on customer feedback. For example, a product manager on the Claude Code team can now read a piece of feedback, talk through ideas and tradeoffs with Claude Tag, have it open a PR, and move on to the next thing while Claude Ship takes it through review, fixes, and an approval decision.
 
 Recently, a customer was confused because our Analytics API documentation implied an Admin key could pull Pro and Team usage. The PM asked Claude Tag whether a fix was in flight, and it opened one. Code Review found nothing blocking, a docs reviewer signed off, Claude Approvals passed, and the fix merged that same evening."
-7f0c97d6e73a,7f0c97d6e73a,2026-11-21 00:48 UTC,Product & Roadmap,SonicWall,Google News: SonicWall,Network Security,Article,SonicWall urges retirement of generation 6 firewalls due to security risks,https://news.google.com/rss/articles/CBMipwFBVV95cUxPYU1xNXdLYjRRTEdwRjgzbWtpMEhFazFPM0VBckR2Y2NVb21EMWp4VUJjN25BRXFKS3lDWk5hYWt2YXBDQWRKYkt0ZGtySWxEd3psM19BOTZld2c2R1J4LXpUTXFQeUdNZGJWb1B0WHZPcE1JNlF4V0dKR2lyRWdxak9sTGJsc2hlNmNMSl93T0tZaFd4eTlxWEJqM3J2N0JFTHVxN0pFUQ?oc=5,,
 97b80bda2795,97b80bda2795,2026-11-20 13:51 UTC,Product & Roadmap,,Dark Reading,N/A,Article,"Microsoft Debuts Offensive, Defensive Security Tools for the AI Era",https://www.darkreading.com/endpoint-security/microsoft-offense-defense-ai-security-tools,,
 1d2d500d88aa,1d2d500d88aa,2026-11-20 00:00 UTC,Product & Roadmap,Sophos,Sophos Blogs,Network Security; Vulnerability Management,Article,Introducing the new Sophos NDR,https://www.sophos.com/en-us/blog/introducing-sophos-ndr,"As user behaviors are increasingly obfuscated by encryption and attackers are increasingly hiding their activities in ‘living off the land’ techniques, NDR will be critical in...","Attackers don’t need to compromise every security control; they just need to exploit a gap. As users become more distributed, applications and data spread across hybrid environments, and unmanaged and agentless assets proliferate, security teams face an increasing number of visibility gaps that attackers can exploit.
 
@@ -854,8 +1002,6 @@ Application security: GitHub Code Scanning, GitHub Dependabot, GitLab, Veracode 
 Asset inventory: ChromeOS, Asimily
 
 Learn how to set up the Semperis connector and check out all available Tenable One connectors."
-6b8eded089d3,6b8eded089d3,2026-11-19 13:48 UTC,Product & Roadmap,EY,Google News: EY,N/A,Article,EY US introduces Assurance Forward Deployed Engineers,https://news.google.com/rss/articles/CBMimwFBVV95cUxQMjFCZHZtVGhMRU5PYXFUQ0RwRUJsYk5Lb1ZCVDR3YnhCSzlyTVFpWUg5T2FlbkhJamJOUS1PMHFTRkVUTlByY2U0S3l6RE5hU1RtdE8tUzJ3ay1OWG82MGM4TVZiZlBhRmJHdFVDZ3lnNkFiV2NjZE1JMlE2UEg0WS1UUXU2WUFzaGZSMGwzNXQwWktGbEszeW5COA?oc=5,,
-2fd9f7f2c08c,2fd9f7f2c08c,2026-11-19 08:15 UTC,Product & Roadmap,ExtraHop,Google News: WWT,AI Security,Article,Agentic SOC Alliance launches nine CISO-led groups,https://news.google.com/rss/articles/CBMijAFBVV95cUxOTl9HcDBQSGx2eVhjTW55YUlYM0pSQzA0QVZ1MTNDRXBPQWtBY09hSURzR3dKYkc1UklHSW1fMU9wWlJNei1YZ0FkcUJuNURvY1p4aXU2dUpxcjF6eGp4MmNvcXNSZXFxYWhuT2N3bXU0NTA1Sng3Q3lzLU82Y1EzOG9SOUdUbFlIV0s5Yg?oc=5,,
 4ac5f63540a0,f653dee337ce,2026-11-19 00:00 UTC,Product & Roadmap,Secureworks,Secureworks Taegis Release Notes,Identity Security Posture Management; Threat Intelligence; Endpoint Security,Article,"November 19, 2026",https://docs.taegis.secureworks.com/release/notes/#3929-november-19-2026,"22 (October 1, 2026)🔗 Features AI Expression Assistant: The new AI Expression Assistant, which helps you create CEL expressions from natural language descriptions in supported...","Release Notes for XDR🔗
 
 3.9.27 (November 5, 2026)🔗
@@ -1567,8 +1713,6 @@ Detection Flow Widget: The Tenant and Tenant ID columns in the expanded view of 
 Features
 
 Sophos Endpoint Agent: Sophos Agent for macOS is now available for all XDR tenants. For more information, see So [truncated for CSV - full text is in the JSON export]"
-6cca5c0ed5c4,6cca5c0ed5c4,2026-11-18 20:29 UTC,Product & Roadmap,KPMG,Google News: KPMG,N/A,Article,"KPMG Launches KPMG Vultron, Providing Clients with Frontier AI Cybersecurity Capabilities and Always-On Cyber Defense",https://news.google.com/rss/articles/CBMic0FVX3lxTE5HM3ZqNW9UdENDdnFHNDFYbS1laTVIaTFUZjRyMUxTSlBQNFlST1lsYVdra2JHMl9XUFNCRVVWMVVnbFlMNENkcnpXNGstMW93aXRQRmRHOG9sa0piSy1aUHZ2aHkyRVVHSmRGLXEtaS1qZ1E?oc=5,,
-d89c78b50bc6,d89c78b50bc6,2026-11-18 15:40 UTC,Product & Roadmap,EY,Google News: EY,AI Security,Article,EY announces EY Agentic Cyber Defense Center to help AI-powered enterprises scale secure operations,https://news.google.com/rss/articles/CBMi2AFBVV95cUxQUWxtX3Z6Slp5N3YwV0oyWmhqNmRtOGtBVmpCaTJWQldxS3lDQmprNnNNa1FLcUxad3pHRzBsVWp6WlBkLUNNRnFXZUJMSllaSHlfRjQ2MTRObWlScDlXaC1udzlMQWh6U2NFUWRpaHc5RXJmLTlEM1A2NjliS2IyLXFCUjJjYzc3a1dKZnhxdHAzd195amRuWGJSQ0doZmNRNlRBd05vM1h1TXhwRXU5a0JmSmttQ2E4ZldocGRtV1ZqYjliLTRCUVFVWV9zWjhSOHlzdUw1LTI?oc=5,,
 799c6f95369b,799c6f95369b,2026-11-18 14:54 UTC,Product & Roadmap,Secureworks,CSO Online,AI Security; Vulnerability Management; Code Security; Threat and Exposure Management,Article,OX Security Launches OX Radar and Response Center to Show Companies Which Cyber Threats Actually Affect Them,https://www.csoonline.com/article/4250228/ox-security-launches-ox-radar-and-response-center-to-show-companies-which-cyber-threats-actually-affect-them-2.html,"For each supported incident, the Response Center indicates whether a vulnerability has been detected in the customer’s environment, provides evidence of its potential...","New technology monitors critical vulnerabilities and supply chain threats, automatically assessing customer exposure and guiding remediation
 
 OX Security, a leader in AI-native application protection, today announced the launch of OX Radar and Response Center, giving security teams one place to track high-priority cyber threats, determine whether their organizations are affected, and manage remediation.
@@ -1630,7 +1774,6 @@ The connector adds to Recorded Future’s Watch List automation capabilities. Cu
 
 Figure 1: The Tech Stack Watch List populated automatically from the tools you already run. Attack Surface Intelligence in this example. Products appear as they’re discovered, with no manual updates."
 4e3270afc2f4,4e3270afc2f4,2026-11-17 17:45 UTC,Product & Roadmap,,OpenAI Blog,N/A,Article,Introducing GPT-6.2 Astra and Sol,https://openai.com/index/introducing-gpt-6-2-astra-sol,,
-62f1e5d46d2d,62f1e5d46d2d,2026-11-17 15:25 UTC,Product & Roadmap,SonicWall,Google News: SonicWall,Network Security,Article,SonicWall introduces AI-driven firewall assessment tool,https://news.google.com/rss/articles/CBMikAFBVV95cUxPYkFyRlFnR2pnUVc4UXFMOXNyeWZfYlZnaGpVeFR4YTY0YllveHFMM0p5R3NOZHJtS2hSeU9qZ1Z5ejNidTJjRjFwY0tVTVgyQ1RtY3RZbExVWmptaEV2a0xZN1B5c0o5eXhvRXFVeE94UzN1LWhTOWx6ZDUzU1lyV0s3MDVQODhRaG9ka2VvSWM?oc=5,,
 5b0990234ddb,5b0990234ddb,2026-11-17 13:14 UTC,Product & Roadmap,Cato Networks,Cato Networks Blog,AI Security; Data Security Posture Management; Email and Collaboration Security,Article,Introducing Cato AgentSense: Stop Unsafe Agent Actions Before They Execute,https://www.catonetworks.com/blog/cato-agentsense-stop-unsafe-agent-actions-before-they-execute/,"AgentSense stops unsafe actions before an agent acts, starting with Untrusted Influence Detection, which targets one of the most exploited weaknesses in agents today: they can’t...","Zero Trust was built for people. It assumes that once a verified person has the right access, their judgment governs what they do with it. And it works for humans: an employee who gets an email asking them to send the customer list to an unknown address would at least pause.
 
 AI agents don’t have that judgment. They run commands, move data, and change systems on their own, faster than anyone can review, and they act on instructions they pick up along the way, including ones an attacker planted. An agent can hold valid privileges and still take unsafe actions outside its authorized task.
@@ -1696,7 +1839,6 @@ Think you can steer it anyway? AgentSense has already been tested and validated 
 AgentSense is available as part of Cato AI Security for Users and Local Agents. To learn more, visit catonetworks.com/platform/agentsense/
 
 The post Introducing Cato AgentSense: Stop Unsafe Agent Actions Before They Execute appeared first on Cato Networks."
-c852fc91fb0b,c852fc91fb0b,2026-11-17 08:00 UTC,Product & Roadmap,EY,Google News: EY,N/A,Article,EY India announces sixth cohort of Executive Program on Board Effectiveness,https://news.google.com/rss/articles/CBMiuAFBVV95cUxQMF9INEVvaVRKV3VpcjZUUGxrSFBGOE10SUtZQ2JLcUJWSGZRcWJQb2ZuODc5ODBmTFJUVUZHRUZJaERRRV94dFBkOTU0ZVNFS1BKVHo5emNyUFdZeVpCTGh6SHBReXhHdXRITnJ0X1h6NXhtaWJlN1hCajcxYWxTLXZZR3hMS3dHMzQ1QmhmVjhCaGlkT1ZNUFhFRHlPZzRITnNDTWU1SGdzUzNCcVM4LWdkUUdjWERp?oc=5,,
 f3bd52a76f1d,b831185d2433,2026-11-17 08:00 UTC,Product & Roadmap,,OpenAI Blog,AI Security,Article,Introducing ChatGPT for Sales,https://openai.com/index/introducing-chatgpt-for-sales,,
 6efd128e1cb1,6efd128e1cb1,2026-11-17 07:02 UTC,Product & Roadmap,,Socket,Code Security; Vulnerability Management,Article,pnpm Introduces New Lockfile Format to Reduce Git Merge Conflicts,https://socket.dev/blog/pnpm-introduces-new-lockfile-format?utm_medium=feed,"Incompatible tools could omit packages, misidentify resolved versions, or fail to process the dependency graph, potentially affecting vulnerability detection and other supply...","pnpm has introduced an experimental lockfile format designed to reduce Git merge conflicts by changing how dependency relationships are recorded. The new format, available starting with pnpm 12.19.0, previews changes planned for pnpm 13 and is available as an opt-in setting.
 
@@ -1739,41 +1881,6 @@ Although v13 remains valid YAML, tools that expect separate packages and snapsho
 Successfully parsing a lockfile does not guarantee that a tool can accurately reconstruct its dependencies. Incompatible tools could omit packages, misidentify resolved versions, or fail to process the dependency graph, potentially affecting vulnerability detection and other supply chain analysis.
 
 The new format does not introduce additional security protections. Its primary purpose is to reduce merge conflicts, but its eventual adoption as the default in pnpm 13 will require compatible tooling across the JavaScript ecosystem."
-e166334afbaf,e166334afbaf,2026-11-17 00:00 UTC,Product & Roadmap,Sophos,Sophos Blogs,Endpoint Security,Article,Sophos Endpoint adds boot-time driver protection built on the Windows endpoint security platform,https://www.sophos.com/en-us/blog/sophos-endpoint-adds-boot-time-driver-protection-built-on-windows-endpoint-security-platform,"Sophos Endpoint already blocks known malicious drivers as Windows starts, using an integration with the Early Launch Antimalware (ELAM) security feature","Attackers are moving faster. As the Sophos Exploits Explained whitepaper shows, AI is making it quicker and easier for adversaries to discover vulnerabilities and turn them into working exploits. When attacks move this quickly, there isn’t always time to wait for a person to step in. The laptop, desktop, or server under attack often must stop it on its own. That makes protection on the device a critical line of defense, and it’s why endpoint protection is a top priority at Sophos.
-
-To stop the most dangerous attacks, you need to see what Windows does at its deepest level, starting the moment a device turns on. Drivers are among the most trusted software on a Windows device. Many run at the core of the operating system, and some start before almost anything else, which attackers know well. Malware that poses as a driver can take hold before most security software even starts. Sophos Endpoint already blocks known malicious drivers as Windows starts, using an integration with the Early Launch Antimalware (ELAM) security feature.
-
-How Sophos handles deep access to Windows
-
-Sophos invests heavily in ensuring the appropriate level of access to Windows to protect against the adversary. Our engineers work at the lowest levels of the operating system, where one mistake can affect the whole device, not just a single app. So we test every change thoroughly, release updates in stages, and watch closely as they roll out. We want strong protection that doesn’t get in the way of the people who rely on those devices to do their jobs.
-
-New: boot-time driver protection on the Windows endpoint security platform
-
-The Windows endpoint security platform from Microsoft gives security companies a way to get deep visibility and control while reducing reliance on kernel-mode code. Security products can now watch for threats and act on them from user mode, the same space where everyday applications run, instead of placing more of their own code at the core of Windows. With less security code at the core, a failure is less likely to affect the whole device. Microsoft also built in recovery. If a security product or protection rule causes a problem during startup, Windows includes recovery mechanisms designed to restore the system.
-
-Today, we’re announcing the first Sophos integration with the platform. Starting in the fourth quarter of 2026, we extend the existing boot-time protection for customers running Windows 11 to block malicious or untrusted drivers as Windows starts, using Sophos technology built on the Windows endpoint security platform. Sophos identifies each driver by a unique digital fingerprint of the file, so renaming a driver won’t let it slip through. Customers get boot-time protection on a platform designed to keep devices stable.
-
-“Deep access to Windows provides defenders with a meaningful advantage. Our engineers have spent years mastering how Windows works at its core so we can stop attackers at the earliest possible moment. Every protection we ship must do two things: stop the threat and keep our customers’ businesses running. Boot-time driver protection on the Windows endpoint security platform does both. It strengthens protection at startup and reduces the risk that a security update ever disrupts a customer’s device.”– John Peterson, CTO, Sophos
-
-Turning it on
-
-Customers decide when and where to turn it on. Customers can switch to the new method or stay with the startup protection they rely on today.
-
-Sophos Fusion logs every startup block, so teams have a record when something needs a closer look. Endpoint Self Help, the Sophos Endpoint troubleshooting tool, shows the installed driver version and the policy settings in use. A good way to start is with a small group of devices. Check the results, then roll it out more widely.
-
-Working with Microsoft
-
-Sophos has worked closely with Microsoft on the platform since the Windows Endpoint Security Ecosystem Summit in September 2024, where Microsoft and security partners agreed on a shared goal of making Windows more reliable without weakening security. Sophos engineers helped shape the platform by sharing what we see while protecting more than 300,000+ organizations that use Sophos Endpoint.
-
-The latest Sophos Endpoint release also includes drivers certified and signed by Microsoft through the Windows Hardware Compatibility Program (WHCP). That signature confirms the drivers passed the program’s compatibility tests and lets Windows verify that Sophos published them and no one has changed them.
-
-This work builds on a long-standing relationship, including Sophos integrations with Microsoft Graph, which bring Microsoft 365 and Microsoft Defender alerts into Sophos XDR and Sophos MDR, and Sophos membership in the Microsoft Intelligent Security Association (MISA) and the Microsoft Virus Initiative (MVI).
-
-Protection that keeps pace
-
-Attacks are likely to keep getting faster as AI improves, so protection needs to start on the device, and early. We’ll keep investing in deep, responsible access to Windows, so customers get stronger protection and devices that stay up and running.
-
-To learn more about Sophos Endpoint, visit sophos.com/endpoint."
 493999b88d46,493999b88d46,2026-11-17 00:00 UTC,Product & Roadmap,,OpenAI Blog,AI Security,Article,Introducing OpenAI for Chile,https://openai.com/index/introducing-openai-for-chile,,
 c64aee7db31c,c64aee7db31c,2026-11-16 17:02 UTC,Product & Roadmap,Wiz,Wiz Blog,AI Security; Data Security Posture Management; Vulnerability Management; Cloud Risk Management,Article,Introducing the Wiz AI Security Agent,https://www.wiz.io/blog/introducing-wiz-ai-security-agent,"Together, these findings show how an external attacker could exploit the flaw to hijack the agent's tools and access sensitive data","Artificial intelligence is changing more than the applications organizations build; it's changing what security teams need to understand to secure them.
 
@@ -1870,16 +1977,6 @@ AI has changed what security teams need to understand. Alongside cloud context, 
 The Wiz AI Security Agent brings deep, multi-layer risk analysis to the Wiz platform to extend security beyond deterministic analysis, discover AI applications, understand their purpose and capabilities, and uncover AI-native risks across code and cloud.
 
 Wiz AI Security Agent, is now available in Public Preview through the Wiz Preview Hub. Enable it today to gain deeper visibility into your AI applications and uncover risks you couldn't fully see before."
-937addd19774,937addd19774,2026-11-16 14:59 UTC,Product & Roadmap,SonicWall,Google News: SonicWall,Network Security,Article,SonicWall Launches AI-Powered Firewall Security Check,https://news.google.com/rss/articles/CBMigAFBVV95cUxPR2NyQkFZMUZ0QzhPQktHVUtMUW90ai02cmZVUGlQTHFsWUQ0UG5aZVAtQUJUdkM5QzM5eHpUaVJTX21rMndiRHB5ZDJQYkQ5NTZiaWVmLUxianNGZl9OeHVuTnlCeFFMcVZURUFScHZ1azh1ZEtFRndEeHBZcUxfMA?oc=5,,
-c731ef17c296,c731ef17c296,2026-11-15 06:00 UTC,Product & Roadmap,,CyberWire Daily,Other/General,Podcast,Making software safer: Introducing the Software Safety Institute. [Special Edition],https://thecyberwire.com/podcasts/special-edition/111/notes,"Dave Bittner is joined by guests ⁠Lauren Zabierek⁠ and ⁠Bob Lord⁠, co-founders of the ⁠Software Safety Institute⁠","Special Editions
-
-Making software safer: Introducing the Software Safety Institute.
-
-November 15, 2026
-
-Ep 111
-
-Dave Bittner is joined by guests ⁠Lauren Zabierek⁠ and ⁠Bob Lord⁠, co-founders of the ⁠Software Safety Institute⁠. Lauren and Bob discuss the launch of the Software Safety Institute, the work behind its creation, and the push for greater accountability among software manufacturers. Join Dave, Lauren and Bob to learn why insecure software creates preventable harm and why the answer requires more than asking users to patch faster. Drawing on automotive safety, their work on CISA’s Secure by Design initiative, market incentives, public education, and regulation, they describe how SSI hopes to make software safety visible and measurable."
 dc03b1dd4ee8,b831185d2433,2026-11-13 15:00 UTC,Product & Roadmap,,OpenAI Blog,AI Security,Article,Introducing ChatGPT Wallet,https://openai.com/index/introducing-chatgpt-wallet,,
 dcd9025e1197,dcd9025e1197,2026-11-13 14:00 UTC,Product & Roadmap,Cloudflare,Cloudflare Blog,Other/General,Article,Introducing Spend Management: Spending limits and alerts for Cloudflare,https://blog.cloudflare.com/spend-management/,"Get started This launch is a first step toward making spend controls a normal part of building on Cloudflare, alongside deploying code and monitoring your applications","Spend controls have been at the top of the list of most requested features from developers building on our developer platform for quite some time now. With more than 10 million developers now building on Cloudflare, this matters more than ever.
 
@@ -2032,7 +2129,6 @@ This launch is a first step toward making spend controls a normal part of buildi
 Check out the billing developer documentation for more information. Start using Spend Management and tell us what works, what’s missing, or where more granular budgets would help.
 
 Join us on Discord or our socials. We’re listening!"
-1e2f279b8213,1e2f279b8213,2026-11-12 20:06 UTC,Product & Roadmap,KPMG,Google News: KPMG,AI Security,Article,KPMG Launches Cybersecurity Services Powered by Anthropic’s Claude Mythos,https://news.google.com/rss/articles/CBMisAFBVV95cUxPa01uNFFYWElsTUUxSW1HSkFJaTJ3S09YcGtHUXB3NHd5NUVTaHpNc2NuQUxlZkVCR3lpS0NvRFJraFNTWlB3SWhYM0ZSbUgzSkVMbnREdzBVWXRaR2dCY25tYk1xdHU4cDJ6bmRQb1lUcG5UZkc3amxOTkVIUGEwcF9uRDlZNldqMXZaa0gydTR4V2lmVWxOWF96bXpQSzBweS13R2xoa3F4eHpacGxHdg?oc=5,,
 a248fe72d462,a248fe72d462,2026-11-12 11:32 UTC,Product & Roadmap,GuidePoint Security,GuidePoint Security Newsroom,AI Security; Data Security Posture Management; Compliance Management; Cloud Risk Management,Article,GuidePoint Security Launches Secure Cloud Platform for Data and AI Services to Enable AI Adoption at Scale,https://www.guidepointsecurity.com/newsroom/guidepoint-security-launches-secure-cloud-platform-for-data-and-ai-services-to-enable-ai-adoption-at-scale/,"(November 12, 2026) — GuidePoint Security, the cybersecurity advisor and services partner organizations rely on to protect what matters most, announced today the launch of new...","New services embed security and governance into cloud infrastructure, data pipelines and AI workloads
 
 RESTON, Va. (November 12, 2026) — GuidePoint Security, the cybersecurity advisor and services partner organizations rely on to protect what matters most, announced today the launch of new Secure Cloud Platform for Data and AI services. Designed to safeguard sensitive data and protect the value of enterprise AI investments, the services bring together data and AI assessments, platform advisory and cloud engineering services to secure the full data-to-AI pipeline, from collection and preparation, through architecture, development and deployment, to secure agentic and generative AI use.Before data reaches an AI model or agent, teams copy, combine and transform it across databases, storage systems, SaaS platforms and processing pipelines. At each stage, organizations need to preserve data integrity, understand its sensitivity and origin and limit access to sensitive data. Through its new Secure Cloud Platform for Data and AI services, GuidePoint’s cloud experts translate those requirements into enforceable controls such as encryption, access policies, content filtering and model access restrictions.“Data teams and AI teams often work on different platforms with competing priorities,” said Kyle Koppe, Practice Lead, Cloud AI and Automation at GuidePoint Security. “We secure the pipeline as one system, so protection and access policies carry forward as information moves between environments and new AI workloads are introduced.”GuidePoint’s Secure Cloud Platform for Data and AI services scale to each organization’s maturity and risk posture and include:
@@ -2387,17 +2483,6 @@ Claude Code runs in controlled environments, including Devspace, the firm’s co
 Code ships under the same discipline. Thousands of automated tests and approval gates check every change, and an automated gate returns a hard pass or halt that the pipeline enforces, so Claude can't sign off on its own work. People stay accountable for every production change.
 
 Over the past year, JPMorganChase’s use of Claude has grown from software engineering to cyber defense to tools for financial advisors, and what JPMorganChase asks of us is shaping what we build for other regulated institutions. Claude working inside the controls of one of the world’s largest financial institutions is what we are building toward."
-53a31d8f6628,53a31d8f6628,2026-11-08 06:00 UTC,Product & Roadmap,,CyberWire Daily,Other/General,Podcast,The hidden risks of system integration. [T-Minus: Space-Cyber Briefing],https://thecyberwire.com/podcasts/tminus-space-cyber-briefing/732/notes,"Host Maria Varmazis sits down with ⁠Vito Askins⁠, founder of ⁠Green Until Integration Consulting⁠, to discuss risk accumulation and operational readiness","Though many look to ensure that they meet mission readiness requirements, overreliance on these practices can allow hidden risks to go unchecked.
-
-Host Maria Varmazis sits down with ⁠Vito Askins⁠, founder of ⁠Green Until Integration Consulting⁠, to discuss risk accumulation and operational readiness. The two look at how these integration risk can often go overlooking during systems integration monitoring efforts.
-
-Key Sources:
-
-⁠⁠Everything Was Green Until Integration.⁠⁠
-
-Like what you heard? Be sure to subscribe to our free Signals and Space Briefing⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠, our Sunday newsletter covering the intersection of cybersecurity and space. Subscribe at: ⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠https://thecyberwire.com/newsletters/signals-and-space⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠ Is there a topic or person you’d like to hear on our show? You can send your questions and feedback to ⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠space@n2k.com⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠. You can also fill our our audience survey: ⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠https://www.surveymonkey.com/r/NJYCN2P ⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠
-
-T-Minus: Space-Cyber Briefing is a production of N2K CyberWire. ⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠N2K⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠ is your nexus for discovery and connection for people, technology, and ideas shaping the future of secure innovation. Learn how at ⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠n2k.com⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠⁠."
 6a6d01a18a9c,6a6d01a18a9c,2026-11-06 12:00 UTC,Product & Roadmap,GuidePoint Security,GuidePoint Security Blog,Other/General,Article,Introducing the GuidePoint Security Partner Portal,https://www.guidepointsecurity.com/blog/guidepoint-security-partner-portal/,Partnerships are a core part of how GuidePoint serves customers,"Introducing the GuidePoint Security Partner Portal
 
 November 6, 2026
@@ -2716,8 +2801,6 @@ Use Huntress with Hudu: See Hudu's Huntress integration support article for setu
 Build on the Huntress API: Start with the Huntress API docs.
 
 Share feedback: Have an idea for this integration, a new endpoint, or a webhook? Add it to our Integrations, Webhooks, and APIs feedback board."
-3990952feccd,3990952feccd,2026-11-03 08:00 UTC,Product & Roadmap,Deloitte,Google News: Deloitte,N/A,Article,Deloitte Unifies Oracle (NYSE: ORCL) Capabilities Under Single Business Group As AI Adoption Accelerates,https://news.google.com/rss/articles/CBMi5AFBVV95cUxQV0w5Zkh5cEx6T3p2M09FVkRRQmFGVWpXUHpROGc0N2s1dWFWbHNHaVh5ZmNnYXZueEVqc1hRZ0RZckczZ3BLSmotNlZqam1uSEhSV0U4SFh6eExrSm1UcUFVZjFoNVVxZmd6VUtQbm1FT1ZpbXBjYnRzZTFONXRpbnpVZDRFSU9aaXBNSkM2NlFDenhHVFFIYmFJcnVwREttWE1UQXp0OGZrOGFZa2pwQ3dBNjJxY1hLOUVUY3lTaUxNTFExRUZKeDF1MFZwV2FIalF1aHdrd0ZvaDQ5eEt3MmdHNUo?oc=5,,
-06c8f94f4e11,06c8f94f4e11,2026-11-03 08:00 UTC,Product & Roadmap,PwC,Google News: PwC,N/A,Article,PwC launches new AI cybersecurity managed service for the mid-market,https://news.google.com/rss/articles/CBMirwFBVV95cUxQaEJXTE9xek9NVENTNkVHX3hTd2ZBTFFsSHg4YmNONlpOZTRNSEl2a1FhS3N3ejZhTDJXREZaTHFsSEJ1YjhaaXZBSGtvNUJPVW5FVEVIb1Brd21PMFpGTTVWSncxM1lMUHMyeDhmVDItQjZYTjV1TGxoemNjSEtSeHJlMGZvVkZKQWEtMV9URVJUNWJBZ1RxXzBmWVQ2SU94NkpjcWJ0ZVh5NHVBVmtv0gG0AUFVX3lxTE0wTWZpMHVhTnFZcmV1cWxJdktVV3lxaTNHek5mZVlJRGZWQU5ieVRlcGlBaHFLLUhiMm1BUzdtYi02REZEUFhXTDNhZHR1WDNHeGdwYmtKQUhKX29acm1pNEhWbGpTQS1OM3dPeklSTW4xdUttWnNLNzVJUXdWbV9vRHp2Wk1GdXA4c0FobmdtMUVhdk1Mb1p6cDFlM3NWblptZmdoNUZUalVUWWxNQWlfdFhnOA?oc=5,,
 0fbe0c058a06,0fbe0c058a06,2026-11-02 15:00 UTC,Product & Roadmap,,OpenAI Blog,N/A,Article,Introducing the Grid Protectors Program,https://openai.com/index/grid-protectors-program,,
 771582dac28b,48d4132c3d42,2026-11-02 14:00 UTC,Product & Roadmap,Fortinet,Fortinet Threat Research,Endpoint Security; Email and Collaboration Security; File Security; Phishing Simulations,Article,BITTER Expands Its Arsenal with PapRAT,https://feeds.fortinet.com/~/972208619/0/fortinet/blog/threat-research~BITTER-Expands-Its-Arsenal-with-PapRAT,"We also suggest that our readers complete the free NSE training: NSE 1 – Information Security Awareness, which includes information on Internet threats and is designed to help...","Conclusion
 
@@ -3145,4 +3228,3 @@ This Viva Engage post has been edited slightly for external use.
 
 The post Introducing a Voluntary Exit Offer appeared first on The Official Microsoft Blog."
 b4e09a81841a,b4e09a81841a,2026-10-26 09:00 UTC,Product & Roadmap,Fortinet,Fortinet IR News,AI Security; Network Security,Article,Fortinet Expands AI Security with the FortiGuard Inline AI Security Service,https://investor.fortinet.com/news-releases/news-release-details/fortinet-expands-ai-security-fortiguard-inline-ai-security,"New cloud-delivered service brings advanced AI guardrails and inspection to FortiGate firewalls, backed by continued FortiAIGate innovation SUNNYVALE, Calif., Oct. 26, 2026 (GLOBE NEWSWIRE) -- Fortinet ® (NASDAQ: FTNT), the global cybersecurity leader driving the convergence of networking and","New cloud-delivered service brings advanced AI guardrails and inspection to FortiGate firewalls, backed by continued FortiAIGate innovation SUNNYVALE, Calif., Oct. 26, 2026 (GLOBE NEWSWIRE) -- Fortinet ® (NASDAQ: FTNT), the global cybersecurity leader driving the convergence of networking and"
-b8a109830816,b8a109830816,2026-10-26 07:00 UTC,Product & Roadmap,WWT,Google News: WWT,N/A,Article,Introducing Cisco Model Foundry: Bringing AI to our partners,https://news.google.com/rss/articles/CBMibkFVX3lxTFBtZ2ppcnA0U0lYbS0xQTlCUC1VWHdBUVJYRDZNVlk4ak95ZzI1a216VmtTM1MzWUtMUG1GNHBiaVY3NzZjQTA0QktLUmR2MTBqd3cwZk8zanZ6MU55ZC1lUjFDaGVBS0RXN1RCeWtn?oc=5,,
