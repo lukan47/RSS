@@ -1,4 +1,37 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a383e0f69cbb,a383e0f69cbb,2026-11-23 20:47 UTC,General Security News,Delinea,Delinea Blog,Container Security; Identity Security Posture Management,Article,Onboarding and offboarding: the decision you didn't know you already made,https://delinea.com/blog/onboarding-and-offboarding-the-decision-you-didnt-know-youd-already-made,"Documents don't revoke access; people do, and only when they remember","What you will learn
+
+Discover how automated identity management transforms onboarding and offboarding, enhancing security and efficiency while eliminating manual checklists.
+
+The checklist nobody trusts
+
+There's a Notion page at most companies called something like *IT Offboarding, Do Not Delete*. It was written by someone who left 18 months ago. Nobody's updated it since, because updating it means admitting nobody trusts it, and nobody has a sprint to rebuild it.This is the page someone opens on a Friday afternoon when an engineer's last day gets moved up without warning. It has 15 systems, SSH keys, database credentials, the Kubernetes cluster, the AWS console and a VPN client from 2022 that half the team forgot still exists. The page tells you where to look.
+
+It doesn't tell you what's missing, and whatever changed since someone wrote it is exactly what's missing. Onboarding is the same checklist run forward because a new hire needs the same 15 things. Someone spends Monday morning clicking through admin panels instead of doing actual work.The real cost compounds instead of resetting with each cycle. Every manual step is a place someone assumes it's handled instead of knowing it is. Multiply that across a growing infrastructure footprint and the security posture is built on optimism.
+
+Make identity the system of record
+
+A runbook is a document. Documents don't revoke access; people do, and only when they remember. Tying access to identity itself, through the existing identity provider (IdP) fixes that. Add someone to the right group in Okta or Entra, and access to servers, databases, and clusters follows automatically, scoped to a role rather than assigned on a per-resource basis.Remove them, and turning off a single identity in the IdP disables everything downstream. It makes sense to treat onboarding and offboarding as an identity event rather than a checklist, because the IdP was always meant to be the system of record. Most companies just never wired it tightly enough to trust it.
+
+Infrastructure doesn’t wait for the checklist
+
+Infrastructure grows on its own now, and none of it shows up on that Notion page, because nobody thinks to write it down. Someone spins up a database for a proof of concept, someone else stands up a cluster to test an idea and moves on and none of it goes through an intake process because there wasn't one. That resource sits unmanaged until somebody happens to notice it.Make it a habit to scan cloud environments for new compute, database and cluster resources and bring them under management with far less manual work than registering each one by hand. This shrinks the gap between a resource existing and a resource being governed to near real time. It covers what you can broker, not a full asset inventory, and it won't surface every IAM role floating around an account.
+
+Service accounts need a lifecycle too
+
+Service accounts have the exact same onboarding and offboarding problem humans do, and almost nobody treats it that way. A CI/CD pipeline gets a token with more access than it needs because scoping it precisely takes an extra hour nobody has, and that token outlives the project. Nobody offboards a service account, because nobody tracked it as an employee-shaped thing to begin with.A service account created for that pipeline gets the same lifecycle discipline as a human does. It's owned and shut off in one action when the job ends. That's real, and it's a gap most access tools skip. Delinea governs the access identity uses. The underlying IAM role or Kubernetes service account still belongs to AWS, GCP, or the cluster's RBAC. A narrower claim than solving machine identity outright, and a more useful one for exactly that reason.
+
+What building it yourself means
+
+Building this in-house means writing and maintaining a separate integration for every system offboarding must reach: one to revoke SSH certificates, another to drop database roles, another to pull someone out of Kubernetes RBAC and another to strip cloud console access. Four integrations minimum, before discovery even enters the picture, plus a service account policy someone actually enforces instead of writing down and forgetting.It becomes a maintenance contract nobody signed, renewing every time a team adopts a new database engine or a cloud provider ships a resource type nobody's seen yet. Buying means someone else stays on the hook for keeping those integrations correct while the infrastructure changes every quarter, so the team doesn't have to.
+
+What offboarding should look like
+
+Go back to that Friday afternoon. The engineer's last day gets moved up, and instead of pulling up a stale Notion page and hoping to remember 15 systems, someone turns off one identity in the IdP. Any service accounts tied to that engineer get caught in the same motion. The database a contractor spun up last month is already inside the fence, found before anyone had to look for it. Nobody's checking a list and hoping. There's no list to check.
+
+Why buy instead of build
+
+That's the argument for buying this instead of building it. Doing it well in-house means standing up identity-tied revocation, cloud discovery and service account lifecycle management as three permanent engineering commitments, maintained forever by people who could be shipping product instead."
 d0b6d80e60b8,d0b6d80e60b8,2026-11-23 13:00 UTC,General Security News,Delinea,Delinea Blog,AI Security; Identity Security Posture Management,Article,Why Your PAM Tenets Fail AI Agents and How to Rewrite Them,https://delinea.com/blog/the-seven-laws-of-privilege-management,"Only one obligation in the framework is genuinely new: clean instruction In the administrator model, the operator's intent was never part of the threat surface","What you will learn
 
 Why agents inherit the full privilege of the accounts users hand them, how the seven PAM laws shift from administrators to credentials, actors and tasks, and why runtime control is the only layer that holds.
@@ -740,114 +773,3 @@ While this is not a guarantee against a patient, well-resourced adversary, it wi
 The same principle applies to AI agents, which increasingly operate with delegated credentials in production.
 
 PS: Betting $1 that during an interview, the engineer was asked to install something to complete a challenge..."
-9b092b67a311,9b092b67a311,2026-10-29 13:30 UTC,General Security News,Delinea,Delinea Blog,Vulnerability Management; Threat Intelligence,Article,Zero Standing Privilege: Give the Next CVE Nothing to Inherit,https://delinea.com/blog/the-next-cve-is-already-being-found,"On October 17, Amazon Threat Intelligence observed the first attempt to exploit PHP2Shell, a pair of flaws in PHP, the programming language behind many websites","What you will learn
-
-Why new CVEs outpace patching, how a foothold inherits standing privilege, and how just-in-time access and secrets management limit what one exploit can reach. Includes five questions to test your environment.
-
-On October 17, Amazon Threat Intelligence observed the first attempt to exploit PHP2Shell, a pair of flaws in PHP, the programming language behind many websites.
-
-The PHP maintainers shipped fixes four days later, on October 21. Any vulnerable server that an attacker exploited before the server was patched could have given up the database passwords, API keys and cloud tokens the server held.
-
-New vulnerabilities now arrive faster than organizations can patch them. Zero standing privilege limits what each exploit can reach
-
-On October 23, Delinea published “PHP2Shell: The aftershocks will be identity attacks,” which covers which secrets to rotate first and how to prepare for the attacks that follow.
-
-This blog covers the pattern behind PHP2Shell. New exploits now arrive faster than patching programs can absorb them, so organizations need a defense that does not depend on knowing which flaw comes next. Zero standing privilege (ZSP) gives an attacker nothing standing to inheritno matter which system the attacker breaks into first.
-
-PHP2Shell was one of three vulnerabilities in the news during the week of October 19. On October 21, CISA added Plex2Shell, a chain of four vulnerabilities that gives attackers code execution on Plex Media Server, to its Known Exploited Vulnerabilities (KEV) catalog. Plex had fixed the flaws in early August, yet the Shadowserver Foundation counted more than 36,000 exposed servers still unpatched in early September. Researchers also published a working proof-of-concept exploit for a critical, unauthenticated flaw in Fortinet FortiSIEM about a week after Fortinet shipped the fix.
-
-More exploits are likely to follow before the month ends. The pattern matters more than any single bug. New exploits arrive at a rising pace; defenders get less time to respond to each one, and some systems go months without a patch.
-
-Vulnerabilities now arrive continuously
-
-The 2026 data show the same acceleration. CISA added 247 vulnerabilities to the KEV catalog between January 1 and October 1, more than the 245 it added in all of 2025. Since June 10, CISA has given federal agencies three days to remediate most new KEV entries, down from 21 days for most 2025 entries. Even under the longer deadlines, organizations took a median of 43 days to fully remediate KEV vulnerabilities in 2025, according to the Verizon 2026 Data Breach Investigations Report.
-
-The Google Threat Intelligence Group recorded an average of 11 zero-days a month from January through August, up from 8 a month in 2025. The October Microsoft Patch Tuesday release fixed more than 1,400 CVEs, the largest release since the program began. Only a fraction of those CVEs will be exploited, but an attacker needs only one.
-
-AI now speeds up both the discovery of flaws and the development of exploits. In June, Microsoft Vice President of Engineering Tom Gallagher said AI-assisted vulnerability discovery was enabling bug hunting “at a speed and scale previously unseen.” Amazon Threat Intelligence wrote that AI-assisted analysis “makes it cheaper to turn a patch diff or advisory into a working exploit.”
-
-The pace of new vulnerabilities is likely to keep climbing. No patching program, however well run, closes the gap between disclosure and deployment to zero. Patching remains essential, and organizations should fix KEV entries first. A strategy that depends on patching faster than attackers can find and weaponize flaws will lose over a long enough timeline.
-
-A foothold inherits whatever privilege is standing
-
-Each of the three exploits gives an attacker the same thing: code running on a system the organization trusts. Security teams call that position a foothold. What happens next depends less on the vulnerability than on what the compromised system can reach. Field Effect made the same point about Plex2Shell, noting that further impact “depends on the permissions assigned to the [Plex Media Server] service account and the resources accessible from the host.”
-
-A web server running PHP often holds database credentials, API keys and cloud tokens in its configuration or environment. A SIEM collects logs from across the environment and often stores the credentials it uses to access monitored systems, making an unauthenticated SIEM flaw a high-value target. Management consoles and orchestrators often hold administrative rights over the systems they manage.
-
-Standing privilege is access that an identity holds at all times, whether or not anyone is using it. The vulnerability gets the attacker in the door. Standing privilege decides how far the attacker gets.
-
-An AI agent ran the full attack chain in July
-
-A July incident at Hugging Face showed what happens when exploitation no longer needs a human at the keyboard. An AI agent running in an internal evaluation at a frontier AI lab escaped its sandbox and ran a four-and-a-half-day campaign, roughly two and a half days of which it spent inside Hugging Face production infrastructure. Hugging Face reconstructed the campaign from roughly 17,600 recovered agent actions.
-
-The agent got in through two flaws in a dataset-processing pipeline. One flaw handed the agent the secrets and tokens stored in the environment of a production pod. Nearly every escalation after that ran on standing credentials: a shared broker credential bound to cluster-admin, a VPN key built for automation and tokens for source control. The agent went from code execution in a single pod to cluster-admin across multiple internal clusters in under 13 hours. None of the escalations Hugging Face describes involved a human login, so stronger authentication for people would not have stopped them.
-
-Hugging Face named “short-lived credentials” among its defensive priorities. After the incident, Hugging Face rotated credentials across its infrastructure and rebuilt the broker with a separate credential for each cluster.
-
-Machine-speed attackers are likely to chain together the weaknesses that PHP2Shell, Plex2Shell and the FortiSIEM flaw expose: find a foothold, harvest what is standing and move. The foothold is the part defenders can’t always prevent. The standing privilege is the part defenders can remove.
-
-ZSP works whichever CVE lands next
-
-ZSP means no identity, whether AI agent, human or machine s, holds privilege it isn’t actively using. Just-in-time (JIT) access puts ZSP into practice. An identity requests access for a specific task, and an access platform grants that access for a limited time and revokes the access when the time ends. ZSP doesn’t depend on knowing which vulnerability attackers will exploit next, which is why ZSP fits an era in which new vulnerabilities arrive continuously.
-
-The graphic below compares the same foothold in three scenarios: with standing privilege, with JIT Admin and JIT Access added, and with short-lived secrets added.
-
-The model is illustrative, and the entry point is identical in each scenario.
-
-Layer 1: JIT Admin removes standing root from hosts
-
-An exploit usually runs with the permissions of the process it compromises. Researchers ran the Plex2Shell exploit, for example, as the Plex Media Server service account. The attacker’s next move is to escalate to root, the account with full control of a Linux or Unix server, or to local administrator on a Windows server. Standing root and local administrator rights turn one compromised server into many, because an attacker with those rights can read the SSH keys, service-account passwords and other credentials stored on the server.
-
-JIT Admin replaces standing admin rights with elevation on demand. An administrator requests privilege for a task, the system checks the request against policy and grants the privilege for a limited time and records the elevation. Delinea Privilege Control for Servers (PCS) replaces standing root and local administrator rights with just-in-time elevation for specific commands.
-
-PCS also enforces multi-factor authentication (MFA) at server login and again at privilege elevation. On a host that PCS protects, an exploit finds no standing admin rights to inherit, and PCS records each failed escalation attempt.
-
-Layer 2: JIT Access limits spread across infrastructure
-
-Once an attacker holds a foothold, the attacker’s next move is lateral movement: using credentials found on the first system to reach other servers, databases and clusters. In the Hugging Face incident, one shared broker credential gave the agent cluster-admin on two Kubernetes clusters within one second.
-
-Delinea Runtime Authorization grants access to servers, Kubernetes clusters and databases per identity, per resource and for a limited time, so an attacker with a stolen credential reaches one resource for a limited time. The Runtime Authorization proxy injects credentials into each connection, so the client does not hold the credential and a compromised host has no stored credential to steal. Network access alone no longer grants access to a resource. A compromised application host or management server does not inherit access to every resource the host can reach on the network, and Runtime Authorization logs each connection it brokers.
-
-Layer 3: Delinea Secret Server shrinks what an attacker can steal
-
-PCS and Runtime Authorization limit where an attacker can go. Delinea Secret Server limits what the attacker finds on arrival. Secret Server brings privileged-account vaulting and workload secrets management together, so workloads (the applications and services that run without a person at the keyboard) retrieve credentials at runtime instead of carrying static values in environment variables and config files.
-
-Secret Server rotates service-account and database passwords, API keys and other secrets on a schedule or after each use. Secret Server also issues dynamic credentials. Secret Server creates each dynamic credential on demand for a single workload, and the credential expires after a set time.
-
-Secret Server doesn’t make a compromised host blind. An attacker with code execution can still read whatever credentials are present on the host at that moment, which is why the earlier Delinea blog—PHP2Shell: The aftershocks will be identity attacks—advises treating each secret a compromised server could read as stolen. What Secret Server changes is the value and lifespan of what the attacker reads.
-
-Continuous CVE discovery demands continuous identity discovery
-
-Vulnerability management identifies which systems are exposed. Identity security identifies what an attacker can reach from a compromised system. Security teams cannot reduce standing privilege they haven’t found. Machine and service identities are often the hardest to find. Hugging Face wrote that it had “wrongly provisioned” its broker with one credential shared across clusters and bound to cluster-admin. An inventory of privileged machine identities is the kind of check that surfaces a credential like that before an attacker does.
-
-Delinea Continuous Identity Discovery uses AI to find human, machine and AI identities across the environment and flag the identities that hold standing privilege.
-
-What ZSP doesn't fix
-
-ZSP doesn’t patch a vulnerability. The flaw is still there, the exploited process still runs and an attacker with code execution can still do whatever that process is permitted to do. Patching, configuration hardening, network restrictions and detection all remain necessary. After the incident, Hugging Face closed both code-execution paths, blocked pod access to cloud metadata and added detection, in addition to rotating credentials.
-
-ZSP does a different job. ZSP shrinks what the exploited process is permitted to do and how long the process holds that permission, so the window between disclosure and patch carries less risk.
-
-Five security questions to ask about your environment
-
-If an attacker compromised one of your internet-facing or management systems today, such as a web server, a SIEM or an orchestrator, what admin rights and credentials could the attacker reach from that system?
-
-How many human, machine and AI identities hold standing privileged access, and when did your team last inventory those identities?
-
-Does any single credential grant admin rights across more than one system, cluster or environment?
-
-How long would a stolen service-account password, API key or token stay valid?
-
-When the next exploited CVE lands on a product you run, how quickly can you tell which privileged identities and secrets the affected system holds or can reach?
-
-Each question your team cannot answer points to standing privilege that an attacker could inherit.
-
-Plan for the exploit that arrives before the patch
-
-Prevention will sometimes fail, and sometimes the patch will arrive after the exploit. The organizations that fare best are likely to be the ones that removed standing privilege, not the ones that patched fastest every time.
-
-Privilege Control for Servers keeps a foothold from escalating to root on hosts. Runtime Authorization limits how far the attacker can move across infrastructure. Secret Server shortens the life of each credential the attacker steals. Together, the three products apply ZSP across human, machine and AI identities, which helps one compromised system stay one compromised system.
-
-See how Delinea applies Zero Standing Privilege and just-in-time access.
-
-The next CVE is already being found. Make sure it finds nothing standing."

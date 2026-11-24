@@ -1,4 +1,492 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+1bd9db583faf,1bd9db583faf,2026-11-23 20:35 UTC,Product & Roadmap,,AWS Security Blog,Network Security,Article,Introducing AWS WAF simplified pricing,https://aws.amazon.com/blogs/security/introducing-aws-waf-simplified-pricing/,"Until then, you keep your current pricing, and you don’t need to do anything at launch","Starting today, AWS WAF pricing is easier to predict. Your bill is now based on three dimensions: the resources you protect, the traffic AWS WAF inspects, and the level of protection you apply to that traffic.
+
+Existing AWS WAF customers move to the new pricing on February 1, 2027. Until then, you keep your current pricing, and you don’t need to do anything at launch. This post explains what’s changing, how to estimate your costs under the new model, and where to find full pricing details and examples on the AWS WAF pricing page.
+
+For new or smaller workloads, the Free plan of CloudFront flat-rate pricing plans is another way to start. If your application serves fewer than 1 million requests per month, the Free plan costs $0 per month for each CloudFront distribution. It includes AWS WAF protection against common web threats, DDoS protection, and the CloudFront CDN, with no overage charges.
+
+Why the pricing is changing
+
+Under the previous model, adding a protection often meant adding a charge, so every security decision was also a billing decision. The new pricing separates those two questions and makes the trade off between cost and security posture easy to see. Turning on a rule, the Bot Control common protection, or the Anti-DDoS rule group doesn’t add a subscription or a separate per-request charge. Those requests bill at the base request rate.
+
+Capacity also stops affecting your rate. Each protection pack (web ACL) now includes up to 2,500 web ACL capacity units (WCUs), up from 1,500, and going past your included capacity no longer raises what you pay per request. The premium request fee applies only to the traffic you choose to send through advanced protections.
+
+You can estimate costs before writing a single rule, and those estimates hold even as your rules change. Security rules change often. A new CVE or a shift in bot behavior can require a configuration update the same day. Adding, reordering, or removing rules doesn’t change your rate.
+
+What this means for existing customers
+
+If you already use AWS WAF, your account stays on current pricing until February 1, 2027. If you hold an AWS WAF private pricing agreement, it stays in force until it expires.
+
+You don’t have to work out the math yourself. The AWS WAF pricing page includes worked examples that show how the three fees add up for common workloads. If you have questions about how the new pricing applies to your account, contact your AWS account team or open a Support case.
+
+For AWS Shield Advanced subscribers, nothing changes. Your Shield Advanced subscription, its price, and your included AWS WAF entitlement stay the same. AWS WAF remains included up to 1,500 WCU per protection pack (web ACL), the resources Shield Advanced protects stay unmetered, and AWS WAF base requests remain free up to 50 billion per calendar month.
+
+Customers on a CloudFront flat-rate pricing plan also see no change. AWS WAF stays included in your plan, and your plan’s included requests stay the same.
+
+How the new pricing works
+
+AWS WAF bills three fees. The resource fee is an hourly charge for each resource associated with a protection pack (web ACL). It covers resources that AWS WAF can protect, such as Amazon CloudFront distributions, Application Load Balancers, and Amazon API Gateway APIs. The base request fee applies to each request AWS WAF inspects. The premium request fee applies on top of the base request fee, to the requests that advanced protections evaluate, such as Bot Control targeted protections, Fraud Control, API Security, and AI Security. AWS WAF also launches two new managed rule groups today, API Security and AI Security. Both use the same premium request fee, with no separate subscription or rate. For the current list of advanced protections, see the AWS WAF Developer Guide.
+
+Fee
+
+What it’s charged for
+
+Rate
+
+Resource fee
+
+Each resource associated with a protection pack (web ACL), prorated hourly
+
+$0.01 per hour (about $7.30 per month)
+
+Base request fee
+
+Each request that AWS WAF inspects
+
+$0.60 per million requests
+
+Premium request fee
+
+Requests evaluated by advanced protections, in addition to the base request fee
+
+$5.00 per million requests
+
+Requests evaluated by one or more advanced protections are billed $5.60 per million: the $0.60 base request fee plus the $5.00 premium request fee. AWS WAF charges the premium request fee once per request, however many advanced protections evaluate it. A request that Bot Control targeted protections, API Security, and AI Security evaluate is still billed $5.60 per million. A request that an earlier rule blocks before it reaches an advanced protection pays only the base request fee. For instance, a request blocked by a custom rule before it reaches Bot Control pays $0.60 per million, not $5.60.
+
+Figure 1 shows where each previous charge lands under the new pricing model. AWS WAF also inspects request bodies up to the maximum size that each associated resource type supports, at no extra charge. For the current limits by resource type, see Considerations for managing body inspection in AWS WAF.
+
+Figure 1: Mapping of previous AWS WAF pricing components to the new three-dimension model
+
+See your traffic with the Security analytics dashboard
+
+The new pricing also includes the Security analytics dashboard. The dashboard shows full traffic metrics for your protected applications over a rolling 21 day window. You can use it to see the requests your protection packs (web ACLs) inspect and how your rules act on them, which helps you tune the protections and understand what drives your request fees. The dashboard is included at no additional cost.
+
+Estimating your bill
+
+Figure 2 shows how the three dimensions add up for three example workloads.
+
+Example 1: One protected resource. One Application Load Balancer serving 20 million requests per month.
+
+Resource fee: 1 resource × $0.01 per hour × 730 hours = $7.30
+
+Base request fee: 20 million × $0.60 per million = $12.00
+
+Total: $19.30 per month
+
+Example 2: A larger footprint. 40 resources serving 150 million requests per month.
+
+Resource fee: 40 × $7.30 = $292.00
+
+Base request fee: 150 million × $0.60 per million = $90.00
+
+Total: $382.00 per month. At this size, the resource fee is the larger share.
+
+Example 3: Advanced protections. 5 resources, 300 million requests, 30 million of them evaluated by advanced protections.
+
+Resource fee: 5 × $7.30 = $36.50
+
+Base request fee: 300 million × $0.60 per million = $180.00
+
+Premium request fee: 30 million × $5.00 per million = $150.00
+
+Total: $366.50 per month
+
+Figure 2: How the three dimensions add up for three example workloads
+
+To estimate your own bill, start with how many resources each protection pack (web ACL) is associated with, since that drives the resource fee. For request volumes, AWS WAF publishes Amazon CloudWatch metrics for each protection pack (web ACL) and each protected resource, including the requests your advanced protections evaluate. The Security analytics dashboard gives you the same traffic view without building your own reports.
+
+A few architectural choices can also help. Where it fits your architecture, protecting traffic at Amazon CloudFront can cost less than protecting many downstream resources one by one. If you serve many customer domains, Amazon CloudFront SaaS Manager lets you manage them as tenants of one multi-tenant distribution, so you can apply one protection pack across them. Scope-down statements send advanced protections only the traffic that warrants them, such as login or checkout paths.
+
+Availability and getting started
+
+The new AWS WAF pricing is available starting today. To get started, open the AWS WAF console, review your protection packs (web ACLs) and their resource associations, and review the examples on the AWS WAF pricing page.
+
+Frequently asked questions
+
+Does AWS WAF charge for requests it blocks? Yes. AWS WAF bills each request it inspects, including the requests it blocks. The protected resource bills those requests as usual, except Amazon CloudFront, which doesn’t charge for requests that AWS WAF blocks (learn more).
+
+If a request passes through two protection packs (web ACLs), is it billed twice? Yes. For example, if a request passes a protection pack (web ACL) on a CloudFront distribution and another on the Application Load Balancer behind it, each protection pack (web ACL) bills it.
+
+Does the Security analytics dashboard cost extra? No. The dashboard is included with AWS WAF at no additional cost.
+
+Does pricing change for AWS Marketplace managed rule groups or AWS Shield Advanced? No. Pricing for AWS Marketplace managed rule groups and AWS Shield Advanced stays the same, and resources protected by Shield Advanced stay on their current pricing.
+
+Is there a free tier? AWS WAF does not have a standalone free tier. If you serve your application through CloudFront and it handles fewer than 1 million requests per month, the CloudFront flat-rate Free plan includes AWS WAF at $0 per month. For plan details, see CloudFront flat-rate pricing plans.
+
+What if my application needs more than 2,500 WCU? Open an AWS Support case to request a capacity increase.
+
+Conclusion
+
+The new AWS WAF pricing makes cost easier to plan around, so it does not become a blocker to security best practices. Your bill follows three things you can measure: the resources you protect, the requests AWS WAF inspects, and the requests that advanced protections evaluate. Adding, changing, or reordering rules doesn’t change your rate, and turning on Bot Control common protections or the Anti-DDoS rule group doesn’t add a subscription. The Security analytics dashboard gives you 21 days of traffic visibility at no additional cost.
+
+To see what the change means for you, review the examples on the AWS WAF pricing page, or model a new workload in the AWS Pricing Calculator.
+
+If you have questions about this post, contact AWS Support or start a new thread on AWS re:Post.
+
+Fenil Patel
+
+Fenil Patel is a Solutions Architect on the AWS Edge Services team. He helps customers build fast, secure, and resilient applications using Amazon CloudFront, AWS WAF, AWS Shield, and AWS Global Accelerator. He specializes in web acceleration, perimeter security, and CDN migrations.
+
+Eitav Arditti
+
+Eitav is a Senior Solutions Architect at AWS and a technology leader with over 15 years of experience in the tech industry. He specializes in edge computing, serverless, and platform engineering, and works with engineering teams to design secure, globally scalable architectures on CloudFront and AWS WAF. His current focus is on internet-scale systems—from global content delivery to edge security.
+
+Alok Rana
+
+Alok is a Finance Business Partner at AWS, supporting the Perimeter Protection portfolio, including AWS WAF and AWS Shield. He brings experience in strategic finance, product pricing, deal strategy, and P&L management, plus Transaction Services work at EY and PwC. He partners with Sales, Product, and Engineering teams to drive growth, shape pricing strategy, and support strategic customer engagements."
+5cc9b644c927,5cc9b644c927,2026-11-23 20:25 UTC,Product & Roadmap,,AWS Security Blog,AI Security; Network Security; Identity Security Posture Management,Article,"Introducing API and AI security on AWS, from discovery to protection",https://aws.amazon.com/blogs/security/introducing-api-and-ai-security-on-aws-from-discovery-to-protection/,"So a detection reaches high confidence only when different kinds of signs agree, and at least one is something your own traffic never does","APIs have run digital businesses for more than a decade. For a while, there seemed to be nothing new left to say about them. That changed in 2026, when AI endpoints joined them. Teams now run large language model (LLM) inference endpoints, Model Context Protocol (MCP) servers, and Agent2Agent (A2A) servers beside their REST APIs, on services such as Amazon Bedrock, Amazon Bedrock AgentCore, and Amazon Elastic Kubernetes Service (Amazon EKS), and more companies sell their API as the product itself. On the other end, AI agents read API descriptions, pick the tools they need, and chain calls with no person clicking through an app.
+
+APIs have always had two kinds of callers: other services and people who use an app. Now there’s a third: AI agents that act on a person’s behalf. It feels like everyone has a personal AI agent that can call APIs for them. Who knew curl would be important again?
+
+Today, we’re launching capabilities across AWS WAF, Amazon CloudFront, Application Load Balancer, and Amazon API Gateway that help you discover and protect the APIs and AI endpoints that services, apps, and AI agents call:
+
+API Portal, a new feature in Amazon API Gateway, discovers your APIs and AI endpoints.
+
+API Security, a new managed rule group in AWS WAF, protects your APIs.
+
+AI Security, a new managed rule group in AWS WAF, protects your AI endpoints.
+
+All three are generally available today. You can enable discovery in API Portal for one account or for your organization in AWS Organizations. The two rule groups protect the resources that you associate with your protection pack (web ACL). They work together: API Portal shows which discovered endpoints AWS WAF protects, and the security events that AWS WAF detects appear on each managed API’s detail page.
+
+Same APIs, new callers, new attack surface
+
+Your APIs are the same APIs they always were. What changed is how you expose them, who calls them, and what threatens them.
+
+How you expose them. A new MCP server or LLM endpoint takes minutes to stand up. It can be placed behind a load balancer or a CloudFront distribution without ever passing through your API gateway, so it’s missing from the API registry and the security review. An agent that can reach it doesn’t need your documentation, either, because the endpoint describes itself: an MCP client asks the server for its tools with tools/list, and an A2A client reads the agent card that the server publishes.
+
+Who calls them. The following table compares the three kinds of callers that reach your APIs today.
+
+Caller
+
+What normal looks like
+
+What abuse looks like
+
+What it means for protection
+
+Service to service
+
+Predictable, authenticated calls that repeat the same pattern
+
+A stolen API key, or a partner that scrapes beyond its contract
+
+Track rate and behavior for each API key and endpoint
+
+Person to service, through an app
+
+Sessions and UI-driven calls at a human pace
+
+Account takeover and scripted checkouts
+
+Browser-based signals, such as CAPTCHA and browser fingerprints, apply here
+
+AI agent to service, for a person
+
+Human intent with machine behavior, from an HTTP client or an automated browser
+
+An agent with stolen credentials, or a bot that poses as an agent
+
+Browser signals only go so far, so you need visibility into the API itself
+
+What threatens them. The APIs behind your web and mobile apps were built for one client: your own app. Your app calls them in the right order, at a human pace, with input it already validated. Legitimate agents now call those same APIs directly, and so do attackers and fraudsters. None of them have to follow the rules that your app follows.
+
+What we’re launching
+
+Here’s how we respond to those changes, as shown in Figure 1. In the figure, services, people, and AI agents call your APIs through their entry points. There, API Portal maps your endpoints, and AWS WAF runs API Security and AI Security on the same traffic to stop threats.
+
+Figure 1: API Portal inventories the APIs and AI endpoints that services, people, and AI agents call. AWS WAF protects the entry points in front of them
+
+API Portal builds an inventory of your APIs from their configuration and live traffic, identifies which of them are AI endpoints (LLM inference, MCP, and A2A), and shows you what to protect. It does this by analyzing configuration and traffic across your API entry points: CloudFront, Application Load Balancer, and API Gateway.
+
+API Security covers three kinds of API abuse: broken object level authorization, authentication attacks such as tampered tokens and credential stuffing, and reconnaissance such as probing for undocumented routes. It does this with rules that work from a single request and with behavioral detections that learn your traffic.
+
+AI Security identifies your AI traffic (LLM inference, MCP, and A2A), validates MCP and A2A requests against their protocol, and checks prompts and responses through Amazon Bedrock Guardrails for prompt attacks, harmful content, and sensitive information.
+
+All three work with Amazon CloudFront, Amazon API Gateway REST APIs, and Application Load Balancer. For the current list of supported resources, protocols, and endpoint types, see AWS WAF API Security and AWS WAF AI Security rule group in the AWS WAF Developer Guide.
+
+The three capabilities live in two places. API Portal is in the Amazon API Gateway console. That’s where it can be found, not what it covers: it discovers APIs behind CloudFront, Application Load Balancer, and API Gateway alike. API Security and AI Security are in the AWS WAF console.
+
+Discover: You can’t secure an invisible API
+
+Ask a platform team how many APIs they run, and you’ll get a number from a registry. Ask what’s answering requests on the internet right now, and the number changes. The MCP server that a team set up for a hackathon isn’t in the registry. Neither is the v1 endpoint that nobody turned off. Both still answer requests.
+
+API Portal builds the inventory from both live traffic and API configuration. You enable discovery in API Portal for one account or for your organization in AWS Organizations, and you can exclude resources that you don’t want in the inventory. It reads the service logs and configuration records of your API entry points. There’s nothing to attach, no logs to forward, and no traffic to reroute. It lists the endpoints that receive traffic, by host, path, and HTTP method. Every endpoint starts as a shadow API: deployed and reachable, but not yet governed. When you promote it, it becomes a managed API. For APIs you manage, API Portal also flags zombie APIs, which have no traffic and no configuration change for a set period, and orphaned APIs, whose owning account was closed or removed from your organization. Retire a zombie API that nothing needs, and resolve the ownership of an orphaned one. For the classification rules, see the API Portal Developer Guide.
+
+API Portal also discovers your AI endpoints. It reports each endpoint’s type, such as an LLM inference endpoint, an MCP server, or an A2A server. It finds them in the traffic at the same entry points (CloudFront, Application Load Balancer, and API Gateway) and lists them in the same inventory as your other APIs, so you don’t build a separate view for them. Combined, one row can show a shadow MCP server that nobody manages yet. Figure 2 shows the inventory.
+
+Figure 2: The API inventory in API Portal lists the endpoints discovered behind API Gateway and Application Load Balancer, with each endpoint’s AWS WAF status, classification, and AI workload type
+
+“We can manage our API environment more effectively when we have a clear picture of what’s running across AWS. API Portal gives us that visibility without requiring teams to change how they deploy APIs or route traffic, helping us create a more complete view across the enterprise.” — Mike Hasani, Senior Software Engineer, Principal Financial Group
+
+Some abuse shows in one request. Some appears only over time.
+
+Two requests show why protecting an API takes two kinds of detection. Here’s the first one:
+
+GET /v1/orders/48213 HTTP/1.1 Host: orders.example.com Authorization: Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiJ9.
+
+This JSON Web Token (JWT) declares alg: none. It asks your API to skip signature verification, and a correctly built client doesn’t send that. The API Security managed rule group blocks the request before it reaches your origin, from the first request and with no learning period. The same rules catch other token tampering, such as pointing the token at a signing key that the attacker controls. These rules check the structure of a token in the Authorization header. They don’t verify its signature, so your application still has to validate the token. For the full list of rules and what each one does by default, see API Security managed rule group in the AWS WAF Developer Guide.
+
+Here’s the second one:
+
+GET /accounts/1337 HTTP/1.1
+
+Nothing is wrong with this request, and the caller’s token is valid. It’s abuse only if the caller doesn’t own account 1337, and no single request can tell you that. This is broken object level authorization (BOLA), the first entry in the OWASP API Security Top 10.
+
+So, the managed rule group also learns. It builds a baseline from your own traffic and looks for callers who don’t fit it. There’s nothing to set up for this. You don’t turn on logging or mirror traffic.
+
+The hard part is to avoid flagging your own scripts. For example, a nightly export job reads thousands of records on a steady machine schedule. On those two signs alone, it looks like an attacker. So a detection reaches high confidence only when different kinds of signs agree, and at least one is something your own traffic never does. For example, the caller reaches records through a sequence of calls that your app never makes, or your API keeps denying it access. High confidence also needs a caller that AWS WAF can identify from a credential on the request, such as a token. A caller that AWS WAF knows only by IP address stays at medium confidence. Figure 3 compares a nightly export job with an attacker on these signs.
+
+Figure 3: Volume and timing alone don’t reach high confidence. A sign that your own traffic never shows has to agree with them
+
+The behavioral detections cover more than object access. They also flag credential stuffing, where one source presents an unusual number of different credentials in the Authorization header, and probing, where a caller keeps requesting routes or parameters that your traffic never uses.
+
+The same thinking applies to the response, what your APIs send back. The behavioral detections take account of the status codes that your application returns, such as a caller’s rate of denied or failed requests. A caller stands out when, for example, its successful calls turn into a run of authorization failures. API Security doesn’t inspect the content of responses. Figure 4 shows the APIs view of the protection pack (web ACL) dashboard in the AWS WAF console.
+
+Figure 4: The APIs view of the protection pack (web ACL) dashboard shows API Security detections over time, the detections that matched the most requests, and how AWS WAF handled the labeled requests.
+
+Every detection is a label under awswaf:managed:aws:api-security:. A label starts with a stage (attack, recon, or warning) and names the finding. Behavioral detections also end with a confidence (high, medium, or low). Each rule has its own default action. The single-request rules that identify token tampering and unsafe methods block, and the posture and schema discovery rules count. Behavioral detections block at high confidence and count at medium and low confidence, at either stage. Detections that work from a single request have no confidence. For example, attack:alg_none:jwt_header and attack:object_level:high block, and recon:path_schema counts. AWS WAF also repeats a caller’s finding as an actor_identity label on that caller’s later requests across the whole protection pack (web ACL), for about five minutes after the last detection. At high confidence, the rule group blocks those requests by default. At medium and low confidence it counts them, and your own rules can act on the label.
+
+AI Security understands the protocols that agents speak
+
+LLM inference endpoints, MCP servers, and A2A servers are APIs, too. API Portal shows you which of your endpoints they are, and the API Security managed rule group already inspects their requests like any other API path.
+
+The AI Security managed rule group adds checks made for agent traffic. It first recognizes the traffic and labels each request as LLM, MCP, A2A, or not recognized, so the checks that follow fit each endpoint type. It runs in the same AWS WAF protection pack (web ACL) as your other rules, with no new service to deploy.
+
+Its first layer checks each MCP and A2A request against the protocol version that the request declares in its MCP-Protocol-Version or A2A-Version header. It supports MCP versions 2025-06-18, 2025-11-25, and 2026-07-28, and A2A version 1.0. For the current list, see AI Security managed rule group. These protocol compliance checks are deterministic and run entirely in AWS WAF. They come in two levels. Baseline covers the violations that let a request slip past routing or inspection, as the example that follows shows, and blocks by default. Strict adds malformed requests that are worth flagging but are usually an outdated client, and counts by default. Each failed check also adds its own label, so you can see exactly which check failed. Here’s the kind of trick that Baseline catches. The header tells every component in front of the MCP server that the request only lists tools. The body calls a tool that reads a file:
+
+POST /mcp HTTP/1.1 Host: tools.example.com Content-Type: application/json MCP-Protocol-Version: 2026-07-28 Mcp-Method: tools/list Mcp-Name: read_file { ""jsonrpc"": ""2.0"", ""id"": 1, ""method"": ""tools/call"", ""params"": { ""name"": ""read_file"", ""arguments"": { ""path"": ""/etc/passwd"" } } }
+
+A gateway or authorizer that trusts the header treats the request as read-only, and the server runs the tool. AWS WAF blocks the request at the API entry point, because the header and the body disagree about the method.
+
+Its second layer checks content through Amazon Bedrock Guardrails. You don’t create or configure a guardrail for this. You turn on the option in the rule group and choose a service role, and AWS WAF assumes that role to call Bedrock Guardrails with your account’s identity. Bedrock Guardrails returns a score for each check. AWS WAF groups the scores into three levels (high, medium, and low), and the rule group has one rule for each check at each level, so you choose the action for each one. AWS WAF picks the checks for each endpoint type and each direction, as the following table shows. Response checks run only when you turn on response inspection. They cover the response body up to the body size that AWS WAF inspects for that resource, and content beyond that size isn’t checked.
+
+Bedrock Guardrails check
+
+What it looks for
+
+On requests
+
+On responses
+
+Prompt attack
+
+Jailbreaks, prompt injection, and attempts to extract the system prompt
+
+Yes
+
+MCP and A2A only
+
+Content filter
+
+Hate, insults, sexual content, violence, and misconduct
+
+LLM and A2A only
+
+No
+
+Sensitive information
+
+Personal data such as card numbers, US Social Security numbers, email addresses, and bank account numbers, plus credentials such as passwords and AWS access keys
+
+No
+
+Yes
+
+By default, AWS WAF blocks a high-severity prompt attack, on the request or the response. Everything else counts and adds a label that names what matched, such as a prompt injection or a card number. You can change the action for any rule. If Bedrock Guardrails can’t check a request, AWS WAF adds a label that says why and lets the request through. The label is guardrails:not_assessed when the content can’t be assessed, such as an empty prompt. It’s guardrails:call_failed when the call to Bedrock Guardrails fails, plus a second label with the reason, such as guardrails:call_failed:throttling. Like every label, these appear in your AWS WAF logs and CloudWatch metrics. For how labels work, see Web request labeling in AWS WAF. To fail closed when the call to Bedrock Guardrails fails, set the Guardrails_CallFailed rule to block. Throttling then blocks requests, too. Content checks run in the supported Regions listed in AWS WAF AI Security rule group. Figure 5 follows one request through these checks.
+
+Figure 5: AWS WAF recognizes agent traffic and checks its protocol itself, and calls Amazon Bedrock Guardrails to check the prompt on the way in and the answer on the way out
+
+The AI Security labels follow the same steps, under awswaf:managed:aws:ai-security:. For example, traffic:recognized_mcp says what the traffic is, protocol_compliance_level:baseline:mcp is the level you act on, protocol_compliance_check:mcp_method_mismatch names the check that failed, and request:guardrails:prompt_attack:severity:high carries the Bedrock Guardrails result. For the full label list, supported protocols, and configuration, see AI Security managed rule group. Figure 6 shows the AI endpoints view of the protection pack (web ACL) dashboard.
+
+Figure 6: The AI endpoints view of the protection pack (web ACL) dashboard shows AI Security detections over time, the Amazon Bedrock Guardrails findings that matched the most requests, and how AWS WAF handled AI traffic
+
+Every detection is a label, and labels work with the rest of AWS WAF
+
+Every detection from the API Security and AI Security rule groups is also a label on the request. Any rule that runs later in your protection pack can match those labels and combine them with labels from other managed rule groups. Examples are AWS WAF Bot Control, AWS WAF Fraud Control account takeover prevention, and the Amazon IP reputation list. That list draws on MadPot, the threat intelligence tool that Amazon uses to protect customers from cybercrime. Use request labels in your own rules. Labels from response checks, such as sensitive information in a response, drive the AI Security rule group’s own actions and appear in your CloudWatch metrics.
+
+Here are four examples of what that makes possible:
+
+Rate limits keyed on labels. One probe for your API schema can be noise. Fifty from the same caller in 5 minutes is reconnaissance. A rate-based rule scoped to the reconnaissance labels counts only those requests.
+
+No unsigned agents on your MCP server. If your MCP server is only for agents you work with, block requests without an access token or a verified Web Bot Auth signature. Then match the Bot Control bot name label for the operators you trust. Application Load Balancer JWT verification, CloudFront Functions, Lambda@Edge, or your MCP server still validates the token itself.
+
+Two weak signals that add up. A low-confidence API Security label or a Bot Control signal by itself isn’t enough to block. Block only the requests that carry both.
+
+Tighter limits on sensitive paths. Bot Control targeted protection labels callers by confidence. Use those labels to set a lower rate limit on /checkout than on the rest of your API.
+
+The following rule shows the first example. For each IP address, it counts the requests that carry an API Security reconnaissance label. When an address sends more than 50 requests in 5 minutes, the rule blocks them. Place it after the API Security managed rule group so that its labels are available.
+
+{ ""Name"": ""RateLimitAPISecurityRecon"", ""Priority"": 40, ""Statement"": { ""RateBasedStatement"": { ""Limit"": 50, ""EvaluationWindowSec"": 300, ""AggregateKeyType"": ""IP"", ""ScopeDownStatement"": { ""LabelMatchStatement"": { ""Scope"": ""NAMESPACE"", ""Key"": ""awswaf:managed:aws:api-security:recon:"" } } } }, ""Action"": { ""Block"": {} }, ""VisibilityConfig"": { ""SampledRequestsEnabled"": true, ""CloudWatchMetricsEnabled"": true, ""MetricName"": ""RateLimitAPISecurityRecon"" } }
+
+Labels don’t have to stop at AWS WAF. With custom request headers and dynamic label interpolation, AWS WAF can forward the matched labels to your origin. Your application then sees what AWS WAF saw and can show less data, require step-up authentication, or log the request for review. For how it works, see Do more with AWS WAF labels using dynamic label interpolation.
+
+We keep adding labels, so the documentation holds the current lists. See API Security labels, AI Security labels, and AWS WAF Bot Control rule group.
+
+See what the rule groups found, and act on it
+
+Every label is also an Amazon CloudWatch metric, with no extra setup, and appears in your AWS WAF logs. The protection pack (web ACL) dashboard in the AWS WAF console shows them as traffic arrives. In API Portal, each managed API’s detail page shows the security events that AWS WAF detected on it, as shown in Figure 7.
+
+Figure 7: Each managed API’s detail page in API Portal shows the events that AWS WAF detected on it
+
+The managed rule groups enforce their own detections at your API entry points. To write a rule of your own, start from a label. Scope a rate-based rule to the paths it appears on, key it on the IP address or TLS fingerprint, and start in count mode.
+
+When a detection type spikes, your existing alerting can act on it. That can be a CloudWatch alarm, or the observability or security platform that already reads your metrics and logs. For log destinations, see Logging AWS WAF protection pack (web ACL) traffic.
+
+How we test API Security
+
+No single test shows whether a detection works, so we combine several for API Security:
+
+Automated red teaming – LLM-powered agents run continuously against deliberately vulnerable test APIs that we maintain. They probe, adapt, and chain steps the way an attacker does.
+
+A growing attack suite – Each working exploit that the agents find becomes a repeatable test case. We replay the suite against the managed rule group when it changes.
+
+Realistic legitimate traffic – We replay traffic such as batch jobs, seasonal spikes, and power users next to the attacks, so we measure false positives together with detections.
+
+Results from our test environment don’t transfer directly to yours, because your APIs and the attacks against them differ. The numbers that matter come from your own traffic, and the next section shows how to get them. API Security is designed to detect and block callers who walk object IDs to harvest other users’ records, and tokens whose structure shows tampering. It also flags credential stuffing against the Authorization header and callers who probe for routes that your API doesn’t serve. Efficacy and expansion work for API Security, like AWS WAF security in general, is a continuous effort. For the current list of detections, see API Security managed rule group in the AWS WAF Developer Guide.
+
+Check what gets blocked on your own traffic
+
+The managed rule groups apply their default actions from the moment you add them. To see what a rule group finds before it blocks anything, first add it with all rule actions overridden to count, review the results, and then remove the override. Later, to review one rule, override only that rule to count. AWS WAF still evaluates an overridden rule and adds its label, so you see what it would have blocked on your own production traffic.
+
+Behavioral detections need time to learn your traffic. For the learning period, see Testing and deploying AWS WAF API Security. For a step-by-step evaluation, see Testing and tuning your AWS WAF protections.
+
+Availability
+
+API Portal, API Security, and AI Security are generally available today. Detection of data exfiltration and sensitive data exposure in responses for API Security is coming soon.
+
+Pricing
+
+Each capability is priced by the service it runs in. For API Portal, see Amazon API Gateway pricing. For the API Security and AI Security managed rule groups, see AWS WAF pricing. For the content checks that AI Security runs through Bedrock Guardrails, see Amazon Bedrock pricing.
+
+Get started
+
+To get started, complete the following steps:
+
+In API Portal, enable discovery for one account or for your organization in AWS Organizations, and exclude any resources that you don’t want in the inventory. This step doesn’t need AWS WAF. As the inventory builds, look for endpoints you didn’t expect, such as shadow APIs and AI endpoints, and add them to your managed APIs.
+
+In the AWS WAF console, add the API Security managed rule group to the protection pack in front of your APIs. Start with all rule actions overridden to count, review what it finds on your own traffic, and then remove the override.
+
+If you run AI endpoints, add the AI Security managed rule group to the same protection pack. To turn on the Bedrock Guardrails checks, choose a service role that AWS WAF can assume to call Bedrock Guardrails, and turn on response inspection if you want responses checked and your protection pack (web ACL) protects CloudFront or an Application Load Balancer. Start with the four rules that block by default overridden to count, review what they find on your own traffic, and then remove the overrides one rule at a time.
+
+After the first baseline is available, the behavioral detections label abuse and block it at high confidence. Watch the labels in your CloudWatch metrics, and in your AWS WAF logs if you turn on logging.
+
+Use those labels in your own rules, such as a lower rate limit on your most sensitive paths.
+
+For step-by-step instructions, see Adding the API Security managed rule group and Adding the AI Security managed rule group in the AWS WAF Developer Guide.
+
+Best practice: Put Amazon CloudFront in front of your APIs
+
+Put Amazon CloudFront in front of your API Gateway APIs, your Application Load Balancers, and any other endpoint that is public on port 80 or 443, and associate your protection pack (web ACL) with the CloudFront distribution. That includes APIs that run outside AWS, with another cloud provider or on premises: CloudFront works with any HTTP or HTTPS origin, so those APIs get the same delivery, acceleration, and protection. The same applies to your MCP servers, A2A servers, and LLM endpoints, whether you host them on Amazon Bedrock AgentCore Gateway, on Amazon EKS, or elsewhere. With this setup:
+
+AWS WAF inspects requests at the edge, before they reach your origin.
+
+AWS WAF sees the caller’s own IP address.
+
+AWS WAF mitigates attacks close to their source.
+
+For origins in AWS, CloudFront VPC origins mean your Application Load Balancer or private API Gateway REST API isn’t exposed directly to the public internet and is reached through CloudFront.
+
+For more information, see Use AWS WAF protections and Restrict access with VPC origins in the Amazon CloudFront Developer Guide, and the posts Introducing Amazon CloudFront VPC origins and Accessing private Amazon API Gateway endpoints through custom Amazon CloudFront distribution using VPC Origins.
+
+Conclusion
+
+Your APIs are the same APIs they always were. The callers changed, and so did the attack surface. With API Portal, you can see the APIs and AI endpoints that the internet is calling. With API Security and AI Security in AWS WAF, you can protect them at their entry points, without changes to your backend code.
+
+AWS built the building blocks for what comes next: an inventory from traffic, labels that you can act on, and protection where requests first arrive. As agents and the protocols they speak change, those building blocks are where new protection shows up. For the most up-to-date information, see AWS WAF API Security and AWS WAF AI Security in the AWS WAF Developer Guide.
+
+To get started, enable discovery in API Portal, and add the API Security and AI Security managed rule groups in the AWS WAF console.
+
+If you have questions about this post, contact AWS Support or start a new thread on AWS re:Post.
+
+Gopinath Durairaj
+
+Gopinath is a product leader who built enterprise technology businesses across cybersecurity, cloud infrastructure, AI / ML and networking. He currently leads web application security product strategy at AWS, a portfolio that includes AWS WAF, API security, and security for AI-powered applications.
+
+Eitav Arditti
+
+Eitav is a Senior Solutions Architect at AWS and a technology leader with over 15 years of experience in the tech industry. He specializes in edge computing, serverless, and platform engineering, and works with engineering teams to design secure, globally scalable architectures on CloudFront and AWS WAF. His current focus is on internet-scale systems—from global content delivery to edge security.
+
+Gabe Sin
+
+Gabe is a Senior Product Manager at AWS on the Amazon API Gateway team, focused on API management. Before AWS, he led product and strategy at a cryptocurrency exchange, where he built the company’s end-to-end analytics infrastructure on AWS, bringing the same visibility and governance to data that he now brings to APIs.
+
+Aykut Tuzunkan
+
+Aykut is a Senior Technical Program Manager at AWS, based in Seattle, with more than 15 years of experience across edge security, distributed networks, and infrastructure capacity. He owns AWS WAF’s cross-org programs, which cover protection for web applications, APIs, bots, and AI traffic. He focuses on adding new protections to AWS WAF and strengthening the ones customers rely on."
+3b03b06299c2,3b03b06299c2,2026-11-23 00:00 UTC,Product & Roadmap,,Claude Blog,AI Security; Data Security Posture Management,Article,Zero data retention with Enterprise Frontier Safeguards is now in beta,https://claude.com/resources/articles/zero-data-retention-with-enterprise-frontier-safeguards,"For example, our September threat intelligence report describes an operation against roughly fifty organizations in which an AI agent divided the work of an attack among many...","Now, we're opening up EFS in public beta. In this post, we explain how EFS works in more detail, how it stays compatible with ZDR, and how businesses can join the beta program.
+
+How EFS provides automated safety monitoring with ZDR
+
+Customers who rely on legacy ZDR are protected by Claude's classifiers: our real-time safeguards that screen individual requests to assess whether they might cause harm. But sophisticated attacks generally occur across multiple queries—and any single request might, in isolation, look harmless.
+
+For example, our September threat intelligence report describes an operation against roughly fifty organizations in which an AI agent divided the work of an attack among many other agents running in parallel. It saved the credentials it had harvested between sessions, so that the attackers could easily resume their campaign. Viewed one request at a time, this attack would have appeared as separate, more benign tasks.
+
+To catch attacks like these, we use a second defensive layer, known as automated safety monitoring. This layer looks for patterns of misuse across many requests. Through EFS, Anthropic can provide automated safety monitoring without storing any customer data. Instead, our automated safety monitoring system analyzes data stored entirely on infrastructure controlled by our customers.
+
+When automated safety monitoring finds a risk, it creates a Safety Case for you to review. These cases can be read from your cloud storage or through an API, and can be integrated with security information and event management systems. They do not include inputs and outputs.
+
+Once it's set up, automated safety monitoring can help your team detect intentional misuse that could lead to serious harm (like offensive cyber operations). It can also help detect agents that take actions beyond a user's intentions, such as—in extreme cases—using a software exploit to access an internal database or external system.
+
+Zero data retention and EFS
+
+With EFS, you bring your own storage for storing inputs and outputs. Neither Anthropic nor your cloud provider keeps a copy of your data once it is delivered to storage you control. This provides you the following guarantees:
+
+Zero data retention. Neither Anthropic nor your cloud provider retains your data. You bring your own storage and store your own data. Inputs and outputs are deleted promptly after they're written to your own storage. You configure your own access policies and audit logging, and encrypt safety data with your own keys.
+
+No operator human review. Neither Anthropic nor your cloud provider personnel access your inputs and outputs. Only automated safety monitoring can access this data.
+
+We never train on your data. Inputs and outputs are used only for automated safety monitoring, never for model or classifier training.
+
+You can use EFS through the Claude Platform, Claude Platform on AWS, Amazon Bedrock, or Claude on Google Cloud. When you use EFS through Amazon Bedrock or Claude on Google Cloud (Google Managed), it's operated by your cloud provider, and the end-to-end data flow stays within that cloud's boundary.
+
+You can use Amazon S3 or Google Cloud Storage in your own account for your storage, depending on where you use Claude. Your cloud provider bills you for that storage as usual, including reads, writes, and key operations (plus any applicable network transfer).
+
+Get started
+
+EFS is available on the Claude Platform, Claude Platform on AWS, Amazon Bedrock, and Claude on Google Cloud. Support for EFS in Microsoft Foundry is coming soon.
+
+Eligible customers will be notified with instructions on how to get started. Read our developer docs to learn how to set it up, and our security whitepaper (opens in new tab) for how the architecture works, or deploy it through consulting partners like Accenture, Deloitte, KPMG, and PwC."
+2311be3a2149,2311be3a2149,2026-11-23 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security,Article,Introducing Claude Ship,https://claude.com/resources/articles/introducing-claude-ship,"For most customers, we recommend enabling this first in observe-only mode to build confidence before configuring branch protection to require Claude Approvals' green light","Anyone who has opened a pull request knows how this goes. They start on the next thing, and then the review comes back. So they stop, dig back into the old code, push a fix, and wait for the review to run again. Then they go find someone to approve it.
+
+There's a good reason it works this way. Most teams want a person to approve every change, and that's easy to keep up with when people write every line. But a lot of developers build with agents now. On the Claude Code team, Claude writes most of our code, and we wanted everything after the PR to move that fast too.
+
+That's why we built Claude Ship, available today in beta. It can review PRs, fix them, and decide what's ready to merge based on policies each team sets. Teams stay in control of where it runs and which changes need a person. The goal: ship code as fast as teams write it.
+
+Eligible Claude Enterprise organizations can claim at least $10,000 in Claude Ship credits to use within 30 days of claiming. Claim by January 15, 2027. Terms apply.
+
+How Claude Ship works: review, fix, and approve
+
+Claude Ship is made up of Code Review, which is already generally available, and two new agents in beta: PR Steward and Claude Approvals. Together, they take a pull request through review, fixes, and an approval decision so teams don't have to manage each step manually.
+
+Code Review performs an in-depth review of pull requests against the codebase through multiple lenses. It collects findings, adversarially verifies them, categorizes them, and posts them to a PR. On the Claude Code team, where Claude's review is one layer of a broader process, merged PRs more than doubled from June to September while the share reverted fell by more than 40%. Code Review gives teams fast reviews, clear findings, and a choice of Quick, Standard, or Deep review levels for each repository.
+
+PR Steward works to keep a PR green, but is designed not to approve or merge pull requests. It jumps in on failing CI checks, merge conflicts, and review feedback from Code Review, other review tools, or team members. After every push, it comments with what it changed and how to undo it. Developers can comment @claude with an instruction to steer the work, or @claude stop to have it step back.
+
+From there, Claude Approvals applies an approval policy that the team writes as a file in the repository. Claude can approve routine changes on its own if the policy allows it, or can require deeper human sign-off for certain scenarios. It works like a smarter CODEOWNERS file. Teams can have Claude Approvals consider a variety of signals in its decision-making process, including Code Review findings or their own classifiers using natural language. For most customers, we recommend enabling this first in observe-only mode to build confidence before configuring branch protection to require Claude Approvals' green light.
+
+Two ways to get started
+
+For developers: /ship it from Claude Code
+
+Developers can try Claude Ship on their own pull requests with the new /ship command in Claude Code. When a change is ready, they run /ship. Claude pushes it, opens the PR, reviews the change, and works on feedback and failing checks to help get it ready to merge. What can merge depends on the developer's permissions and the repository's branch rules.
+
+For admins and engineering leaders: set the rules, one repository at a time
+
+Turning Claude Ship on for an entire repository puts it to work across a team's pull requests automatically, under settings and an approval policy the team controls. Developers don't need to manually invoke the /ship command.
+
+Admins choose where it runs. An admin turns on Code Review and PR Steward for each repository. Claude Approvals starts when a connected repository has a policy file on its default branch, and an admin can turn it off.
+
+Each repository gets the settings it needs. Admins choose the review level (Quick, Standard, or Deep), choose when reviews run, and configure spend limits.
+
+Teams keep the tools they have. Claude Ship works with existing branch protection and required checks.
+
+Teams set the pace. They can start with one repository, choose a review level and when reviews run, set a monthly spend limit, and run their approval policy in observe mode until they trust it.
+
+How the Claude Code team ships
+
+We run Claude Ship on many of our own pull requests. One of the biggest changes is who can act on customer feedback. For example, a product manager on the Claude Code team can now read a piece of feedback, talk through ideas and tradeoffs with Claude Tag, have it open a PR, and move on to the next thing while Claude Ship takes it through review, fixes, and an approval decision.
+
+Recently, a customer was confused because our Analytics API documentation implied an Admin key could pull Pro and Team usage. The PM asked Claude Tag whether a fix was in flight, and it opened one. Code Review found nothing blocking, a docs reviewer signed off, Claude Approvals passed, and the fix merged that same evening."
 7f0c97d6e73a,7f0c97d6e73a,2026-11-21 00:48 UTC,Product & Roadmap,SonicWall,Google News: SonicWall,Network Security,Article,SonicWall urges retirement of generation 6 firewalls due to security risks,https://news.google.com/rss/articles/CBMipwFBVV95cUxPYU1xNXdLYjRRTEdwRjgzbWtpMEhFazFPM0VBckR2Y2NVb21EMWp4VUJjN25BRXFKS3lDWk5hYWt2YXBDQWRKYkt0ZGtySWxEd3psM19BOTZld2c2R1J4LXpUTXFQeUdNZGJWb1B0WHZPcE1JNlF4V0dKR2lyRWdxak9sTGJsc2hlNmNMSl93T0tZaFd4eTlxWEJqM3J2N0JFTHVxN0pFUQ?oc=5,,
 97b80bda2795,97b80bda2795,2026-11-20 13:51 UTC,Product & Roadmap,,Dark Reading,N/A,Article,"Microsoft Debuts Offensive, Defensive Security Tools for the AI Era",https://www.darkreading.com/endpoint-security/microsoft-offense-defense-ai-security-tools,,
 1d2d500d88aa,1d2d500d88aa,2026-11-20 00:00 UTC,Product & Roadmap,Sophos,Sophos Blogs,Network Security; Vulnerability Management,Article,Introducing the new Sophos NDR,https://www.sophos.com/en-us/blog/introducing-sophos-ndr,"As user behaviors are increasingly obfuscated by encryption and attackers are increasingly hiding their activities in ‘living off the land’ techniques, NDR will be critical in...","Attackers don’t need to compromise every security control; they just need to exploit a gap. As users become more distributed, applications and data spread across hybrid environments, and unmanaged and agentless assets proliferate, security teams face an increasing number of visibility gaps that attackers can exploit.
@@ -1146,7 +1634,6 @@ Think you can steer it anyway? AgentSense has already been tested and validated 
 AgentSense is available as part of Cato AI Security for Users and Local Agents. To learn more, visit catonetworks.com/platform/agentsense/
 
 The post Introducing Cato AgentSense: Stop Unsafe Agent Actions Before They Execute appeared first on Cato Networks."
-c852fc91fb0b,c852fc91fb0b,2026-11-17 08:00 UTC,Product & Roadmap,EY,Google News: EY,N/A,Article,EY India announces sixth cohort of Executive Program on Board Effectiveness,https://news.google.com/rss/articles/CBMiuAFBVV95cUxQMF9INEVvaVRKV3VpcjZUUGxrSFBGOE10SUtZQ2JLcUJWSGZRcWJQb2ZuODc5ODBmTFJUVUZHRUZJaERRRV94dFBkOTU0ZVNFS1BKVHo5emNyUFdZeVpCTGh6SHBReXhHdXRITnJ0X1h6NXhtaWJlN1hCajcxYWxTLXZZR3hMS3dHMzQ1QmhmVjhCaGlkT1ZNUFhFRHlPZzRITnNDTWU1SGdzUzNCcVM4LWdkUUdjWERp?oc=5,,
 f3bd52a76f1d,b831185d2433,2026-11-17 08:00 UTC,Product & Roadmap,,OpenAI Blog,AI Security,Article,Introducing ChatGPT for Sales,https://openai.com/index/introducing-chatgpt-for-sales,,
 6efd128e1cb1,6efd128e1cb1,2026-11-17 07:02 UTC,Product & Roadmap,,Socket,Code Security; Vulnerability Management,Article,pnpm Introduces New Lockfile Format to Reduce Git Merge Conflicts,https://socket.dev/blog/pnpm-introduces-new-lockfile-format?utm_medium=feed,"Incompatible tools could omit packages, misidentify resolved versions, or fail to process the dependency graph, potentially affecting vulnerability detection and other supply...","pnpm has introduced an experimental lockfile format designed to reduce Git merge conflicts by changing how dependency relationships are recorded. The new format, available starting with pnpm 12.19.0, previews changes planned for pnpm 13 and is available as an opt-in setting.
 
@@ -1190,6 +1677,7 @@ Successfully parsing a lockfile does not guarantee that a tool can accurately re
 
 The new format does not introduce additional security protections. Its primary purpose is to reduce merge conflicts, but its eventual adoption as the default in pnpm 13 will require compatible tooling across the JavaScript ecosystem."
 493999b88d46,493999b88d46,2026-11-17 00:00 UTC,Product & Roadmap,,OpenAI Blog,AI Security,Article,Introducing OpenAI for Chile,https://openai.com/index/introducing-openai-for-chile,,
+bc383acd4d03,bc383acd4d03,2026-11-16 22:46 UTC,Product & Roadmap,EY,Google News: EY,N/A,Article,EY announces alliance with Stuut to help organizations modernize order-to-cash processes | EY - Global,https://news.google.com/rss/articles/CBMiygFBVV95cUxQZTdIejA0Z1RxdEJGbVdMZGpBbnFQQ1lSSl8tV3hIbHZlQWw3ODB2alZ3ZzZjRTdzSGVRQUxHNmpvbmdXRm4td0o1eDcyRUtjWVJzemVBVnZYMzJ3NFZpbW9CVndJOXBoWXJoYnBhZ1JWeU1xUHo0ZnlDQTNkcmotRDFwc1FYY0RWMF96bHFHZ19BUUhuVjRydmxodlQ5NmhxY20wY1p2RlMyMG1HWXA5a1hLLUx1dmREVlRZbDdpT0xJRkR4N2F2ZDZR?oc=5,,
 c64aee7db31c,c64aee7db31c,2026-11-16 17:02 UTC,Product & Roadmap,Wiz,Wiz Blog,AI Security; Data Security Posture Management; Vulnerability Management; Cloud Risk Management,Article,Introducing the Wiz AI Security Agent,https://www.wiz.io/blog/introducing-wiz-ai-security-agent,"Together, these findings show how an external attacker could exploit the flaw to hijack the agent's tools and access sensitive data","Artificial intelligence is changing more than the applications organizations build; it's changing what security teams need to understand to secure them.
 
 Cloud context remains foundational to modern security, providing visibility into identities, workloads, permissions, vulnerabilities, and data across an environment. But AI agents operate at the application layer, orchestrating prompts, calling tools, and executing business logic. To accurately map AI security risk, security teams need deep visibility into both layers: understanding what happens at the application, how it maps to the underlying cloud context, and where the two intertwine to create real-world attack paths.
@@ -2447,7 +2935,7 @@ Download
 Blog
 
 Post-Quantum Cryptography Part 2: 2030 Is Not the Deadline"
-b9205073cd7b,b9205073cd7b,2026-11-05 08:00 UTC,Product & Roadmap,PwC,Google News: PwC,N/A,Article,PwC Adds Kavitha Menon to Strengthen Cybersecurity and GCC Advisory Leadership,https://news.google.com/rss/articles/CBMiswFBVV95cUxPMVh4cWR4NWVvQ01mSTdJVFZ0OHJ2VFJ6dHZ3NmdQSEs3VEJfV2lUbnlNX3dhZEtlTHgwRHRQVmQ3SE5IcndzMXllNzVwcDZXN1J3c0pSbzYyVlRGZXhqQXQ3OEpVb0IzbWp4TjJhQWJSeV9xaWUySzNIN1RRdGY4ekxzU2ZYa21WVFJtQzlxUVY4LWVFYS1DYkhRYmdDV2U2dUZMdFg2T1JwYVNVclgteDRDRQ?oc=5,,
+b9205073cd7b,b9205073cd7b,2026-11-05 08:00 UTC,Product & Roadmap,PwC,Google News: Accenture,N/A,Article,PwC Adds Kavitha Menon to Strengthen Cybersecurity and GCC Advisory Leadership,https://news.google.com/rss/articles/CBMiswFBVV95cUxPMVh4cWR4NWVvQ01mSTdJVFZ0OHJ2VFJ6dHZ3NmdQSEs3VEJfV2lUbnlNX3dhZEtlTHgwRHRQVmQ3SE5IcndzMXllNzVwcDZXN1J3c0pSbzYyVlRGZXhqQXQ3OEpVb0IzbWp4TjJhQWJSeV9xaWUySzNIN1RRdGY4ekxzU2ZYa21WVFJtQzlxUVY4LWVFYS1DYkhRYmdDV2U2dUZMdFg2T1JwYVNVclgteDRDRQ?oc=5,,
 6b4470f7094b,6b4470f7094b,2026-11-05 00:00 UTC,Product & Roadmap,Anthropic,Claude Blog,AI Security; Identity Security Posture Management,Article,Introducing Personal Finance in Claude,https://claude.com/resources/articles/introducing-personal-finance-in-claude,"Access is read-only, and Personal Finance can’t move, manage, or invest your money","Getting answers about your money no longer means opening every banking app and doing the math yourself. With Personal Finance in Claude, you can securely connect your bank and card accounts and ask in your own words. Access is read-only, and Personal Finance can’t move, manage, or invest your money.
 
 Claude gives you answers in everyday language, from your balances and transactions, and explains any term that's new to you. Like the rest of Claude, Personal Finance has no ads or sponsored recommendations, and it doesn’t offer credit cards, loans, or savings accounts of its own, so your money questions get a straight answer.
@@ -2507,6 +2995,7 @@ Autonomy That Earns Its Trust
 As SOCs hand more of the work to agents, the controls that keep agents accountable matter as much as the speed they deliver.
 
 CrowdStrike builds governance into every layer of the agentic SOC. It starts by watching the SOC's agents. Policy-Drift Agent Guardrails, powered by Falcon Guardian (Beta, Q4), screen every CrowdStrike Charlotte AI™ and AgentWorks interaction for policy drift, unauthorized tool calls, and out-of-bounds data access to catch the moment an agent steps outside its intended scope."
+eaf4c33df1fb,eaf4c33df1fb,2026-11-04 00:00 UTC,Product & Roadmap,,OpenAI Blog,N/A,Article,Introducing Images 2.6,https://openai.com/index/introducing-images-2-6,,
 4450970d8772,4450970d8772,2026-11-04 00:00 UTC,Product & Roadmap,Falco / Sysdig,Falco / Sysdig Blog,AI Security; Container Security,Article,"Introducing Sysdig AI Defense: See, stop, and prove what agents do",https://webflow.sysdig.com/blog/introducing-sysdig-ai-defense,"Same sensor codebase, same Falco rules for detections, same threat research","AI has moved from assisting to acting. Agents now read files, run commands and reach your cloud with a real person’s access. Most of the time, the only record of what they did is the one the agent wrote itself. “A First Look: Under the Hood of AI Agents” shows where one software company's agents logged one tool call for every seven processes the kernel actually watched them run. And it isn’t only engineers. Someone in finance can wire up a coding agent on a Tuesday afternoon. Every agent, model and seat they add becomes a line item most companies can’t trace to a team or a task.
 
 Find every agent, decide what it can do, keep the record
@@ -2582,7 +3071,6 @@ Sysdig AI Defense brings to agents the same prevention, detection, and response 
 Agents will keep getting faster, and their actions will keep reaching deeper into the cloud. The companies that scale them with confidence will be the ones that put the controls in first: every agent known, owned, and tied to an identity; the risky actions stopped as they happen; and a record that holds up afterwards.
 
 See it on your own fleet. Start a free trial and find out what your agents are really doing. Available for macOS and Windows. Sysdig AI Defense runs beside your EDR and can be deployed through your MDM. For the full picture, we recommend rolling it out to at least ten machines."
-eaf4c33df1fb,eaf4c33df1fb,2026-11-04 00:00 UTC,Product & Roadmap,,OpenAI Blog,N/A,Article,Introducing Images 2.6,https://openai.com/index/introducing-images-2-6,,
 a2f072f75017,a2f072f75017,2026-11-03 15:00 UTC,Product & Roadmap,Huntress,Huntress Blog,Identity Security Posture Management,Article,Huntress + Hudu Integration: Security Context in Your IT Docs,https://www.huntress.com/blog/hudu-huntress-integration,"Hudu built this integration themselves on the Huntress API, the same API available to every Huntress partner","Most managed service providers (MSPs) have one place where everything about a client lives: their devices, passwords, network details, and the steps for onboarding a new user. For many MSPs, that place is Hudu.
 
 Now your Huntress data can live there too. Hudu has built a Huntress integration that brings your Huntress organizations, agents, memberships, and identities into Hudu and matches them to the client records you already have. It's available now in beta.

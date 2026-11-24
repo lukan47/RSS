@@ -91,6 +91,121 @@ Satori ties the catalog to TXCZ, a Chinese electronics manufacturer. Modules che
 The interface of a TXCZ CTV device (Source: HUMAN)
 
 “The practical guidance for end-users remains the same as in earlier BADBOX-family investigations: choose devices from familiar brands, check whether a device is Play Protect certified, download applications only from official marketplaces, and treat a device that behaves strangely as a device worth retiring,” the researchers noted."
+1069b5979c74,1069b5979c74,2026-11-23 00:00 UTC,Vulnerabilities & Patching,Bitdefender,Google Project Zero,Vulnerability Management; Endpoint Security,Article,VirtualBox Process Hardening on Windows 2026 Edition: What’s a Single Bit Between Friends?,https://projectzero.google/2026/11/virtualbox-process-hardening.html,"NET first, before moving on to exploitation in VirtualBox","Back in 2017 I did some research into Oracle VirtualBox on Windows. Specifically I focussed on their mechanism to protect their VM processes from the user on the host. The protection was to gate who could open the kernel driver, which might allow for privilege escalation due to the way it was designed. At the time I found 3 ways of bypassing the protection, with an additional issue in COM’s runtime I reported in 2020. These issues were all written up in this post.
+
+Fast forward to 2026 and I decided to look at VirtualBox again to see if much had changed. This time I found 3 new bypasses for protected processes, with an additional bug which was a broken fix for the 2020 bypass breaking due to changes in Windows. In this blog post I want to focus on one specific issue CVE-2026-87268 which abused a feature of the .NET Framework which, when combined with the implementation of the DLL loader hooks implemented by VirtualBox, permitted a bypass of the checks and allowed me to load arbitrary code into the protected process. Let’s dig into the root cause of the issue in .NET first, before moving on to exploitation in VirtualBox.
+
+.NET Assembly Loading
+
+The .NET Framework is interesting when it comes to bypassing process hardening as it supports loading assemblies from a memory buffer as long as you stick to only using managed code. This is obviously useful if the hardened process is maintained through verifying what DLLs can or cannot be loaded as it bypasses the traditional image mapping process. As the .NET runtime implementation is Microsoft signed, it’s usually permitted to load by any such checks.
+
+The canonical way to load from a memory buffer is to use the Assembly::Load static method which accepts a byte array. This does require you to run some .NET code first, or find a confused deputy to do the work for you. I used this API method to bypass VirtualBox process hardening back in 2017, I was able to get to the API through the JScript script engine, culminating in me releasing the generic DotNetToJScript tool.
+
+I’d always assumed this was the limit of bootstrapping arbitrary .NET from a memory buffer. If you tried to load a .NET assembly from a file it’d map it as an image section which would hit any DLL hardening checks and block an unsigned and untrusted binary from loading. However, in a “Doh” moment I realized I’d never verified this behavior to be true, thus I decided to take a look.
+
+The most important function to mapping a .NET assembly into memory seems to be PEImageLayout::Map, which is roughly the following in the version 4 of CLR.DLL which implements the runtime:
+
+PEImageLayout *PEImageLayout::Map(HANDLE file) { PEImageLayout* image = new MappedImageLayout(file); if (!image->Image) { image = new FlatImageLayout(file); } if (image->Image) { if (!PEDecoder::CheckFormat(image->Image)) ThrowWin32(ERROR_BAD_EXE_FORMAT); } return image; }
+
+What is interesting is this code creates a MappedImageLayout object based on the file. If that fails it’ll fall back to using a different object, FlatImageLayout. The names kind of give away what they’re doing, but just to be sure let’s look at the implementations of the constructors:
+
+void MappedImageLayout::MappedImageLayout(HANDLE file) { HANDLE mapping = CreateFileMapping(file, nullptr, SEC_IMAGE | PAGE_READONLY); if (mapping) { this->Image = CLRMapViewOfFileEx(mapping); } else { if (GetLastError() != ERROR_BAD_EXE_FORMAT) ThrowLastError(); } DWORD policy = 0; if (EEConfig::EnforceCodeIntegrity() || (SUCCEEDED(WldpGetLockdownPolicy(nullptr, &policy, nullptr)) && !WLDP_LOCKDOWN_IS_OFF(policy) && !WLDP_LOCKDOWN_IS_CONFIG_CI(policy)) ) { ThrowWin32(ERROR_BAD_EXE_FORMAT); } // ... }
+
+The constructor for MappedImageLayout uses the CreateFileMapping API to convert the file handle into a section object. The code passes the SEC_IMAGE flag which instructs the kernel to assume the file is a PE executable and build an image section object including mapping in executable memory pages. Any protections which rely on verifying an image’s signature or location can be notified and take appropriate action. However if the CreateFileMapping call fails the code checks if the last error was not ERROR_BAD_EXE_FORMAT and throws ending the load entirely.
+
+An additional check is made here to check if “Code Integrity” is enforced through the Windows Lockdown Policy (WLDP) APIs. This checks for the “Dynamic Code Security” code integrity policy being enabled or if a User Mode Code Integrity (UMCI) policy is enforced. If it is then an error is thrown ending the loading process. We’ll come back to this check when it becomes relevant.
+
+Assuming the mapping fails with the ERROR_BAD_EXE_FORMAT error, then the loading process continues, creating a FlatImageLayout object instead:
+
+void FlatImageLayout::FlatImageLayout(HANDLE file) { HANDLE mapping = CreateFileMapping(file, nullptr, PAGE_READONLY); if (mapping) { this->Image = CLRMapViewOfFileEx(mapping); } else { ThrowLastError(); } // ... }
+
+This constructor is simpler, it just calls CreateFileMapping without the SEC_IMAGE flag. Therefore the file is mapped into memory as a data only section. There’s no executable pages, but that doesn’t matter for .NET. The final check, back in the first code snippet verifies that the PE file is valid with a call to PEDecoder::CheckFormat, throwing if it’s not valid.
+
+The take away from this is if we can get .NET to load a valid assembly file, but cause the first call to CreateFileMapping to fail with the ERROR_BAD_EXE_FORMAT error we can get it to execute the file from memory. Any protection code which is expecting to check the loaded image section will not see the load and untrusted arbitrary code would be executed.
+
+Note this behavior only seems to work on .NET Framework v4, not the older .NET Framework such as v3.5 and v2. From what I can tell in the earlier frameworks, while this check can be bypassed in the same way and the FlatImageLayout object created, the runtime passes the assembly to the LoadLibrary API later in the loading process where it will fail to load. I didn’t spend much time checking if this was bypassable, as the older .NET Frameworks are no longer installed by default and aren’t even included as optional components in the latest versions of Windows 11. I also didn’t investigate the modern .NET runtimes, v5 and above for similar reasons.
+
+VirtualBox DLL Loading Hooks
+
+Now that we have a potential route to bypassing a process hardening image checker using .NET let’s dig into how it was exploitable in VirtualBox. The previous blog post described how VirtualBox on Windows adds hooks to the DLL loader in order to prevent untrusted images from loading into the process. The important hook for our purposes is the one attached to the NtCreateSection system call which is called under the hood by CreateFileMapping to create the image section object. The following is the start of the hook function:
+
+NTSTATUS supR3HardenedMonitor_NtCreateSection(PHANDLE phSection, ACCESS_MASK fAccess, POBJECT_ATTRIBUTES pObjAttribs, PLARGE_INTEGER pcbSection, ULONG fProtect, ULONG fAttribs, HANDLE hFile) { bool const fExecProt = (fProtect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_WRITECOPY | PAGE_EXECUTE_READWRITE)) != 0; if (hFile != NULL && hFile != INVALID_HANDLE_VALUE) { bool const fImage = RT_BOOL(fAttribs & (SEC_IMAGE | SEC_PROTECTED_IMAGE)); bool const fExecMap = RT_BOOL(fAccess & SECTION_MAP_EXECUTE); if (fImage || fExecMap || fExecProt) { bool fCallRealApi; NTSTATUS rcNt = supR3HardenedScreenImage(hFile, fImage, true /*fIgnoreArch*/, &fAccess, &fProtect, &fCallRealApi, ""NtCreateSection"", true /*fAvoidWinVerifyTrust*/, NULL /*pfQuiet*/); if (!NT_SUCCESS(rcNt)) return rcNt; if (!fCallRealApi) return STATUS_TRUST_FAILURE; } } NTSTATUS rcNtReal = g_pfnNtCreateSectionReal(phSection, fAccess, pObjAttribs, pcbSection, fProtect, fAttribs, hFile); // ...
+
+If the NtCreateSection call requests an executable section, such as via the SEC_IMAGE flag, then the file is passed to the supR3HardenedScreenImage support API which will check if the PE file matches VirtualBox’s loading criteria, only calling the original NtCreateSection system call if that succeeds or the file is not being mapped as executable. Importantly the CreateFileMapping call in FlatImageLayout would not hit the checks as it doesn’t request an image or executable mapping.
+
+In order for CreateFileMapping to set the ERROR_BAD_EXE_FORMAT last error, NtCreateSection needs to return STATUS_INVALID_IMAGE_FORMAT. We have two options for returning this status code, via the return code of supR3HardenedScreenImage or via the call to the original system call. Let’s see if the hardening code can even return this status code?
+
+static NTSTATUS supR3HardenedScreenImageCalcStatus(int rc) { if (rc == VERR_LDR_ARCH_MISMATCH) return STATUS_INVALID_IMAGE_FORMAT; return STATUS_TRUST_FAILURE; }
+
+It turns out that yes, the supR3HardenedScreenImage function can return this error code when mapping an internal error code to the status. Specifically if the error code is VERR_LDR_ARCH_MISMATCH then supR3HardenedScreenImage would return STATUS_INVALID_IMAGE_FORMAT. Therefore, what sets VERR_LDR_ARCH_MISMATCH?
+
+This error is set in the PE parser implementation in VirtualBox, specifically in the rtldrPEOpen API. This is reachable via RTLdrOpenWithReader which is called by the supHardenedWinVerifyImageByHandle function which itself is called by supR3HardenedScreenImage.
+
+To cut a long story short, due to the way the parser is called the VERR_LDR_ARCH_MISMATCH error is returned if the architecture of the PE file doesn’t match the host architecture and yet the PE file contains executable sections. This turns out to be perfect, when you compile a managed code only .NET assembly as AnyCPU, it generates a 32-bit x86 PE file so that it can be run on any system. This is for compatibility, a 64-bit (or ARM64) Windows system can map 32-bit PE files as images, but vice versa is not guaranteed. However, as shown below in the output from the dumpbin utility there’s executable code in the file as indicated by the size of code field in the optional header.
+
+C:\>dumpbin /headers DotNetAssembly.dll Microsoft (R) COFF/PE Dumper Version 14.44.35228.0 Copyright (C) Microsoft Corporation. All rights reserved. Dump of file DotNetAssembly.dll PE signature found File Type: DLL FILE HEADER VALUES 14C machine (x86) 3 number of sections D62E716A time date stamp 0 file pointer to symbol table 0 number of symbols E0 size of optional header 2022 characteristics Executable Application can handle large (>2GB) addresses DLL OPTIONAL HEADER VALUES 10B magic # (PE32) 48.00 linker version 35CC00 size of code 600 size of initialized data 0 size of uninitialized data
+
+Therefore to force the image hardening checks to return STATUS_INVALID_IMAGE_FORMAT all we need to do is compile any .NET assembly as AnyCPU and it’ll bypass VirtualBox’s image checks without messing with the file format. Crucially, because the .NET assembly DLL has not been modified, it remains a valid assembly which can be loaded by the FlatImageLayout class and thus get code execution.
+
+The final piece of the puzzle is how to get the assembly DLL loaded into VirtualBox? It’s not sufficient to just cause the DLL to be loaded via LoadLibrary, we need .NET to load the file as an assembly file. This is pretty easy to achieve via COM hijacking. We can write a .NET COM registration to the current user’s hive for a class we know a hardened VirtualBox process will load. Then start a VM, that will load the COM object, which loads the .NET runtime which finally loads our untrusted assembly. You can find a full PoC in the issue tracker.
+
+There is a small caveat, I haven’t mentioned the WLDP check yet. For VirtualBox this check is unlikely to matter, it will only apply if Windows has a configured code integrity policy which enables the Dynamic Code Security or the UMCI options. It’s possible a system could have such a policy which also grants VirtualBox’s own binaries to run but it seems unlikely.
+
+VirtualBox fixed the issue by never returning STATUS_INVALID_IMAGE_FORMAT from the supR3HardenedScreenImageCalcStatus method. They also introduced some new code to make it more difficult to hijack COM objects by using an undocumented global option in COM to disable current user hive lookups.
+
+Attacking WDAC and Protected Processes
+
+If you’ve read this far you might be wondering if the .NET behavior applies to Windows Code Integrity enforcement in general. For example, both Windows Defender Application Control (WDAC) and protected processes rely on the in-built code integrity mechanism to block untrusted DLLs from loading, are they vulnerable?
+
+Well yes, assuming you can find a way of forcing .NET to use the FlatImageLayout option by getting NtCreateSection to return STATUS_INVALID_IMAGE_FORMAT. In VirtualBox this condition could be induced due to the behavior of the NtCreateSection hook on an unmodified .NET assembly file.
+
+For the built-in code integrity case there’s no user-mode hook to abuse, you only have the call to NtCreateSection. We need to be able to induce the STATUS_INVALID_IMAGE_FORMAT status code from the system call without a) hitting the code integrity check first and b) the resulting image being invalid for .NET to load. The latter issue seemed to be most problematic, it’s likely that the signature validation would only run once the file was verified to be a valid PE image, but if we modify the file too much then .NET would refuse to load it.
+
+We can write a simple test harness to call NtCreateSection first with the file, then if that fails with STATUS_INVALID_IMAGE_FORMAT call Assembly::Load passing the file path to load and see if that succeeds. From that you could write a fuzzer looking for a suitable modification, or just play with the file format manually.
+
+I found that it was almost trivial to create the right conditions. If you clear the IMAGE_FILE_EXECUTABLE_IMAGE flag in the COFF File Header’s Characteristics flag field then NtCreateSection will fail to load the file as an image section, but it is ignored by .NET when loading the PE file. This single bit change is all you need to load an untrusted .NET assembly.
+
+This is when the WLDP check becomes important. If an enterprise is deploying a WDAC code integrity policy they have probably enabled UMCI or the Dynamic Code Security option which blocks this attack. The Dynamic Code Security option isn’t enabled by default, and as it disables all dynamic code loading in .NET including the byte array version of Assembly::Load it might result in breaking important applications.
+
+However, UMCI is one of the main reasons to deploy a WDAC policy as that restricts what user mode code is allowed to run. Still, I decided to try the attack against an installation of Windows 11 S Mode which does enable UMCI but doesn’t enable Dynamic Code Security.
+
+To test it out I needed force .NET to load the assembly file. For Windows 11 S Mode you can run many of the built-in .NET utilities which take assemblies on the command line. For example, the Assembly Registration Tool can be used to load a .NET assembly and call any register and unregister functions defined by the developer. For example, compile the following code as a .NET assembly adding your own code to UnregisterFunction:
+
+using System; using System.Runtime.InteropServices; public class ComClass { [ComUnregisterFunction] public static void UnregisterFunction(Type t) { //Insert code here. } }
+
+Modify the resulting assembly to remove the IMAGE_FILE_EXECUTABLE_IMAGE flag. You don’t need to fix up anything else like the image checksum, a hex editor is all you need to change a single bit. Then you can pass the path to the modified assembly DLL to the RegAsm executable from the .NET runtime directory. Note, you should pass the /unregister option to run the UnregisterFunction, as unregistering doesn’t require administrator privileges.
+
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\regasm.exe c:\path\to\assembly.dll /unregister
+
+In theory this should have failed, but it didn’t. The modified assembly was loaded into memory and executed arbitrary code even with UMCI enabled. It turns out that the WLDP check is wrong, at least if only UMCI is enabled. It’s checking that the policy flags are not equal to the WLDP_LOCKDOWN_CONFIG_CI flag set, which represents:
+
+WLDP_LOCKDOWN_DEFINED_FLAG | WLDP_LOCKDOWN_CONFIG_CI_FLAG | WLDP_LOCKDOWN_UMCIENFORCE_FLAG
+
+Unfortunately this is exactly the flag setting returned by WldpGetLockdownPolicy on Windows 11 S Mode. Therefore the check passes and loading continues which then bypasses UMCI enforcement.
+
+For protected processes on a default installation of Windows the WLDP check doesn’t even come into play. Realistically, .NET should also check for protected status but it doesn’t. It should also be pointed out that you can only exploit Protected Process Light (PPL) processes. The original Protected Process (PP) requires DLLs to have page hashes in their authenticode signature, which the .NET runtime DLLs lack. Thus .NET fails to load, and we can’t reach the vulnerable code.
+
+For protected processes you can again abuse COM hijacking again. I found that WerSecureFault.exe loads a COM object during runtime, so by hijacking that registration and using the modified .NET DLL I could get arbitrary code as PPL at the TCB level without needing administrator privileges.
+
+Reporting to Microsoft
+
+Once I’d worked out how to abuse this behavior I wondered if it needs to be submitted to Microsoft for fixing. According to the MSRC Security Servicing Criteria any PPL bypass is not in scope. WDAC is a supported security boundary, however to quote the security goal, “Only executable code, including scripts run by enlightened Windows script hosts, that conforms to the device’s policy can run…” This could be interpreted as, if there is a policy that can be enabled to prevent the code from running, then it’s not eligible for fixing.
+
+I had assumed that the WLDP check was as designed and it was really the Dynamic Code Policy that was disabling this behavior. Therefore I decided not to report it, presenting it at the 2026 44Con conference instead.
+
+However, after discussing the issue with some .NET developers they were clear that although enabling Dynamic Code Policy blocked the bypass that was by accident and not the intended purpose of the policy. They asked me to submit it to MSRC. Unfortunately by this point, late September 2026, I’d already publicly disclosed therefore it was treated as a zero day, CVE-2026-108398, and was fixed in October 2026, less than a month after reporting.
+
+The fix was to correct the WLDP check to the following:
+
+DWORD policy = 0; if (EEConfig::EnforceCodeIntegrity() || (SUCCEEDED(WldpGetLockdownPolicy(nullptr, &policy, nullptr)) && !WLDP_LOCKDOWN_IS_OFF(policy) && WLDP_LOCKDOWN_IS_ENFORCE(policy)) ) { ThrowWin32(ERROR_BAD_EXE_FORMAT); }
+
+The use of WLDP_LOCKDOWN_IS_ENFORCE specifically checks for UMCI being enabled and disabling loading from memory. However this wouldn’t change the behavior in PPL therefore that should still be bypassable.
+
+Conclusions
+
+As with my previous research into VirtualBox’s process hardening on Windows I was able to reuse the bypass to exploit the built in code integrity features of Windows. In this case the .NET code tried to adhere to policy but the developers just made a mistake.
+
+Unfortunately the behavior made me assume that it wouldn’t meet MSRC’s security servicing criteria and so the vulnerability wasn’t initially reported. While the criteria are useful, in cases like this where the expected behavior is unclear it can mean a real issue might not get reported. I’d like to thank the .NET team for getting a fix out so quickly."
 a8efff106288,a8efff106288,2026-11-23 07:44 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Security Affairs,Endpoint Security; Mobile Security; Threat Intelligence,Article,BADBOX 3.0 Exposed: Massive Botnet Hides Ad Fraud Inside Android TV Boxes,https://securityaffairs.com/203767/malware/badbox-3-0-exposed-massive-botnet-hides-ad-fraud-inside-android-tv-boxes.html,"Researchers first discovered the malware in 2023, when they found low-cost Android devices with a backdoor already installed in their firmware","BADBOX 3.0 returns with 40 billion daily ad requests, turning infected TV boxes into fraud machines
 
 The BADBOX botnet is back, and its latest version has reached a scale that makes previous ad fraud operations look relatively small. Researchers from HUMAN’s Satori Threat Intelligence and Research team have uncovered BADBOX 3.0, a large-scale operation that uses infected Android-based TV boxes and other low-cost consumer devices to generate billions of fraudulent advertising requests every day.
@@ -262,69 +377,6 @@ Until the renderer is updated, the exposure can be reduced by requiring authenti
 One published proof-of-concept file, described in its technical analysis, shows only the core memory trick. It changes a value inside the running interpreter and sets it back, without running a shell command or touching files on the host, and on the patched 10.08.0 build it fails before that point.
 
 The firm's broader research extended to production services, including Google, which fixed the affected path last week. Its reports of similar problems at Dropbox and other unnamed services are separate Ghostscript bugs, not this one."
-0a3c2d635859,0a3c2d635859,2026-11-21 10:17 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Bleeping Computer,Endpoint Security; Email and Collaboration Security; Mobile Security,Article,BADBOX botnet returns with record-breaking 40 billion daily ad requests,https://www.bleepingcomputer.com/news/security/badbox-30-botnet-returns-with-record-breaking-40-billion-daily-ad-requests/,BADBOX was first discovered in early 2023 on a T95 Android TV box bought on Amazon,"The BADBOX malware botnet has returned following last year's disruptions, generating a record 40 billion fraudulent advertising bid requests per day through infected Android-based devices.
-
-According to HUMAN's Satori researchers, who uncovered and disrupted the latest variant, BADBOX 3.0 had grown into the largest documented ad-fraud operation by daily bid request volume.
-
-BADBOX was first discovered in early 2023 on a T95 Android TV box bought on Amazon. In December 2024, Germany's cybersecurity agencies warned that the botnet had infected tens of thousands of devices.
-
-In March 2025, a large-scale disruption operation took place where HUMAN and Shadowserver cut off more than 500,000 BADBOX 2.0 devices from their control servers, while Google removed 24 apps that spread the malware from Google Play.
-
-Google later sued the botnet's operators, saying the BADBOX 2.0 had infected over 10 million Android-based devices by April 2025.
-
-BadBox returns
-
-However, the previous disruptions didn't stop the BADBOX operators from rebuilding the botnet and setting new records for daily fraudulent advertising bid requests.
-
-""At its height, BADBOX 3.0 accounted for roughly 40 billion bid requests a day and more than 4% of all CTV traffic observed by the Human Defense Platform,"" reports HUMAN.
-
-""BADBOX 3.0's volume was more than three times the volume of the previous record holder, VASTFLUX, and represents a larger peak than the last five years' worth of published Satori investigations combined.""
-
-The modus operandi remains the same: infecting cheap phones, tablets, and streaming TV boxes running the Android Open Source Project (AOSP) with malware that performs ad fraud and traffic proxying.
-
-The malware performs ad fraud by playing video ads in hidden windows while impersonating legitimate streaming apps to make the requests appear legitimate.
-
-HUMAN also observed fraudulent server-side ad insertion (SSAI) requests that tricked advertisers into believing ads were played on streaming devices, even though no actual device or video ad was involved.
-
-A proxying module also enrolled infected devices in one of 11 residential proxy networks without the owners' knowledge or consent.
-
-One of those networks, PXYEDGE, was identified as the rebranded successor to IpMoYu, a residential proxy service previously linked to BADBOX 2.0.
-
-The researchers say PXYEDGE advertised approximately 200,000 proxy nodes, while their monitoring showed unique connections peaking at around 340,000.
-
-HUMAN says some of the ad fraud traffic was also routed through these residential proxies to appear legitimate and evade anti-abuse filters.
-
-The researchers linked the malware to a specific Chinese electronics manufacturer through its domains, device-specific checks in the code, a factory-installed TV launcher, and a repository maintainer.
-
-The infected devices fetch malware modules from public code repositories, while the same payloads are also mirrored across various hosting platforms for redundancy and to resist takedowns.
-
-HUMAN says it also participated in Google's disruption of the related XCPE malware operation earlier this month, which included taking down multiple C2 domains used by BADBOX 3.0.
-
-Additionally, one of the malware repositories was taken down, while HUMAN says its systems now filter fraudulent advertising traffic associated with BADBOX 3.0.
-
-However, HUMAN warns that the botnet operators are likely to adapt to the latest disruption, as they have done in the past.
-
-Users should only buy certified Android devices from reputable manufacturers and ensure that Play Protect is available and active.
-
-Uncover email threats your existing defenses may miss.
-
-Adaptive Security's AI agents analyze email intent, context, and behavior to uncover phishing, business email compromise, and invoice fraud.
-
-See what's getting through with a 14-day read-only scan of Microsoft 365 or Google Workspace, with no MX changes.
-
-Start your free email security scan.
-
-Related Articles:
-
-Google disrupts million-device XCPE Android malware botnet, bans TV box maker
-
-Low-cost Android phones ship with residential proxy malware
-
-Chrome extensions with 13.4 million installs caught hijacking searches
-
-UNM Health ransomware attack disrupts patient care, surgeries
-
-Bullhorn takes staffing platform offline to contain cyberattack"
 06d898287bd4,06d898287bd4,2026-11-20 01:24 UTC,General Security News,Bitdefender,Arctic Wolf Blog,Endpoint Security; Threat Intelligence,Article,Windows Event Log Cleared? Think Outside the Box,https://arcticwolf.com/resources/blog/windows-event-log-cleared-think-outside-the-box/,"Investigation Methodology and Findings During an investigation into a ransomware incident, Arctic Wolf found the threat actor cleared event logs, a technique frequently built...","The ubiquitous and dreaded “Event log cleared” event record often thwarts forensicators‘ analysis. However, new research by Arctic Wolf® Incident Response analysts indicates that clearing a Windows Event Log does not wipe the underlying Windows Event Log (EVTX) file. Instead, it leaves the “cleared” events behind; ironically, within the very file that was supposedly cleared.
 
 The process is analogous to asking a child to clean his bedroom: rather than removing the mess, he sweeps it under the bed and calls the room clean. This article describes what our analysts found when they looked under the bed.
@@ -1401,6 +1453,155 @@ About Synthient
 Synthient provides intelligence to identify residential proxies, VPNs and bot infrastructure, helping organizations assess traffic risk and investigate abuse. Its researchers analyze proxy networks, botnets and adversary infrastructure to expose emerging threats. More details about Synthient.
 
 SOURCE Plume Design, Inc."
+9d2182e33582,9d2182e33582,2026-10-29 10:00 UTC,General Security News,Bitdefender,Broadcom/Symantec Blog,File Security; AI Security; Code Security,Article,Sandbox Flipped to ‘Danger-Full-Access’: Unauthorized AI Relays Create Risk for Organizations,https://www.security.com/threat-intelligence/openai-claude-unauthorized-relays,Threat Hunter has found the relay in use across a dozen organizations since early 2026,"Key findings
+
+An unauthorized relay service has been observed installing the genuine OpenAI Codex and Anthropic Claude Code CLIs on enterprise systems and then reconfiguring them to route every request through third-party infrastructure instead of the vendors' own servers.
+
+The service has been active since at least early 2026, and has impacted systems at a dozen organizations, most of them in mainland China, as well as multinational subsidiaries based in South Korea, Taiwan, and Malaysia.
+
+Affected sectors include industrial automation, electronics manufacturing, semiconductors, pharmaceuticals, shipping, tire manufacturing, petrochemicals, and data center services.
+
+Delivery relies on a fileless PowerShell or bash setup script that is fetched from a lookalike domain by a one-line command that users appear to run themselves shortly after a legitimate install of the Codex or Claude Code CLI through npm, so the download looks like a normal companion step rather than an attack. The reconfiguration disables the CLI's execution sandbox entirely, enables network access for the write sandbox, replaces the user's real API credentials with relay-issued tokens, and disables telemetry and error reporting.
+
+On at least one host, the script forced the user to log out of their legitimate Anthropic session and deleted their authentication environment variables before reissuing relay-controlled credentials.
+
+There is no evidence so far that the relay operator has abused this level of access, but a potential risk is that the configuration it installs would let it read every prompt, file, and secret passed through the agent and run commands with the user's full privileges.
+
+The relay's backend infrastructure has rotated across at least eight domains over the observation period, all impersonating OpenAI- or Anthropic-branded chat services.
+
+Overview
+
+AI coding agents such as OpenAI's Codex and Claude Code read files, write code, and run commands on the machines where they are installed. One of the safeguards they employ is a sandbox that is meant to limit what they can do. However, Symantec's Threat Hunter Team has identified an unauthorized relay service that provides access to OpenAI's Codex and Anthropic's Claude Code command-line coding agents, mainly in markets where the vendors do not officially operate, primarily mainland China. Rather than building its own client software, the service repurposes the genuine CLI tools. It installs them normally, then rewrites their configuration to switch sandboxing off, in Codex's case by setting it to “danger-full-access,” and routes every request through its own servers instead of OpenAI's or Anthropic's.
+
+This is not a vulnerability in Codex or Claude Code. The tools are behaving as designed once their configuration has been changed.
+
+Threat Hunter has found the relay in use across a dozen organizations since early 2026. There is no evidence the operator is currently abusing its position, but the configuration changes it makes strip out the safeguards that are meant to contain an AI coding agent, potentially exposing any organization whose employees use it to security risks.
+
+Usage
+
+The organizations where this relay has been observed span industrial automation, electronics manufacturing, semiconductors, pharmaceuticals, shipping, tire manufacturing, petrochemicals, and data center services. Most are based in mainland China, though the list also includes the Chinese operations, and in some cases the home-market operations, of multinational electronics and petrochemical firms based in South Korea, Taiwan, and Malaysia.
+
+Most instances appear to be a workplace where an employee or the organization itself wanted to use a Western AI coding assistant that is not officially sold in their market and so turned to an unauthorized reseller to get it.
+
+Tooling
+
+Installation and delivery
+
+The service does not distribute a modified or trojanized client. Users run a legitimate npm install
+
+-g @openai/codex, npm install -g codex-cli, or npm install -g @anthropic-ai/claude-code
+
+shortly before the override occurs, within minutes to roughly half an hour.
+
+A fileless PowerShell or bash setup script, fetched with a one-line iwr -useb <url> | iex or curl | bash from a lookalike domain such as vibe.aiok[.]me, checks whether Node.js and the target CLI are already installed, installs them silently if not, and only then applies its own configuration. Because the script performs a real, working installation of the genuine tool, the installation looks routine to the user and to most monitoring tools.
+
+We did not observe any automated or exploit-based delivery. The one-line command embeds a relay-issued API key and the relay's own endpoint, and the script is written for interactive use (it prints progress messages in Chinese and tells the user to re-run it in an elevated PowerShell session if it lacks administrator rights), which indicates that users copy a ready-made command from the relay or its reseller and run it themselves, although we have not seen the page or message it was copied from.
+
+Configuration override
+
+The script's actual purpose is to rewrite each tool's configuration file: ~/.codex/config.toml for Codex, or ~/.claude/settings.json for Claude Code. It replaces the base_url (or ANTHROPIC_BASE_URL) with a domain the relay controls, swaps in a relay-issued API key formatted to match what the CLI expects, and establishes both as user-scope environment variables so the change survives a reboot without further action from the operator. It also sets the CLI's sandbox mode to full access and enables network access for the write sandbox, disabling the isolation that is meant to limit what an AI agent can do on the host. Telemetry and error reporting are disabled at the same time, which would also suppress any usage signal that might otherwise reach OpenAI or Anthropic.
+
+sandbox_mode = ""danger-full-access"" network_access = ""true"" DISABLE_TELEMETRY=1 DISABLE_ERROR_REPORTING=1
+
+Credential replacement
+
+On one host, the script went further before applying its own configuration. It ran claude /logout, deleted the ANTHROPIC_AUTH_TOKEN and ANTHROPIC_API_KEY environment variables, and then ran claude /login. That sequence clears out a legitimate, already-authenticated session so it cannot override the credentials the script is about to install. Whether this step runs in every deployment of the script or was specific to that host was not established.
+
+claude /logout Remove-Item Env:ANTHROPIC_AUTH_TOKEN, Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue claude /login
+
+Geolocation check
+
+Several hosts show the script querying the Windows locale setting immediately after installation. This is consistent with a service confirming it is running on a system in the region it serves before completing setup.
+
+reg.exe QUERY ""HKCU\Control Panel\International\Geo"" /v Nation /reg:64
+
+Possible business model
+
+Why an operator would want this degree of control over a client-side relay is unclear. Bypassing the regional restrictions that keep Western AI vendors from selling directly into certain markets is the simplest explanation, but it does not require disabling a CLI's sandbox or establishing persistent credentials that survive a reboot. Reselling capacity below market rates is another possibility: the Claude Code keys issued by the relay were formatted sk-ant-oat01-, the prefix Anthropic uses for subscription-based OAuth tokens rather than sk-ant-api03- pay-per-use API keys, which is consistent with, though not proof of, a relay pooling flat-rate subscriptions and splitting the capacity across many customers. Fraud involving stolen credentials or payment cards, and resale of the prompts and files that pass through the relay, are also plausible and cannot be ruled out with the evidence available.
+
+Significance
+
+To be clear about what we have and haven't observed: the configuration changes described above were observed; the risks that follow from them are potential.
+
+The geography of this activity tracks the practical reality that OpenAI and Anthropic do not officially sell their coding agents into mainland China, which creates demand for unauthorized resellers regardless of who ultimately operates them. The organizations affected here look less like chosen targets and more like workplaces where individual employees found and used such a service to get access to tools they wanted.
+
+That demand does not make the risk any smaller. A relay in this position sees every prompt, file, and secret an employee sends to the agent, and can alter or fabricate every response it returns. With the sandbox disabled and network access enabled, a malicious or compromised response could execute with the full privileges of the user's account. None of the evidence reviewed here shows the operator exploiting that position, but the architecture would support it if the operator's intentions or security changed.
+
+The credentials this service issues do not stay confined to the AI agent, either. Because they are established as user-scope environment variables, any other tool on the same machine that reads those variables can pick them up, extending the exposure well beyond the coding assistant that first prompted an employee to install the service.
+
+Protection
+
+For the latest protection updates, please visit the Symantec Protection Bulletin.
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Organizations concerned about unauthorized AI relay use should also watch endpoints running Codex or Claude Code for the following:
+
+Changes to base_url or ANTHROPIC_BASE_URL in a CLI's configuration file.
+
+sandbox_mode set to ""danger-full-access"" in ~/.codex/config.toml.
+
+OPENAI_BASE_URL, CODEX_API_KEY, or ANTHROPIC_AUTH_TOKEN set as user-scope environment variables outside an approved deployment process.
+
+A PowerShell iwr | iex or bash curl | bash invocation run shortly after, or in place of, npm install -g @openai/codex or @anthropic-ai/claude-code.
+
+Traffic from AI CLI tools to destinations outside an allow-list of approved AI service endpoints.
+
+Indicators of Compromise
+
+File indicators
+
+2a76a28639d896bb41576d0e32d155b78f38b034e052dfe3a7b7e1a478fc0e24 – setup-codex.ps1 – Fileless PowerShell downloader impersonating an OpenAI Codex CLI setup script
+
+4bfe5ca73a4b0988586a46f789aeedba5db575257b58291934cddb9faa606fdb – setup-claudecode.ps1 – Fileless PowerShell/bash downloader impersonating an Anthropic Claude Code CLI setup script
+
+Network IOCs
+
+vibe[.]aiok[.]me
+
+aiok[.]me
+
+sorryios[.]io
+
+nuoda[.]vip
+
+chat[.]nuoda[.]vip
+
+rawchat[.]cn
+
+sharedchat[.]cc
+
+mirbuds[.]com
+
+claudechn[.]com
+
+vibe[.]skk[.]moe
+
+hxxps://vibe[.]aiok[.]me
+
+hxxps://vibe[.]aiok[.]me/setup-codex.ps1
+
+hxxps://vibe[.]aiok[.]me/setup-claudecode.ps1
+
+hxxps://chat1[.]sorryios[.]io
+
+hxxps://chat1[.]sorryios[.]io/codex
+
+hxxps://chat1[.]sorryios[.]chat/claudecode
+
+hxxps://chat[.]nuoda[.]vip
+
+hxxps://chat[.]nuoda[.]vip/codex
+
+hxxps://chat[.]nuoda[.]vip/claudecode
+
+hxxps://rawchat[.]cn/codex
+
+hxxps://chat[.]rawchat[.]cn/codex
+
+hxxps://new[.]sharedchat[.]cc/codex
+
+hxxps://gpt4[.]mirbuds[.]com/codex"
 b370489fe212,b370489fe212,2026-10-27 09:00 UTC,"Attacks, Breaches & Threat Intel",Bitdefender,Bitdefender Business Insights,Attack Surface Discovery; Threat and Exposure Management; Vulnerability Management,Article,Your Attack Surface Is Growing Faster Than Your Team Can Respond,https://businessinsights.bitdefender.com/attack-surface-exposure-management,"As AI helps attackers accelerate reconnaissance and exploitation, organizations need to reduce the opportunities that make attacks possible in the first place","Security teams cannot keep responding faster forever. As AI helps attackers accelerate reconnaissance and exploitation, organizations need to reduce the opportunities that make attacks possible in the first place.
 
 That requires a pivot toward prevention and a broader view of exposure. An unpatched application matters, but so do unnecessary administrative privileges, forgotten internet-facing services, or legitimate tools available to someone who never needs them. Individually, these weaknesses may attract little attention. Connected, they can create an attacker pathway to the systems and data the business depends on.

