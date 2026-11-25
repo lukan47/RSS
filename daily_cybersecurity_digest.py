@@ -219,15 +219,31 @@ PHT          = timezone(timedelta(hours=8))
 # The two are independent: an article has one of each. Priority order = insertion order, first match wins:
 # Vulnerabilities > Business > Policy > Product & Roadmap > Attacks > fallback.
 # A keyword starting with "~" only matches as a whole word ("~rce" does not match "source").
-ACQUISITION_KEYWORDS = [
-    "acqui", "acquisition", "acquired", "acquires",
-    "merger", "merges with", "has merged",
-    "bought", "buys", "purchase of", "to purchase", "asset purchase", "deal worth",
-    "hostile takeover", "corporate takeover",
-    "investment round", "investor", "investing in",
-    "funding round", "series a", "series b", "series c", "seed round", "raises $", "raised $", "secures $",
-    "funding", "valuation", "~ipo", "goes public", "go private", "take-private", "private equity", "spin-off", "divest",
+
+MA_KEYWORDS = [
+    "acquisition", "acquired", "acquires", "acquiring", "acqui-hire", "acquihire",
+    "m&a", "merger", "merges with", "merged with", "has merged",
+    "buyout", "leveraged buyout", "lbo",
+    "hostile takeover", "corporate takeover", "takeover bid",
+    "take-private", "taken private", "go private", "going private",
+    "spin-off", "spinoff", "spun off", "divest", "divests", "divested", "divestiture",
+    "majority stake", "minority stake", "joint venture",
+    "asset purchase", "to purchase", "purchase of", "deal worth", "valued at",
+    "snaps up", "snapped up", "bought", "buys"
 ]
+
+FUNDING_KEYWORDS = [
+    "funding round", "investment round", "strategic investment",
+    "pre-seed", "seed round", "series a", "series b", "series c", 
+    "series d", "series e", "series f", "growth equity",
+    "raises $", "raised $", "secures $", "secured $", "closes $", "closed $",
+    "lands $", "bags $", "nabs $",
+    "led by", "co-led by", "backed by", "oversubscribed",
+    "valuation", "unicorn", "private equity", "venture capital",
+    "ipo", "initial public offering", "goes public", "going public", "direct listing", "spac"
+]
+
+ACQUISITION_KEYWORDS = MA_KEYWORDS + FUNDING_KEYWORDS
 
 # Generic announcement verbs: only trusted when the title has no threat vocabulary ("Mustang Panda Adds Rootkit" is an attack).
 PRODUCT_VERBS = [
