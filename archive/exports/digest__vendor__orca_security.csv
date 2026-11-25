@@ -1,4 +1,133 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+9fe052c7a5fc,9fe052c7a5fc,2026-11-25 13:00 UTC,"Attacks, Breaches & Threat Intel",Orca Security,Orca Security Blog,AI Security; Identity Security Posture Management; Data Security Posture Management; File Security,Article,How AI App Builders Leak Their Own Credentials,https://orca.security/resources/blog/how-ai-app-builders-leak-their-own-credentials/,Executive summary: AI app builders give generated apps owner-level access The Orca Research Pod found the same architectural mistake in multiple independent AI app builder...,"Executive summary: AI app builders give generated apps owner-level access
+
+The Orca Research Pod found the same architectural mistake in multiple independent AI app builder platforms. Code the platform generates inherits the authority of the build environment.
+
+These platforms build the app inside their own trust boundary and never take it back out. As a result, the generated app gets owner-level authority over the developer’s connected accounts and backend. The developer never granted that authority, can’t see it and can’t revoke it.
+
+Key findings
+
+Across several platforms, we confirmed that generated applications could do the following. In some cases, so could anonymous visitors to those apps.
+
+Act as the account owner on connected third-party services
+
+Read live database credentials belonging to other customers
+
+Call privileged backend functions that bypass row-level security entirely
+
+Reach platform secrets from inside the build sandbox
+
+In none of these cases did the developer misconfigure anything. The authority is there by default, in the environment, before the first line of application code is written.
+
+What is ambient authority in AI app builders?
+
+Ambient authority is privilege that sits in the surrounding environment instead of being granted to a specific caller for a specific purpose.
+
+An AI app builder has to be powerful to be useful. To scaffold a working application, it needs to write files, install dependencies, provision a database, commit to your repository and read the services you connected. So the platform gives its build environment broad authority over your accounts.
+
+Then it puts your application in that same environment. Nothing separates the two. The credential the agent used to build the app is still there when the app runs, and the app can read it just as easily as the agent could.
+
+The pattern isn’t one vendor’s bug. It keeps showing up because every builder faces the same design pressure:
+
+Platform
+
+What the generated app is handed
+
+A major AI app builder
+
+A plaintext environment variable that acts as a bearer credential for the account owner on every connected third-party service
+
+A major AI app builder
+
+A live platform session token in the agent’s environment, plus an unauthenticated internal LLM proxy billing the vendor’s own account
+
+A generated backend
+
+Supabase edge functions holding a service-role key, with the JWT gateway defaulted off
+
+A build sandbox
+
+Platform secrets readable by any process running inside it
+
+Three ways AI app builders leak credentials in the wild
+
+One environment variable exposes every connected service
+
+On a major AI app builder, a single plaintext environment variable is present in every project. It authorizes the caller as the account owner across the account’s connected services: GitHub, Gmail, Slack and Drive. The GitHub connector’s scope is full repository access, read and write, private repositories included.
+
+The platform’s AI agent isn’t involved at any point, and that matters more than it first appears. Undocumented endpoints return each connector’s raw OAuth access token, which then works directly against GitHub or Google. No request passes through the platform, so the platform’s logging, rate limiting and revocation never see the traffic.
+
+Three properties make this worse than a typical leaked secret:
+
+Collaborators inherit it. Any project collaborator gets the token through the shared shell, with no planted code and no remix. Revoking the invitation doesn’t revoke tokens they’ve already taken.
+
+The token is portable and long-lived. It’s signed, not encrypted, so anyone holding it can read its claims. Replayed from an unrelated laptop, it still returned the account’s data.
+
+The platform’s scanner misses it. The platform’s own security scanner reports code that exfiltrates the variable as clean. The control users trust to tell them a project is safe says it’s safe.
+
+An unprotected API endpoint leaks database credentials across tenants
+
+At another builder, which we’re not naming, a single API endpoint returned any project’s database integration to any logged-in user of the platform. That included a live database key and the full project configuration. Nothing checked that the caller owned the project, and project IDs were small sequential integers.
+
+Counting through one ID range returned live credentials for thousands of projects across dozens of organizations. That included projects hosted in customers’ own third-party database accounts. The keys are genuine and long-lived. We confirmed cross-tenant reads against multiple unrelated tenants. We also reproduced the issue on a project created during testing, so new projects were affected too.
+
+Where row-level security wasn’t configured, the credentials led straight to the data behind them. Most sampled databases also had email auto-confirm and open signup turned on. An attacker with a leaked key could register a confirmed account and reach everything the authenticated role can see, which is usually far more than the anonymous role.
+
+AI-generated Supabase edge functions bypass row-level security
+
+The third instance involves no platform defect at all. Nothing is broken on the platform’s side. The AI wrote the vulnerability and shipped it.
+
+Ask a builder for an app with a database, and it generates Supabase edge functions to do the work. Many of those functions hold a service_role key, Supabase’s administrative credential, which bypasses row-level security entirely. One builder also ships them with the JWT gateway turned off, so the function answers anyone who calls it. The result is an unauthenticated endpoint holding a key that ignores every access control you configured.
+
+Those defaults come from the generator, not Supabase. The pattern lasts because developers have no reason to suspect it. One developer recorded the belief in a source comment: “The Publishable Key is the successor to the anon key: it is public and safe for client-side code (Row-Level Security protects the data).”
+
+That’s correct, and it matches Supabase’s own guidance. It’s also beside the point, because the app’s own service_role function goes straight around row-level security. The developer secured the front door of a house with no back wall.
+
+This is why teams need to catch risky code before it reaches production, including code an AI agent wrote.
+
+Why prompt injection defenses don’t stop AI app builder credential leaks
+
+The obvious reading of any AI platform vulnerability is prompt injection. Here, it’s the wrong one.
+
+We tried it. On a major AI app builder, the agent resisted every prompt injection attempt we made. Plain application code then walked straight past it, because the code didn’t need to persuade the agent of anything. It just read a variable.
+
+Injection is one delivery route among many. The real defect is that the authority is ambient in the first place. It sits in the environment, where any code and any collaborator can reach it, and in one case any anonymous visitor too. Defenses placed at the agent don’t protect a credential that lives next to it.
+
+That distinction decides where the fix has to go. Guardrails on the model aren’t a control over the environment.
+
+How to secure apps built with AI app builders
+
+Several of these issues were still unfixed when we wrote this. These steps don’t depend on a vendor fix:
+
+Assume the generated app can reach every connected integration. Connect only the services a project needs, at the narrowest scope the builder will accept, and disconnect the rest. Identities with too much access are where this risk starts, so reduce identity-based cloud risk across these connections.
+
+Rotate keys for any project built on these platforms. Treat platform-issued tokens as compromised if a project was ever shared, remixed or made public.
+
+Turn on row-level security for every table, then check it. A table with RLS enabled but no policy isn’t a protected table.
+
+Audit generated backend functions for service-role keys. Confirm each function authenticates its caller, and turn the JWT gateway on. Unauthenticated functions are effectively exposed APIs, so find and secure unmanaged APIs as part of the audit.
+
+Inventory the pair, not just the app. The risk object is the generated application plus the managed database behind it. Neither half alone tells you what’s exposed, so find and protect sensitive data across your cloud behind every generated app.
+
+Frequently asked questions about AI app builder security
+
+Are AI app builders safe to use?
+
+They can be. But this research shows that generated apps can inherit owner-level access to connected accounts by default, so scope integrations narrowly and audit what gets generated.
+
+Does Supabase row-level security protect AI-generated apps?
+
+Not if a generated edge function uses the service_role key, because that key bypasses RLS entirely.
+
+Is this a prompt injection problem?
+
+No. In our testing, plain application code read the credential directly without involving the agent.
+
+How can Orca help secure AI-generated applications?
+
+Orca’s unified cloud security platform brings the full AI footprint into a single risk model alongside your cloud context: the models and MCP servers teams connect, the code AI agents write and the applications AppGen platforms generate.
+
+Orca also helps security teams uncover apps built with AI tools, so generated applications and the data behind them don’t sit outside security’s view. Because Orca sees those connections together, it can surface the issues that turn a generated app into a breach path: overprivileged identities and integrations, exposed secrets in code, unauthenticated APIs and sensitive data without the right protections. Orca then prioritizes them by what an attacker could actually reach. Teams can keep building with AI at full speed while security keeps pace, without adding agents or slowing developers down."
 b8f29538166b,b8f29538166b,2026-11-24 13:00 UTC,"Attacks, Breaches & Threat Intel",Orca Security,Orca Security Blog,Vulnerability Management; Server & Workload Protection; Container Security; Threat Intelligence,Article,Caught by Behavior: How Orca Sensor Exposed a Cloud Intrusion in Real Time,https://orca.security/resources/blog/caught-by-behavior-how-orca-sensor-exposed-a-cloud-intrusion-in-real-time/,"From the exploited web app to the second wave, the attack raised Critical and High alerts in the customer’s Orca console as it unfolded, with the detections running in alert mode","Executive summary: Runtime behavior exposed what indicators missed
 
 No known indicator flagged this attack. Orca Sensor did, in real time.
@@ -1092,104 +1221,3 @@ Not as of this writing. A reliable public exploit has been demonstrated against 
 Which servers should I patch first?
 
 Start with public-facing Apache servers that have HTTP/2 enabled, then servers that can reach sensitive data or backend systems. Exposure context matters more than the CVSS score alone when you’re deciding the order."
-3654950f8356,3654950f8356,2026-11-10 13:00 UTC,General Security News,Orca Security,Orca Security Blog,AI Security; Data Security Posture Management; Identity Security Posture Management; Server & Workload Protection,Article,See Your Cloud and Coding AI Agents in Context,https://orca.security/resources/blog/see-your-cloud-and-coding-ai-agents-in-context/,"When a prompt injection lands on an agent, the attacker inherits all of it","Securing AI in the cloud has historically meant securing models. Teams called Amazon Bedrock or Azure OpenAI, maybe hosted an open model on a GPU instance, and security’s job was to find those services, check their configurations, and keep training data from leaking.
-
-AI Agents changed that. An agent takes the model’s output and acts on it. It calls tools, reads and writes data, opens tickets, runs code, and talks to other agents. To do any of that, it needs credentials and permissions. And in most organizations, nobody reviewed what those permissions are.
-
-Orca now discovers the agents running in your cloud, both cloud-managed and self-hosted, including the coding agents your developers run on cloud infrastructure. The platform maps what each agent is connected to, and flags the agents that are misconfigured, over-privileged, or within reach of sensitive data.
-
-Why are agents a different kind of AI risk?
-
-A model’s risk is mostly about what it knows and what it says. An agent’s risk is about what it can do. That depends on four things that usually live in four different places:
-
-The models it calls, managed or self-hosted.
-
-The MCP servers it connects to, each exposing its own set of tools and running with its own credentials.
-
-The identity it runs as, typically the IAM role or service account of the workload it lives on.
-
-The data that identity can reach, from RAG sources and training buckets to production databases.
-
-Agents also tend to blur identity lines. Many run under the same identity as the humans who use them, or inherit whatever role the host machine carries. When a prompt injection lands on an agent, the attacker inherits all of it.
-
-You can’t assess an agent just by looking at the agent. You have to see everything it’s connected to.
-
-Why do existing tools miss it?
-
-Most AI security tools see one layer. One inventories models. Another watches prompts. A third scans code. None of them knows that the LangChain agent on an EC2 instance is authenticated to an MCP server holding a Jira API token, or that its instance role can read an S3 bucket full of customer records.
-
-Consider two agents running in the same account:
-
-Agent A connects to a read-only documentation MCP server. Its workload role can reach one internal bucket of public product docs.
-
-Agent B is a coding agent on a CI runner, configured to bypass permission checks so it runs commands with no human approval. It connects to an MCP server whose environment carries a CI/CD API token, and that server exposes tools like delete_bucket_object and revoke_db_access. The runner’s instance role can read a database containing PII.
-
-An inventory lists both as “AI agent.” Only context tells you that one is a low-risk helper and the other is a path to your crown jewels.
-
-Three Ways Orca Delivers AI Agent Security Posture
-
-#1: Inventory as part of the AIBOM
-
-Orca builds one inventory of every AI agent in your cloud, whether your teams use a managed agent platform or build their own.
-
-Every agent appears in a new Agents tab in the AI Bill of Materials (AIBOM), filterable by account, cloud and framework, with new Agents widgets on the AI Security dashboard. Because SideScanning reads workload data out-of-band, there is nothing to install. No agents are required to find your agents.
-
-AIBOM in the Orca Platform covering models, packages, MCP servers, and AI Agents
-
-#2: Clear relationships in the Unified Data Model
-
-Orca models every agent as a first-class asset in its Unified Data Model and links it to the things that define its risk:
-
-The AI models it uses.
-
-The MCP servers it connects to, whether local or remote, and the tools each server exposes.
-
-The AI packages it was built with.
-
-The IAM role it runs as, and the data stores that role can access.
-
-Because these relationships sit in the same graph as the rest of your cloud, an agent’s blast radius is a question you can answer directly: what can this agent touch, and what could an attacker do with it?
-
-An agent inventory tells you what exists. Agent context tells you what’s at stake.
-
-See an AI agent’s connections to models, IAM roles, data stores, and policies in the Orca Platform.
-
-#3: Prioritized risk in context
-
-Orca adds new alerts built for agent risk: misconfiguration, over-privilege, reachable sensitive data, and runtime detections. Findings include:
-
-AI agents authenticated to MCP servers that hold credentials, such as Jira, Confluence or Jenkins API tokens. A prompt injection against that agent inherits whatever the credential can reach.
-
-AI agents configured to bypass permission checks, which removes the human approval step before the agent reads files, runs commands or calls tools.
-
-MCP configuration files containing live secrets. Orca matches the secret value itself, so a hardcoded token is flagged and a safe environment-variable reference is not.
-
-MCP servers communicating over plaintext HTTP to remote endpoints, exposing tool calls and their data in transit.
-
-MCP tool sets that grant destructive tools such as deleting data, revoking access or terminating clusters.
-
-Each alert includes plain-language remediation steps and is scored with Orca’s dynamic risk scoring, which weighs reachability, exploitability and blast radius rather than a static severity label. Agents can also serve as points in Orca’s attack path analysis, so an over-privileged agent two hops from a production database ranks above a misconfigured agent with nothing nearby.
-
-Use Orca to see what an AI agent can access.
-
-What about the coding agents your developers use?
-
-Coding agents like Claude Code, Codex and Gemini CLI don’t only run on laptops. Teams run them on CI runners, cloud dev environments and build servers, where they pick up the host’s cloud credentials. Orca detects coding agents on cloud workloads the same way it detects any self-hosted agent, including the MCP servers they connect to and settings that turn off their approval prompts.
-
-Coding agents also leave a second footprint: the code they write. Orca attributes code to the AI coding agents and models that wrote it, so you can see what share of your codebase is AI-generated, which repositories carry the most risk in AI-written code, and which models are linked to the most alerts.
-
-Track the risk contributions of Coding Agents to improve their quality.
-
-Visibility is half the job. Through Orca’s AI Skills Hub, you can plug skills and hooks into coding agents so they pull your security requirements, run AppSec scans, and fix issues to policy before code is committed.
-
-One unified platform for cloud and AI risk
-
-Agent findings land in the same alert workflows, integrations and dashboards your team already uses for the rest of your cloud. There is no separate AI console and no separate severity scale. The question every security team now has, “what are our agents doing and what can they reach?”, gets answered with the same context Orca already applies to workloads, identities and data.
-
-Orca shows you every AI agent in your cloud, what it’s connected to, and which ones put sensitive data at risk, so your team can fix the riskiest agents first without slowing down the teams building them.
-
-Want to see which agents are running in your cloud and how far they can reach? Book a personalized demo.
-
-About Orca Security
-
-Orca Security delivers security for the companies that build. As cloud, code, AI and app generation expand the attack surface, Orca transforms security risk into the context teams need to act. The Orca Platform provides complete visibility across cloud, AI, and application environments, correlates risk across every layer, and prioritizes the exposures that matter most so organizations can remediate faster and innovate with confidence. Trusted by hundreds of organizations, including SAP, Autodesk, Gannett, Lemonade, and Digital Turbine, Orca is backed by leading investors including Temasek, CapitalG, ICONIQ Capital, and Redpoint Ventures. Learn more at orca.security and book a personalized demo."

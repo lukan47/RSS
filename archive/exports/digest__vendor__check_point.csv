@@ -1,4 +1,178 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+a9c971ae902a,292764c48b45,2026-11-25 14:32 UTC,Business & Industry News,Check Point,Check Point Blog,Email and Collaboration Security; AI Security,Article,Check Point Named a Leader in the 2026 Gartner® Magic Quadrant™ for Email Security,https://blog.checkpoint.com/security/check-point-named-a-leader-in-the-2026-gartner-magic-quadrant-for-email-security/,"What we believe sets Check Point apart Powerful email threat protection: AI-powered security helps prevent phishing, ransomware, account takeover, BEC, and zero-day attacks","We are excited to share that Check Point has been named a Leader in the 2026 Gartner® Magic Quadrant™ for Email Security for the third consecutive year. Check back for a complimentary copy of the full report soon! We believe this recognition reflects our continued investment in prevention-first email security, protecting both employees and the AI assistants that now read and act on email.
+
+What we believe sets Check Point apart
+
+Powerful email threat protection: AI-powered security helps prevent phishing, ransomware, account takeover, BEC, and zero-day attacks.
+
+Platform consolidation and operational simplicity: A unified platform secures email, collaboration tools, endpoints, AI, and data.
+
+Continuous innovation against emerging threats: Ongoing investment in protections against AI-driven attacks, evolving impersonation techniques, and risks tied to AI assistants.
+
+Report citation
+
+Gartner, Magic Quadrant for Email Security, Max Taggett, Franz Hinner, Deepak Mishra, November 23, 2026.
+
+Disclaimer
+
+GARTNER is a trademark of Gartner, Inc. and/or its affiliates.
+
+Magic Quadrant is a registered trademark of Gartner, Inc. and/or its affiliates and is used herein with permission. All rights reserved.
+
+Gartner does not endorse any vendor, product or service depicted in its research publications, and does not advise technology users to select only those vendors with the highest ratings or other designation. Gartner research publications consist of the opinions of Gartner’s research organization and should not be construed as statements of fact. Gartner disclaims all warranties, expressed or implied, with respect to this research, including any warranties of merchantability or fitness for a particular purpose. GARTNER is a registered trademark and service mark of Gartner, Inc. and/or its affiliates in the U.S. and internationally. MAGIC QUADRANT is a registered trademark of Gartner, Inc. and/or its affiliates and is used herein with permission. All rights reserved."
+ee5daf5a8060,1b2ec6a0d346,2026-11-25 13:09 UTC,"Attacks, Breaches & Threat Intel",Check Point,CSO Online,Server & Workload Protection; Threat Intelligence; Vulnerability Management; Identity Security Posture Management,Article,Check Point security management servers hit in global cyberattack campaign,https://www.csoonline.com/article/4253068/check-point-security-management-servers-hit-in-global-cyberattack-campaign.html,"“The activity reported by the GreyNoise article involves CVE-2026-16232, a previously disclosed vulnerability with patches already available, and does not represent a new...","An active intrusion campaign targeting Check Point security management servers has been uncovered, with confirmed attack activity observed between October 17 and November 2, 2026, impacting 22 organizations globally.
+
+Tracked by cybersecurity firm GreyNoise as GreyNoise Threat 13 (GT13), the campaign does not appear to be focused on a single region or industry. Impacted organizations span assets across the US, the UK, Ireland, France, the Netherlands, Greece, Germany, Austria, Bulgaria, Poland, India, Thailand, Vietnam, South Korea, Hong Kong, China, and Australia, across sectors including financial services, energy, government, transportation, mining, engineering, and manufacturing.
+
+“The activity reported by the GreyNoise article involves CVE-2026-16232, a previously disclosed vulnerability with patches already available, and does not represent a new vulnerability or exploitation technique,” a Check Point spokesperson said. “Our priority remains ensuring customers apply the available updates and follow Check Point’s published hardening guidance to restrict management access and identify suspicious activity. The most important action is to install the available updates for CVE-2026-16232. Check Point has already released fixes and detailed mitigation and investigation guidance in its SecureKnowledge advisory.”
+
+GreyNoise has not attributed GT13 to any known or publicly tracked threat group.
+
+“An intrusion into a Check Point security management server is particularly serious because it is not just another server in the enterprise network. It effectively acts as the central control point for managing an organisation’s firewall infrastructure and security policies, with highly privileged access,” said Devroop Dhar, co-founder and MD at Primus Partners. He said that depending on the deployment and the level of access obtained, the consequences could extend well beyond the security infrastructure itself, potentially exposing sensitive data and critical business applications and disrupting enterprise operations.
+
+Building the relay infrastructure
+
+The threat actor operated across 99 IP addresses, primarily routed outbound through ExpressVPN or compromised Check Point devices, generating more than 1,400 network sessions, over 800 command-line artifacts, and over 1,200 created, uploaded, or downloaded files.
+
+GreyNoise first observed the actor scanning and exploiting a Rejetto HFS server on October 2, 2026. Each POST to the HFS loginSrp1 endpoint returned a new signed session cookie containing a “sid” value drawn from JavaScript’s Math.random() function.
+
+Through conducting several logins in succession, the actor collected enough output to reconstruct the internal state of the V8 PRNG algorithm and thus recover an HFS session cookie signing key, then forge a signed admin session cookie. This allowed the attacker to log in as admin without a password.
+
+A few minutes later, GreyNoise observed that admin requests with forged session cookies were used to gain control of the server. This led GreyNoise to believe that exploitation was indeed CVE-2026-61500 for session forgery, which was not patched on this server. The forged cookie contained “allow_session_ip_change:true”, allowing forged cookies to work from any IP address.
+
+On October 5, the actor used this same flow to gain access to install HFS middleware hooks that would issue commands to the compromised server, the research said. This allowed the attacker to append an SSH key to /root/.ssh/authorized_keys. Three days later, on October 8, the threat actor automation check in to the compromised server using the HFS command hook for “uname -a; df -h / | tail -1; whoami”.
+
+Instead of using SSH access right away, on October 19, the actor’s automated pipeline reused the HFS exploitation route to forge new session cookies and leverage the HFS server_code feature to attempt to download and install additional malware on the server. GreyNoise noted that it believes the idea was to use the compromised server as a relay or “hop” for further intrusion operations.
+
+As the malware download failed, the threat actor returned with a direct SSH connection to continue setting up their relay the next day.
+
+On October 20, the threat actor created a script (/root/exfil/srv_post2_.py) for setting up an unauthenticated HTTP server on the hop, which they used to upload files. The first exfiltrated .tgz file contained results from a scan of network routes from a compromised Check Point security management server, demonstrating that the actor already had access to targeted victim assets. The actor continued to set up their environment, uploaded and installed open-source tools like Nmap and Chisel, and then set up a Chisel server as a reverse proxy.
+
+Targeted intrusion
+
+Once the compromised server was established as a relay, the actor used it to manage interactions with previously compromised Check Point devices, actively deepening their intrusion against Victim A while conducting bulk actions across 21 other victim organizations. Across the campaign, the operator relied on at least 30 Python scripts, including helpers, launchers, vulnerability probes, and exploit runners.
+
+Between October 20 and 26, the attacker had a compromised Victim A asset download and run Chisel in client mode, allowing them to further scan and interact with Victim A’s environment. Over the Chisel tunnel, and by using a script for CVE-2026-16232, the actor launched over 100 management tasks on multiple Check Point management servers. This included copying the firewall database and the Internal CA, minting a new certificate (pivot.p12), and unloading security policies (which would disable the firewall). Further, the actor probed Citrix NetScaler, Ivanti Connect Secure, VMware vCenter, Microsoft Exchange, Oracle TNS assets and several domain controllers.
+
+Between October 20 and 21, the attacker focused on Victim A, first using exploit.py (CVE-2026-16232) against one Check Point server before scanning a second with spray_portal.py. When that second device failed to report back to the relay box, the actor created pull_.py to steal credentials, internal CA files, and firewall configurations through the first compromised server.
+
+The attacker then expanded inside Victim A’s network, running broad port scans with curl, telnet, nmap, and a domain controller probe, followed by targeted exploits against internal Microsoft Netlogon, Citrix NetScaler, Ivanti Connect Secure, Microsoft Exchange, and VMware vCenter servers. They wrapped up this phase by running comb.py,ssh_comb.py, and ssh_spray.py populated with victim-themed usernames and passwords.
+
+On October 26, the operation shifted to bulk targeting. The actor issued a bulk certificate management task to 24 compromised Check Point Security Manager servers, including those belonging to Victim A and 21 other victim assets. Results were shipped in a text file to the hop server that contained an incrementing IP order to run the commands on the compromised Check Point servers and deliver them via SCP to this exfil folder. Although the task failed on every device, the error logs sent back to the hop server exposed victim IP addresses and revealed an /etc/ld.so.preload reference to /usr/lib/.libproc.so, pointing to a likely implant before activity paused until November 2.
+
+GreyNoise suspects the GT13 actor has a mature AI-enabled offensive apparatus including separate agentic harnesses and systems weaponizing vulnerabilities, scanning for vulnerable assets, and automatically exploiting.
+
+Securing the management plane
+
+Although GreyNoise’s direct visibility into the campaign paused around November 2, 2026, security leaders must still verify whether their environments have been quietly infiltrated.
+
+With attackers planting backdoors on breached Check Point servers, CISOs must audit their environments for signs of quiet compromise.
+
+To establish whether Check Point infrastructure has been compromised, CISOs and security teams should examine administrative login records for unusual access patterns, including unfamiliar IP addresses, unexpected login times, and unauthorised access added Dhar. They should also look for changes to firewall policies, access-control rules, and configuration files, and thoroughly review system logs, audit trails, and command execution history for suspicious activity.
+
+Dhar noted that once there are indications of a compromise, the immediate priority should be to prevent further access and contain the damage. Security teams should restrict access to the management server to authorised administrative systems and isolate confirmed compromised systems while preserving forensic evidence. Unauthorised accounts should be disabled, suspicious SSH keys and access tokens revoked, and identified malicious IP addresses and domains blocked."
+951e71e76017,1b2ec6a0d346,2026-11-25 10:47 UTC,"Attacks, Breaches & Threat Intel",Check Point,Security Affairs,Server & Workload Protection; Threat Intelligence; Vulnerability Management; Identity Security Posture Management,Article,GT13: AI-Assisted Hackers Target 22 Organizations Through Check Point Servers,https://securityaffairs.com/203946/hacking/gt13-ai-assisted-hackers-target-22-organizations-through-check-point-servers.html,"Sergey Shykevich, its director of threat intelligence, said the activity “does not represent a new vulnerability or exploitation technique”, since CVE-2026-16232 was disclosed...","GreyNoise tracks GT13, an unattributed, probably AI-assisted campaign that hit 22 organizations via Check Point management servers. It may still be running.
+
+GreyNoise detailed an intrusion campaign against Check Point Security Management Servers. The company confirmed attacks between October 17 and November 2, 2026, and counts at least 22 victim organizations. It tracks the activity as GreyNoise Threat 13, or GT13.
+
+“GreyNoise recently discovered an intrusion campaign targeting Check Point Security Management Servers, with confirmed attack activity between October 17th and November 2nd, 2026, impacting at least 22 distinct organizations globally.” reads the report published by GreyNoise.
+
+The victims don’t share a country or an industry. They have assets in the United Kingdom, Ireland, France, the Netherlands, Greece, Germany, Austria, Bulgaria, Poland, India, Thailand, Vietnam, South Korea, Hong Kong, China, Australia and the United States. The sectors include financial services, energy, government, transportation, mining, engineering and manufacturing.
+
+GreyNoise cannot attribute the campaign to any known or publicly tracked threat group. The company also says it lacks enough information to identify the attackers’ motives or country of origin.
+
+GreyNoise tracked most of the activity through its Global Observation Grid, a network of sensors designed to attract and monitor scanning and exploitation attempts. These sensors work much like honeypots, but the company says they offer broader coverage. They allow researchers to observe entire attacks as they happen, rather than relying only on reports from victims.
+
+The attackers used 99 IP addresses, many of them temporary. These addresses belonged either to ExpressVPN exit nodes or to compromised Check Point devices. GreyNoise recorded more than 1,400 network sessions, 800 command-line artifacts, and 1,200 files that were downloaded, uploaded, or created.
+
+The part GreyNoise saw begins with a file server. On October 2 at 13:17 UTC, the actor started scanning and attacking a Rejetto HFS server through CVE-2026-61500. Every POST to the loginSrp1 endpoint returns a signed session cookie that holds a “sid” value drawn from JavaScript’s Math.random() function.
+
+After several logins in a row, the actor had enough output to rebuild the internal state of the V8 random number generator. That gave it the key that signs session cookies, so it could forge an admin cookie and log in without a password. Two minutes later, GreyNoise saw admin requests carrying forged cookies, and the server hadn’t been patched.
+
+The forged cookie also carried “allow_session_ip_change:true”, which lets it work from any IP address. GreyNoise calls that perfect for an attacker behind a VPN or hopping between exits. On October 5, the actor used the same trick to install HFS middleware hooks that run commands, and it added an SSH key to /root/.ssh/authorized_keys.
+
+On October 8, the attacker’s automated system ran a few basic commands to check the system, available disk space, and current user. The activity then stopped until October 19. On that day, the attackers used forged session cookies and the HFS server_code feature to try to download a Linux implant called “ZULT”. They did this despite already having SSH access to the server.
+
+The download failed. The attackers checked running processes, tested the download link with curl, and inspected the network settings. They could not work out why the implant had failed to download, so they returned the next day and used a direct SSH connection to continue setting up their relay. GreyNoise believes this failure may point to problems in a multi-agent system, suggesting that even automated tools can run into issues.
+
+On October 20, the attackers created a script to start an HTTP server on the compromised machine without requiring authentication. They then began uploading files. The first archive contained the results of a network route scan from a Check Point Security Management Server, showing that the attackers had already gained access to that system. They then installed Nmap and Chisel and configured Chisel to work as a reverse proxy.
+
+That made the HFS server a relay, or “hop” in GreyNoise’s wording. The actor used it to run its operations against Check Point devices it had compromised earlier, and to store the results. GreyNoise couldn’t determine when or how the actor got into those Check Point systems, only that it was there before the HFS compromise.
+
+Between October 20 and 26, the actor had a compromised machine in one victim’s network, which GreyNoise calls Victim A, download Chisel and run it as a client. Through that tunnel, a script for CVE-2026-16232 (a Check Point SmartConsole authentication bypass that leads to Run Script) launched more than 100 management tasks on several management servers. The tasks copied the firewall database and the internal certificate authority, minted a new certificate called pivot.p12, and unloaded security policies, which would switch the firewall off.
+
+The actor also probed Citrix NetScaler, Ivanti Connect Secure, VMware vCenter, Microsoft Exchange, Oracle TNS and several domain controllers. It ran exploits for CVE-2020-1472 (Netlogon), CVE-2023-4966 (NetScaler), CVE-2024-21893 (Ivanti), CVE-2021-26855 and CVE-2021-34473 (Exchange), and CVE-2021-21972 and CVE-2023-34048 (vCenter). GreyNoise also lists CVE-2025-5777, CVE-2026-41089 and CVE-2026-98432 among the flaws the actor used or tried to use.
+
+“The actor used Nmap, Chisel, Impacket, Paramiko and other Python tooling to perform intrusion activities against their victim assets, including attempts to perform internal reconnaissance, privilege escalation, and lateral movement.” continues the report. “The bulk of the adversary commands and interaction is too voluminous to dig into here, but we can expose some of the adversary’s TTPs by taking a glimpse at their tooling. The actor used at least 30 Python scripts, many of which were helpers or launchers for other scripts, and several of them were probes for vulnerabilities or runners of exploits. Excerpts are provided below to illustrate the more specialized tooling and workflows.”
+
+Password guessing played a part too. Scripts named spray_portal.py, comb.py, ssh_comb.py and ssh_spray.py carried common, default and weak passwords, plus usernames and passwords themed to the victim. The actor either knew its target or guessed well.
+
+When a second Check Point server wouldn’t report back to the hop, the actor wrote a pull script to steal its data through the first server. The script harvested credentials, internal CA files and the firewall configuration. It was named after the targeted device.
+
+On October 26 at 02:17 UTC, a bulk certificate task went out to 24 compromised Check Point servers: Victim A’s and those of 21 other victims. Results came back to the hop as text files that listed victim IP addresses in increasing order, so a loop was clearly running through them. GreyNoise never saw the actor send the task, which points to another part of its infrastructure.
+
+Every file showed an error, because the certificate task had failed. One message also flagged a preload error for /usr/lib/.libproc.so, registered in /etc/ld.so.preload, which may indicate an implant. GreyNoise saw no follow-up attempts, but the IP addresses in those files let it notify many victims, directly or through government partners.
+
+Check Point’s position, as reported by The Hacker News, is that this isn’t a new weakness. Sergey Shykevich, its director of threat intelligence, said the activity “does not represent a new vulnerability or exploitation technique”, since CVE-2026-16232 was disclosed earlier and patches exist. The company wants customers to apply updates, follow its hardening guidance to restrict management access and look for suspicious activity.
+
+By early November, other attackers had started scanning the hop and trying to abuse it. On November 2 at 02:28 UTC, the GT13 actor ran a script that checked the box for CVE-2026-98432, a Linux IPv4 use-after-free bug. It then used nftables to drop IPv4 packets with IP options that could trigger the flaw. The attacker did patch management on its relay, which is more than some victims managed.
+
+GreyNoise doesn’t read much into the clock. It saw no hands-on-keyboard activity between roughly 17:00 and 00:19 UTC, and nothing in the 05:00 hour, which fits a UTC+7 or UTC+8 workday. The malware domain newpayapp[.]com was registered on March 13, 2026, with the registrant state “Hai Phong” and country code “VN”, and GreyNoise treats that as a possible coincidence. The infrastructure clearly existed long before anyone noticed it.
+
+GreyNoise believes GT13 used AI tools to find vulnerable systems, develop exploits and automate attacks, although human operators were also involved. The company is sharing information with authorities and CERTs. Its monitoring stopped on November 2, but it warns that the campaign may still be active because attackers retain access to compromised Check Point devices.
+
+“We suspect the GT13 actor has a mature AI-enabled offensive apparatus. We believe the actor has separate agentic harnesses and systems weaponizing vulnerabilities, scanning for vulnerable assets, and automatically exploiting them to gather sets of systems that can be later used for operational relays or true targets.” concludes the report. “We suspect some of the foibles in the timeline reflect agentic offensive operations.”
+
+Follow me on Twitter: @securityaffairs and Facebook and Mastodon
+
+Pierluigi Paganini
+
+(SecurityAffairs – hacking, Check Point)"
+53a8a165ab30,1b2ec6a0d346,2026-11-25 12:20 UTC,"Attacks, Breaches & Threat Intel",Check Point,The Hacker News,AI Security; Server & Workload Protection; Threat Intelligence; Vulnerability Management,Article,Hackers Compromise 24 Check Point Management Servers in Suspected AI-Driven Attack Campaign,https://thehackernews.com/2026/11/hackers-compromise-24-check-point.html,"In one case, the attackers have been found using an automated scanning and exploitation pipeline to compromise an HFS server using CVE-2026-61500, a critical flaw in Rejetto...","An unknown threat actor has been using artificial intelligence (AI)-driven offensive tooling in a campaign targeting Check Point Security Management servers, impacting 22 distinct organizations across the world.
+
+The intrusion activity, tracked by GreyNoise under the moniker GreyNoise Threat 13 (GT13), is assessed to have targeted organizations in the financial services, energy, government, transportation, mining, engineering, and manufacturing sectors across the U.K., Ireland, France, Netherlands, Greece, Germany, Austria, Bulgaria, Poland, India, Thailand, Vietnam, South Korea, Hong Kong, China, Australia, and the U.S.
+
+Confirmed attack activity has been recorded between October 17 and November 2, 2026, with the threat actor using 99 IP addresses to conduct scanning, exploitation, and control. Most of these IP addresses are associated with disposable network infrastructure.
+
+The campaign has not been attributed to any known threat actor or group. It's suspected that the attackers are relying on agentic harnesses and systems for vulnerability scanning, exploitation, and automatic interaction with compromised assets.
+
+The threat actor has also been observed using tools like Nmap, Chisel, Impacket, Paramiko, and other Python scripts to carry out internal reconnaissance, privilege escalation, and lateral movement on victim environments.
+
+""We witnessed the GT13 actor use 99 IP addresses, all of which were either egresses through ExpressVPN or compromised victim Check Point devices, including activity over 1400+ network sessions, 800+ command line artifacts, and 1200+ files downloaded, uploaded, or created,"" GreyNoise said.
+
+In one case, the attackers have been found using an automated scanning and exploitation pipeline to compromise an HFS server using CVE-2026-61500, a critical flaw in Rejetto HFS, in early October 2026 to obtain control of the server and issue commands, including adding an SSH key to the ""/root/.ssh/authorized_keys"" file.
+
+Subsequently, GT13 is said to have used the compromised server as a relay for follow-on operations centered around saving command results and exfiltrating data from 24 previously compromised Check Point Security Management servers. The attackers also unsuccessfully attempted to deploy a Linux implant named ZULT to the compromised Rejetto HFS server.
+
+""The GT13 adversary had access to the victim Check Point Security Management Servers before they compromised the HFS server,"" the cybersecurity company said. ""We could not determine when or how the attacker gained access to those Check Point assets.""
+
+The attackers also moved to burrow deeper into one of the victim networks, using a script for a now-patched Check Point flaw (CVE-2026-16232) to launch over 100 management tasks on multiple Check Point Management Servers to -
+
+Steal firewall databases and internal certificate authority files
+
+Mint a new certificate
+
+Unload security policies, effectively disabling firewall protections
+
+Conduct internal network reconnaissance and attempt lateral movement
+
+The post-compromise activity also involved attempts to target other enterprise systems, such as Citrix NetScaler (CVE-2023-4966), Ivanti Connect Secure (CVE-2024-21893), VMware vCenter (CVE-2021-21972 and CVE-2023-34048), Microsoft Exchange (CVE-2021-26855 and CVE-2021-34473), and Microsoft Netlogon (CVE-2020-1472).
+
+In tandem, the threat actor has attempted to exploit various other security flaws, including, but not limited to -
+
+CVE-2024-21893 (Ivanti Connect Secure)
+
+CVE-2025-5777 (Citrix NetScaler)
+
+CVE-2026-41089 (Windows Netlogon)
+
+CVE-2026-98432 (Linux IPv4 UAF)
+
+GreyNoise has theorized that GT13 has in its possession a ""mature AI-enabled offensive apparatus"" that it uses to weaponize vulnerabilities, scan for susceptible assets, and exploit them to gain access to systems that can be later used as operational relays or true targets.
+
+""The activity reported by the GreyNoise article involves CVE-2026-16232, a previously disclosed vulnerability with patches already available, and does not represent a new vulnerability or exploitation technique,"" Sergey Shykevich, Director, Threat Intelligence at Check Point Software Technologies, told The Hacker News.
+
+""Our priority remains ensuring customers apply the available updates and follow Check Point’s published hardening guidance to restrict management access and identify suspicious activity."""
 f5d3ed98554c,f5d3ed98554c,2026-11-24 11:15 UTC,"Attacks, Breaches & Threat Intel",Check Point,Bleeping Computer,Server & Workload Protection; Email and Collaboration Security; Threat Intelligence; Vulnerability Management,Article,Hackers compromise Check Point Servers in 22 organizations,https://www.bleepingcomputer.com/news/security/hackers-compromise-check-point-servers-in-22-organizations/,Threat actors have exploited multiple vulnerabilities to compromise two dozen Check Point Security management servers in an ongoing campaign targeting 22 organizations,"Threat actors have exploited multiple vulnerabilities to compromise two dozen Check Point Security management servers in an ongoing campaign targeting 22 organizations.
 
 Threat intelligence firm GreyNoise detected the activity, noting that it resembled cyberespionage operations, although the attacker's motivation could not be conclusively determined.
@@ -60,33 +234,6 @@ mSecure password manager hack prompts password reset warnings
 Nikkei discloses third data breach in a month, 1.8M records exposed
 
 N-able says recent security breach led to major service outage"
-1b2ec6a0d346,1b2ec6a0d346,2026-11-24 14:21 UTC,"Attacks, Breaches & Threat Intel",Check Point,SecurityWeek,Server & Workload Protection; Threat Intelligence; Vulnerability Management; AI Security,Article,Check Point Security Management Servers Hacked in AI-Assisted Campaign,https://www.securityweek.com/check-point-security-management-servers-hacked-in-ai-assisted-campaign/,"GreyNoise believes the threat actor has been using agentic harnesses and systems to weaponize vulnerabilities, find vulnerable assets, and automatically exploit them","A threat actor has been using AI-enabled offensive tools in a broad campaign targeting Check Point Security Management servers, threat intelligence firm GreyNoise reports.
-
-As part of the campaign, which the security firm started tracking in early October and is likely still ongoing, a threat actor tracked as GreyNoise Threat 13 (GT13) has been conducting scanning, exploitation, and control activities from 99 IP addresses, many associated with disposable network infrastructure.
-
-According to GreyNoise, GT13 targeted at least 22 organizations from the energy, engineering, financial services, government, manufacturing, mining, and transportation sectors across the US, the UK, Australia, Austria, China, France, Germany, Hong Kong, the Netherlands, South Korea, and other geographies.
-
-GreyNoise believes the threat actor has been using agentic harnesses and systems to weaponize vulnerabilities, find vulnerable assets, and automatically exploit them. The automated operations were complemented by hands-on-keyboard activity.
-
-“We witnessed the GT13 actor use 99 IP addresses, all of which were either egresses through ExpressVPN or compromised victim Check Point devices, including activity over 1400+ network sessions, 800+ command line artifacts, and 1200+ files downloaded, uploaded, or created,” GreyNoise says.
-
-In one instance, GreyNoise tracked the activity to October 2, when the threat actor forged a signed admin session cookie to gain administrative access to an HFS server. The attacker obtained SSH access to the server, which was used to scan the environment and exfiltrate data.
-
-Advertisement. Scroll to continue reading.
-
-“The GT13 adversary had access to the victim Check Point Security Management servers before they compromised the HFS server. We could not determine when or how the attacker gained access to those Check Point assets,” the company notes.
-
-The attacker deployed tools such as Nmap, Chisel, Impacket, Paramiko, and other Python utilities and scripts, performed reconnaissance, lateral movement, and privilege escalation. They used one victim’s server as a hop to save command results and data exfiltrated from 24 previously compromised Check Point Security Management servers.
-
-Between October 20 and 26, in addition to gaining deeper access to the victim’s environment, the threat actor conducted bulk actions against 21 other victim Check Point devices. GT13 issued a bulk certificate-management task to 24 servers across the 22 organizations. The task failed, but the threat actor collected the responses on the relay server in text files.
-
-“These files contained the victim IP addresses and were in incrementing IP order, indicating an automation looped through them to run the commands on the compromised Check Point servers and deliver them via scp to this exfil folder. Each file was delivered from victim infrastructure, showing that each of the compromised devices holds the SSH private key that matches the public key planted on the hop,” GreyNoise says.
-
-The activity within the first victim’s environment also involved the use or attempted exploitation of vulnerabilities such as CVE-2026-61500 (Rejetto HFS), CVE-2023-4966 and CVE-2025-5777 (Citrix NetScaler), CVE-2024-21893 (Ivanti), CVE-2026-16232 (Check Point SmartConsole), CVE-2026-98432 (Linux IPv4 UAF), CVE-2020-1472 and CVE-2026-41089 (Windows NetLogon), CVE-2021-26855 and CVE-2021-34473 (Microsoft Exchange), and CVE-2021-21972 and CVE-2023-34048 (VMware vCenter).
-
-GreyNoise says it confirmed threat actor activity against Check Point Security Management servers between October 17 and November 2, when it stopped observing it. However, the company believes the campaign is still ongoing as GT13 had persistent access to the compromised servers.
-
-“We believe the actor has separate agentic harnesses and systems weaponizing vulnerabilities, scanning for vulnerable assets, and automatically exploiting them to gather sets of systems that can be later used for operational relays or true targets. We suspect some of the foibles in the timeline reflect agentic offensive operations,” GreyNoise notes."
 13635075d056,13635075d056,2026-11-24 14:13 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Threat Intelligence; Endpoint Security,Article,Volant Manticore: Flying Under the Radar,https://research.checkpoint.com/2026/volant-manticore-flying-under-the-radar/,"Based on our observations, we believe this is the first Iranian group to designate Cyprus as a primary espionage target, focusing on telecommunications companies, airlines, and...","Key Points
 
 Check Point Research identified Volant Manticore, a previously undocumented Iranian threat group linked to Iran’s Ministry of Intelligence and Security (MOIS). Based on our observations, we believe this is the first Iranian group to designate Cyprus as a primary espionage target, focusing on telecommunications companies, airlines, and critical infrastructure.
@@ -1844,47 +1991,6 @@ The ShinyHunters-Clop dispute exposed rivalry within the ransomware ecosystem. S
 To read the full findings, access the State of Ransomware Q2 2026 report from Check Point Research here.
 
 The post The State of Ransomware Q3 2026 appeared first on Check Point Research."
-aebd6dc69520,aebd6dc69520,2026-11-17 20:12 UTC,General Security News,Check Point,Check Point Blog,Email and Collaboration Security,Article,"During the Microsoft 365 Disruption, Not A Single Email Was Lost",https://blog.checkpoint.com/securing-user-and-access/during-the-microsoft-365-disruption-not-a-single-email-was-lost/,"As a result, not a single email was lost, and every email was scanned for threats before reaching end users Adversity is where resilience proves itself A disruption of this...","Email stopped being “just email” a long time ago. It carries invoices, password resets, approvals, and the sign-in checks that open other services. So when Microsoft 365 service was disrupted for roughly 24 hours, organizations felt the impact right away.
-
-During this downtime, the 90,000+ customers who rely on Check Point WorkSpace email security to protect their mailboxes turned to us for support. Here is what we saw, what we did to keep their email safe and flowing, and what we’re improving.
-
-What our customers needed
-
-When messages couldn’t be delivered to mailboxes, we held them safely until delivery could resume. Our team worked around the clock, across every time zone, to ensure that no email would be lost and that no email would be delivered unless it had been cleared as safe by our security layers. As a result, not a single email was lost, and every email was scanned for threats before reaching end users
-
-Adversity is where resilience proves itself
-
-A disruption of this scale puts every part of the cloud ecosystem under pressure. Our protections continued to operate as designed, while the event reinforced two important learnings about continuing to build resilience in an increasingly interconnected world.
-
-First, outages can have effects far beyond the affected platform. Delays extended into the broader email ecosystem, including mail destined for Gmail users, as queues increased and delivery slowed. The takeaway is simple: organizations cannot assume that a disruption affecting one cloud provider will remain isolated to that environment.
-
-Second, resilience requires the ability to absorb unexpected demand. As queues grew, our platform continued protecting messages while our DevOps team proactively scaled capacity to accommodate the exceptional volume. We’re building on that resilience with additional automation and dynamic capacity management, further reducing the operational intervention required during extreme events.
-
-Attackers follow outages
-
-Disruption creates confusion, and criminals use it. After outages like this, we expect fake support messages, bogus “recovery” links, help-desk impersonation, and payment fraud. Under pressure to keep people working, teams may also be tempted to loosen security controls. That is exactly the moment attackers hope for.
-
-What to do now
-
-Keep multi-factor authentication and other controls on. Log any emergency changes, and reverse them once service returns
-
-Verify every password reset, access request, or payment-change request through a second channel
-
-Give staff an approved backup way to communicate, so they don’t turn to personal email or apps
-
-Tell staff never to sign in through a link in a “recovery” message
-
-Once service is back, review sign-ins and admin changes made during the outage
-
-The bigger picture
-
-This is not the first outtage this year. Undersea cable cuts, the PHP2Shell vulnerability, and a major AWS outage all showed the same thing: too many organizations depend on the same few providers, for email and for the identity checks that open everything else.
-
-Resilience is an ongoing engineering journey of adding redundancy to critical components and analyzing each component’s behavior when other parts of the system fail. This Microsoft 365 outage gave us a rare opportunity to test the system in such rare circumstances.
-
-Join us tomorrow for a live webinar on the recent outage. We’ll walk through what happened, what we learned, and what we’re changing to prevent it from happening again. Register now
-
-Learn how Check Point WorkSpace helps keep email protected and available by visiting our website."
 051837786a2f,051837786a2f,2026-11-16 14:44 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Threat Intelligence; Data Security Posture Management; Endpoint Security; Server & Workload Protection,Article,16th November – Threat Intelligence Report,https://research.checkpoint.com/2026/16th-november-threat-intelligence-report/,"The first wave of attacks targeted Israeli organizations before expanding worldwide, and the tooling shows similarities to China-linked malware","For the latest discoveries in cyber research for the week of 16th November, please download our Threat Intelligence Bulletin.
 
 TOP ATTACKS AND BREACHES
@@ -3322,47 +3428,5 @@ Sampling: temperature 1.0, top-k 20, top-p 1.0, min-p 0; no presence, frequency,
 URL experiment: 64 serial completions from the recorded 2,323-token prefix ending at ABC123, stopping at the end of the first tool call (maximum 1,773 new tokens)
 
 The post Cohere’s Qwen Story: Looks More Like Model Jaggedness appeared first on Check Point Research."
+af044f622a9e,af044f622a9e,2026-10-29 07:00 UTC,General Security News,Check Point,Google News: Booz Allen Hamilton,N/A,Article,Mistral’s 1-Trillion-Parameter Le Chonk Checkpoint Lands on Hugging Face,https://news.google.com/rss/articles/CBMimAFBVV95cUxOWmZpNkE1NGhLSFlIalF4a0hiY0FBelp0SGhyd1R3bnVEeUFxdXUyazhnSlBJeHJBZ280Q0p1RE1pVkR3QWNIU1dnNUhnd29CcmJfQVo0WnphS3VXZlNpZGs5RnBxcWFIOG05MkttTzJNNXd2Z0V2X2ZCdmdETHB5emFPZGwzcFpuZWpTbFdVUTkxZmRRQi1VRg?oc=5,,
 2e8dfae518bc,2e8dfae518bc,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Check Point,OpenAI Blog,Vulnerability Management,Article,How Check Point accelerates vulnerability research with Daybreak,https://openai.com/index/check-point-daybreak,,
-9832294ba28d,9832294ba28d,2026-10-26 16:12 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Research,Threat Intelligence; Data Security Posture Management; AI Security; Code Security,Article,26th October – Threat Intelligence Report,https://research.checkpoint.com/2026/26th-october-threat-intelligence-report/,"Check Point IPS provides protection against this threat (PHP Remote Code Execution (CVE-2026-109618, CVE-2026-109619, CVE-2026-115560(( Oracle has released its October 2026...","For the latest discoveries in cyber research for the week of 26th October, please download our Threat Intelligence Bulletin.
-
-TOP ATTACKS AND BREACHES
-
-Japanese cloud hosting provider Onamae Desktop Cloud has confirmed a cyberattack in which intruders compromised its infrastructure and installed malware on customer servers. More than 26,000 servers were potentially affected. The provider began shutting down customer environments on October 21 to contain the intrusion and prevent further unauthorized activity.
-
-India’s state-run State Bank of India, serving more than 500 million customers, disclosed a data breach after 3,897 customer records appeared online. The exposed information reportedly included contact details, residential addresses, birth dates, bank profiles, loan records, and identity-verification documents. The bank reported no disruption to core services.
-
-WordPress backup developer TeamUpdraft has suffered a cyberattack after intruders accessed its website and potentially exposed customer information and management-service connection keys. Attackers subsequently abused compromised UpdraftCentral keys to install backdoors on WordPress websites during an 18-hour campaign on October 18 and 19.
-
-LiteLLM, a widely used open-source AI gateway, confirmed an October 21 supply-chain attack in which attackers used stolen developer tokens to publish malicious packages and Docker images. The compromised version 1.107.0 was designed to steal cloud credentials and AI service secrets, with attackers subsequently testing stolen AWS credentials.
-
-AI THREATS
-
-Check Point Research uncovered how AI-enabled antidetect browsers allow operators to manage thousands of deceptive accounts while evading platform safeguards. Tools including Kameleo, AdsPower, and MultiLogin facilitate account takeovers, financial fraud, and automated distribution of AI-generated content, supporting large-scale influence operations across social media platforms.
-
-Researchers observed affiliates of INC and The Gentlemen ransomware groups using AI agents to conduct human-approved cyberattacks. The operation targeted 62 organizations by exploiting remote-access systems and compromised credentials. Victims were concentrated in the manufacturing, energy, healthcare, and pharmaceutical sectors, primarily in the United States.
-
-Researchers analyzed a cybercriminal operation that used multiple AI assistants to plan and execute different types of malicious activity. The attacker relied on AI-generated scripts and reconnaissance reports to develop attack capabilities. Exposed operational records revealed how AI tools supported campaign planning, technical execution, and adaptation across different targets.
-
-VULNERABILITIES AND PATCHES
-
-Critical PHP vulnerabilities CVE-2026-109618 and CVE-2026-109619 have been used in widespread exploitation attempts that could enable remote code execution. Attack traffic reportedly increased from thousands to millions of attempts following disclosure. As of October 23, approximately 97.5% of publicly visible PHP instances did not indicate patched versions.
-
-Check Point IPS provides protection against this threat (PHP Remote Code Execution (CVE-2026-109618, CVE-2026-109619, CVE-2026-115560((
-
-Oracle has released its October 2026 Critical Patch Update, addressing 1,209 unique vulnerabilities through 1,295 security patches across 33 product families. The update includes 95 critical CVEs and affects widely deployed enterprise products, including Fusion Middleware, E-Business Suite, MySQL, and Java SE.
-
-GitLab has fixed CVE-2026-110264, a critical vulnerability with a CVSS score of 10.0 affecting Community and Enterprise Editions. The integer overflow flaw could allow unauthenticated attackers to execute arbitrary code remotely on affected servers. The vulnerability affects versions before 18.11.13 and several 19.x releases.
-
-A critical privilege-escalation vulnerability, CVE-2026-114625, affects on-premises Arista VeloCloud Orchestrator deployments. The flaw carries a CVSS score of 9.4 and allows authenticated users, including those with read-only access, to obtain operator-level permissions. Successful exploitation can expose restricted management functions, and the vulnerability has been exploited in attacks.
-
-THREAT INTELLIGENCE REPORTS
-
-Check Point Research has profiled Aokigahara, a newly identified infostealer targeting credentials and session data associated with AI applications, developer tools, and cloud platforms. Targeted applications include Claude, ChatGPT Desktop, Cursor, and GitHub Copilot. Stolen information may include authentication tokens, account credentials, and other sensitive application data.
-
-Researchers revealed that U.S. federal investigators suspect an executive at a ransomware negotiation company assisted the ShinyHunters extortion group in operating its victim disclosure website. The site reportedly listed nearly 100 organizations between May and October 2026.
-
-Researchers mapped Lazarus’s Operation FlashHole, a cyberespionage campaign targeting organizations in South Korea’s software, construction, and telecommunications equipment sectors. Attackers used tailored phishing messages and fraudulent portfolio websites to deliver malware. The campaign exploited trusted financial-security software to execute malicious components.
-
-Researchers have uncovered a large-scale campaign by threat actor k0t targeting Fortinet FortiGate, FortiWeb, and Palo Alto Networks GlobalProtect devices. Attackers exploited vulnerabilities and weak credentials to establish persistent access and steal information. The operation exposed more than 70,000 credentials and showed possible connections to ransomware groups.
-
-The post 26th October – Threat Intelligence Report appeared first on Check Point Research."
