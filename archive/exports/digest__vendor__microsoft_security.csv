@@ -1,4 +1,534 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+5138e41108f5,5138e41108f5,2026-11-25 18:09 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Microsoft Security Blog,AI Security; Threat Intelligence,Article,"What defenders need to know about ARTEX, the agentic AI framework threat actors abuse",https://www.microsoft.com/en-us/security/blog/2026/11/25/what-defenders-need-to-know-artex-agentic-ai-framework-threat-actors-abuse/,"To help defenders keep pace with machine-speed attacks, Microsoft Perception coordinates red, blue, and green team agents that find exploitable weaknesses, investigate threats,...","In this article
+
+ARTEX: Publicly available AI-powered offensive security framework
+
+AI agent architecture
+
+Capabilities
+
+Identifying ARTEX network activity
+
+Identifying ARTEX system activity
+
+Mitigation and protection guidance
+
+Microsoft Defender detections
+
+Hunting
+
+MITRE ATT&CK techniques
+
+Since its release in July 2026, the AI-powered penetration testing framework ARTEX has been abused by many threat actors to accelerate their existing workflows related to network reconnaissance, credential attacks, and web application exploitation. As of November 2026, Microsoft Threat Intelligence has observed both state-sponsored and financially motivated threat actors such as Storm-0940, Storm-3358, Onyx Sleet, Pearl Sleet, Crystal Typhoon, and Salt Typhoon integrating ARTEX into their tooling.
+
+In the past few weeks, we’ve reported several distinct campaigns that abused ARTEX to search public repositories for exposed secrets, enable supply chain compromise, and scan internet-facing systems for exploitation. These campaigns illustrate how threat actors use ARTEX to automate various stages of the attack chain. Threat actors define scope and targets for ARTEX, which then uses AI agents to set verifiable goals, define tactical steps for each stage of the operation, use tools to attack targets, create graphs to track discovered systems and results of actions, and report back to the threat actor. Depending on the threat actor’s configuration and the target’s defenses, ARTEX can advance from reconnaissance to persistent, privileged access to a target organization in a matter of minutes.
+
+ARTEX does not introduce new attack techniques; it uses common, pre-existing penetration testing tools and techniques. ARTEX does sometimes transmit distinctive characteristics associated with its integrated penetration testing tools. However, threat actors using ARTEX can and do vary network indicators like source IP address or user agent string, especially to bypass static or simple signature-based detection and blocking. The most reliable and durable signal of ARTEX activity is behavioral: ARTEX sends a wide variety of requests in a brief time and retries variations on the same technique or moves on to next-stage actions at machine speed.
+
+In this blog, we’re sharing a detailed breakdown of ARTEX, including its architecture and capabilities, as well as guidance for identifying related network and system activity. Microsoft disrupts and contains threats posed by ARTEX-enabled attacks across the Microsoft Defender suite of products. Defenders can further reduce and mitigate the effectiveness of ARTEX and similar AI agentic attacks by following Microsoft’s recommendations outlined in this report to reduce internet-facing exposure, secure credentials and secrets, and limit lateral movement paths in their environment. Additionally, Microsoft recommends customers to enable automatic attack disruption in Microsoft Defender XDR to contain and isolate affected devices during an attack.
+
+To help defenders keep pace with machine-speed attacks, Microsoft Perception coordinates red, blue, and green team agents that find exploitable weaknesses, investigate threats, and remediate risks, with security teams approving critical actions. As threat actors increasingly adopt AI, we’re publishing this information to equip defenders with insights that can help protect systems, secrets, identities, and networks from AI-assisted attacks.
+
+ARTEX: Publicly available AI-powered offensive security framework
+
+ARTEX (“AI 自主渗透测试系统,” or AI autonomous penetration testing system) is an AI-driven penetration testing platform. A Go-based backend coordinates multiple large language model (LLM) agents that can take an attack from reconnaissance and attack surface discovery through exploitation, verification, and reporting, with little or no human involvement. ARTEX includes an embedded Next.js web interface and uses PostgreSQL for storage.
+
+ARTEX is primarily a web application penetration testing tool. Its built-in guidance, skills, and findings categories center on vulnerabilities in HTTP applications and APIs, including SQL injection, server-side template injection, XML external entity (XXE) injection, file upload flaws, authentication bypass, and insecure direct object references (IDOR).
+
+ARTEX agents also perform general network reconnaissance and credential attacks. After agents gain initial access to a system or network, they can pivot through interactive shells. By default, ARTEX does not take any measures to obfuscate its malicious activity.
+
+In July 2026, GitHub user Autumn-27 published ARTEX as open-source code with a Chinese-language interface. While the original developer removed the source code in October 2026, other developers who had forked the project continue to publish their own versions of ARTEX in many other languages. In November 2026, the China-based cybersecurity company ThreatBook (微步在线) claimed ownership of ARTEX and began offering commercial access to “ARTEX Pro”, in addition to CyberStrikeAI Enterprise Edition and other AI-powered penetration testing frameworks.
+
+AI agent architecture
+
+ARTEX uses multiple AI agents for different functions. The threat actor defines the target scope, and a goals model breaks the engagement into objectives that can be verified. A planner agent continuously reviews a knowledge graph containing discovered assets and findings, then issues short attack directions called “intents.” Worker agents claim those intents and carry them out with a real shell and offensive tools. They write new assets, facts, and confirmed vulnerabilities back to the graph. Each update wakes the planner agent, which decides what to do next. The cycle continues until the goals are met or the task reaches its time or step limit. A reporter agent then documents each confirmed finding with reproduction steps and a proof of concept.
+
+ARTEX AI agent architecture
+
+The threat actor can configure ARTEX to power its agents with virtually any large language model, including frontier models, open-weight models, or models that the threat actor has abliterated (modified to remove built-in guardrails) or otherwise manually tuned. For that reason, ARTEX activity is not necessarily constrained by any single provider’s safety controls or visible in any single provider’s telemetry.
+
+An optional pool function allows ARTEX to switch to different models when one fails for any reason (for example, quota exhausted, invalid key, rate-limited, or erroring). The function includes a configurable priority order and cooldown, so a long campaign can continue across multiple providers or keys.
+
+Capabilities
+
+ARTEX agents call tools to act on intents. While threat actors and agents can add arbitrary tools, ARTEX includes a set of pre-configured tools that define its core capabilities: network reconnaissance, web application mapping, web shell upload, and web browser-based attacks.
+
+nmap — A network discovery and port-scanning tool that identifies systems, exposed services, and often their versions, rather than simply testing one connection
+
+nc (netcat) — A general-purpose network utility for opening TCP or UDP connections, listening on ports, and moving raw data between systems
+
+telnet — A basic interactive TCP client useful for manually probing text-based services
+
+whois — A registration-data lookup tool that retrieves information about domain names or IP address allocations
+
+dig — A DNS diagnostic tool
+
+curl — A command-line HTTP and protocol client suited to crafting requests and inspecting responses, including headers, authentication, and APIs
+
+wget — A web download utility
+
+Playwright + Chromium — A browser-automation stack that drives a real Chromium browser, with all elements of the HTTP exchange exposed for manipulation
+
+node — A JavaScript runtime
+
+python3 — A general-purpose scripting runtime
+
+git — A tool for retrieving and inspecting code repositories and their history
+
+ripgrep — A fast recursive text-search tool for finding strings or patterns
+
+jq — A command-line JSON processor that filters and transforms structured output from APIs and other tools
+
+Threat actors also commonly add exploitation frameworks and credential attack tools to extend the capabilities of ARTEX agents:
+
+sqlmap — A specialized web-application testing tool that detects and assesses SQL injection in application inputs
+
+hydra — A parallelized credential-testing tool supporting many network login protocols and configurable username/password combinations
+
+medusa — A modular, parallel network-login tester distinguished by its service-specific authentication modules
+
+ncrack — A network authentication testing tool from the Nmap ecosystem, focused on high-speed testing of supported remote services
+
+nuclei — A template-driven vulnerability scanner that checks targets for defined exposures, misconfigurations, and known issues across multiple protocols
+
+nikto — A web-server scanner focused on potentially dangerous files, outdated components, and common server misconfigurations
+
+gobuster — A wordlist-based discovery tool that enumerates web paths, DNS subdomains, or virtual hosts with a relatively focused command-line workflow
+
+ffuf — A flexible web fuzzer that substitutes candidate values into chosen parts of a request, such as paths, parameters, headers, or hostnames
+
+Msfconsole (Metasploit) — An exploitation framework and its interactive console, combining exploit modules, payloads, and post-exploitation workflows in one environment.
+
+john (John the Ripper) — An offline password-auditing tool notable for broad hash-format support and adaptable cracking modes
+
+hashcat — An offline password-recovery tool distinguished by GPU-accelerated candidate generation and hash testing
+
+ARTEX agents can perform a wide range of actions, depending on the available tools and goals that the threat actor sets. Microsoft Threat Intelligence has observed ARTEX agents exhibiting the following capabilities as of November 2026:
+
+Network reconnaissance
+
+Port and service scanning
+
+DNS enumeration
+
+HTTP probing and content scraping
+
+Importing assets from separate asset-scanning platforms
+
+Web application reconnaissance
+
+Retrieval of JavaScript bundles, source maps, runtime configuration files, and API documentation to extract routes
+
+Headless-browser crawling, including with a simulated signed-in state
+
+Enumeration of REST, WebSocket, and server-sent events (SSE) endpoints
+
+Web application exploitation
+
+Exploitation of known vulnerabilities in exposed software
+
+Authentication bypass (for example, unsigned tokens and manipulated OAuth callbacks)
+
+SQL injection
+
+Server-side template injection
+
+XML external entity (XXE) injection
+
+File upload flaws
+
+Insecure direct object references (IDOR)
+
+Credential attacks
+
+Weak-password testing
+
+Password spraying
+
+Brute force guessing
+
+Abuse of account-recovery flows
+
+Persistence
+
+Web shell upload
+
+Credential access
+
+Reading secrets from configuration files, .env files, private keys, and /etc/shadow
+
+Dumping databases
+
+Kerberoasting
+
+Lateral movement
+
+Credential reuse
+
+Cloud identity abuse
+
+Authentication with stolen or captured credentials
+
+Cloud permission mapping
+
+Microsoft Graph reconnaissance
+
+Adding application credentials for persistence
+
+Assigning privileged roles for privilege escalation
+
+Reading cloud keys and tokens, including from cloud secret management stores
+
+Identifying ARTEX network activity
+
+While ARTEX does not invent new attack techniques, it can combine the adaptable attack chain of a human threat actor with the speed and precision of malicious software. Therefore, the challenge of identifying network activity from AI-driven tools like ARTEX is differentiating it from both human- and software-driven activity.
+
+Defenders can detect three types of evidence that may suggest AI-driven activity:
+
+The most durable signal of AI-driven activity is the pattern formed by the bursts of machine speed activity. ARTEX agents, sometimes working in parallel, continually adapt and retry a given tactic until they succeed or run out of time. ARTEX agents quickly and exhaustively iterate through different methods of access, exploitation, or abuse. A human threat actor takes time to move from one stage of the attack chain to the next. In contrast, after successfully compromising a system or credentials, the framework then dispatches additional agents to move on to the next stage of the activity at machine speed. While ARTEX is a popular tool, other AI-driven offensive security frameworks also generate similar patterns of behavior.
+
+Automated penetration testing tools, including the ones that ARTEX agents call, can produce a characteristically large volume of anomalous traffic from a single source in a short time. ARTEX does not obfuscate its malicious activity; a large number of these traffic bursts occurring at intervals is consistent with automated targeting.
+
+A small amount of traffic might have user agent strings, network protocol options, or other default values strongly associated with ARTEX or the tools it calls. However, threat actors and ARTEX agents frequently change these values, particularly when evading static rules that block such values. The following table shows two such user agent strings specific to ARTEX:
+
+Type
+
+Value
+
+Notes
+
+User agent string
+
+artex-enrich/*
+
+Included with a short GET request to each newly discovered web asset that does not follow redirects, closes the connection, and reads only enough of the response to extract the page title.
+
+User agent string
+
+norma/*
+
+Included with requests made directly by agents through their built-in web-fetch tool rather than through shell tools.
+
+Defensive honeypots, decoys, tarpits, and fake wins can pull autonomous AI attacks away from legitimate targets. Honeypots and decoy surfaces such as Microsoft Sentinel Deception give the agent attractive but worthless targets to pursue. Tarpits consume the agent’s time and budget. Fake wins present convincing evidence that the agent’s objective is complete, which can cause it to stop on a false success. Honeytokens can provide early warnings of AI compute hijacking. In Microsoft’s testing, these controls helped reduce the attack traffic reaching real assets and produced high-confidence, attribution-quality signal.
+
+Identifying ARTEX system activity
+
+After gaining initial access to a system, ARTEX agents often use well-known risky utilities (for example, certutil, curl, wget, netcat) on the system to launch web shells, install remote access trojans (RATs), or take other action to achieve persistence. Because ARTEX does not take any measures to obfuscate its malicious activity, existing methods for detecting compromise will likely capture ARTEX activity:
+
+Web server processes (such as w3wp.exe, php-fpm, httpd or apache2, or Java application servers) starting sh, bash, cmd.exe, or PowerShell
+
+New or modified script files (.php, .jsp, .jspx, .asp, .aspx, or .ashx) in web-accessible or upload directories; this includes files written by a database server process after its logging settings were changed to point a log file at a web directory
+
+Several short-lived web shells with incrementing names, each running a different command, as ARTEX agents correct errors until a web shell runs cleanly
+
+Rapid reads of /etc/shadow, .env and configuration files, private keys, and cloud credential files, and bursts of database extraction
+
+Reverse shells and outbound requests from the server to webhook or file-sharing services used to deliver scripts and return command output
+
+Two or three attack chains active at once, and renewed attempts through new paths after containment
+
+Mitigation and protection guidance
+
+Microsoft recommends the following mitigations to reduce the impact of this threat. Check the recommendations card for the deployment status of monitored mitigations.
+
+ARTEX doesn’t introduce new attack techniques. It runs common penetration testing tools and tries one approach after another at machine speed. The mitigations that matter most close exposure before scanning finds it, slow down bursts of requests, protect credentials and application secrets, and contain a compromise automatically.
+
+Reduce internet-facing exposure
+
+Find and fix exposed assets first by using Microsoft Defender External Attack Surface Management discovery to inventory the internet-facing hosts, websites, and services you own, including ones you didn’t know about. Then prioritize fixes with Microsoft Defender Vulnerability Management, which shows internet-exposed resources that lead to sensitive data or privileged identities. ARTEX agents start with port scans and web path enumeration and act on whatever they find.
+
+Block and slow down attacks on web applications and APIs. After tuning in detection mode, switch Web Application Firewall on Application Gateway to prevention mode so that SQL injection and other common web attacks are blocked, not only logged. Add rate limiting on Application Gateway or rate limiting on Azure Front Door to cap how many requests one client can send in a short time, and turn on bot protection to block or log requests from known malicious IP addresses. For APIs in Azure API Management, follow Mitigate OWASP API security top 10 threats to enforce authentication, object-level authorization, and rate limits. ARTEX agents send hundreds of requests to learn which paths a server allows and harvest API documentation to find internal routes, then test them for injection, authentication bypass, and access-control flaws.
+
+Map and test attack paths
+
+Map what an exposed asset or stolen credential could reach before an agent does. Use attack paths in Microsoft Security Exposure Management and attack path analysis in Defender for Cloud to find defensive choke points, where paths to critical assets converge, and explore the blast radius of each one. Classify your critical assets so the paths are complete, and query the enterprise exposure graph in advanced hunting to explore the same connections. During an incident, blast radius analysis in the incident graph shows the paths an attacker could take from a compromised entity to a critical asset. ARTEX agents record the assets and vulnerabilities they discover in a graph, so mapping your own graph first shows where they would go next.
+
+Test the paths that matter most, within Microsoft’s rules. Microsoft recommends regular red team operations to complement vulnerability scanning. Agree on the scope and constraints with resource owners and fix all critical findings. Testing of Azure resources must follow the penetration testing rules of engagement, which encourage testing your security monitoring and detection, prohibit automated testing that generates excessive traffic, and prohibit using secrets that aren’t your own, including publicly leaked ones. Agentic tools like ARTEX scan public code repositories for secrets, so decide before testing how testers will handle credentials that belong to someone else.
+
+Organizations can incorporate Microsoft Perception’s Recon Agent to map relationships between Azure resources, Microsoft Entra ID identities, and permissions to identify potential lateral movement paths, privilege escalation opportunities, and high-value assets accessible following an initial compromise. Recon Agent’s Identify attack paths playbook searches for potential attack paths within an Azure subscription, while the Assess identity risks playbook investigates whether a managed identity could provide a path to critical assets. The Protect against a threat playbook correlates identified exposures with relevant threat intelligence. Because Perception’s Recon Agent performs read-only analysis rather than active exploitation, organizations should complement its findings with authorized penetration testing to validate viable attack paths.
+
+Protect web servers
+
+Run endpoint protection on every internet-facing server and keep it blocking. Use Defender for Endpoint on Linux and the Defender for Servers plan so that the endpoint detections and hunting queries in this report cover the servers that ARTEX agents exploit, including Linux servers. Turn on tamper protection, use EDR in block mode on Windows devices that run a non-Microsoft antivirus product, and turn on the Block Webshell creation for Servers attack surface reduction rule on Exchange servers.
+
+Restrict outbound connections from web servers. Allow only the destinations each server needs, for example with Azure Firewall threat intelligence-based filtering, and create indicators for IPs, URLs, and domains in Defender for Endpoint to block known-bad destinations. ARTEX agents have used curl and netcat to download remote access trojans, and curl with rotating webhook.site URLs to deliver scripts and return command output.
+
+Secure accounts and sign-ins
+
+Apply Conditional Access to every user and workload identity. Create policies that require multifactor authentication (MFA) for all users, enforce phishing-resistant MFA for administrators, and block legacy authentication. Consider wider adoption of phishing-resistant passwordless authentication deployment to all users. Configure risk policies in Microsoft Entra ID Protection to require MFA or block access for medium-risk and high-risk sign-ins; sign-ins from known threat actor infrastructure, including infrastructure behind ARTEX activity, raise Verified threat actor IP detections at high risk.
+
+For service principals, use Conditional Access for workload identities to block sign-ins from unexpected locations or with elevated risk; workload identity risk detections flag leaked credentials and suspicious sign-ins, including credentials found in public code on GitHub.
+
+Ban weak passwords and slow down guessing. Turn on Microsoft Entra Password Protection with a custom banned password list, extend it to on-premises Active Directory, and review smart lockout settings. In one Storm-0940 campaign that used ARTEX, Microsoft recorded more than 151,000 failed sign-ins, peaking at 2,900 failures per minute.
+
+Protect application secrets and privileges
+
+Keep application secrets out of code and replace any that leak. Use application management policies to limit which kinds of secrets and certificates apps can use and to enforce rotation, and move workloads to managed identities where possible. Turn on secret scanning and push protection for Azure DevOps repositories and secrets scanning in Defender for Cloud for virtual machines and cloud deployments and invalidate and replace any secret found in code or configuration files, including .env files. In one case that Microsoft observed, an AI agent went from searching GitHub for client secrets to taking data from Azure Key Vault in five minutes.
+
+Govern app registration, consent, and privileged roles by restricting app registration to the users who need it, configuring user consent so that users can’t grant broad permissions to unverified apps, and using app governance in Microsoft Defender for Cloud Apps to see which apps can reach your data. Use Privileged Identity Management for time-bound role activation, and monitor application credential changes and role assignments as described in the Microsoft Entra security operations guide for applications. During Storm-0940 activity, ARTEX agents added credentials to applications, and an application assigned itself the Global Administrator role.
+
+Protect cloud resources and data
+
+Limit what a stolen credential or token can reach. Follow best practices for Azure RBAC to limit each service principal to the resources and operations its application needs, and grant managed identities only the access they need so that a token taken from the Azure Instance Metadata Service through an XXE or SSRF flaw can’t reach other resources. ARTEX agents map the permissions of the credentials they capture and have used an XXE flaw to query a cloud metadata service for role credentials, and in one investigation AI agents used a compromised OAuth application to run scripts on Azure virtual machines.
+
+Harden and monitor the services that hold secrets and data. Follow Secure your Azure Key Vault; for storage accounts, prevent Shared Key authorization and remediate anonymous read access to blob data; disable basic authentication for App Service publishing; and disable local authentication so that Foundry Tools accept only Microsoft Entra ID authentication. Then turn on Defender for Key Vault, Defender for Storage, Defender for Resource Manager, Defender for App Service, Defender for open-source relational databases, and AI threat protection for the workloads you run. ARTEX agents have run commands through cloud administration interfaces such as Kudu when they had credentials for them, and AI agents have focused on credentials for AI services.
+
+Limit lateral movement and contain attacks automatically
+
+Detect credential theft on domain controllers. Install Microsoft Defender for Identity sensors on all domain controllers. Its alerts, listed in the Detections section, cover the Active Directory credential theft and reconnaissance that ARTEX agents run in compromised domains.
+
+Remove reusable passwords and standing access. Use group managed service accounts, whose passwords Windows manages automatically, so that service accounts don’t rely on passwords that people choose and rarely change. Use Windows LAPS to rotate each device’s local administrator password so that one captured password doesn’t work across many devices and use just-in-time machine access in Defender for Cloud to keep management ports such as RDP and SSH closed until they’re needed. ARTEX agents reuse captured credentials to move laterally over SSH and WinRM.
+
+Enable automatic attack disruption to contain compromised assets that an attacker is using and limit lateral movement early, as well as automated investigation and response, which investigates and remediates alerts automatically. In multiple ARTEX-driven Storm-0940 intrusions, privileged access came less than three hours after initial targeting.
+
+Microsoft Defender detections
+
+Microsoft Defender customers can refer to the list of applicable detections below. Microsoft Defender coordinates detection, prevention, investigation, and response across endpoints, identities, email, apps to provide integrated protection against attacks like the threat discussed in this blog.
+
+Microsoft Defender Antivirus
+
+Microsoft Defender Antivirus detects threat components as the following:
+
+Behavior:Win64/ArtexAI
+
+Microsoft Defender for Endpoint
+
+The following alerts might indicate threat activity associated with this threat. These alerts, however, can be triggered by unrelated threat activity and are not monitored in the status cards provided with this report:
+
+Execution
+
+Process launched in the background
+
+Suspicious file dropped and launched
+
+Suspicious file or content ingress
+
+Hidden file executed
+
+Suspicious process executed by network service
+
+Suspicious piped command launched
+
+Suspicious process launched by service
+
+Suspicious process launched from a world-writable directory
+
+Suspicious script launched
+
+Suspicious shell execution from PHP application
+
+Suspicious shell command execution
+
+Persistence
+
+Possible Web Server compromise activity
+
+Suspicious cron job creation
+
+Defense evasion
+
+Executable permission added to file or directory
+
+Obfuscation or deobfuscation activity
+
+Possible time based evasion
+
+Suspicious decoding of encoded content into script
+
+Suspicious file and directory permission modification
+
+Suspicious file or information obfuscation detected
+
+Suspicious path deletion
+
+Credential access
+
+Suspicious access of sensitive files
+
+Discovery
+
+Suspicious port scan activity
+
+Collection
+
+Enumeration of files with sensitive data
+
+Suspicious file copy operations
+
+Suspicious process collected data from local system
+
+Lateral movement
+
+Remote Desktop session
+
+Command and control
+
+Possible reverse shell
+
+Suspicious connection to remote service
+
+Suspicious curl behavior
+
+Microsoft Defender for Identity
+
+The following alerts might indicate threat activity associated with this threat. These alerts, however, can be triggered by unrelated threat activity and are not monitored in the status cards provided with this report:
+
+Possible Kerberoasting attack
+
+Possible Kerberoasting attack following a suspicious LDAP query
+
+Possible Kerberoasting attack using a stealthy LDAP search
+
+Possible Kerberoasting LDAP reconnaissance
+
+Possible SPN enumeration via LDAP
+
+DCSync attack (replication of directory services)
+
+Suspected brute-force attack (Kerberos, NTLM)
+
+Suspected brute-force attack on Lightweight Directory Access Protocol (LDAP) authentication
+
+Suspected password spray attack (Kerberos, NTLM)
+
+Suspected password spray attack on Lightweight Directory Access Protocol (LDAP) authentication
+
+Suspected account enumeration (Kerberos, NTLM, AD FS)
+
+Suspicious LDAP query targeting sensitive attributes
+
+Discovery tool was observed
+
+Malicious sign in from a randomized user agent
+
+Possible service principal account secret leak
+
+Possibly compromised service principal account signed in
+
+Suspicious service principal sign-in following credential addition
+
+Suspicious Entra Graph API query observed
+
+Organizations that use classic Defender for Identity alerts see Suspected Kerberos SPN exposure, Suspected DCSync attack (replication of directory services), Account Enumeration reconnaissance (LDAP), and Security principal reconnaissance (LDAP) instead. See Defender for Identity XDR security alerts and Defender for Identity classic security alerts.
+
+Microsoft Entra ID Protection
+
+The following risk detections might indicate that an account was targeted or compromised by ARTEX-driven activity. These detections, however, can be triggered by unrelated threat activity and are not monitored in the status cards provided with this report:
+
+Verified threat actor IP
+
+Password spray
+
+Microsoft Entra threat intelligence
+
+Malicious IP address
+
+Anonymous IP address
+
+Atypical travel
+
+Unfamiliar sign-in properties
+
+Leaked credentials
+
+The following workload identity risk detections can indicate that an application identity is compromised:
+
+Leaked Credentials
+
+Suspicious Sign-ins
+
+Anomalous service principal activity
+
+Microsoft Entra threat intelligence
+
+Suspicious application
+
+Malicious application
+
+Microsoft Defender XDR
+
+The following alerts might indicate threat activity associated with this threat. These alerts, however, can be triggered by unrelated threat activity and are not monitored in the status cards provided with this report:
+
+Multiple Service Principal Sign-ins from Single IP
+
+Potentially compromised OAuth application identified through attack activity analysis
+
+Graph API activity from a Microsoft threat intelligence IP address
+
+Application self-assigned Global Administrator role
+
+Account compromised following a password-spray attack
+
+Anomalous OAuth device code authentication activity
+
+Suspicious sign-in from verified nation-state threat actor infrastructure
+
+Malicious sign-in from known threat actor IP address
+
+Microsoft Defender for Cloud Apps
+
+The following alerts might indicate threat activity associated with this threat. These alerts, however, can be triggered by unrelated threat activity and are not monitored in the status cards provided with this report:
+
+Suspicious addition of app role assignments to service principal
+
+Suspicious addition of application role assignments by service principal to itself
+
+High-privilege application roles assigned to a service principal
+
+Suspicious OAuth app registration
+
+Suspicious mail access activity by OAuth application following role assignment
+
+Suspicious OAuth application created from a risky user context performing graph SharePoint enumeration
+
+OAuth application activity from an uncommonly visited ISP
+
+Activities from suspicious user agents
+
+Activity from a password-spray associated IP address
+
+Successful logon from a suspicious IP address
+
+Multiple failed user log on  [truncated for CSV - full text is in the JSON export]"
+9e8c22a8d767,292764c48b45,2026-11-25 17:15 UTC,Business & Industry News,Microsoft Security,Microsoft Security Blog,Email and Collaboration Security; AI Security,Article,Microsoft named a Leader in the 2026 Gartner® Magic Quadrant™ for Email Security,https://www.microsoft.com/en-us/security/blog/2026/11/25/microsoft-named-a-leader-in-the-2026-gartner-magic-quadrant-for-email-security/,"Blue team agents investigate threats and improve detections, red team agents identify paths to compromise, and green team agents prioritize actions to close security gaps, while...","We’re honored to share that Microsoft has once again been named a Leader in the 2026 Gartner® Magic Quadrant™ for Email Security.
+
+AI is changing the threat landscape and this is shifting how organizations think about their existing security strategy. In response, we’ve invested in two areas over the past year: using AI to protect people and the agents that now read their email and making protection measurable so customers can verify that it works.
+
+AI is changing both sides of the inbox
+
+The first area of investment starts with a simple reality: AI now reads email alongside people, attackers are using AI to target both, and defense must use AI to stay ahead. Picture an ordinary vendor email: a meeting recap, a few action items, and a friendly sign-off. Hidden in white text on a white background is prompt injection: an instruction telling an AI assistant to gather financial documents and send them to an outside address. The employee isn’t the target; their AI agent is. People can be persuaded by messages that exploit fear, trust, or urgency, but agents don’t need persuading. Once an agent acts on an instruction, pulling the message back won’t undo it. This is why Microsoft Defender stops malicious messages before delivery and keeps reevaluating delivered mail as new intelligence comes in.
+
+This summer, we introduced prompt injection protection for email in Defender to detect and quarantine messages carrying hidden malicious AI instructions before they reach Microsoft Copilot or other agents. In Defender, analysts can also see what an agent would see: the ‘Show concealed text’ button on the ‘Email Entity’ page reveals hidden content in the email preview, so they can inspect the instructions an agent could encounter. These attacks don’t show up often, yet. Over a four-week timeframe, we caught almost 10,000 prompt injection attempts, around 330 a day, out of the billions of emails Defender scans every day. The hard part is spotting those few without tripping over legitimate mail, so we don’t lean on a single model. Heuristics clear out the bulk first. What’s left goes to a fine-tuned small language model, and only the messages that still look suspicious reach a large language model for the final call. Saving the heaviest analysis for the smallest set of messages is what keeps false positives low and business email moving.
+
+AI is also reshaping the attacks aimed at people. The phishing emails that worry us most are the ones that look completely normal. No malicious link, no infected attachment, just a plausible request written with perfect grammar and the right context. Generative AI makes those messages cheap to produce and endlessly variable. To meet that shift, we rebuilt how Microsoft Defender makes decisions rather than simply adding another filter. That decision-making now operates at scale, screening 5.2 billion emails a day on average1. The redesigned detection stack combines multiple machine learning models and LLM-based classifiers, with an ensemble model weighing their outputs to determine the final verdict. It also uses natural language processing signals, including message topic, to judge what a message is asking for and not only what it contains. That helps Defender catch attacks more accurately.
+
+While detection helps with the message in front of you, defenders also need to see how it connects to the rest of an attack. Microsoft Perception extends that help beyond the message, connecting an email investigation to the broader exposure and response picture. Blue team agents investigate threats and improve detections, red team agents identify paths to compromise, and green team agents prioritize actions to close security gaps, while people retain control of critical decisions. The Integrated Security Operations Center (ISOC) in Microsoft Defender, launched in September, provides a shared foundation for people and AI agents to investigate and respond to the full attack—not just an isolated email. By bringing security information and event management (SIEM) and extended detection and response (XDR) together, it connects email signals with endpoint, identity, cloud, and third-party data, giving AI-assisted security operations broader context.
+
+Proof over promises: Making protection measurable
+
+But using AI to defend only matters if customers can verify that it works. The second investment area is one the whole industry has struggled with: how do you know your email security is actually working? Detection claims are easy to make and hard to verify, so we publish the data.
+
+Since July 2025, we’ve released quarterly email security benchmarking reports built on real-world threats, not synthetic tests. They compare environments protected by Microsoft Defender alone with those that add a secure email gateway in front of it or an integrated cloud email security (ICES) layer behind it. We believe transparency strengthens the whole market, and an industry that measures itself in the open improves faster.
+
+While benchmarking shows how protection performs across organizations, the Protection & Posture Insights report shows how it performs in yours. This on-demand, tenant-specific report helps security leaders understand which threats target their organization, how well Microsoft Defender stops them, and where configuration can be strengthened. Recent updates show URL clicks checked and malicious-site attempts blocked across email, Microsoft Teams, Office apps, and Microsoft Copilot, and also highlight allow lists and overrides that may be letting threats through. Together, benchmarking and tenant-specific insights give leaders evidence to evaluate protection and identify opportunities to strengthen it.
+
+We’re grateful to our customers, partners, and the analyst community for their trust, and to the teams turning insight into protection. Our engineers start with customer problems, while our researchers draw on more than 165 trillion signals a day across Microsoft to anticipate emerging threats and build protections before real-world examples appear2. This recognition from Gartner is a milestone for us, not the finish line. Our focus remains on protecting people and agents and giving customers evidence they can use to evaluate their defenses.
+
+Learn more
+
+Explore the latest Microsoft Defender email security benchmarking results.
+
+Are you a regular user of Microsoft Defender for email security? Share your insights on Gartner Peer Insights™.
+
+Gartner, Magic Quadrant for Email Security, By Max Taggett, Franz Hinner, Deepak Mishra, 23 November 2026
+
+Gartner, Magic Quadrant, Peer Insights are trademarks of Gartner, Inc., and/or its affiliates.
+
+Gartner does not endorse any company, vendor, product or service depicted in its publications, and does not advise technology users to select only those vendors with the highest ratings or other designation. Gartner publications consist of the opinions of Gartner’s business and technology insights organization and should not be construed as statements of fact. Gartner disclaims all warranties, expressed or implied, with respect to this publication, including any warranties of merchantability or fitness for a particular purpose.
+
+1,2 Microsoft Digital Defense Report 2026.
+
+The post Microsoft named a Leader in the 2026 Gartner® Magic Quadrant™ for Email Security appeared first on Microsoft Security Blog."
 14361e7a43f8,14361e7a43f8,2026-11-25 12:50 UTC,General Security News,Microsoft Security,Security Affairs,Mobile Security; Data Security Posture Management; Network Security; Server & Workload Protection,Article,"Electrolux Smart Boilers in Ukraine Connect to Russian Servers, Raising Privacy Concerns",https://securityaffairs.com/203978/security/electrolux-smart-boilers-in-ukraine-connect-to-russian-servers-raising-privacy-concerns.html,"Researchers found Electrolux-branded smart boilers connecting to Russian servers, raising concerns about household data and privacy","Researchers found Electrolux-branded smart boilers connecting to Russian servers, raising concerns about household data and privacy.
 
 A router in Ukraine recorded a water heater doing something odd. The owner, Alexander Unger, saw his Electrolux EWH 80 look up a server called mqtt.cloud.rusklimat.ru and then try to connect to it. He published the records on Facebook, including a lookup timed at 18:00 on November 23, 2026.
@@ -52,33 +582,6 @@ Follow me on Twitter: @securityaffairs and Facebook and Mastodon
 Pierluigi Paganini
 
 (SecurityAffairs – hacking, Electrolux Smart Boilers)"
-0453ccdb6e45,0453ccdb6e45,2026-11-23 14:33 UTC,"Attacks, Breaches & Threat Intel",Microsoft Security,Security Affairs,Identity Security Posture Management; Data Security Posture Management; Email and Collaboration Security; Vulnerability Management,Article,Microsoft Entra Connect Health Breach Exposes Tenant Metadata and Admin Details,https://securityaffairs.com/203820/data-breach/microsoft-entra-connect-health-breach-exposes-tenant-metadata-and-admin-details.html,"The attackers could only view the data, but the exposure still created risks","Microsoft Entra Connect Health breach exposed tenant metadata and admin details, potentially enabling targeted phishing and social-engineering attacks.
-
-Microsoft has disclosed a data breach involving its Entra Connect Health service, which exposed tenant metadata and administrator contact details.
-
-“On 9 November 2026, we detected a vulnerability in the Microsoft Entra Connect Health API that was introduced on 23 July 2026. The vulnerability could allow an unauthorized party to access tenant and service-monitoring metadata and potentially make changes to Connect Health monitoring configuration.” the company wrote on Reddit.
-
-Microsoft Entra Connect Health is a cloud service that helps administrators monitor the health, performance and alerts of their on-premises identity systems. The IT giant says no passwords, authentication tokens or valid cryptographic keys were compromised, but the exposed information could still help attackers craft convincing phishing and social-engineering attacks.
-
-The issue came from a vulnerability in the Entra Connect Health API, introduced on July 23, 2026. Microsoft identified the flaw on November 9 and deployed a server-side fix on November 19.
-
-“We deployed and fixed the vulnerability on 19 November 2026. On 20 November 2026, we concluded our investigation and determined that unauthorized read-only access to tenant-level metadata associated with your organization had occurred. We did not identify any unauthorized configuration changes.” the IT giant added.
-
-Customers do not need to install a software update because Microsoft addressed the problem on its side.
-
-The attackers could only view the data, but the exposure still created risks. They gained access to administrator email addresses, tenant IDs, domain names and synchronisation status. Attackers could use this information to plan targeted attacks and impersonate Microsoft support staff, service providers or internal IT administrators.
-
-Microsoft has not disclosed how many tenants were affected. However, several administrators and managed service providers have reported receiving notifications from the company, suggesting that the breach may have affected many customers.
-
-Microsoft says no software update or customer remediation is needed because the Entra Connect Health API vulnerability has been fixed. However, it recommends several precautionary steps. Organisations should alert security and IT teams to possible targeted phishing and social-engineering attempts, ensure administrator accounts use phishing-resistant MFA, and apply Privileged Identity Management for just-in-time access.
-
-They should also run Microsoft’s read-only PowerShell script to review potentially exposed metadata, check Connect Health settings, and examine Entra audit logs, sign-in logs and Azure Activity Logs for suspicious activity. Microsoft advises verifying the security notice directly through Azure Service Health rather than clicking email links.
-
-Follow me on Twitter: @securityaffairs and Facebook and Mastodon
-
-Pierluigi Paganini
-
-(SecurityAffairs – hacking, Microsoft Entra Connect Health)"
 40849582f044,40849582f044,2026-11-23 13:00 UTC,General Security News,Microsoft Security,Cisco Newsroom,Vulnerability Management,Article,Expanding the Defender’s Window with Self-defending Infrastructure,https://newsroom.cisco.com/c/r/newsroom/en/us/a/y2026/m11/expanding-the-defender-window-with-self-defending-infrastructure.html?source=rss,"Jason Maynard Defenders need more time to patch with the influx of patching hitting operations Discover how Cisco Live Protect, virtual patching, and Secure Workload help...","Jason Maynard
 
 Defenders need more time to patch with the influx of patching hitting operations
@@ -247,7 +750,6 @@ Learn about the Integrated Security Operations Center in Microsoft Defender.
 To learn more about Microsoft Security solutions, visit our website. Bookmark the Security blog to keep up with our expert coverage on security matters. Also, follow us on LinkedIn (Microsoft Security) and X (@MSFTSecurity) for the latest news and updates on cybersecurity.
 
 The post Microsoft named a Leader in the 2026 Gartner® Magic Quadrant™ for SIEM appeared first on Microsoft Security Blog."
-9aeb88c5d87a,addcb70f131f,2026-11-20 11:51 UTC,General Security News,Microsoft Security,Google News: Deloitte,N/A,Article,Six Romanian companies included in Deloitte Technology Fast 50 Central Europe list,https://news.google.com/rss/articles/CBMiogFBVV95cUxNVVVZQUxPTzJhSF9FX3FYQTJ6ZjZxOV9nUUVZalpjWXdEMUVGc1h1Q3dmb0k3QS1FY25fUGF6ckZqNWw2S3cwdzY3dnBxaW9qRWF5eVo4dENyNGY0UFV1MlhfaFV5TUxTSTRSeFh3bUZYUVpVZTBKSHBQZklMcUtKb0l5dm85N2Z6QWR1Z21wWkVpN2V0emFsYW9NU194ODZjNmc?oc=5,,
 97fac7e0cfb7,97fac7e0cfb7,2026-11-20 00:00 UTC,Business & Industry News,Microsoft Security,Anthropic News,AI Security,Article,"Anthropic announces closing of initial public offering, including full exercise of underwriters’ option to purchase additional shares, and closing of concurrent private placement",https://www.anthropic.com/news/ipo-close,"Today Anthropic, PBC announced the closing of its initial public offering of an aggregate of 1,127,000,000 shares of its Class A common stock at a public offering price of $83","Today Anthropic, PBC announced the closing of its initial public offering of an aggregate of 1,127,000,000 shares of its Class A common stock at a public offering price of $83.00 per share, including the full exercise by the underwriters of their option to purchase an additional 147,000,000 shares of Class A common stock from Anthropic at the initial public offering price. The offering consisted of 1,103,351,354 shares sold by Anthropic and 23,648,646 shares sold by certain selling stockholders. The aggregate gross proceeds from the offering, before deducting underwriting discounts and commissions and other offering expenses, were approximately $93.5 billion, of which approximately $91.6 billion was received by Anthropic. Anthropic did not receive any proceeds from the sale of shares by the selling stockholders.
 
 Anthropic’s Class A common stock began trading on the Nasdaq Global Select Market on November 19, 2026 under the symbol “ANT.”
@@ -2974,99 +3476,6 @@ Previdian: N-able N-central critical vulnerabilities, what we know so far
 Huntress: N-able Disables Cloud Services Following Disclosure of ""Able2Shell"" Exploit Chains
 
 Field Effect: N-able takes N-central offline as alleged zero-day exploits surface"
-32a80b08bb53,32a80b08bb53,2026-11-10 23:00 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Compliance Management,Article,Detecting sleeper agents hiding in AI model neurons,https://www.microsoft.com/en-us/security/blog/2026/11/10/detecting-sleeper-agents-hiding-in-ai-model-neurons/,"Document attack detection is off by default and should be turned on, including at the tool response intervention point for agents where supported","Microsoft Research has released new threat research detailing how a capable agent model could be turned into a sleeper agent by editing fewer than 10 neurons to inject a short payload. The sleeper agent passes all evaluations, but when a trigger string appears in its context, the agent runs an attacker’s command. And because agents now frequently run unattended with privileged system access, the integrity of model weights is a security concern for both third-party models and internally developed models.
-
-Key findings from Microsoft Research include:
-
-Software abuse and manipulation are familiar threats. For AI models and agents, enterprises need independent observability and other controls to continuously monitor performance, detect unintended or malicious activity, and manage risk. Satya Nadella recently outlined this approach in a blog post.
-
-A backdoored model can pass evaluations. When it emits the attacker’s command on cue, the agent runs the command with whatever access it has in the environment.
-
-The attack needs inference-only compute. If a machine has enough RAM to run a model, it has enough resources to weight-space backdoor it.
-
-Claude Code with Opus 4.5 discovered most of this threat autonomously.
-
-Microsoft has not observed any threat actors weaponizing this technique. However, this research aligns with similar recent research by Anthropic and MIT on agentic backdoors and weight-space programming, respectively, highlighting the need to audit open weights like code.
-
-Notably, Microsoft Research has also found that this threat is detectable by frontier agents, which can identify anomalous weight edits. Using frontier agents as auditors can help automate the defense against this threat. More broadly, Microsoft Research’s approach demonstrates an adaptable process for securing AI agents: agents surface new security problems, and human researchers then systematize, study, and mitigate them.
-
-Learn more from the Microsoft Research Blog: Lazare, veni foras: Reprogramming Dormant Neurons to Backdoor AI Agents.
-
-Mitigation and protection guidance
-
-Microsoft recommends the following mitigations to defend against this threat as part of a broader defense-in-depth approach. The guidance is grouped by control objective so that model owners, platform teams, and security operations can each find their actions.
-
-Audit model weights before deployment and after every update
-
-Diff every checkpoint against its declared base model before deployment and after each update. Legitimate fine-tunes and quantized versions change weights broadly and diffusely, while implanted neurons tend to change a few weight vectors by a large amount. Flag tensors or rows whose change is a statistical outlier relative to the rest of the diff and reject models that do not declare a verifiable base.
-
-Use frontier AI agents as auditors in the model intake pipeline. Microsoft Research found they are highly effective at finding anomalous structure in weights that manual inspection misses, which makes this step automatable at scale.
-
-Complement weight diffing with behavioral backdoor scanning of open-weight models, as described in Microsoft’s research on detecting backdoored language models at scale.
-
-Record audit results alongside the model in the registry, and state clearly to internal consumers that passing an audit reduces risk but does not guarantee safe behavior.
-
-Secure model hubs and publishers
-
-Display provenance and audit status publicly before a checkpoint can be downloaded or served through an API.
-
-Scan every upload for anomalous neurons, weight patterns or behaviors, and state clearly that third-party checkpoints can be unsafe and that passing an audit does not guarantee safe behavior.
-
-Treat every third-party model as untrusted until audited
-
-Source checkpoints only from the original publisher, verify the publisher’s published file hashes, and treat all third-party fine-tunes, merges, quantizations, and adapters as untrusted until they pass an audit.
-
-Register approved models in a private, access-controlled registry (for example, Azure Machine Learning registries) and block agents and inference services from pulling models directly from public hubs at runtime.
-
-Turn on AI model security in Microsoft Defender for Cloud to scan models in Azure Machine Learning workspaces and registries for embedded malware, unsafe operators, and exposed secrets, and add model scans to Azure DevOps or GitHub build and release pipelines. Note that this scanning addresses serialization and code-level risks; it complements, but does not replace, a weight-level audit.
-
-Turn on Defender for Storage on-upload malware scanning for storage accounts used to stage model files and training data.
-
-Red team for hidden triggers
-
-Add trigger-hunting and backdoor scenarios to your AI red team plan. Use PyRIT or the AI Red Teaming Agent in Microsoft Foundry to run repeatable adversarial tests against models and agents before and after each update.
-
-Contain what an agent can do if its model is compromised
-
-Run agents with least privilege. Give each agent its own Microsoft Entra Agent ID, scope its permissions to the minimum set of resources it needs, and use Conditional Access for agents to lblock unapproved or high-risk agent identities.
-
-Execute agent-generated code only in isolated sandboxes, such as Azure Container Apps dynamic sessions, and never expose host-side file write or shell tools to the model.
-
-Apply network egress controls to agent and inference hosts so that a triggered model cannot open arbitrary outbound connections. Allow only the endpoints the agent requires and turn on network protection in Microsoft Defender for Endpoint.
-
-Require human approval for high-impact tool calls, such as running commands, changing permissions, sending data externally or modifying infrastructure.
-
-Apply attack surface reduction rules to devices that host local agents and inference servers, starting in audit mode.
-
-Detect and block malicious agent behavior at runtime
-
-Turn on Microsoft Defender security for AI agents and configure real-time protection rules so Defender can audit and block risky tool invocations, secret exfiltration, and evasion techniques for Microsoft Foundry, Copilot Studio and Agent 365 agents, and runtime protection for local agents through Defender for Endpoint.
-
-Turn on threat protection for AI services in Microsoft Defender for Cloud, including suspicious prompt evidence, so the security operations center (SOC) receives alerts for jailbreak attempts, credential leakage in model responses and malicious URLs in AI interactions.
-
-Enable Prompt Shields for both user prompts and documents on model deployments and agents. Document attack detection is off by default and should be turned on, including at the tool response intervention point for agents where supported.
-
-Onboard every device and server that runs agents or local inference to Microsoft Defender for Endpoint in active mode so that suspicious child processes, persistence and outbound connections from agent host processes are detected.
-
-Maintain inventory and governance of models and agents
-
-Use the AI agent inventory in the Microsoft Defender portal to discover agents, their tools, identities, and risk indicators.
-
-Use AI security posture management in Defender for Cloud to build an AI bill of materials (AI BOM) across Azure, Amazon Web Services (AWS), and Google Cloud Platform (GCP), so you know which models are deployed where.
-
-Use Microsoft Defender for Cloud Apps and Microsoft Purview DSPM for AI to discover, sanction or block generative AI apps, and to monitor sensitive data in AI interactions.
-
-Map controls to the Microsoft catalog of AI defense capabilities, which groups supply-chain provenance, model hardening, runtime isolation and monitoring into a single framework aligned to MITRE ATLAS and the OWASP Top 10 for LLM Applications.
-
-Learn more
-
-For the latest security research from the Microsoft Threat Intelligence community, check out the Microsoft Threat Intelligence Blog.
-
-To get notified about new publications and to join discussions on social media, follow us on LinkedIn, X (formerly Twitter), and Bluesky.
-
-To hear stories and insights from the Microsoft Threat Intelligence community about the ever-evolving threat landscape, listen to the Microsoft Threat Intelligence podcast.
-
-The post Detecting sleeper agents hiding in AI model neurons appeared first on Microsoft Security Blog."
 8ea988d5493e,8ea988d5493e,2026-11-10 14:20 UTC,Vulnerabilities & Patching,Microsoft Security,Rapid7 Blog,Vulnerability Management; Identity Security Posture Management,Article,Critical vulnerabilities in N-able N-central prompt hosted shutdown,https://www.rapid7.com/blog/post/etr-critical-vulnerabilities-in-n-able-n-central-prompt-hosted-shutdown,"Overview On November 9, 2026, N-able announced that it was responding to the public disclosure of critical vulnerabilities affecting N-central, its remote monitoring and...","Overview
 
 On November 9, 2026, N-able announced that it was responding to the public disclosure of critical vulnerabilities affecting N-central, its remote monitoring and management (RMM) platform.
@@ -3270,195 +3679,8 @@ And that’s the CyberWire Daily, brought to you by N2K CyberWire.
 We’d love to know what you think of this podcast. Your feedback ensures we deliver the insights that keep you a step ahead in the rapidly changing world of cybersecurity. If you like the show, please share a rating and review in your podcast app. Please also fill out the survey in the show notes or send an email to cyberwire@n2k.com
 
 N2K’s lead producer is Liz Stokes. We’re mixed by Tré Hester, with original music by and sound design Elliott Peltzman. Our contributing host is Maria Varmazis. Our executive producer is Jennifer Eiben. Peter Kilpe is our publisher. And I’m Dave Bittner. Thanks for listening."
-58b5883acf62,58b5883acf62,2026-11-09 20:17 UTC,General Security News,Microsoft Security,Microsoft Security Blog,AI Security; Vulnerability Management,Article,FORGE Lab uses agentic tools to identify memory safety issues in Rust,https://www.microsoft.com/en-us/security/blog/2026/11/09/forge-lab-uses-agentic-tools-to-identify-memory-safety-issues-in-rust/,"For issue #161018, our testing found no reliable exploitation path under the conditions examined, and we assessed practical exploitation as unlikely","In this article
-
-How we found and validated the bugs
-
-Pattern 1: Trusting code not to panic
-
-Pattern 2: Trusting user-provided implementations to be correct
-
-Pattern 3: Trusting the underlying system
-
-Why Rust still matters and advancing vulnerability discovery with AI
-
-Rust's high bar is hard to meet but worth keeping
-
-Microsoft’s FORGE Lab found several memory safety issues in Rust’s standard library (std and core), including cases where code written entirely in safe Rust can trigger undefined behavior. The research used Hyenas, FORGE’s frontier research version of codename MDASH, an AI-powered vulnerability-scanning system. The findings reveal three recurring patterns of misplaced trust in unsafe code: trusting code not to panic, trusting user-provided implementations to be correct, and trusting the underlying system.
-
-Rust’s safety guarantees are precisely what make these findings interesting. Its rich type system and ownership model rule out whole classes of memory-safety issues, but much of the standard library relies on unsafe code underneath its safe APIs. When that code breaks its safety contract, even safe Rust can encounter behavior the language is designed to prevent.
-
-Rust’s memory-safety guarantees are increasingly important as the language becomes part of software that billions of people rely on every day. Billions of people are estimated to interact with Rust-based software or operating systems daily, often without knowing it. Microsoft made Rust a Tier-1 internal language alongside C++, C#, and TypeScript, GitHub rewrote the Copilot agent runtime in Rust, and Bun, Android, the Linux kernel, and Cloudflare are moving code to it as well. Much of this software relies on Rust’s foundational libraries, core and std, and the safety guarantees of the APIs they provide. Bugs in those libraries can have consequences well beyond the code where they originate.
-
-Unsafe Rust has been a long-running interest for us. Our team includes the people behind Rudra, a static analyzer that looked for memory-safety bugs across the Rust ecosystem in 2021. We also write many of our own tools in Rust, so its safety is more than a research topic for us. This year, we took a closer look at the standard library to see what kinds of mistakes still show up in its unsafe code today.
-
-In this post, we share some of the bugs we reported to the Rust issue tracker. We use them to discuss what Rust does and doesn’t guarantee, why writing correct unsafe Rust is so difficult, and why Rust’s safety model still matters even though its memory safety isn’t perfect.[OW1] [YB2]
-
-How we found and validated the bugs
-
-At Microsoft FORGE Lab, we study vulnerabilities in complex software, including the Rust standard library. Our team combines years of experience in vulnerability research with AI-assisted tools that help us investigate code and find bugs that are difficult to uncover through traditional analysis alone.
-
-Some of the bugs in this post were found with help from Hyenas, our research version of codename MDASH. Our researchers investigated the underlying code, reproduced the bugs, assessed their potential security impact, and worked with Rust maintainers to report and fix them.
-
-This post focuses on soundness bugs in the standard library’s unsafe code. Bugs in the compiler itself, such as miscompilations and holes in the type system, are a different topic that we don’t cover here.
-
-A note on open issues
-
-At publication, two of the issues reported by our team remain open. The article also references related issues reported by others and fixes that are still under review. The Rust maintainers triaged and responded to our reports quickly, and we believe maintainers and the contributors working on these issues are doing their best and making the right tradeoffs among the many bugs they handle.
-
-If you’re interested in an open issue, please comment only when you have something genuinely new to contribute, such as new information or an affected real-world use case.
-
-Patterns of Rust’s Safety Bugs
-
-At the lowest level, Rust uses unsafe blocks to work with raw pointers and interact directly with the operating system. Much of the standard library, including Vec and String, is built from small unsafe pieces wrapped in safe APIs. Inside an unsafe block, the programmer takes responsibility for the guarantees the compiler can’t check, and that responsibility extends to the safe API built around it. That API must be sound: no matter how safe code uses it, it must be impossible to trigger undefined behavior.
-
-Upholding that promise is harder than it looks. Consider a function that returns the byte at idx from any type that can be viewed as a byte slice, skipping the redundant bounds check after doing its own:
-
-pub fn get>(s: &S, idx: usize) -> Option { if idx < s.as_ref().len() { // SAFETY: we just checked that `idx` is in bounds. Some(unsafe { *s.as_ref().get_unchecked(idx) }) } else { None } }
-
-The hard part of unsafe Rust is knowing what you can trust. The function above looks correct, but it assumes that two calls to as_ref return the same slice. Because S is chosen by the caller, a safe AsRef implementation can return a long slice the first time and an empty one the second, and get reads out of bounds. Unsafe code must be careful with every call it makes, and the bugs we found fall into three patterns of misplaced trust: trusting code not to panic, trusting user-provided implementations to be correct, and trusting the underlying system.
-
-Pattern 1: Trusting code not to panic
-
-Unsafe code often breaks an invariant for a moment and restores it afterward; for example, it may allocate an uninitialized buffer and fill it directly, avoiding redundant writes to zero the memory first. That’s fine as long as the function runs to the end. But many operations in Rust can panic, from out-of-bounds indexing to calls into user-provided code, and by default a panic unwinds: it leaves the function early while still running destructors. Unwinding inside that window becomes an invisible exit that exposes the broken invariant to code that trusts it. Bugs of this kind are called panic safety bugs.
-
-Figure 1 — Panic Safety.
-
-MapWindows::clone (issue #156501)
-
-We identified a panic safety issue in MapWindows::clone. The nightly API Iterator::map_windows yields overlapping windows of N items. It keeps the current window in a Buffer whose destructor drops the N items starting at start. In Rust 1.97.0, library/core/src/iter/adapters/map_windows.rs defines it as:
-
-struct Buffer { // Invariant: `self.buffer[self.start..self.start + N]` is initialized, // with all other elements being uninitialized. This also // implies that `self.start <= N`. buffer: [[MaybeUninit; N]; 2], start: usize, }
-
-Buffer::clone, in the same file, built the new buffer first and filled it afterward:
-
-impl Clone for Buffer { fn clone(&self) -> Self { let mut buffer = Buffer { buffer: [[const { MaybeUninit::uninit() }; N], [const { MaybeUninit::uninit() }; N]], start: self.start, }; buffer.as_uninit_array_mut().write(self.as_array_ref().clone()); buffer } }
-
-After buffer is constructed, it breaks its own invariant: its slots are uninitialized, but its destructor is already armed. The self.as_array_ref().clone() call runs the user's T::clone before the slots are written. If that call panics, unwinding drops buffer and runs drop_in_place on N uninitialized values. Our proof of concept uses only safe code: an element type whose clone always panics, which causes a crash when the destructor accesses uninitialized memory. The fix holds the new buffer in ManuallyDrop until it is fully written, so unwinding leaks the half-built buffer instead of dropping it.
-
-The general lesson is to treat every call to code you don’t control, such as clone, drop, comparisons, closures, and iterator methods, as a possible early exit. Either finish the work that may panic before breaking an invariant, or make the broken state safe to unwind through: hold it in ManuallyDrop, or use a guard whose destructor restores the invariant, like Vec’s internal SetLenOnDrop. The Rustonomicon covers this under exception safety.
-
-Allocators must not unwind
-
-The recently stabilized Allocator API shows how hard panic safety is to get right. With std, an allocation failure aborts the process by default instead of unwinding, so much of the standard library's unsafe code assumes allocation never unwinds. Custom allocators can break that assumption. While the API was being stabilized, we reported one place in BTreeMap::insert that becomes unsound when an allocator unwinds, and others reported more (#159334, #159368, #159370). Fixing them one by one would mean auditing everything that allocates, so the stabilization, shipping in Rust 1.100 on November 12, instead requires implementors never to unwind from the trait's methods or from drop. The proposal notes that ""unwinding out of many allocation-related methods was found to be a pervasive source of unsoundness.""
-
-Pattern 2: Trusting user-provided implementations to be correct
-
-Unsafe code often calls into code its caller provides: a comparator, a trait implementation, a closure. That code is safe, but safe doesn’t mean correct, and it can return inconsistent or plainly wrong answers. The question is who is responsible when it does. In C++, it’s the caller. std::sort requires its comparator to be a strict weak ordering, and breaking that rule is undefined behavior. With libstdc++, sorting equal elements with <= reads past the end of the vector:
-
-std::vector v(100, 42); // Bug: `<=` is not a strict weak ordering, since cmp(a, a) is true. std::sort(v.begin(), v.end(), [](int a, int b) { return a <= b; }); // AddressSanitizer: heap-buffer-overflow in std::__introsort_loop
-
-The same comparator passed to Rust's sort_by is only a logic error. The sort may panic or leave the slice in an unspecified order, but it never causes undefined behavior. The responsibility sits with the unsafe code. The comparator is safe code supplied by the caller, so the unsafe code inside the sort must stay sound no matter what it returns. The same goes for every safe trait a user can implement: comparisons can be inconsistent, an ExactSizeIterator can report a length that doesn't match the items it yields, and Borrow can return a different value on each call.
-
-str::replace with a custom Pattern (#156491)
-
-Another of our bug reports shows how easy this trust is to miss: str::replace with a custom Pattern can create a non-UTF-8 String. String search APIs accept any type that implements the nightly Pattern trait, and a pattern can describe itself through as_utf8_pattern. str::replace uses that description to take a fast path when replacing one ASCII byte with another. In Rust 1.96.0, the fast path in library/alloc/src/str.rs looked like this:
-
-pub fn replace(&self, from: P, to: &str) -> String { // Fast path for replacing a single ASCII character with another. if let Some(from_byte) = match from.as_utf8_pattern() { Some(Utf8Pattern::StringPattern([from_byte])) => Some(*from_byte), Some(Utf8Pattern::CharPattern(c)) => c.as_ascii().map(|ascii_char| ascii_char.to_u8()), _ => None, } { if let [to_byte] = to.as_bytes() { return unsafe { replace_ascii(self.as_bytes(), from_byte, *to_byte) }; } }
-
-replace_ascii, in the same file, then rewrites the bytes:
-
-unsafe fn replace_ascii(utf8_bytes: &[u8], from: u8, to: u8) -> String { let result: Vec = utf8_bytes.iter().map(|b| if *b == from { to } else { *b }).collect(); // SAFETY: We replaced ascii with ascii on valid utf8 strings. unsafe { String::from_utf8_unchecked(result) } }
-
-The CharPattern branch checks that the character is ASCII, but the StringPattern branch assumes a one-byte string pattern must be ASCII. That holds for &str patterns, but StringPattern stored &[u8], and as_utf8_pattern is a safe method any Pattern can implement. In our proof of concept, a custom pattern reports the single byte 0x80, which only appears inside multibyte UTF-8 sequences:
-
-impl Pattern for NonAsciiBytePattern { // ... fn as_utf8_pattern(&self) -> Option> { static NEEDLE: [u8; 1] = [0x80]; Some(Utf8Pattern::StringPattern(&NEEDLE)) } } // ""\u{d000}"" is [ed, 80, 80]; the result is [ed, 3f, 3f], which is not UTF-8. let corrupted = ""\u{d000}"".replace(NonAsciiBytePattern, ""?"");
-
-str::replace rewrites the continuation bytes and returns a String that isn't valid UTF-8, and later string operations that rely on UTF-8 reach undefined behavior. The fix changed StringPattern to hold &str instead of &[u8], so the type itself now guarantees UTF-8.
-
-When unsafe code depends on a property of a user-provided implementation, don’t take it on faith. Call the implementation once and keep the result, validate what it returns, or encode the property in a type that safe code can’t forge, as this fix did. If none of those work, make the trait unsafe so implementors explicitly promise to uphold it.
-
-More examples
-
-join shows how easy it is to fix this kind of bug only partway. In 2020, we reported that it trusted Borrow::borrow to return the same string on each call (CVE-2020-36323), and the fix handled strings that shrink between calls. In April 2026, the same function needed another fix: join borrows the first element twice, and if it grows on the second call, the remaining-length calculation underflows into a heap overflow. The earlier fix had never covered that path.
-
-Others reported similar problems in the Pattern API this year. A safe Pattern can hand back a valid searcher built for a different string, and consumers such as strip_prefix_of apply its ranges to the original string unchecked, reading out of bounds (#158265). The same problem turned up in split_once (#165076) after a report that the Searcher contract doesn't spell out what str::split relies on (#164904). Both bugs are still open.
-
-Pattern 3: Trusting the underlying system
-
-The first two patterns stay inside Rust code. The third sits at the boundary with the operating system, where unsafe code trusts process-wide state such as signal stacks, memory mappings, and the environment, which other threads, C libraries, or the kernel can touch at any time. These bugs have been hard to find automatically, because a static analyzer would need to model all of that surrounding behavior. AI agents change the picture: they understand enough about the environment the code runs in to make this area practical to search. We started exploring it and found some interesting bugs.
-
-process::exit and the main thread’s signal stack (#161018)
-
-When a thread overflows its stack, Rust prints a clear message and aborts instead of crashing with a bare segmentation fault:
-
-thread 'main' (3307186) has overflowed its stack fatal runtime error: stack overflow, aborting
-
-This relies on a few pieces of process-wide state. Each thread’s stack ends in a guard page, an inaccessible region just past the stack’s limit: pthread reserves one for every spawned thread, and on Linux the kernel’s own stack guard plays that role for the main thread. Touching it raises SIGSEGV, and Rust registers a handler for that signal. The handler can’t run on the stack that just overflowed, so Rust also gives each thread an alternate signal stack, a small separate mapping with a guard page of its own, which the kernel switches to when it delivers the signal. The handler checks that the faulting address is inside the guard page, prints the message, and aborts.
-
-Figure 2 — Stack Overflow.
-
-We found that calling process::exit from a child thread tears down the main thread’s alternate stack while the main thread is still running. process::exit runs the runtime’s cleanup before calling libc’s exit, and in Rust 1.98.0 that cleanup ends in library/std/src/sys/pal/unix/stack_overflow.rs:
-
-pub unsafe fn cleanup() { if cfg!(panic = ""immediate-abort"") { return; } // FIXME: I probably cause more bugs than I'm worth! // see https://github.com/rust-lang/rust/issues/111272 unsafe { drop_handler(MAIN_ALTSTACK.load(Ordering::Relaxed)) }; }
-
-The cleanup function passes MAIN_ALTSTACK, the main thread’s alternate stack, to drop_handler:
-
-// SAFETY: we warned the caller this disables the alternate signal stack! unsafe { sigaltstack(&disabling_stack, ptr::null_mut()) }; // SAFETY: We know from `get_stackp` that the alternate stack we installed is part of // a mapping that started one page earlier, so walk back a page and unmap from there. unsafe { munmap(data.sub(page_size), sigstack_size + page_size) };
-
-The call to sigaltstack disables the alternate stack of the calling thread, but the subsequent call to munmap unmaps the main thread’s. The code assumes it runs on the main thread, which isn’t true when a child thread calls process::exit. The main thread keeps running until libc’s exit finishes, with its signal stack registration still pointing at unmapped memory. If it overflows its stack in that window, the kernel can’t deliver the signal, and our proof of concept dies with a plain segmentation fault instead of Rust’s message. The bug dates back to 2015, and the fix stops cleaning up the main thread’s alternate stack altogether.
-
-We also checked whether this could become a security issue. In theory, it could lead to code execution: if a writable mapping landed at the old alternate stack’s address, the kernel would deliver the main thread’s next signal onto it, and another thread could overwrite the handler’s frame, such as its return address, while it runs. In practice, the conditions are very tight. Everything has to happen in the brief window before libc’s exit finishes, the new mapping must have exactly the right size to reuse that address, and overwriting the frame takes a second race inside a short handler. For issue #161018, our testing found no reliable exploitation path under the conditions examined, and we assessed practical exploitation as unlikely. This assessment does not automatically apply to the other issues discussed. The issue has more details in its security impact analysis.
-
-CommandExt::exec and the global environment (#156951)
-
-Our other report involves the process environment. On Unix, CommandExt::exec replaces the current process with a new program. When the command has its own environment variables, exec points the process-global environ at a new array, calls execvp, and restores environ if execvp fails. In Rust 1.99.0, Command::exec takes the environment lock in library/std/src/sys/process/unix/unix.rs:
-
-let _lock = sys::env::env_read_lock(); let Err(e) = self.do_exec(theirs, envp.as_ref());
-
-Command::do_exec, in the same file, then swaps the environment:
-
-_reset = Some(Reset(*sys::env::environ())); *sys::env::environ() = envp.as_ptr(); } libc::execvp(self.get_program_cstr().as_ptr(), self.get_argv().as_ptr()); Err(io::Error::last_os_error())
-
-Command::exec takes only the read side of the environment lock, yet do_exec writes the process-global environ. Before the write, do_exec saves the old value so it can be restored if execvp fails. Writing environ under a read lock lets other threads in. A thread calling env::var takes the same read lock and can see variables meant only for the new program, and two failed exec calls racing each other can leave environ pointing at a freed array that a later env::vars_os() reads. Both proofs of concept use only safe Rust. A 2018 fix held an exclusive lock here, but when the environment lock became a read-write lock in 2021, exec kept the read side. A fix that avoids touching environ by calling execve directly is in review.
-
-The environment has caused trouble before. After a discussion that began in 2015, the 2024 edition marked env::set_var as unsafe, because C functions on most Unix platforms read the environment without going through Rust's lock.
-
-process::exit and thread-local destructors (#164243)
-
-Getting this boundary right is hard, and more problems are still open. While exploring this area, we independently ran into a double free in safe code that process::exit can cause through thread-local destructors. It was reported by someone else (#164243), but it’s worth mentioning here. libc’s exit first runs the calling thread’s thread-local destructors, as C++ requires, and Rust registers its destructors the same way. If a destructor calls process::exit while a thread local is being replaced, libc drops that thread local a second time. A proposed fix switches process::exit to POSIX _exit, which ends the process without running these handlers.
-
-Why Rust still matters and advancing vulnerability discovery with AI
-
-Every unsafe block rests on assumptions about the code around it. The bugs in this post came from three kinds of misplaced trust:
-
-that code won't panic at the wrong moment,
-
-that a caller-provided implementation behaves correctly, and
-
-that the process-wide state Rust shares with the operating system and the C library stays the way the code expects.
-
-Familiar patterns are still difficult (Patterns 1 and 2)
-
-The first two patterns are well studied. Rudra looked for both in 2021, and the standard library was already fixing panic safety bugs in 2015 (CVE-2015-20001). They remain challenging to avoid because any call inside unsafe code might unwind or run code the caller supplied.
-
-What we saw this year was mixed. On the positive side, the nightly process is working. Many reports were caught while the affected APIs were still unstable, and several were fixed by changing the design before stabilization. StringPattern now holds &str instead of &[u8], and Allocator was stabilized with a rule that implementors must not unwind. At the same time, bugs in these patterns still reach stable releases, and their fixes aren't always complete. join was fixed in 2020 and needed another fix in 2026 for a path the first fix had missed.
-
-System boundary bugs are now within reach (Pattern 3)
-
-The third pattern is different. Its bugs live where Rust meets the layers below it: the kernel, through system calls such as sigaltstack and munmap, and the C library, through process-wide state such as environ and the cleanup that libc's exit runs. Getting them right takes knowledge that lives outside Rust's type system, which has made these bugs difficult to find with traditional static analysis. That may also be why they last so long. The process::exit signal stack bug was in the standard library for nearly 11 years, and exec has written environ under a read lock since 2021. Unlike our reports in the first two patterns, both affect stable Rust.
-
-Language models already know a great deal about how these interfaces behave, so agentic scanners can check unsafe code against the system it runs on, not just the language. We think this boundary is one of the most promising places for agentic security research, in Rust and beyond.
-
-Rust's high bar is hard to meet but worth keeping
-
-Rust holds its safe APIs to a stricter standard than C and C++. Safe code must never be able to cause undefined behavior, no matter how it uses an API. In C++, a comparator that breaks std::sort's ordering requirement causes undefined behavior, while Rust's sort must stay memory-safe with any Ord implementation. POSIX doesn't guarantee that setenv is safe to call while another thread reads the environment. That makes memory safety bugs in Rust hard to compare one-to-one with bugs in other languages.
-
-For the same reason, a soundness bug in the standard library isn't automatically a vulnerability in the programs that use it. Each bug in this post needs an unusual setup to trigger, such as a panic at exactly the wrong moment, a deliberately misbehaving implementation, or calling process::exit from a child thread. It becomes a serious vulnerability only if a real program reaches the API in that way.
-
-Rust's safety standard is strict and difficult to meet, but it's also useful. It gives an unambiguous answer to what counts as a soundness bug, so problems can be fixed and prevented once in the library, instead of in every program that uses it. Rust's safety model strikes the right balance between control, safety, and performance for systems programming, which is why so many projects choose it.
-
-Beyond the lab
-
-At Microsoft FORGE Lab, we're exploring how technology such as codename MDASH can help researchers find bugs like the ones in this post at greater scale. Rust's standard library is one of several foundational open source projects where we're applying this approach.
-
-This research also extends beyond the lab. It helps inform the development of codename MDASH, which brings agentic vulnerability discovery into Microsoft Defender. These findings can also serve as inputs to Microsoft Perception, our new multi-agent security system, where specialized agents work together across broader security workflows. For example, the Web App Pen Test Agent can use codename MDASH findings to help prioritize testing, validate exploitability against live applications, and produce actionable vulnerabilities that downstream agents can use to prioritize and support remediation. This connects AI-powered code analysis with real-world security validation and response, helping security teams move from identifying potential vulnerabilities to understanding and addressing actual risk.
-
-Our goal isn’t to simply find more bugs, it's to identify meaningful issues, turn those findings into actionable research, and improve the safety of foundational software that developers and organizations depend on.
-
-The post FORGE Lab uses agentic tools to identify memory safety issues in Rust appeared first on Microsoft Security Blog."
 34f77d1a8468,34f77d1a8468,2026-11-09 13:00 UTC,General Security News,Microsoft Security,OpenAI Blog,Server & Workload Protection,Article,Control Room: A central system to track and stop model workloads across our research infrastructure,https://openai.com/index/control-room,,
-4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Blog,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
+4a158945977f,4a158945977f,2026-11-06 14:00 UTC,General Security News,Microsoft Security,Cloudflare Security,Other/General,Article,The post-quantum future of web privacy,https://blog.cloudflare.com/vole-mole/,This means that a quantum attacker will be able to forge tokens at will and use them to bypass whatever security mechanism the site operator wants to implement (such as rate...,"The highest priorities for the transition to post-quantum cryptography are the basic building blocks of authenticated key-agreement protocols such as TLS. Without these building blocks in place, secure communication on the Internet will not be possible once cryptographically relevant quantum computers come online. However, today we rely on quantum-vulnerable cryptography for much more than TLS.
 
 Privacy Pass is a protocol used by site operators like Cloudflare to help protect applications from abuse. One way we do this is by rate limiting individual clients so that no one client consumes too many of the site's resources. Normally this involves some combination of friction or loss of privacy for users: CAPTCHAs or other challenges to moderate traffic, along with accounts and fingerprinting to identify traffic.Privacy Pass was designed to avoid this tradeoff between friction and privacy. The basic idea is that a client gets issued a number of tokens, which they can redeem in exchange for access to the site. Crucially, each token is unlinkable to the client it was issued to, ensuring the client can use the site as they always had without sacrificing privacy.
 
