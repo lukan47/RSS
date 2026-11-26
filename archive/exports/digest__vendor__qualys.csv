@@ -1,4 +1,107 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+bcb3bf1bd462,bcb3bf1bd462,2026-11-26 05:33 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys Blog,AI Security; Network Security; Code Security; Endpoint Security,Article,What Two Million Canary Prompts Reveal About AI Supply Chain Security,https://blog.qualys.com/product-tech/2026/11/25/ai-prompt-leaks-dragos-canary-study-ai-supply-chain,"Qualys detects known vulnerabilities and default credentials in servers such as Ollama, vLLM and LiteLLM, and AI detection and response (AI-DR)¹, an extension of Qualys EDR to...","Executive Summary
+
+To evaluate the security of the AI supply chain, Dragos seeded approximately two million AI prompts with canary URLs and credentials. The investigation revealed that prompt data was stolen from at least three AI hosting providers and from the system of a Chinese AI lab, which accessed secret URLs from prompts marked for zero data retention. No security team can audit the providers its prompts pass through, whether they are foreign or domestic. Every team can test its own side: the models it calls and what goes into each prompt. Qualys TotalAI maps the models and AI services in use, red-teams any model with a chat completion endpoint (including foreign models), and detects secrets before they reach a prompt.
+
+Inside the Canary Experiment
+
+In a study published on November 19, 2026, a team from Dragos, led by Chief Research Officer HD Moore, sent approximately two million prompts to popular AI services from July through November, tracing around 2,000 request routes. Each prompt carried canary tokens: unique URLs and live AWS keys linked to empty accounts that were fully monitored. If a URL was accessed, it indicated that the system had read the prompt; if a key was used, it showed that someone had stolen a credential.
+
+What the Dragos Canary Study Exposed
+
+Breached Providers
+
+Attackers have stolen prompt data from at least three AI hosting providers, and Dragos reports that these providers were unaware of the breaches until they were notified. In the largest breach, every canary request Dragos sent during several late-October windows was stolen. This included requests that the provider had rejected before any models had a chance to run. Attackers tested the AWS keys, listed S3 buckets, searched Secrets Manager and Parameter Store, attempted to enable Amazon Bedrock models, create Bedrock API keys, and add IAM users. One adversary later used ARTEX, an LLM-driven penetration testing framework, to confirm that the keys were active.
+
+Leaky Routes
+
+AI routers forward requests to pools of hosting providers, and every hop can access the full prompt. A Zero Data Retention (ZDR) setting is intended to ensure that the service an application calls does not retain prompts or responses, yet Dragos found ZDR-marked requests stolen or scraped further down the route. They also discovered instances of marketplace sellers logging prompts and a router quietly forwarding some traffic to these marketplaces.
+
+A Foreign Lab Reading Flagged Prompts
+
+A Chinese AI lab’s systems fetched secret URLs from more than half of the prompts sent to its models, including about two-thirds of those marked ZDR; U.S. resellers of its models triggered the same scraper. In a later statement, the lab said an internal security monitoring process extracted and probed the URLs, and that it has disabled that process for forwarded API traffic.
+
+Providers Cannot Be Audited. The Customer Side Can Be Tested.
+
+Every finding turned on one fact: whatever sits in a prompt, from a live credential to customer data or source code, can be seen by every hop on the route. A credential turns that exposure into an intrusion. No model test can show what a provider’s infrastructure does with a request. Security teams can only test their own systems, and Qualys TotalAI answers four questions about this.
+
+1. Which Models and Routes Are in Use?
+
+Qualys TotalAI leverages existing Qualys sensors. Cloud Agents and scanners can fingerprint AI software and GPUs, cloud connectors map managed AI services, Container Security covers AI workloads, and a browser plug-in shows workforce AI usage.
+
+Qualys Container Runtime Security adds evidence about where containerized AI applications connect. Security teams can correlate DNS and outbound TCP events from monitored workloads to track direct connections to AI routers or provider endpoints outside their approved list. For requests routed through a provider, they can use router or gateway records to identify the reported inference provider. Qualys TotalAI enhances this visibility by testing supported model endpoints for sensitive information disclosures.
+
+Self-hosting, which Dragos recommends where affordable, takes third parties off the route but makes the model server the target. Qualys detects known vulnerabilities and default credentials in servers such as Ollama, vLLM and LiteLLM, and AI detection and response (AI-DR)¹, an extension of Qualys EDR to AI assets, is designed to catch attacks on that infrastructure as they happen.
+
+2. Do The AI Models In Use Leak Their Context?
+
+Red-team tests show what a model gives away under attack. TotalAI evaluates any model with a chat completion endpoint, including foreign models, against 300+ attack scenarios mapped to OWASP, MITRE ATLAS, and the EU AI Act, including 21 sensitive information disclosure checks. A model that discloses a real credential from its system prompt, retrieved documents or tool output proves it sat in the model’s context, where every hop could see it. When a test fails, automated guardrail remediation¹ is designed to push the fix into Amazon Bedrock Guardrails.
+
+3. Can a Secret Reach the Prompt?
+
+Guardrails control what a model repeats, not what it was sent: in the largest breach, attackers stole some requests rejected before any model ran. The test that matters is whether a secret can reach the prompt at all, and that starts where secrets live. Qualys scanning detects exposed secrets in container images, CI/CD pipelines, and code repositories. This leak class was responsible for a provider notice in November, where an AI coding agent committed a credential to a public repository. TotalAI MCP scans test the servers that agents source context from for credential exposure. Additionally, MCP tool-call tracing¹ is designed to show what each tool call passes into an agent’s context. Secrets also enter at run time, pasted by users or returned by tools, where static scans cannot see them. Policy-based runtime controls with inline blocking¹ are designed to block or redact secrets before a request exits the organization. A key that never reaches the first hop cannot be stolen further down the route.
+
+4. What Can a Stolen Key Reach?
+
+Qualys analysis of a 2026 intrusion traced an exposed AWS key to a complete cloud takeover in under ten minutes. TotalCloud CIEM shows what each cloud identity can access and flags excess privileges. Its posture checks cover AI services such as Amazon Bedrock, SageMaker, and Azure OpenAI. TruRisk Insights AI attack paths¹ are designed to connect exposed endpoints, excess permissions, and sensitive data into one prioritized path.
+
+What to Do This Week
+
+Map the models and routes in use. Flag any connection to a router or provider that no one approved, as well as any self-hosted model server that can be reached without authentication.
+
+Test the models in use, including foreign ones, after every change to a model or prompt.
+
+Find secrets in code, images, and agent context. Remove them before an agent can load them.
+
+Rotate secrets in prompts covered by any provider or router notice, and give agents short-lived, least-privilege keys.
+
+Hunt for the indicators. Search CloudTrail for ARTEX user agents artex-agent and artex-judge-r121, Bedrock enablement, new Bedrock API keys, and new IAM users.
+
+Dragos also recommends pinning providers and verifying Zero Data Retention on every hop.
+
+Test the Models No One Can Audit
+
+The Dragos study found no new class of vulnerability: exposed credentials and broken privacy promises, moving through a supply chain customers can barely see. No team can audit the provider side. Every team can test the models it calls and keep secrets out of the prompt.
+
+Learn how to map your AI in use, test its models, and catch secrets before they reach a prompt.
+
+Start Your 30-Day Free Trial
+
+Organizations already running Qualys Cloud Agents have a first AI inventory waiting, with no separate AI security agent to deploy.
+
+Key Takeaways
+
+Treat any secret that has appeared in a prompt as exposed.
+
+A privacy flag is a promise from one hop, but a prompt crosses several.
+
+Providers cannot be audited from outside, but models can be tested and the first hop mapped.
+
+Test whether a secret can reach the prompt.
+
+Frequently Asked Questions (FAQs)
+
+What did the Dragos canary study find?
+
+From July through November 2026, Dragos sent about two million prompts carrying canary URLs and AWS keys to AI services. It found prompt data stolen from at least three AI hosting providers, marketplace sellers logging prompts, and a Chinese AI lab’s systems fetching secret URLs from prompts marked for zero data retention.
+
+Can security teams test AI models they do not host?
+
+Yes, for model behavior: TotalAI tests any model with a chat completion endpoint, including foreign models. What a provider’s infrastructure does with a request is outside what any model test can see.
+
+Does Zero Data Retention protect AI prompts?
+
+Zero Data Retention (ZDR) protects a prompt only at the hop that honors it. In the Dragos study, ZDR-flagged requests were stolen inside breached providers, and their secret URLs fetched downstream. Security teams should verify the route as well as the settings, including what each hop’s retention terms exempt from.
+
+What is AI supply chain security?
+
+AI supply chain security means controlling every service that handles an organization’s AI traffic: models, routers, inference providers, and the agents that build each prompt.
+
+How should organizations secure self-hosted AI models?
+
+Treat model servers such as Ollama, vLLM and LiteLLM like any other exposed service: patch known vulnerabilities, remove default credentials and require authentication on every API. Qualys publishes detections for specific issues with Ollama, vLLM, and LiteLLM.
+
+¹ Features expected to be available by the end of Q4 2026. Product features, functionality, and release dates may change at any time at Qualys’s sole discretion."
 7be1bf257c27,499f95774333,2026-11-23 15:27 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys Blog,Code Security; Identity Security Posture Management; Container Security; Network Security,Article,LiteLLM 1.107.0 Supply Chain Attack: How to Secure AI Gateways Beyond Code Signatures,https://blog.qualys.com/product-tech/2026/11/23/litellm-1-107-0-supply-chain-attack-ai-gateway-security-primary-keyword-litellm-1-107-0-supply-chain-attack-litellm-1-10,0 from an attacker-controlled lookalike fork,"On October 21, 2026, LiteLLM’s official release pipeline built, signed, and published version 1.107.0 from an attacker-controlled lookalike fork. The v1.107.0 source tag on GitHub was clean, and the compromised images carried a valid signature. The maintainers have since published their root cause analysis and moved to keyless signing, so security teams can now check two things: whether a compromised artifact ever ran in their environment, and whether their deployment policies would catch the next one.
 
 Which LiteLLM Artifacts Were Affected?
@@ -571,11 +674,9 @@ Qualys, How Web Malware Detection works
 Qualys, Web Malware Detection
 
 Qualys TotalAppSec product page"
-d5c4bc72ecf6,a3d815e35bcf,2026-11-18 23:21 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Server & Workload Protection,Article,"NGINX2Root: Five nginx Flaws, Led by CVE-2026-123007. How to Find, Mitigate, and Patch Now",https://blog.qualys.com/product-tech/patch-management/2026/11/18/nginx2root-five-nginx-flaws-led-by-cve-2026-123007-how-to-find-mitigate-and-patch-now,We will add distribution-specific detection QIDs to this blog as they are released,"Executive Summary
+c293e8d9db5f,a3d815e35bcf,2026-11-18 23:21 UTC,Vulnerabilities & Patching,Qualys,Qualys Blog,Vulnerability Management; Server & Workload Protection,Article,"NGINX2Root: Five nginx Flaws, Led by CVE-2026-123007. How to Find, Mitigate, and Patch Now",https://blog.qualys.com/product-tech/patch-management/2026/11/18/nginx2root-five-nginx-flaws-led-by-cve-2026-123007-how-to-find-mitigate-and-patch,That gives your team owners and deadlines to work with before the VMDR detection QIDs below are released,"Executive Summary
 
-NGINX2Root is a set of five nginx vulnerabilities disclosed on November 18, 2026. The lead flaw, CVE-2026-123007, is a memory corruption bug in the way nginx handles HTTP/2 connections. F5, which maintains nginx, rates it 9.2 under CVSS v4.0 and 8.1 under CVSS v3.1. An attacker with no credentials can crash nginx worker processes, and researchers have demonstrated remote code execution with the privileges of the nginx worker. Where the worker runs without root privileges, an attacker would need an additional escalation path to gain root. This could involve chaining the NGINX vulnerability with a suitable local privilege-escalation flaw.
-
-Unpatched builds of NGINX Open Source from 1.9.5 through 1.31.8, and unpatched NGINX Plus builds, are in scope when HTTP/2 is enabled. Fixes shipped in NGINX Open Source 1.30.7 and 1.31.9, and turning off HTTP/2 closes this exposure where patching has to wait. A separate Linux kernel flaw that the researchers used to go from the worker account to root has no patch yet. Start with internet-facing nginx servers that accept HTTP/2, and assign an owner and a deadline to every system still unpatched.
+NGINX2Root is a set of five nginx vulnerabilities disclosed on November 18, 2026. The lead flaw, CVE-2026-123007, is a memory corruption bug in the way nginx handles HTTP/2 connections. F5, which maintains nginx, rates it 9.2 under CVSS v4.0 and 8.1 under CVSS v3.1. An attacker with no credentials can crash nginx worker processes, and researchers have demonstrated remote code execution with the privileges of the nginx worker. Where the worker runs without root privileges, an attacker would need an additional escalation path to gain root. This could involve chaining the NGINX vulnerability with a suitable local privilege-escalation flaw. Unpatched builds of NGINX Open Source from 1.9.5 through 1.31.8, and unpatched NGINX Plus builds, are in scope when HTTP/2 is enabled. Fixes shipped in NGINX Open Source 1.30.7 and 1.31.9, and turning off HTTP/2 closes this exposure where patching has to wait. A separate Linux kernel flaw that the researchers used to go from the worker account to root has no patch yet. Start with internet-facing nginx servers that accept HTTP/2, and assign an owner and a deadline to every system still unpatched.
 
 What’s at Risk
 
@@ -634,6 +735,20 @@ nginx used as a mail proxy
 No
 
 The rest of this post focuses on CVE-2026-123007, the flaw with the widest reach.
+
+Why NGINX2Root Is Also an Application Security Problem
+
+NGINX2Root is an infrastructure flaw, but its impact lands on the applications behind nginx. Where nginx terminates TLS and proxies requests, every login, API call, and session cookie bound for those applications passes through the worker process in clear text. An attacker running code in that worker sits between users and the applications they trust:
+
+Credentials and tokens become reusable. Passwords, session cookies, API keys, and bearer tokens read from the worker can be replayed directly against the applications and APIs behind the proxy, where they look like legitimate user traffic.
+
+Trust placed in the proxy becomes the attacker’s. Backend services, internal APIs, and admin interfaces are often reachable only from the proxy. Applications that accept identity or client details from headers the proxy sets, such as X-Forwarded-For or user headers added after single sign-on, trust whatever the compromised proxy sends.
+
+Application traffic can be altered in transit. Requests and responses pass through the worker, so the attacker is positioned to change what users receive and what the backend processes, with no change to application code.
+
+One proxy, many applications. A shared reverse proxy or Kubernetes ingress controller often fronts dozens of applications owned by different teams. A worker crash takes all of them offline at once.
+
+For application security teams, the scoping question is not only which hosts run a vulnerable nginx build, but which applications and APIs depend on them, what data those applications handle, and who owns them.
 
 Are You Affected?
 
@@ -779,6 +894,8 @@ Close findings on evidence: A server is done when the fixed build is installed, 
 
 Fix the template as well as the server: Update container images, Helm charts, machine images, and autoscaling templates. Otherwise the next scale-out or failover brings the vulnerable build back.
 
+Map each nginx instance to the applications and APIs behind it. A host inventory shows where a vulnerable build is installed; it does not show which applications, owners, and data depend on it. Use that mapping to set priority and to notify application owners, not to close findings.
+
 Put an end date on every workaround: Turning off HTTP/2 covers two of the five flaws, and the next configuration push can undo it. Record who owns each exception and when it ends.
 
 Decide what to do with nginx that will not get a fix: The community ingress-nginx project is archived, and the older NGINX Plus R-series branches have no fixed build listed, although fixed NGINX Plus 37.x releases exist. These need a migration plan or a signed risk acceptance.
@@ -797,25 +914,91 @@ Use the following CSAM query to identify potentially affected NGINX Open Source 
 
 software:(name:”nginx” AND ( (version>=1.9.5 AND version<1.30.7) OR (version>=1.31.0 AND version<1.31.9) ))
 
-Detection VMDR QIDs
+Say Hello to Agent Insta: Closing the Detection Gap in Exposure Management at Machine Speed
 
-Qualys is releasing the following detection QIDs. We will add distribution-specific detection QIDs to this blog as they are released.
+Detect NGINX2Root at Disclosure with Qualys InstaScan
+
+NGINX2Root will not be patched everywhere at once. On November 18, F5 shipped NGINX Open Source 1.30.7 and 1.31.9, fixed NGINX Plus 37.x builds, and updated releases of NGINX Ingress Controller and NGINX Gateway Fabric, and the official Docker image now carries fixed tags. Older NGINX Plus R-series branches have no fixed build listed, and Ubuntu and Debian still list their stable nginx packages as vulnerable. n, powered by Agent Insta, keeps detection from waiting on any of those schedules. It checks every new vendor advisory against the software inventory Qualys already has for your assets, whether that inventory came from Qualys Cloud Agents, Qualys scanners, or third-party tools you have connected.
+
+For assets in your InstaScan scope, vulnerable nginx installations show up as CVE-2026-123007 findings in Qualys ETM, typically within minutes of the advisory, with no scan to schedule. That gives your team owners and deadlines to work with before the VMDR detection QIDs below are released. Because InstaScan matches on the installed nginx version, it cannot see whether HTTP/2 is turned on or whether a distribution has backported the fix. Use the checks in Are You Affected? to decide which findings to work first, and close them only on the evidence described above.
+
+Where to find InstaScan findings. CVE-2026-123007 findings land in Qualys ETM under Risk Management → Findings → InstaScan, a tab that holds only the last 48 hours or so of InstaScan detections. After that they move to the Vulnerabilities tab. When a Cloud Agent or scanner later detects the same CVE on the same asset, the two detections are merged into one record rather than duplicated. To pull InstaScan findings back up in the Vulnerabilities tab, search for finding.isInstaScan: TRUE, click the InstaScan summary card, or look for the InstaScan badge in the Sources column.
+
+Identify Applications Potentially Impacted by NGINX2Root with Qualys TotalAppSec
+
+CSAM and VMDR show where vulnerable nginx is installed. TotalAppSec answers the question application security teams need answered next: which web applications and APIs are served through it, and who owns them.
+
+Discover the full application attack surface. TotalAppSec continuously discovers web applications and APIs across internet-facing and internal environments, on premises and in the cloud, including unknown, forgotten, shadow, and rogue applications. It builds a unified inventory by integrating with Qualys EASM and CSAM and with API sources such as Postman and MuleSoft.
+
+Detect vulnerable nginx in front of your applications. TotalAppSec includes the following detections for the five NGINX2Root CVEs:
 
 QID
 
 Detection Title
 
-Release
+CVE
 
-736231
+520442
 
-NGINX Open Source Multiple Security Vulnerabilities (K000164058)
+Nginx Integer Underflow
 
-TBD By EOD
+CVE-2026-123007
 
-389654
+520441
 
-F5 NGINX Plus Multiple Security Vulnerabilities (K000164058)"
+Nginx Use After Free
+
+CVE-2026-123633
+
+520443
+
+Nginx Use After Free
+
+CVE-2026-123634
+
+520444
+
+Nginx Use After Free
+
+CVE-2026-121810
+
+520445
+
+Nginx Use After Free
+
+CVE-2026-113425
+
+520446
+
+Nginx Denial of Service
+
+CVE-2026-118899
+
+520447
+
+Nginx NULL Pointer Dereference
+
+CVE-2026-120993
+
+520448
+
+Nginx Integer Underflow
+
+CVE-2026-125283
+
+520449
+
+Nginx Insufficient Validation
+
+CVE-2026-123640
+
+520450
+
+Nginx Client Certificate Bypass
+
+CVE-2026-120967
+
+These QIDs are version-based: they report that the nginx version identified for the target application falls in an affected range. A detection marks an application for investigation"
 8b779fa9a5ec,8b779fa9a5ec,2026-11-18 16:52 UTC,General Security News,Qualys,Qualys Blog,Threat and Exposure Management; Vulnerability Management; AI Security; Data Security Posture Management,Article,Why AI-ROC Is the Future of Exposure Management,https://blog.qualys.com/product-tech/2026/11/18/ai-roc-future-of-exposure-management,"The Verizon 2026 Data Breach Investigations Report found that vulnerability exploitation was the leading way attackers got in, while the median time to patch grew to 43 days","Executive Summary
 
 Security teams have never had better visibility into their assets, vulnerabilities, and threats. What they lack is the speed to act on it. Frontier AI models are surfacing vulnerabilities faster than ever, attackers are using the same models to exploit them within hours, and most remediation still depends on scans, tickets, and change windows. Exposure management needs a new operating model that detects exposures as soon as they are disclosed, focuses only on what is proven exploitable, and remediates autonomously without breaking the business. That operating model is the AI-native Risk Operations Center (AI-ROC).
@@ -1421,57 +1604,6 @@ Calif: Java4Shell: Write once, RCE everywhere
 Oracle: Critical Security Patch Update, November 2026
 
 CISA: Critical Java Vulnerability Requires Immediate Patching: https://www.cisa.gov/news-events/alerts/2026/11/17/critical-java-vulnerability-requires-immediate-patching"
-e7804108c096,e7804108c096,2026-11-17 16:30 UTC,General Security News,Qualys,Qualys Blog,AI Security; Endpoint Security; Vulnerability Management,Article,"Run Your Qualys Program by Conversation, Inside Google Cloud’s Gemini Enterprise",https://blog.qualys.com/product-tech/2026/11/17/qualys-rocky-gemini-enterprise-google-cloud-marketplace,"” against live Qualys data: a worklist ranked by risk, with CISA KEV, weaponized-exploit, and malware context and the affected hosts for each fix A Day in the Life An overdue...","Qualys ROCky for Gemini Enterprise, now available on Google Cloud Marketplace, allows you to ask your vulnerability, asset, and risk questions, get an answer ranked by real risk, and act on it, without leaving Gemini Enterprise.
-
-With the introduction of frontier AI models, vulnerabilities are now being discovered and weaponized at machine speed. Unfortunately, most security teams still triage at human speed. A typical enterprise carries thousands of open findings and can fix only a small fraction of them, yet leadership still expects a straight answer to a simple question: Are we keeping up? Getting that answer usually means exporting a scan, building a spreadsheet, and losing an afternoon.
-
-Today, we are live with Qualys ROCky for Gemini Enterprise. It puts your Qualys vulnerability, asset, and risk data one question away, right inside Gemini Enterprise, and it can even take the next step in the process for you, with a person in control of any changes to an asset.
-
-Your Program, By Conversation
-
-The agent turns interactions with the Qualys Enterprise TruRisk Platform into a conversation. Four things it does well:
-
-Ask about your data. “Which of my internet-facing hosts is the biggest risk?” “Are we exposed to Log4Shell?” “What is tied to ransomware?” Whatever your risk management question, you get an answer from your subscription in seconds, in plain language, rather than a raw export.
-
-Prioritize by real risk. Ask what to fix first, and the agent returns a worklist ranked by the Qualys Enterprise TruRisk score. It surfaces the handful of vulnerabilities that are actively exploited, listed in the Cybersecurity and Infrastructure Security Agency (CISA) Known Exploited Vulnerabilities (KEV) catalog, or associated with ransomware, and it explains why each one matters. Half a day of specialist triage becomes a two-minute, defensible decision.
-
-Remediate with confirmation. When you are ready to act, the agent stages a patch job in TruRisk Eliminate and shows exactly what will deploy, patch stability, and to how many assets. Nothing changes a host until you explicitly say yes. You go from finding to fixing in the same conversation, with a clear record of who approved what.
-
-Prove you are keeping up. Ask for your mean time to remediate, how your open CISA KEV backlog is aging, or how current your scan data is, and the agent answers on demand, in the terms boards and auditors expect.
-
-Qualys ROCky for Gemini Enterprise answering “What should we fix first?” against live Qualys data: a worklist ranked by risk, with CISA KEV, weaponized-exploit, and malware context and the affected hosts for each fix
-
-A Day in the Life
-
-An overdue critical patch shows up on a Windows fleet. A security lead asks the agent, “What is our exposure and what should we do?” The agent names the vulnerability, shows the affected hosts ranked by risk, and recommends the patch. The lead says, “Stage it for my Windows hosts.” The agent stages the job, shows the target set, and waits. The lead confirms, the job deploys, and a follow-up question confirms it completed. One conversation, start to finish.
-
-Qualys ROCky for Gemini Enterprise summarizes critical exposure against live Qualys data: open detections broken down by severity, with the affected hosts listed below.
-
-Confirmed Before Anything Changes
-
-An agent that can read your security data and act on your hosts has to earn trust before it earns adoption. Three principles are built in from the start.
-
-The agent stages a patch in Gemini Enterprise and stops for a decision: “This job is currently disabled, and no changes have been deployed to your hosts. Do you want to deploy this patch now?” Nothing changes a host until a person confirms.
-
-Every request runs under the signed-in user’s own Qualys entitlements. People see exactly what they are allowed to see in Qualys, and nothing more. The agent does not pool all users behind one shared account, and one customer’s data is never visible to another.
-
-Actions are confirmation-gated. The only steps that change a host are staging and deploying a patch job, and deploying always requires an explicit, single-use confirmation. The agent moves at machine speed on the reading and the ranking, and it stops for human validation on anything that changes a host.
-
-Your data stays in your control. Answers are computed against your Qualys subscription through the same Qualys APIs your teams already rely on. There is no separate copy of your risk data to manage.
-
-Where It Runs
-
-Qualys ROCky runs inside Gemini Enterprise and is available on Google Cloud Marketplace, so your teams can reach it in the environment they already work in, with the sign-in and controls your organization already manages.
-
-“Bringing Qualys ROCky to Google Cloud Marketplace will help customers quickly deploy, manage, and grow the conversational AI assistant on Google Cloud’s trusted, global infrastructure,” said Dai Vu, Managing Director, Marketplace & ISV GTM Programs at Google Cloud. “Qualys can now securely scale and support enterprises using Qualys ROCky to manage and patch vulnerabilities through natural language queries within Gemini Enterprise.”
-
-See It for Yourself
-
-No team has time to fix everything. ROCky helps your team spend its hours on the risk that can actually hurt the business, and prove the program is working while it does. It brings the Qualys TruRisk platform to where your teams already work, and keeps a person in control of every change.
-
-Qualys customers: Find Qualys ROCky on Google Cloud Marketplace, or contact your Qualys representative to see it run against your own environment.
-
-New to Qualys? Get a complimentary trial of any of our products or use cases."
 24ae8ce74723,24ae8ce74723,2026-11-10 09:00 UTC,Business & Industry News,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys to Speak at Upcoming Investor Conference,https://investor.qualys.com/news-releases/news-release-details/qualys-speak-upcoming-investor-conference-19,"(NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested...","FOSTER CITY, Calif., Nov. 10, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced that management will participate in a fireside chat and host one-on-one meetings with interested investors at the following conference: 30 th Annual UBS"
 26a007fe43fd,26a007fe43fd,2026-11-09 16:05 UTC,Product & Roadmap,Qualys,Qualys IR News,Cloud Risk Management,Article,Qualys Announces Third Quarter 2026 Financial Results,https://investor.qualys.com/news-releases/news-release-details/qualys-announces-third-quarter-2026-financial-results,"Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,","Q3 Revenue Growth of 11% Year-Over-Year Raises 2026 Revenue Guidance to $736.9-$738.9 million FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leader in cloud-native cyber risk management, today announced financial results for the third quarter ended September 30,"
 a920141ac818,a920141ac818,2026-11-09 09:01 UTC,"Attacks, Breaches & Threat Intel",Qualys,Qualys IR News,Attack Surface Discovery; Cloud Risk Management,Article,Qualys Expands Global mROC Alliance with New Technology Alliances Across Every Major Attack Surface and Partner Certification Tracks,https://investor.qualys.com/news-releases/news-release-details/qualys-expands-global-mroc-alliance-new-technology-alliances,"Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to","Customers gain superior visibility with Qualys-powered Risk Operations Center for the frontier AI era FOSTER CITY, Calif., Nov. 9, 2026 /PRNewswire/ -- Qualys, Inc. (NASDAQ: QLYS), a leading cloud-native cyber risk management company, today announced the expansion of its global mROC program to"
