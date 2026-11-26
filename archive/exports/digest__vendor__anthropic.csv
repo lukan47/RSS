@@ -1103,6 +1103,59 @@ AI Defense has approximately 400 to 500 customers since the offering was launche
 “We’re expanding the capabilities of AI Defense every single week,” he said. “Whether your agents are running on your laptops, inside of the cloud, or on the edge, we’re going to find ways of being able to secure them,” Sampath said.
 
 Adaptive red teaming with Claude Mythos is coming soon for select enterprises. Broader availability is planned for qualified customers, but dates, scope, and region availability remain subject to change, according to Cisco."
+917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
+
+Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
+
+To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
+
+For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
+
+Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
+
+Reasoning through geometric problems
+
+The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
+
+Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
+
+To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
+
+Revising designs
+
+Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
+
+When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
+
+And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
+
+Using software and documentation
+
+When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
+
+To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
+
+Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
+
+Keeping track of constraints and downstream effects
+
+Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
+
+When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
+
+Designing for real-world manufacturing
+
+In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
+
+Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
+
+Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
+
+Limitations and next steps
+
+All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
+
+Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 760b3e66fbfa,760b3e66fbfa,2026-11-09 00:00 UTC,Product & Roadmap,Anthropic,Anthropic News,AI Security,Article,Introducing Claude Fable 5.2 and Claude Mythos 5.2,https://www.anthropic.com/claude-fable-and-mythos-5-2,"In the first problem, physicists in 1983 had shown that as these universes heat up, black holes form abruptly, like water boiling; but their method worked only in large...","We’ve upgraded Claude Fable and Claude Mythos—models that are designed to tackle the most daunting technical challenges.
 
 Claude Fable 5.2 and Claude Mythos 5.2 show improvements in areas like coding, reasoning, and vision. During prerelease testing they’ve helped our engineers complete otherwise-infeasible software migrations, designed three working electronic devices from scratch, solved two open problems in the physics of black holes, made substantial progress on robotics evaluations, and formalized the proof of Fermat’s Last Theorem in 30 hours—among many other applications we’ll discuss below.
@@ -1602,59 +1655,6 @@ The problem of building evaluations that reliably catch every failure before a m
 Safeguards
 
 Cybersecurity and biology safeguards. Consistent with previous Claude Fable models, Fable 5.2 comes with safety classifiers that block high-risk cyber activities, including penetration testing, exploit generation, and binary-based vulnerability, as well as most tasks in research biology. When a query is blocked, users will instead receive a response from Opus 4.8 for cybersecurity and Opus 5 for biology. Since the release of Claude Fable 5.1, we have continued to reduce false positives for our safety classifiers. Based on early testing across claude.ai, Claude Code, and Cowork, we observed about 55% fewer blocks with Fable 5.2 compared with Fable 5.1—about 60% fewer in cybersecurity a [truncated for CSV - full text is in the JSON export]"
-917776b199ad,917776b199ad,2026-11-09 00:00 UTC,General Security News,Anthropic,Anthropic Research,AI Security,Article,Testing Claude on real-world electronics design,https://www.anthropic.com/research/claude-electronics-design,"You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write...","A little over a year ago, we began testing how well Claude could design basic electronic circuits. We collaborated with Diode Computers,1 a company that designs and manufactures circuit boards, to train Claude on simple tasks—for example, on reading a chip’s datasheet and working out which parts a chip needs in order to run. The models we experimented with back then couldn’t reliably lay out a circuit board; they also struggled to design components that fit together. Now, Claude can both design and prototype electronic hardware from start to finish.
-
-Engineering an electronic device requires working through many complex steps and practical constraints. You have to not only design and simulate a circuit board, but also reason about the board’s physical layout and how it will behave, model the mechanical components, and write firmware—all while keeping track of which parts are readily available and what a factory is set up to build.
-
-To see how newer Claude models have improved in this area, we collaborated with Diode again, this time asking Claude Fable 5.2 to design three electronic devices: a speakerphone, a voice-assistant hub, and a handheld virtual pet. With minimal prompting, Claude was able to use geometric reasoning to lay out each circuit board, anticipate manufacturing constraints, and make sure its designs would work within them. It revised its own work, modeled its designs in computer-aided design (CAD) software, and, finally, directed human engineers to build prototypes that worked without any fixes to their circuitry.
-
-For each design, we began by giving Claude a simple prompt that outlined what kind of device to build and its main hardware requirements. The prompt for the speakerphone, for example, asked for “a puck that plugs into a computer over USB-C and includes microphones and a speaker, supporting Bluetooth with a PCB antenna.” Claude proceeded to write the device’s specifications, draw clean visual schematics, choose where to place the components on a printed circuit board (PCB), route the copper connections between them, design a 3D-printable enclosure, code the firmware, and prepare a parts list. Diode assembled the circuit boards and ran the firmware, under Claude’s direction. The final result was a prototype of a speakerphone that still works after weeks of use.
-
-Claude went through a similar process to build the voice-assistant hub and the virtual pet, and both are also still in good working order. Because the devices are early prototypes, we don’t yet know how they’ll hold up with continued use or whether they would pass commercial certifications.
-
-Reasoning through geometric problems
-
-The most substantial difference between Fable 5.2 and the models we used in our earlier tests was in how well Fable 5.2 reasoned through complex geometric problems, such as where to place components on a circuit board and how to route the copper connections between them.
-
-Earlier models had struggled to decide how to arrange basic components—placing supporting parts too far from the chips they served, for example, or orienting connectors incorrectly. Fable 5.2, by contrast, produced more compact, practical layouts. It routed the most important connections first: those that carry high-speed signals or high currents, or that are sensitive to noise. For example, for the voice-assistant hub, Claude started by routing the USB and Ethernet connections, which transmit signals along pairs of tracks—thin strips of copper on the board. It routed one pair of tracks at a time, keeping the two tracks in each pair the same length and correctly spaced. It also added tuning patterns—small zigzags that lengthen a track so that signals arrive at the same time—and arranged the parts of the power supply to make it more efficient.
-
-To demonstrate how much better Fable 5.2 is than earlier models at laying out circuit boards, we asked Diode to run PCB Gym—an internal benchmark that scores models based on how well they can place components and reroute connections on board designs whose layouts have been removed. Fable 5.2 scored 69% on the benchmark, compared with 25% for Fable 5 (Figure 2). It also performed better on BenchCAD 2.1, a public benchmark that tests whether models can rebuild 3D parts, assemblies, and circuit boards from engineering drawings and rendered images. Fable 5.2 scored 83.5%, nearly double the score of its predecessor, Claude Fable 5.1.
-
-Revising designs
-
-Earlier models rarely revised their own work when designing PCB layouts, even when it became clear that their placement choices would never let them finish routing the connections. Over the past year, Diode designed many boards with these models that were 95% complete but still unusable.
-
-When Claude noticed one of its designs wasn’t working, it would change course without being prompted to do so. For instance, when designing the speakerphone’s circuit board, which has four layers of copper, it reassigned signals to different pins on two of the chips. This allowed the tracks under the speakerphone’s touch-sensitive controls to stay on a single layer without crossing one another. Later, when the back of the board became too crowded, Claude swapped the signals on interchangeable pins and laid out a whole corner of the board again, rather than patching the problem with extra jumps between layers.
-
-And when placing tracks in its design file for the voice-assistant hub, Claude noticed that the copper connections were “getting too tangled to trace visually” and reasoned, “I should just rip these traces [tracks] and start fresh.” It proceeded to delete and reroute copper connections dozens of times until it found an arrangement that worked.
-
-Using software and documentation
-
-When a design decision for one of the devices depended on the details of a particular part, Claude often checked that part’s datasheet—a technical document published by the manufacturer. When asked whether the handheld pet would work without a battery, Claude read the charger’s datasheet and answered that it would run on USB power but predicted that the charging light would flicker, because the charger keeps recharging a small capacitor in the battery’s place.2
-
-To route the connections on the voice-assistant hub, Claude started with the design software Diode provided, which let it run the router (a tool for drawing tracks) built into KiCad, a widely used circuit board design program. KiCad’s router drew one track at a time between two points Claude chose. But the hub had long tracks running from a 100-pin connector, and Claude judged that routing these one by one would take too much step-by-step guidance.
-
-Instead, Claude wrote its own router: an algorithm that divides the board into a grid and searches it to find a clear path for each track. Within about half an hour, Claude had a router that could lay each long track in roughly a second. When Claude spotted an audio clock track running too close to the Ethernet tracks, it adjusted the router to leave more room around sensitive tracks.
-
-Keeping track of constraints and downstream effects
-
-Decisions made in one part of a design have downstream effects, which Claude kept track of. While designing each device’s enclosure, it wrote code to check that a 3D model of the circuit board would fit inside the enclosure without any components colliding. For example, it found that the speakerphone’s board couldn’t be lowered straight into the enclosure, because the mute switch would hit the back wall. Claude worked out that the board would fit if it was tilted by about 25 degrees during installation. It tested this in its 3D model and added the step to the assembly instructions.
-
-When designing the enclosure for the voice-assistant hub, Claude calculated that a 25 mm-long microphone port—the opening that lets sound reach the microphone—would resonate near 3.4 kHz. That is “right in the voice band,” it reasoned, “which is not ideal though still usable for voice assistant purposes. A better approach is a wedge-shaped enclosure that’s tall at the rear and steps down low at the front.” The wedge shape shortened the ports to about 10 mm, which raised the resonant frequency to about 8.9 kHz, at the very edge of the range used for speech. Claude also wrote firmware for the speakerphone that dims its ring of LED lights as the audio becomes louder, to keep the device under the electrical current limit Claude had designed into the board.
-
-Designing for real-world manufacturing
-
-In electronics design, engineers have to work within the constraints of the real world. That is, they have to make sure a factory can actually make the thing they want to build. They do this by running two kinds of checks: design-for-manufacturing (DFM) checks, which compare a circuit board’s geometry with the factory’s manufacturing limits, and sourcing checks, which confirm that their distributors have the parts in stock.
-
-Claude ran these checks itself and sorted the results into problems that needed fixing and flags it could ignore. Its checks for the voice-assistant hub flagged six slivers of solder mask (the protective coating on a circuit board) as too thin to manufacture. Claude fixed them by widening the openings in the solder mask, without moving any parts. The checks also flagged a connection between two grounds (shared return paths for electrical current) as an error, because the automated checker hadn’t recognized that the connection was deliberate. Claude correctly reasoned that it wouldn’t affect performance and ignored the flag.
-
-Diode manufactured all three boards directly from Claude’s design files, without any back-and-forth over adjustments. Factories and engineers often have to work through multiple rounds of manufacturing changes, and the Diode team told us they were surprised that they didn’t have to do this with Claude.
-
-Limitations and next steps
-
-All three of these devices are still prototypes: they haven’t been through electrical validation, antenna tuning, thermal testing, or certification, and they weren’t designed for mass production. Since Claude wasn’t connected to test equipment or to the machines that make and assemble circuit boards, engineers at Diode had to physically build and test the prototypes. Even so, over the past year, Claude has improved substantially at reasoning through decisions about component placement and routing, and it can now design electronics with minimal human guidance and help people build the prototypes. Other models are making progress here, too: OpenAI recently wrote about using its models to design a handheld device. Work like this could help engineers build and test new hardware designs faster.
-
-Next, we plan to investigate whether Claude can design denser, faster, and more complex boards, check them in simulation, and learn from measurements taken on the finished devices."
 6c6ec0a3b896,6c6ec0a3b896,2026-11-09 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Which Claude model should you build with?,https://claude.dev/blog/which-claude-model-should-you-build-with/,"The advisor helps only when it adds capability the executor lacks and the executor asks for advice, which it does less often at low effort","MIXING MODELS
 
 Switch at a natural break
@@ -1796,6 +1796,7 @@ Claude Code runs in controlled environments, including Devspace, the firm’s co
 Code ships under the same discipline. Thousands of automated tests and approval gates check every change, and an automated gate returns a hard pass or halt that the pipeline enforces, so Claude can't sign off on its own work. People stay accountable for every production change.
 
 Over the past year, JPMorganChase’s use of Claude has grown from software engineering to cyber defense to tools for financial advisors, and what JPMorganChase asks of us is shaping what we build for other regulated institutions. Claude working inside the controls of one of the world’s largest financial institutions is what we are building toward."
+42c9c4966cc8,42c9c4966cc8,2026-11-06 08:00 UTC,General Security News,Anthropic,Google News: Booz Allen Hamilton,AI Security,Article,Can Anthropic's Cyber Supergroup Protect Critical Utilities?,https://news.google.com/rss/articles/CBMikwFBVV95cUxOeDFNQkw2bTBnb3lNZmlLR2UzQTBJSFdNVzhNZFlhMWZqSDcwVkFqdTNZQzhKUVNmQXlZM05Qd05zaC1sdkhzSFFYVW10aFdLaXlsTzJNLTdPOXlyVnBVMmdRZE4yejhlYk5ZYXlla2NackNvNzEtU29XOUQ3YW1xbWUxUWtPT3hNc093dEZxam5IMEU?oc=5,,
 ea2cca0738e3,ea2cca0738e3,2026-11-06 00:00 UTC,General Security News,Anthropic,Anthropic Frontier Red Team,AI Security,Article,Project EVE: Claude plays MMORPGs,https://www.anthropic.com/research/project-eve-claude-plays-mmorpgs,"In EVE Online, the first of the two games, Claude played as a lone trader, instructed only to maximize profit, in a simulated rerun of an in-game market","This post shares research done as part of the Anthropic Fellows Program, April–July 2026.
 
 AI models may one day participate in real companies and markets, and several of our projects explored what that might look like. Claude has run a shop in our office, haggled on behalf of colleagues, and written code to fly a drone. In this project, we turned to a different setting: massively multiplayer online role-playing games (MMORPGs). MMORPGs are virtual worlds that in many ways reflect the complexity of the real world. They feature campaigns that coordinate many players, the acquisition and management of scarce resources, orienting and navigating through space, and trading in intricate in-game economies, all in a low-stakes environment. Doing all of this over weeks and months sits right at the edge of what frontier language models can currently do.
@@ -2918,453 +2919,3 @@ Yara Rules
 rule yoba_dropper { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaDropper"" strings: $code1 = {00 BB 40 0D 03 00 B9 7C 15 00 00 FF D6 31 C0} $code2 = {BA 05 15 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {53 B9 75 EE 40 70 48 83 EC 20} $code4 = {BA 5C CD 17 E5 48 89 C1 E8 73 00 00 00} $code5 = {0F C8 89 C0 4? 39 ?? 74 1? (49 0F AF C0| 48 69 C0 ?? ?? ?? ??) (4C 01 C8| 48 05 ?? ?? ?? ??) 49 89 C? 49 C1 E? 18 45 30 [2] 4? FF ?? EB} condition: uint16(0) == 0x5A4D and 2 of them } rule yoba_loader { meta: author = ""@Tera0017/Check Point Research"" description = ""YobaLoader"" strings: $code1 = {B9 80 A8 12 01 FF ?? ?? E9} $code2 = {BA EB 1D 00 00 0F BE 08 84 C9 74 0A 6B D2 21} $code3 = {B9 5B 80 EF B7 E8} $code4 = {BA F5 8B 2E F2 48 89 C1} $code5 = {B5 C2 D2 06 23 D4 E6 64 7D 06 A4 28 64 ED D8 62 9F 82 C5 C3 84 B2 43 FD AE EE CA 24 B3 87 3D 64} $code6 = {1D 0D 13 68 B4 D5 3F 3A 63 22 CF 40 E8 4E 63 DB} $code7 = {40 80 FE 32 74 42 40 80 FE 33 74 66 40 80 FE 31} $code8 = {41 81 F8 A5 DE 6C C2} condition: uint16(0) == 0x5A4D and 2 of them }
 
 The post Tricks from the Past deployed via signed ChatGPT and Claude binaries appeared first on Check Point Research."
-3c2aacb12ffa,3c2aacb12ffa,2026-10-27 00:00 UTC,General Security News,Anthropic,Anthropic News,AI Security,Article,Early progress on accelerating drug development with Claude,https://www.anthropic.com/research/early-progress-drug-development,"Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers...","Anthropic’s life sciences team is working to accelerate curing disease. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines: BigHat Biosciences, Bristol Myers Squibb, Divergence Labs, Enveda, Generate Biomedicines, and The Column Group. We've also begun drug discovery efforts of our own. In doing so, we've learned a lot about how Claude can support drug development, and how we’ll need to improve Claude further to realize AI's potential in medicine. We plan to scale this work up substantially from here.
-
-There are many opportunities to speed up drug development, even beyond the most commonly discussed applications of AI, like proposing initial designs for new molecules. Developing a drug involves many varied tasks: doing early research to identify a target for a drug and the right type of drug to engage it, designing a molecule with the right properties, optimizing it to be manufactured reliably at scale, drafting the regulatory filings needed to run clinical trials, designing and administering those trials, and much more.
-
-Our strategy to realize AI’s medical benefits is based on having AI increasingly involved in all of these tasks. There is no single problem to solve; the bottlenecks are distributed all throughout the drug development process. The best way to identify and work through these bottlenecks is to get deeply involved in real drug programs, across many different disease areas and stages of development.
-
-So, over the past several months, we’ve partnered with six organizations to do so. We’ve also started drug discovery efforts of our own, including programs for rare childhood forms of muscular dystrophy, where Claude handles much of the scientific and operational work.
-
-This work serves our goals in three ways. First, it lets us better understand the strengths and limitations of our models in relation to a much wider range of drug development tasks (we’ve already prioritized specific improvements to our models based on what we’ve learned so far). Second, these programs can serve as case studies for the wider life sciences community. If Claude is to significantly increase the rate of new cures, we need to work with many more biotechnology firms and integrate Claude more deeply into their development processes. Third, these projects should, if their positive trajectories continue, have direct impact themselves. We’re optimistic that some may result in effective new medicines for the diseases they target, including food allergies, rare childhood diseases, and several forms of cancer.
-
-In this post, we provide an update on our progress with our partners, along with technical reports that describe our thought process, methods, and early results in more detail. We then briefly outline where our work is headed next.
-
-Case studies
-
-Generate Biomedicines: modality engineering. Generate Biomedicines has been working on increasing the usefulness of a cancer treatment known as CAR T-cell therapy. This therapy has historically helped treat blood cell cancers; Generate aims to reengineer it so that it can treat solid tumor cancers too. To do this, they’re aiming to shorten one part of the therapy’s genetic instructions, which would create room for additional instructions suited to other kinds of cancer. Six Generate scientists used Claude Code to propose new designs for this part. One design was about 70% shorter than the standard version, and in lab tests it was more effective: it allowed immune cells to make roughly 10 times as many receptors (the proteins they use to spot cancer cells), it killed tumor cells more efficiently, and the immune cells remained active for longer. Read more, and see Generate’s technical report.
-
-Divergence Labs: hit generation. Divergence Labs is working on a novel way to treat food allergies. Food allergies are set off by a reaction from a molecule called IgE, some of which is attached to our immune cells and some of which floats freely in our blood. Divergence Labs is developing drugs that would detach the IgE from our immune cells entirely, rather than solely neutralizing the IgE circulating in our blood, as standard medications do. This could provide a much more effective treatment, but it requires a precise design, with two “arms”: one that would bind tightly to IgE, and another that would help prise IgE from the immune cell. Claude converted Divergence Labs’ goals into a detailed design plan, and then, largely autonomously, generated roughly 35,000 antibody designs in about a month to be narrowed down and tested. In those early tests, Divergence found “hits” for both arms: three designs that could bind to IgE, and 20 that could dislodge it. Three of those 20 appeared to dislodge IgE more than the standard medication. Its next step is to build a drug that combines the two arms. Read more, and see Divergence’s technical report.
-
-BigHat Biosciences: lead optimization. BigHat Biosciences pairs AI with an automated lab to improve potential drugs (or “leads”), which must bind their target tightly, remain stable through manufacturing and storage, and avoid clumping together (among other criteria). BigHat’s scientists and an Anthropic researcher worked with Claude to improve these three properties in two leads, both antibody fragments that could become parts of future drugs: one designed to target cancer cells, and one designed to keep a drug in the body longer. Claude, connected to BigHat’s lab data system, Reccy, proposed changes to each molecule, and BigHat’s lab made and tested about 1,010 variants in about 10 weeks. Partway through, the team suspected the standard heat-stability and clumping metrics were misleading. Claude and the researcher reanalyzed the raw data, then proposed different metrics and a protocol change to test them. BigHat’s scientists refined and ran it, and the main predictions held. Compared with the originals, the best versions bound more than 10x more tightly, the cancer-targeting lead stayed in solution 18°C higher, and the lead for longer-lasting drugs clumped more than 100x more slowly. Read more, and see BigHat’s technical report.
-
-Enveda: manufacturing and filings. To conduct clinical trials, companies need records showing that each batch of a new drug has been made to strict quality standards, and to submit an application to regulators, among other requirements. At Enveda, manufacturing chemists spent up to 75% of their time on paperwork. To ease the load, Enveda built a system that connects all of its manufacturing documents to Claude, then lets Claude flag any possible issues. Over tests on 1,061 pages of documentation, Claude caught all 11 issues that human reviewers had spotted—and flagged seven they’d missed. In the process, this method reduced human review time by 89%, from over 25 hours to less than three. Separately, Claude wrote the first drafts of two important regulatory documents. One took four hours, compared to about three months by hand. For the other, Enveda’s standard human review process found one minor error. Read more, and see Enveda’s technical report.
-
-The Column Group (TCG): company creation. Because drug discovery can be slow, expensive, and prone to failure, investors in biotechnology companies have favored safer, previously validated ideas over riskier new ones, even when the latter could help more patients. We’ve been working with TCG to see whether Claude can change this by cutting the time and cost of drug discovery so that investors can confidently support more ambitious ideas. Specifically, TCG is establishing Pleiades, a new company that will use Claude to run many more—and more complex—drug programs than is usual for a small team. This could be a model for how Claude can reduce both the scientific and the operational and administrative overhead required to run a biotechnology company. If this works, this model could be replicated across the industry and direct investment toward harder problems in medicine. Pleiades is currently developing new tools and workflows for Claude; its very first Claude skill, which helps Claude assess whether drug targets are worth pursuing, has been evaluated on 45 target-disease pairs. Read more.
-
-More recently, we’ve also begun working with Bristol Myers Squibb (BMS) to find and address bottlenecks in clinical trial planning. BMS is using Claude to assess plans of an early-stage drug in clinical trials, and to estimate the likelihood of those trials succeeding. Together, we plan to expand this work in 2027 to understand its potential for increasing the probability of success in early development.
-
-“We use Claude at the clinical trial stage to analyze proprietary data, create a clinical study plan, and weigh the study’s chance of success. From a single prompt, Claude generated a robust initial analysis that helped inform our assessment of different development options, which would otherwise take days to complete. We did all of this while ensuring the security of our highly sensitive data. We look forward to expanding this work across our pipeline to support portfolio-level decisions.”
-
-Michael Pourdehnad, MD, Senior Vice President, Head of Early Clinical Development, Hematology, Oncology and Cell Therapy.
-
-In addition to our work with these partners, we’ve begun to run some research programs ourselves. We’ve acquired Mithril Medicine, a one-person company that has been developing treatments for two rare forms of muscular dystrophy. Its founder, Cody Tranbarger, used Claude to organize contracts, logistics, and experiments with 11 external labs, and delegated many other aspects of Mithril’s operations to Claude. As a result, Mithril took a possible treatment for one form of muscular dystrophy from an idea to promising results in mice in less than 18 months. Now at Anthropic, Cody is continuing this research, and plans to start several new programs. If his drug candidates continue to hold up, we expect a drug to be ready to start clinical trials in humans as soon as late 2028. Read more and see our technical report.
-
-Extending our work in the life sciences
-
-All of this research is still at an early stage. In particular, so far it is mostly preclinical—that is, for the most part, it isn’t yet at the stage where the drugs are being tested in humans. We plan to continue extending Claude’s role into clinical trials as these drug programs advance, and as we partner with more organizations whose drug development programs are already at the clinical stage.
-
-This research is only one part of our efforts to accelerate drug discovery. Ultimately, we want to share our models with as many drug development researchers as possible. To that end, we’ve rolled out Claude Science, our AI workbench for researchers, and we’re providing Claude credits for life scientists. We’ve also created the Life Sciences Verification Program to allow trusted organizations to use our most powerful models with more permissive versions of our safeguards, which are necessary to prevent misuse but which can impede legitimate biological research. We’ve also recently launched an open call for guest investigators in the life sciences; we’re seeking proposals from research groups who want to use Claude to investigate key questions in drug discovery and other areas.
-
-We’re looking forward to working with many more organizations as we expand our life sciences research. If you work at an organization focused on drug discovery and are interested in collaborating with us, you can get in touch below.
-
-Get in touch with us
-
-If you work at an organization focused on drug development and would like to get in touch, complete the following form."
-ab5fb224cac6,ab5fb224cac6,2026-10-27 00:00 UTC,Business & Industry News,Anthropic,Anthropic News,AI Security; Vulnerability Management,Article,Expanding our partnership with GSA to bring Claude to all levels of government,https://www.anthropic.com/news/expanding-partnership-gsa,A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days,"We are expanding our partnership with the General Services Administration (GSA) through a new agreement that gives government partners a 40% discount on Claude Enterprise, Claude for Government, and the Claude API. For the first time, the discount applies across every product surface, including when agencies buy from us directly today and through cloud providers in the coming months. The discount also extends to state, local, tribal and territorial governments.
-
-We are also launching a dedicated program to help agencies implement and make the most of their Claude use. These programs are commonly leveraged by our private sector customers and we’re looking forward to bringing those best practices to our public sector partners in the coming weeks.
-
-Approximately 500 US federal, state, and local government organizations now use Claude. Weekly Claude for Government active users are up about eightfold since February, and usage across federal civilian agencies has grown about 20-fold in a year. Those organizations run some of the most important systems in the country, usually on tight budgets and with long procurement cycles. This agreement is built to support that work, so they can apply Claude to hard problems without a large upfront commitment.
-
-The discounts offered through the agreement are estimated to save the government $1 billion. Agencies are not bound by a minimum spend commitment and will be able to pay for the usage they consume.
-
-How Claude is helping public servants get more done
-
-Government agencies are using Claude to solve some of their most important challenges. Examples include managing backlogs, records and forms, and modernizing old code. Some of the ways agencies are using Claude include:
-
-Utah gave Claude Code to 34 developers across 10 state agencies. 80% had a working environment within 30 minutes, 71% reported saving 20+ hours by the end of the four-week pilot.
-
-A US state CIO confirmed their team was able to respond to a ransomware attack in 8 minutes vs. the usual 2-3 days thanks to Claude.
-
-A US federal security team used Claude Mythos to detect and patch the vulnerability that would have allowed for the takeover of a critical production system in about two days. A human penetration test the month before had missed it.
-
-A cybersecurity professional at a major agency found and patched bugs in critical financial systems.
-
-A US state IT developer moved nearly 900 API methods to a new framework in two days. The project had been scoped for a month.
-
-A US state IT director used Claude Code to document 12 legacy code repositories, mapping 467 database tables and flagging 27 risks along the way.
-
-More than half of the US states, some of the largest localities, and some of the countries largest critical infrastructure operators participated in our SLTT cyber defense program.
-
-Meeting government security requirements
-
-Agencies can use Claude for their most sensitive unclassified work. Claude for Government, which delivers Claude's coding and agentic work capabilities and provides near-feature parity with commercial offerings at a FedRAMP High authorization level, was made generally available on September 30.
-
-Agencies building their own tools can use Claude through Amazon Bedrock or Google Cloud’s Vertex AI. On Bedrock, Claude is authorized for FedRAMP High, with select models authorized for DoD IL4 and IL5 workloads in AWS GovCloud. On Vertex AI, Claude is authorized for FedRAMP High.
-
-Claude Enterprise is in process for FedRAMP Moderate authorization through the FedRAMP 20x program, marking the next evolution of how we are bringing the same innovative technology available commercially to the government.
-
-Getting started
-
-Government agencies can buy Claude at the OneGov discount through GSA's Multiple Award Schedule today. Whether your department or agency already uses Claude or is interested in using it, our Public Sector team will help discuss your options.
-
-For more information, contact us here."
-0e63c15c568e,0e63c15c568e,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Anthropic,Anthropic Frontier Red Team,Vulnerability Management; AI Security,Article,"Discovering and exploiting vulnerabilities in critical, real-world software with Claude",https://www.anthropic.com/research/discovering-vulnerabilities-with-claude,"Finally, Claude discovered a use-after-free in FedCM, Chrome’s federated sign-in feature, that allowed the exploit to execute arbitrary code outside the sandbox","Over the past few months, we’ve used an unreleased, internal research model to find critical vulnerabilities in some of the world’s most widely used software, such as browsers and operating systems. In this post, we share details of five attack chains, which led to remote code execution and other critical impacts with little to no user interaction. These attack chains demonstrate the model’s ability to create sophisticated, multi-step exploits in both open-source and proprietary software. Any vulnerabilities in these products could affect billions of users. They’re also among the most security-critical software in the world, making them a bellwether for testing models’ vulnerability research and cyber capabilities.
-
-We reported each vulnerability to the affected vendor under our coordinated vulnerability disclosure, which gives developers 90 days to patch and a further 45 days before we discuss details beyond what is already included in a public advisory.
-
-1. One-click remote code execution in Chrome
-
-After initial prompting, Claude wrote a full exploit chain enabling an attacker to execute arbitrary code as the user, outside the browser’s sandbox. Our proof of concept launches the Calculator app from a stock default-configuration Chrome browser on macOS within seconds of the page loading, without any further user interaction:
-
-Claude discovered a vulnerability in Chrome’s JavaScript engine, V8, that allowed a malicious web page to corrupt V8’s heap memory.
-
-Claude discovered a second vulnerability to break out of V8’s memory region sandbox and defeat ASLR. This step located Chrome’s code in memory and used a return-oriented programming (ROP) chain to take full control of the renderer process.
-
-The compromised renderer was confined by Chrome’s process sandbox. Claude then discovered a race condition in CacheStorage. The compromised renderer used the race condition to read memory outside the sandbox and learn the memory layout of the privileged browser process.
-
-Finally, Claude discovered a use-after-free in FedCM, Chrome’s federated sign-in feature, that allowed the exploit to execute arbitrary code outside the sandbox.
-
-We have reported our findings to Google: 62 CVEs have been assigned and patched as of Chrome 156, with all of them rated critical or high severity. Among them are 13 sandbox escapes and 21 vulnerabilities that could have been used to compromise the renderer.
-
-2. A one-click exploit chain in Safari
-
-After initial prompting, Claude wrote an exploit chain that let any website’s JavaScript completely bypass the same-origin policy (SOP). The exploit could access a user’s Safari history, cookies, and other sensitive data, and could send authenticated HTTP requests to other domains and read the responses. For example, if the user is signed in to their email account, the attacker can now read their email; if they’re logged into their bank account, the attacker can view account balances or attempt transfers.
-
-To do this, Claude defeated several layers of protection built into Safari:
-
-Claude discovered a use-after-free (UAF) vulnerability in JavaScriptCore, Safari’s JavaScript engine, which is written in C++. Certain TypedArray operations wrote through stale pointers to freed memory, overwriting TypedArray metadata.
-
-WebKit’s Gigacage mitigates this type of attack by isolating TypedArray data in a separate region of memory. Claude discovered that certain variables in this region were used to index into other regions, which gave it an arbitrary read/write primitive outside the Gigacage.
-
-All website JavaScript runs in the WebContent sandbox, which keeps bugs like the UAF from reaching sensitive browser data on disk. Claude discovered a vulnerability in the sandbox's IPC mechanism that let the exploit read Safari’s stored history, cookies, and session databases from disk.
-
-Finally, Claude used the UAF to overwrite a variable in memory and disable the SOP, allowing the attacker’s page to read data from any other origin.
-
-The chain is interesting because it is a data-only attack that never relies on arbitrary code execution. Instead, it uses full read/write access to the browser process’s memory to modify a security flag, an object size, and a URL. Several of the weaknesses are not vulnerabilities on their own but intended behaviors that become exploitable when combined.
-
-Apple acknowledged our report the same day we submitted it and implemented a fix promptly. That fix is available to users.
-
-3. Android lock screen bypass
-
-After initial prompting, Claude wrote an exploit that let an attacker extract photos and other personal information from a stolen Android phone without unlocking it. The work combined three methods: source code analysis of the open-source parts of Android, reverse engineering and deobfuscation of the Google Play services binaries, and live testing on a physical Google Pixel 9. This turned up a wide range of vulnerabilities in both the open-source and proprietary components. Claude then chained three of them into the final exploit.
-
-Android has several layers of protection against this attack. Claude found a way around each one:
-
-A locked Android phone is designed not to transfer data over USB. Claude found that a USB host with a specific setting bypassed this.
-
-The device-to-device transfer protocol refuses data commands from unauthorized peers. Claude found a way to skip the authorization check and start the pairing process.
-
-Pairing is protected by an authenticated key agreement that asks the user to verify a six-digit code. Claude found a flaw that skipped this verification and behaved as if the user had tapped “Allow.”
-
-USB transfers are not supposed to carry file contents, as enforced by a hardcoded check. Claude found a fallback mechanism that sent raw bytes over USB and was not covered by the check. The exploit requested file contents through it.
-
-This issue has been addressed by Google.
-
-4. Windows remote denial of service
-
-After initial prompting, Claude wrote an exploit that would have allowed an attacker to remotely crash any Windows machine that responds to HTTP/3 requests using the native Windows implementation. The difficulty in this case was in identifying the vulnerability in the first place. Following that initial prompting, we reported this vulnerability directly to Microsoft, which resolved the vulnerability and assigned it CVE-2026-33096.
-
-The vulnerability that Claude identified was a memory safety out-of-bounds read in the Windows kernel’s implementation of QUIC. An attacker could reach the vulnerable codepath remotely over the network and send a few packets of data to a listening server to crash and restart the machine. By repeatedly sending these requests, it is possible to continuously crash the server, which causes loss of access to the server for all of the users. We estimate that there are likely several million such servers listening on the internet.
-
-Claude discovered this vulnerability through binary analysis. We provided the model with a copy of the Windows executable and asked Claude to reverse-engineer how the software works using the existing reverse-engineering tools (such as Ghidra), write a fully annotated C program that reproduces the relevant features, compare the behavior reproduced program to binary to ensure correctness, and then study the code for vulnerabilities. When we asked Claude to identify potentially higher-risk issues, it surfaced this remotely exploitable vulnerability.
-
-5. Zero-click remote code execution in Linux
-
-While this post focuses on third-party products, our work on open source has continued. With Claude, we discovered local privilege escalation vulnerabilities on OpenBSD, FreeBSD, and Linux; a number of sandbox escapes in popular sandboxing infrastructure; and numerous vulnerabilities in important web applications. We have also found remotely triggerable (zero-click) arbitrary code execution vulnerabilities in the Linux kernel’s networking stack, which have since been patched upstream and publicly disclosed. We detail one such example below.
-
-After initial prompting, Claude wrote an exploit that allows a remote attacker to send packets to Linux servers with a multipath TCP listener to run arbitrary commands as root, without any credentials or user interaction. The underlying vulnerability is a race condition-induced UAF bug in the kernel networking stack. The full exploitation has two key stages:
-
-In the first stage, the attacker defeats KASLR remotely. It exploits the race to make the kernel read an attacker-controlled length field to copy extra bytes and send them back to the attacker, and as long as one such overread contains a kernel pointer in the reply, the attacker learns the kernel address space layout.
-
-In the second stage, the attacker hijacks the control flow. It exploits the same UAF bug to overflow a buffer and overwrite a callback pointer with the address of a payload the attacker has already staged in kernel memory via an ordinary protocol feature. When the kernel invokes the callback, the payload chains a series of calls to existing kernel functions. ending with an attacker-chosen shell command running as root.
-
-An enabling property of this race condition is that a lost race only fails the handshake without crashing the whole system, so a determined attacker can retry indefinitely until they succeed. In our proof of concept, it takes 48 minutes to leak a kernel pointer and another five minutes to reach the shell command execution. This vulnerability (CVE-2026-98432) was patched upstream and backported to all maintained stable kernel branches.
-
-What we learned
-
-Throughout our process of using Claude for this security work, we identified a number of insights that shaped our approach. We think two are particularly important.
-
-Test-time compute scaling and scanner diversity substantially increase how many vulnerabilities you find. We built a platform that runs large numbers of scanning agents in parallel, measures each scanner by how many additional vulnerabilities it contributes to the mix, and tracks coverage dynamically so the scanners process the entire codebase.
-
-The strategies range from pure coverage (is there a vulnerability in this function?) to goal-based (does this app expose anything that could compromise customer data?) to threat model-based (does anything in this app bypass its documented threat model?). We also used Claude to run automated variant analysis on every confirmed finding. All findings pass through a standardized verification and risk rating pipeline, so we can experiment freely with new scanners without lowering the quality bar.
-
-Fixing the existing backlog only solves half the problem; the other half is cutting the rate at which new vulnerabilities enter the codebase. For that, we recommend scanning at PR time. We built security guidance directly into our development process through a Claude Code plugin, which we’ve released publicly.
-
-What this means for defenders
-
-Frontier models have the ability to discover and combine multiple vulnerabilities into a working exploit. These skills have historically been the domain of few specialist teams with expertise in these targets. Now, it’s something models can do with little human involvement, and then prove by producing a working exploit that anyone can run and verify.
-
-Enabling defenders with powerful models is critical to giving them a headstart on patching systems before attackers do. Recently, we released an expanded version of our Cyber Verification Program, which makes advanced cyber capabilities and reduced blocking classifiers available to qualifying security professionals. It includes access to our most capable models, including Claude Opus 5.5, Claude Sonnet 5.5, Claude Mythos 5.1, and other new models moving forward. Our advice to defenders remains the same: scanning your own code is more important than ever."
-fc6a6c1b2468,fc6a6c1b2468,2026-10-27 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security; Cloud Risk Management,Article,Manage costs and demonstrate ROI for Claude Code on Google Cloud,https://claude.com/resources/articles/how-to-manage-costs-and-demonstrate-roi-for-claude-code-on-google-cloud,"Combine these capabilities to control your overall bill, but remember that control is only the first lever","As organizations delegate more work to Claude Code, spend grows with it, and platform teams need a way to both control costs and understand impact. Inspired by a recent webinar (opens in new tab) with Google Cloud, we share how organizations using Claude Code can better track and optimize these considerations on Google Cloud, including three core levers: control, track, and prove.
-
-Controls for managing Claude Code spend
-
-Claude on Google Cloud has consumption-based pricing, so your bill is a readout of how much your developers are using Claude in your Google Cloud environment. Adoption drives usage; usage is what you pay for, and it’s also where the value shows up.
-
-Your Claude Code bill is a product of how many tokens tasks consume and the models that handle them. Token consumption scales with task complexity and conversation length. Chat is a Q&A conversation. An agentic tool like Claude Code spends more tokens per task relative to chat because it's doing multistep work: reading files, running tools, and reasoning across a whole task. Meanwhile each model has its own price per token, so matching the model to the task is the other major cost control.
-
-Visibility into the tokens and model choices impacting your organization’s bill each month is available through the Claude apps gateway and Google Cloud services. You can govern the spend and manage costs via three independent levers:
-
-Control. Creating guardrails that guide usage without over-restricting access and unintentionally blocking people.
-
-Track. Granular oversight of where the spend is happening, and where it will continue to go, before the bill arrives.
-
-Prove. Identifying the value your org is getting from spending these tokens and attributing exactly where it’s coming from.
-
-Here’s how to apply this control -> track -> prove framework to your own Claude Code on Google Cloud deployment.
-
-The governance toolbox
-
-Claude on Google Cloud comes with tools and capabilities for controlling, tracking, and proving the value of your spend.
-
-Google Cloud already gives you many native capabilities you can apply to tracking and controlling your Claude spend:
-
-Per-project billing. Allows you to host a dedicated project for Claude Code as a clean way to track costs.
-
-Billing budgets and alerts. Allows you to set budget alerts and get notified as actual spend crosses thresholds you define.
-
-Spend caps (Preview). Allows you to enforce a service-level Google Cloud spend budget with ability to manually lift the cap.
-
-BigQuery exports. Lets you analyze Claude spend alongside the rest of your cloud costs.
-
-Quotas. Claude models on Google Cloud have per-minute limits on requests, input tokens, and output tokens for each model family and endpoint location.
-
-Provisioned throughput. Pay a fixed fee for reserved capacity instead of pay-as-you-go.
-
-Claude Code and Claude apps gateway add their own tracking and control capabilities. The gateway is a self-hosted service, shipped in the same claude binary your developers already use, that runs in your Google Cloud project between Claude Code and Claude on Google Cloud. Developers sign in through your identity provider, such as Google Workspace, so every request carries a verified identity. That lets you set model allowlists per IdP group, and spend caps per user, IdP group, or organization, by day, week, or month.
-
-Here's how to choose and combine capabilities to manage the three levers measuring the cost and ROI behind your organization’s AI investments with Claude on Google Cloud:
-
-Lever 1: Control
-
-The control lever is all about providing guardrails that guide developers in their Claude Code use, instead of restricting them with arbitrary caps.
-
-Guiding rather than restricting is important because high cost sessions are not necessarily bad — in fact, they're often high value, especially in Claude Code. Those sessions are generally your power users that are at the forefront, using new workflows and getting a lot of value from Claude and getting a lot of work done.
-
-Waste tends to sit in the long middle of heavy spenders. For example, they're using Fable for a daily routine that Sonnet can easily handle. Or maybe they have forgotten some scheduled task they no longer care about, but it keeps on running automatically anyway.
-
-There are four features that give you the guardrails to guide your users instead of restricting them:
-
-Spend limits (opens in new tab). The Claude apps gateway allows you to set spend caps per user, per IdP group, or organization-wide, by day, week, or month. Group and organization caps are per-developer defaults that each member inherits, not a shared pool.
-
-Threshold alerts. When used with Claude apps gateway, Claude Code on Google Cloud warns developers as they approach their cap, first past 75% and again past 95%. These are in-CLI warnings for developers, whereas Google Cloud Billing alerts are meant for admins. At the cap, the gateway returns 429 until the period resets or an admin raises the cap, and you can script cap increases through the gateway's admin API.
-
-Model defaults and allowlists. Specify which models are available, per IdP group, via the Claude apps gateway which enforces the allowlist server-side on every request. We have found that setting a model default works really well, because most people will stick to the model default; if they want to switch models, they usually are switching for a reason. You can use model defaults in addition to or instead of model allowlists.
-
-Gateway Admin API. The gateway serves an admin API for spend limits (opens in new tab), so you can set and change caps programmatically, for example using a ticketing workflow.
-
-Combine these capabilities to control your overall bill, but remember that control is only the first lever. Price per token doesn't give you the full picture. The most important metric is the cost per task, which can be monitored and analyzed by tracking this usage.
-
-Lever 2: Track
-
-This lever is all about seeing where spend is going and how it’s being used. The good news is that you can track Claude Code usage, costs, and tool activity across your organization. Primary tracking strategies include:
-
-Usage and cost observability. Claude Code's OpenTelemetry metrics and events (opens in new tab) report usage and estimated cost, broken down by skill, plugin, agent, and MCP server. Send them over OpenTelemetry Protocol (OTLP) to tools you already run, such as Google Cloud Monitoring, through an OpenTelemetry collector or relayed by the Claude apps gateway (for centralized OpenTelemetry config).
-
-End-user usage view. Developers see their own spend and get usage warnings right in Claude Code before they hit a limit.
-
-Data export to your existing systems. Google Cloud Billing exports to BigQuery let you filter to Claude SKUs by model and token type, putting Claude spend alongside the rest of your cloud and AI spend. OTel flows to your O11y stack, and the gateway Admin API can feed spend-limit status straight into your ticketing system.
-
-Claude Code, whether running on developer machines or on cloud workstations, can export OpenTelemetry once you enable it, including sessions, active time, lines of code, commits, pull requests, tokens and cost, broken down by user, team, and model. The most recent releases of Claude Code also break usage down by skill, plugin, agent, and MCP server so you can see not just overall Claude Code usage but also which of your org’s internal skills and plugins get adopted. With the Claude apps gateway, you don't need to configure each machine. Set a telemetry destination on the gateway, and it turns telemetry on for signed-in developers. It also tags every export with the developer's verified email and IdP groups from their sign-in, rather than values configured on the client-side.
-
-To attribute usage to your own cost centers and departments, set the OTEL_RESOURCE_ATTRIBUTES environment variable (for example, department=engineering,cost_center=eng-123). Claude Code adds these tags to every metric and event, so you can filter and aggregate by them. The metrics land in Google Cloud Monitoring (or other monitoring solutions like Grafana or Splunk) with those custom attributes.
-
-A typical adoption view shows active developers, number of sessions over the last 24 hours, and total tokens consumed. The orange box shows blocked requests when developers hit their gateway-enforced spend caps. That metric pairs well with your existing ticketing system as a workflow that allows developers to request an increase.
-
-For ready-made Cloud Monitoring dashboard, refer to the Claude Code Monitoring template (opens in new tab), which turns Claude Code’s OpenTelemetry metrics into a single view of adoption, coding activity, and token usage and estimated spend, so you can track usage and costs by user and model as you roll out Claude Code on Google Cloud. You can copy this template directly from within the Cloud Monitoring console.
-
-To set up custom Claude Code telemetry on Google Cloud, start with the Claude Code OTel quickstart (opens in new tab). Use it to configure s Claude Code to export OpenTelemetry straight to Google Cloud Observability suite including Cloud Logging and Cloud Monitoring. The quickstart also routes logs into partitioned BigQuery tables, one per event type (API requests, tool decisions, tool results, assistant responses, and completed hook executions), and ships SQL queries for spend per developer/model, tool success and latency, hook wait time, per-turn and per-session analytics.
-
-Lever 3: Prove
-
-The control lever governs and apportions usage and costs; the track lever allows you to visualize that spend. The prove lever is how you map usage to ROI for Claude Code on Google Cloud.
-
-The metrics that platform engineers care most about measuring in Claude Code are contained within three dimensions: usage, developer satisfaction, and impact.
-
-Adoption and usage metrics measure how people are using Claude in your organization, including your activated users and their weekly and daily usage. These reveal information like depth of use, user retention over time, and who your Claude Code power users are. These metrics are all derived via Claude Code OTel data.
-
-Satisfaction metrics monitor the user experience for your engineers, including their happiness with Claude Code, perceived time savings, confidence in output, and any friction they might experience. Satisfaction metrics come from a short survey run before and after rollout, followed by ongoing user check-ins.
-
-Impact metrics assess how Claude is delivering measurable engineering outcomes, comparing throughput, cycle time, and review speed against a baseline, plus qualitative measurements on specific bodies of work.
-
-A starting set of impact metrics
-
-Here's a starting set of impact metrics, grouped into three areas: time, effort, and volume.
-
-Time measures how quickly work ships: PR cycle time from open -> merge, and code review turnaround.
-
-Effort measures how much work each change takes: review iterations per PR, review comments and rework per PR.
-
-Volume measures what the freed-up capacity delivers: PRs per engineer, deployment frequency, and named bodies of work: the specific backlog items your teams shipped with the freed capacity. These add a qualitative view alongside the counts..
-
-These are directional reference points, not rules, but a good starting point for measuring Claude Code's impact in your organization. The baseline you need already exists: your delivery history in source control and tickets.
-
-Define your unit of work
-
-Most of these metrics count PRs, but a typo fix and a feature release are both one PR. Therefore, count merged PRs of a defined class instead: Claude opens the PR, and a person decides whether it ships. Labels such as hotfix or feature release, the ticket ID, and whether Claude was involved make those PRs easy to find in the systems you already run. Not every unit of work is a PR; a service cutover or an incident closed at its root cause are examples. The same rule applies: count one finished thing, where it lands.
-
-Claude Code native telemetry
-
-After putting cost governance and usage tracking in place, the next step is to map those to ROI. Claude Code’s native telemetry helps you capture contribution and productivity metrics that document the value your organization is deriving.
-
-Claude Code’s OTel metrics let you track or derive code suggestion accept rate, lines of code modified, commits created, PRs created, cost per unit of output, and PRs per user.
-
-All of these native metrics offer useful and actionable information. This info becomes even more valuable when paired with logged events like user prompts and tool decisions, captured via Claude Code telemetry on the Google Cloud. Logging user prompts, for example, is a good way to understand everything your user base is trying to build, because not every unit of work is necessarily a PR. Note that user prompts are not logged automatically due to potentially sensitive content; you have to specifically opt in.
-
-One example would be using Claude Code to troubleshoot an incident if you’re an SRE or generate sample data for a live demo if you’re a sales engineer. Those sessions do not result in a PR, but they do accelerate those teams’ workflows. Keep in mind that Claude Code's PR metric counts the PRs Claude Code creates, not what eventually merges. Your source control and ticketing systems remain the record of what shipped, so correlate Claude Code telemetry with GitHub or GitLab and your ticket tracker for the full picture
-
-Here’s the measurable impact that some Claude on Google Cloud customers have achieved with Claude Code.
-
-Delivery Hero (opens in new tab) had a team overhaul a design system across 100 UI components. Claude Code did in minutes what would normally take a week of an engineer's time.
-
-Shopify (opens in new tab)engineers build faster with Claude Code, but non-engineers are also building internal tools in minutes instead of days. Claude Code is expanding who can build at Shopify, not just speeding up the people already building.
-
-Fifth Dimension (opens in new tab) engineers universally use Claude Code on Google Cloud. Combined, they're writing over 300,000 lines of code a month with a 98% acceptance rate.
-
-Getting started
-
-The goal of this post is to help you feel comfortable with the tools and capabilities that exist to help you manage Claude Code on Google Cloud costs and demonstrate ROI. As platform engineers, the system serves not only to notice and observe behavior in your user base. It also gives you the knowledge necessary to dynamically adjust governance and settings.
-
-It’s a continuous loop: start with reasonable defaults, such as an org-wide spend cap, a default model, and a model allowlist, then refine by role and team as usage data comes in. By tracking actual use and correlating metrics to the value you’re getting from Claude Code, you can then deliver these to your stakeholders who need to analyze the ROI and business impact of using Claude Code.
-
-How organizations use Claude Code on Google Cloud and the value derived from that usage will both evolve as the amount of work and the type of work we're delegating to Claude keep getting deeper and more diverse. The control → track → prove framework outlined here is a stable starting point for measuring every aspect and outcome of your Claude Code deployment.
-
-Here are resources to get you started:
-
-Manage costs effectively (opens in new tab)
-
-Monitoring usage and costs (opens in new tab)
-
-Claude apps gateway spend limits (opens in new tab)
-
-Deploy Claude apps gateway on Google Cloud (opens in new tab)
-
-Create, edit, or delete budgets and budget alerts (opens in new tab)
-
-Manage spend cap budgets | Cloud Billing (opens in new tab)"
-867fa949adc0,867fa949adc0,2026-10-27 00:00 UTC,General Security News,Anthropic,Claude Blog,AI Security,Article,Claude for Financial Advisors,https://claude.com/resources/articles/claude-for-financial-advisors,"A typical advisory practice spends only a sixth of its time in client meetings, according to Kitces research","Today we're releasing Claude for Financial Advisors, a suite of connectors and workflow skills designed to help with research, prep, and documentation tasks that occupy an advisor’s time and keep them from client-facing work.
-
-Time is scarce among financial advisors. A typical advisory practice spends only a sixth of its time in client meetings, according to Kitces research. The rest goes to work around those meetings, piecing together information across systems to prepare, plan, and
-
-document what was discussed. Meanwhile, over four in 10 American workers say they don't know who to go to for good financial or retirement planning advice, according to EBRI's 2026 Retirement Confidence Survey. Time an advisor saves on prep and paperwork can go to a current client or new household they don’t yet have capacity to serve.
-
-Claude for Financial Advisors includes:
-
-Connectors, which let Claude access the custodians, asset managers, and wealth technology providers advisors rely on most, so an advisor can work with a client’s information in one place.
-
-Skills, which use that information to help with specific tasks, like meeting prep, portfolio analysis, and compliance checks, always in service of the advisor's own judgment and style.
-
-Connectors to the tools advisors already use
-
-New connectors bring in the CRM, custodian, portfolio reporting, financial planning software, estate tools, and meeting capture that advisors rely on.
-
-Addepar brings investment intelligence into Claude, giving advisors governed access to portfolio data, analytics and workflows across public and private markets.
-
-BlackRock brings its portfolio construction expertise, model portfolios, and institutional analytics into Claude through Advisor Center, so advisors can deliver holistic advice across public and private markets.
-
-CAIS opens its alternative investment platform to advisors in Claude, so they can query fund data, review manager and fund performance, and see a client's public and private holdings together.
-
-Charles Schwab connects Claude to Schwab Advisor Services custodial data, including balances, positions, transactions, cost basis, alerts, and money-movement status, so advisors can review client information, see which clients need attention, and prepare for reviews.
-
-Conquest Planning brings its Strategic Advice Manager planning engine into Claude so advisors can create new client plans, review and apply strategies, update existing plans and prepare for client meetings all in one place.
-
-Envestnet lets advisors summarize Tamarac accounts and households in natural language, with a financial plan snapshot from MoneyGuide.
-
-FactSet brings multi-asset class content including funds and ETFs, news, company fundamentals, analyst estimates, and market data to Claude, so advisors can research the companies and securities in a client's portfolio.
-
-FINNY, the growth and prospecting platform, connects Claude to an advisor's campaign results by channel and sequence step, and lets advisors enrich prospect lists from their CRM, or upload new lists directly in Claude.
-
-Flourish connects Claude to financial advisors’ books of business, enabling them to work with client information, check rates, manage invitations, and prepare for client meetings, all within Claude.
-
-Franklin Templeton provides publicly approved fund and share-class information in Claude, including performance, fees, NAV, holdings, distributions, and fund documents, along with its published market and investment insights.
-
-iCapital brings a client's alternative investment holdings into Claude, enabling advisors to view NAV, commitments, unfunded capital, recent capital activity, and performance, while more easily connecting those insights to the client's broader portfolio.
-
-Invesco brings portfolio intelligence and practice management insights into Claude through its Invesco for Advisors connector.
-
-J.P. Morgan Asset Management (55ip) extends tax transition technology to Claude, so advisors can evaluate the tax impact of moving a client's holdings into a new portfolio.
-
-Jump, an AI platform for financial professionals, gives Claude client context (meetings, documents, tasks) and Jump-built skills that prepare next steps for the advisor’s review.
-
-MSCI brings its proprietary data and analytics into Claude, so wealth firms can assess investment options across public and private markets, monitor performance, and evaluate rebalancing opportunities.
-
-Nevis, the AI platform for wealth management, draws on client information from meetings, documents, and communications to support meeting prep and follow-up in Claude.
-
-Orion brings portfolio reporting and Redtail CRM insights into Claude for household reviews, opportunity analysis, meeting prep and follow-up.
-
-SS&C Black Diamond brings portfolio, performance, holdings and rebalancing data into Claude, so advisors can review their book, spot clients out of tolerance, surface tax loss harvesting opportunities, and generate client reports, tasks and rebalance sessions with their approval.
-
-Wealthbox connects Claude to client records and meeting history to power onboarding, meeting prep, and follow-up.
-
-Wealth.com gives Claude a structured view of each client's estate and tax picture, including trust and will summaries, tax return insights, and the full balance sheet, so advisors can begin planning with an organized summary of available information instead of documents spread across multiple systems.
-
-Vanguard brings information on its model portfolios and advisor investment solutions into Claude, so advisors can draw on Vanguard's trusted research, portfolio construction, and asset allocation expertise when making decisions for clients.
-
-Zocks, the AI meeting assistant for financial advisors, brings Claude the client intelligence it captures from every conversation, including profiles, goals, life events, and commitments.
-
-These join other connectors already available in Claude, including Microsoft 365, Salesforce, DocuSign, Box, S&P Global, Morningstar, and more.
-
-The Claude for Financial Advisors plugin, which bundles advisor skills and connectors into a single install, works with BlackRock, Charles Schwab, Addepar, Envestnet, iCapital, Orion, Wealthbox, Wealth.com and Zocks, and advisors choose which of these to connect during guided setup. Some partners also offer their own plugins: BlackRock is launching one for Advisor Center, joining existing plugins from S&P Global and LSEG.
-
-Skills built around an advisor’s day
-
-Each skill in the Claude for Financial Advisors plugin supports a specific moment in an advisor's day, from prepping for a client meeting to explaining a drifted portfolio, and routes to tools the firm already uses to run their business. Firms can adopt these skills as is from our Claude for financial advisors skill repository, or adapt them to their own workflows, service model and house style.
-
-Advisor onboarding connects a firm's tools and runs the first meeting prep automatically, helping a new advisor be productive on day one instead of week three.
-
-Alternative investments brief pulls a household's alternative investments from iCapital or Addepar into a meeting-ready summary, shown alongside the rest of the portfolio, instead of an advisor reconciling separate statements by hand.
-
-Compliance and AI policy highlights content that may warrant additional compliance review based on user-configured criteria, assists firms in documenting review workflows, and supports AI-governance documentation processes.
-
-Estate and tax brief checks a client's estate plan against actual account titling and beneficiaries, looks back at the prior year's taxes, and can create CRM follow-up tasks, so mismatches surface for the advisor to review.
-
-Portfolio rebalance review flags drift and concentrated positions against a client's target allocation, and creates a first draft explanation an advisor would otherwise write from scratch.
-
-Post-meeting notes and follow-up turns a transcript into a client summary, a recap email, and CRM tasks in one pass, instead of an advisor doing each by hand after the call.
-
-Pre-meeting prep consolidates information from connected systems (including a client's holdings, recent account activity, and open items from prior meetings) into a single brief for the advisor to review, so they can prepare for and walk in ready for a conversation about that client's specific situation instead of reconstructing context from three systems.
-
-Prospect intake organizes what a prospect shares into a summary, an analyst handoff, and a what-to-expect memo, so the first meeting starts with the basics already in place.
-
-Together, the skills gather information, summarize it, and draft client communications across the advisor’s day. Investment recommendations, client communications, compliance determinations, and other regulated activities remain subject to human review and approval.
-
-Built for regulated professionals
-
-Claude for Financial Advisors is designed so that the advisor stays in control, with approval required on critical tasks. Claude prepares briefs, summaries, and drafts analyses for advisor review, and stages administrative actions like CRM updates or draft client communications for the advisor's review and approval. The compliance skill screens client-facing language against the SEC Marketing Rule to flag potential issues, helps firms document review activities within their existing governance and recordkeeping processes, and includes a self-guided AI-policy workflow that helps firms document their use of AI under SEC rules. Workflow activities can be documented to assist firms in maintaining appropriate records and oversight processes.
-
-More households served well
-
-When Claude handles administrative tasks like meeting prep, follow-up drafts and pipeline review, advisors can spend more of their time serving clients. Practices can expand their customer base, and offer more of the services they need, like tax, estate, insurance, and retirement planning.
-
-Here’s what customers and ecosystem partners have told us about working with Claude:"
-4a6f047403dd,4a6f047403dd,2026-10-27 00:00 UTC,Vulnerabilities & Patching,Anthropic,Falco / Sysdig Blog,Vulnerability Management; AI Security,Article,Mythos access is expanding: what this means for vulnerability management,https://webflow.sysdig.com/blog/mythos-access-is-expanding-what-this-means-for-vulnerability-management,"Product Marketing Manager @ linkedin Subscribe to Threat Research REGISTER FOR THE WEBINAR Published: October 27, 2026 Table of contents TRT in your inbox Get security briefings...","Anthropic’s Claude Mythos put vulnerability management in the boardroom when it was released earlier this year, and the conversation around it has evolved. Press coverage continues to find new angles, and there’s plenty of discourse around how AI is changing everything about cybersecurity.
-
-In the months since the initial release of Mythos Preview, there have been a few developments around what Mythos can do and who is able to access it. But what does this actually mean for your vulnerability management program?
-
-A stronger model, wider access
-
-In September, Anthropic shipped Claude Mythos 5.1, which it calls the model with the strongest cyber capabilities of any they’ve released. Mythos 5.1 is built on the same base model as the generally available Fable 5.1 with different safeguards attached. Then, in October, it folded Project Glasswing, the early-access program that gave select critical infrastructure providers and industry partners access to Mythos, into an expanded tiered Cyber Verification Program (CVP). The revamped CVP spans everyday defensive work up through the highest-sensitivity critical infrastructure.
-
-This means that compared to at launch, machine-speed vulnerability discovery that used to be limited to a small group will reach a wider set of defenders. According to Anthropic, Glasswing partners turned up more than 129,000 verified vulnerabilities between April and July, over 33,000 of them critical or high severity. More access to Mythos-class discovery sounds like it should mean more vulnerabilities found, faster, across more organizations. While this is true, that large number isn’t the full story.
-
-Discovery and exploitation aren’t the same thing
-
-Anthropic noted in its announcement that the generally available Fable 5.1 can now be used to discover software vulnerabilities, but explicitly not to develop exploits for them. Activities that could be used maliciously like penetration testing, exploit generation, etc., are redirected to lower-tier models. The same gating carries into Mythos. The CVP’s three access tiers wall off penetration testing and red teaming work behind the two highest, most heavily vetted tiers.
-
-So while broader access to Mythos-class capability means broader access to finding things faster, it doesn’t, by itself, mean broader access to attacking anything. Also, Mythos still isn’t broadly available: access runs through vetted organizations in the CVP, so it isn’t something readily on hand for attackers.
-
-That’s not to say automated attacks aren’t happening, but that’s a separate development, not something that traces back to Mythos specifically. Lumping every agentic AI risk together misses where the actual exposure is coming from.
-
-The core of vulnerability management hasn’t changed
-
-A lot of the coverage of Mythos makes it sound scarier than it needs to. While it does make vulnerability discovery significantly faster, no security team was patching every known CVE even before Mythos existed. Using AI agents for defense can increase teams’ speed and scope, but the real differentiator continues to be knowing which findings are in active, loaded packages, reachable, and creating real risk, versus which ones are noise with a scary CVSS score attached.
-
-Exploits are getting faster too. Mandiant now puts the average time-to-exploit at negative seven days, meaning exploitation begins before a vulnerability is even disclosed. This makes it even more important to build a vulnerability management program around core principles.
-
-The fundamentals of vulnerability management are even more important in the AI discovery era:
-
-Scan and discover everything in one place, CVE and non-CVE findings alike.
-
-Prioritize by what’s in-use and exploitable, not just what scores high.
-
-Automate remediation at the source instead of patching every downstream instance individually.
-
-Treat runtime security as a safety net for whatever stays exposed.
-
-This plan for vulnerability response doesn’t get rewritten because discovery got faster. Agentic AI can be utilized on your side too, automating and accelerating each of these steps and helping keep up with the volume of findings. You don’t need to treat every Mythos headline as a crisis or rebuild your program every time access expands again.
-
-Learn more at the webinar
-
-To learn more about building a Mythos-ready vulnerability management program, join our webinar, Mythos Decoded: What’s Actually Changed in Vulnerability Management. We’ll cover what Mythos actually is and isn’t and practical steps to keep pace with AI-accelerated discovery without the panic."

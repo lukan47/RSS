@@ -968,6 +968,135 @@ With attackers planting backdoors on breached Check Point servers, CISOs must au
 To establish whether Check Point infrastructure has been compromised, CISOs and security teams should examine administrative login records for unusual access patterns, including unfamiliar IP addresses, unexpected login times, and unauthorised access added Dhar. They should also look for changes to firewall policies, access-control rules, and configuration files, and thoroughly review system logs, audit trails, and command execution history for suspicious activity.
 
 Dhar noted that once there are indications of a compromise, the immediate priority should be to prevent further access and contain the damage. Security teams should restrict access to the management server to authorised administrative systems and isolate confirmed compromised systems while preserving forensic evidence. Unauthorised accounts should be disabled, suspicious SSH keys and access tokens revoked, and identified malicious IP addresses and domains blocked."
+9fe052c7a5fc,9fe052c7a5fc,2026-11-25 13:00 UTC,"Attacks, Breaches & Threat Intel",Orca Security,Orca Security Blog,AI Security; Identity Security Posture Management; Data Security Posture Management; File Security,Article,How AI App Builders Leak Their Own Credentials,https://orca.security/resources/blog/how-ai-app-builders-leak-their-own-credentials/,Executive summary: AI app builders give generated apps owner-level access The Orca Research Pod found the same architectural mistake in multiple independent AI app builder...,"Executive summary: AI app builders give generated apps owner-level access
+
+The Orca Research Pod found the same architectural mistake in multiple independent AI app builder platforms. Code the platform generates inherits the authority of the build environment.
+
+These platforms build the app inside their own trust boundary and never take it back out. As a result, the generated app gets owner-level authority over the developer’s connected accounts and backend. The developer never granted that authority, can’t see it and can’t revoke it.
+
+Key findings
+
+Across several platforms, we confirmed that generated applications could do the following. In some cases, so could anonymous visitors to those apps.
+
+Act as the account owner on connected third-party services
+
+Read live database credentials belonging to other customers
+
+Call privileged backend functions that bypass row-level security entirely
+
+Reach platform secrets from inside the build sandbox
+
+In none of these cases did the developer misconfigure anything. The authority is there by default, in the environment, before the first line of application code is written.
+
+What is ambient authority in AI app builders?
+
+Ambient authority is privilege that sits in the surrounding environment instead of being granted to a specific caller for a specific purpose.
+
+An AI app builder has to be powerful to be useful. To scaffold a working application, it needs to write files, install dependencies, provision a database, commit to your repository and read the services you connected. So the platform gives its build environment broad authority over your accounts.
+
+Then it puts your application in that same environment. Nothing separates the two. The credential the agent used to build the app is still there when the app runs, and the app can read it just as easily as the agent could.
+
+The pattern isn’t one vendor’s bug. It keeps showing up because every builder faces the same design pressure:
+
+Platform
+
+What the generated app is handed
+
+A major AI app builder
+
+A plaintext environment variable that acts as a bearer credential for the account owner on every connected third-party service
+
+A major AI app builder
+
+A live platform session token in the agent’s environment, plus an unauthenticated internal LLM proxy billing the vendor’s own account
+
+A generated backend
+
+Supabase edge functions holding a service-role key, with the JWT gateway defaulted off
+
+A build sandbox
+
+Platform secrets readable by any process running inside it
+
+Three ways AI app builders leak credentials in the wild
+
+One environment variable exposes every connected service
+
+On a major AI app builder, a single plaintext environment variable is present in every project. It authorizes the caller as the account owner across the account’s connected services: GitHub, Gmail, Slack and Drive. The GitHub connector’s scope is full repository access, read and write, private repositories included.
+
+The platform’s AI agent isn’t involved at any point, and that matters more than it first appears. Undocumented endpoints return each connector’s raw OAuth access token, which then works directly against GitHub or Google. No request passes through the platform, so the platform’s logging, rate limiting and revocation never see the traffic.
+
+Three properties make this worse than a typical leaked secret:
+
+Collaborators inherit it. Any project collaborator gets the token through the shared shell, with no planted code and no remix. Revoking the invitation doesn’t revoke tokens they’ve already taken.
+
+The token is portable and long-lived. It’s signed, not encrypted, so anyone holding it can read its claims. Replayed from an unrelated laptop, it still returned the account’s data.
+
+The platform’s scanner misses it. The platform’s own security scanner reports code that exfiltrates the variable as clean. The control users trust to tell them a project is safe says it’s safe.
+
+An unprotected API endpoint leaks database credentials across tenants
+
+At another builder, which we’re not naming, a single API endpoint returned any project’s database integration to any logged-in user of the platform. That included a live database key and the full project configuration. Nothing checked that the caller owned the project, and project IDs were small sequential integers.
+
+Counting through one ID range returned live credentials for thousands of projects across dozens of organizations. That included projects hosted in customers’ own third-party database accounts. The keys are genuine and long-lived. We confirmed cross-tenant reads against multiple unrelated tenants. We also reproduced the issue on a project created during testing, so new projects were affected too.
+
+Where row-level security wasn’t configured, the credentials led straight to the data behind them. Most sampled databases also had email auto-confirm and open signup turned on. An attacker with a leaked key could register a confirmed account and reach everything the authenticated role can see, which is usually far more than the anonymous role.
+
+AI-generated Supabase edge functions bypass row-level security
+
+The third instance involves no platform defect at all. Nothing is broken on the platform’s side. The AI wrote the vulnerability and shipped it.
+
+Ask a builder for an app with a database, and it generates Supabase edge functions to do the work. Many of those functions hold a service_role key, Supabase’s administrative credential, which bypasses row-level security entirely. One builder also ships them with the JWT gateway turned off, so the function answers anyone who calls it. The result is an unauthenticated endpoint holding a key that ignores every access control you configured.
+
+Those defaults come from the generator, not Supabase. The pattern lasts because developers have no reason to suspect it. One developer recorded the belief in a source comment: “The Publishable Key is the successor to the anon key: it is public and safe for client-side code (Row-Level Security protects the data).”
+
+That’s correct, and it matches Supabase’s own guidance. It’s also beside the point, because the app’s own service_role function goes straight around row-level security. The developer secured the front door of a house with no back wall.
+
+This is why teams need to catch risky code before it reaches production, including code an AI agent wrote.
+
+Why prompt injection defenses don’t stop AI app builder credential leaks
+
+The obvious reading of any AI platform vulnerability is prompt injection. Here, it’s the wrong one.
+
+We tried it. On a major AI app builder, the agent resisted every prompt injection attempt we made. Plain application code then walked straight past it, because the code didn’t need to persuade the agent of anything. It just read a variable.
+
+Injection is one delivery route among many. The real defect is that the authority is ambient in the first place. It sits in the environment, where any code and any collaborator can reach it, and in one case any anonymous visitor too. Defenses placed at the agent don’t protect a credential that lives next to it.
+
+That distinction decides where the fix has to go. Guardrails on the model aren’t a control over the environment.
+
+How to secure apps built with AI app builders
+
+Several of these issues were still unfixed when we wrote this. These steps don’t depend on a vendor fix:
+
+Assume the generated app can reach every connected integration. Connect only the services a project needs, at the narrowest scope the builder will accept, and disconnect the rest. Identities with too much access are where this risk starts, so reduce identity-based cloud risk across these connections.
+
+Rotate keys for any project built on these platforms. Treat platform-issued tokens as compromised if a project was ever shared, remixed or made public.
+
+Turn on row-level security for every table, then check it. A table with RLS enabled but no policy isn’t a protected table.
+
+Audit generated backend functions for service-role keys. Confirm each function authenticates its caller, and turn the JWT gateway on. Unauthenticated functions are effectively exposed APIs, so find and secure unmanaged APIs as part of the audit.
+
+Inventory the pair, not just the app. The risk object is the generated application plus the managed database behind it. Neither half alone tells you what’s exposed, so find and protect sensitive data across your cloud behind every generated app.
+
+Frequently asked questions about AI app builder security
+
+Are AI app builders safe to use?
+
+They can be. But this research shows that generated apps can inherit owner-level access to connected accounts by default, so scope integrations narrowly and audit what gets generated.
+
+Does Supabase row-level security protect AI-generated apps?
+
+Not if a generated edge function uses the service_role key, because that key bypasses RLS entirely.
+
+Is this a prompt injection problem?
+
+No. In our testing, plain application code read the credential directly without involving the agent.
+
+How can Orca help secure AI-generated applications?
+
+Orca’s unified cloud security platform brings the full AI footprint into a single risk model alongside your cloud context: the models and MCP servers teams connect, the code AI agents write and the applications AppGen platforms generate.
+
+Orca also helps security teams uncover apps built with AI tools, so generated applications and the data behind them don’t sit outside security’s view. Because Orca sees those connections together, it can surface the issues that turn a generated app into a breach path: overprivileged identities and integrations, exposed secrets in code, unauthenticated APIs and sensitive data without the right protections. Orca then prioritizes them by what an attacker could actually reach. Teams can keep building with AI at full speed while security keeps pace, without adding agents or slowing developers down."
 cddc878b12f4,cddc878b12f4,2026-11-25 12:27 UTC,"Attacks, Breaches & Threat Intel",,Malwarebytes Labs,Data Security Posture Management; Identity Security Posture Management; Endpoint Security,Article,Two exposed databases held over 3.5 billion records,https://www.malwarebytes.com/blog/data-breaches/2026/11/two-exposed-databases-held-over-3-5-billion-records,"kt-inside-inner-col{flex-direction:column;justify-content:center;}} In this article About 2 billion login records were exposed, some apparently stolen by malware",".kadence-column492615_4c22a4-64 > .kt-inside-inner-col{padding-top:20px;padding-right:20px;padding-bottom:10px;padding-left:20px;}.kadence-column492615_4c22a4-64 > .kt-inside-inner-col{column-gap:var(--global-kb-gap-sm, 1rem);}.kadence-column492615_4c22a4-64 > .kt-inside-inner-col{flex-direction:column;}.kadence-column492615_4c22a4-64 > .kt-inside-inner-col > .aligncenter{width:100%;}.kadence-column492615_4c22a4-64 > .kt-inside-inner-col{background-color:rgba(255, 229, 229, 0.83);}.kadence-column492615_4c22a4-64 > .kt-inside-inner-col:before{opacity:0.3;}.kadence-column492615_4c22a4-64{position:relative;}@media all and (max-width: 1024px){.kadence-column492615_4c22a4-64 > .kt-inside-inner-col{flex-direction:column;justify-content:center;}}@media all and (max-width: 767px){.kadence-column492615_4c22a4-64 > .kt-inside-inner-col{flex-direction:column;justify-content:center;}}
 
 In this article
@@ -1684,7 +1813,6 @@ Follow me on Twitter: @securityaffairs and Facebook and Mastodon
 Pierluigi Paganini
 
 (SecurityAffairs – hacking, ships)"
-2ba22e948203,2ba22e948203,2026-11-25 07:46 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,Beyond hacked fridges:,https://news.google.com/rss/articles/CBMisgFBVV95cUxQcXVhZkJsMlM5anh1N25QQ1JxUERvdWZ4LVFaSTdTUTBIY0dGMVJyYmctV3dqTzJqSlRmTUdtbmtnQzB1a2x0ZVd6dE40ZEhGVE91d2hKVmp1bnptZ2ZsaGdRQ2tCUEZHTG5pdDJDREhaT0NOYTRPS3hvRmtIMmtYMzVDYnp5akFqZ2s2V1pqaTlWQjh3aVFqUDFFd0NueHhIc0dfMGNKUE1vbUl6eU9yRFZ3?oc=5,,
 df6a8452b268,df6a8452b268,2026-11-25 02:45 UTC,"Attacks, Breaches & Threat Intel",,Bleeping Computer,Email and Collaboration Security; AI Security; Data Security Posture Management; Threat Intelligence,Article,Hackers reportedly breached CIA intelligence analysis system,https://www.bleepingcomputer.com/news/security/hackers-reportedly-breached-cia-intelligence-analysis-system/,"The source told The New York Times, which first reported the incident, that the cyberattack was carried out using the ARTEX AI-powered penetration testing framework and also...","​Unknown attackers have reportedly breached an open-source intelligence (OSINT) analysis system at the US Central Intelligence Agency (CIA), according to a source familiar with the matter.
 
 The source told The New York Times, which first reported the incident, that the cyberattack was carried out using the ARTEX AI-powered penetration testing framework and also affected the Office of the Director of National Intelligence (ODNI) and the National Geospatial-Intelligence Agency.
@@ -3790,6 +3918,125 @@ Be Ready Before the Next Outage
 Outages end. The habits you build for them endure. Start by asking your team one question today: where would you check first if email went down?
 
 For real-time updates and ongoing phishing threat intelligence, follow KnowBe4 Threat Lab on X: @Kb4Threatlabs"
+b8f29538166b,b8f29538166b,2026-11-24 13:00 UTC,"Attacks, Breaches & Threat Intel",Orca Security,Orca Security Blog,Vulnerability Management; Server & Workload Protection; Container Security; Threat Intelligence,Article,Caught by Behavior: How Orca Sensor Exposed a Cloud Intrusion in Real Time,https://orca.security/resources/blog/caught-by-behavior-how-orca-sensor-exposed-a-cloud-intrusion-in-real-time/,"From the exploited web app to the second wave, the attack raised Critical and High alerts in the customer’s Orca console as it unfolded, with the detections running in alert mode","Executive summary: Runtime behavior exposed what indicators missed
+
+No known indicator flagged this attack. Orca Sensor did, in real time.
+
+A CVE in a scanned package, a malware hash, a bad IP address or domain: known signals like these catch known threats. This intrusion brought none of them, so threat intelligence and CVE scanning had nothing to flag for what the attacker used. What gave it away was behavior.
+
+Orca Sensor flagged the shell commands the exploited web app started, through its Node.js remote code execution (RCE) detections, and kept flagging the attacker’s activity as it spread. In total, 18 behavioral detections fired, spanning seven MITRE ATT&CK tactics, and none of them relied on a known hash, IP address, domain, or CVE. From the exploited web app to the second wave, the attack raised Critical and High alerts in the customer’s Orca console as it unfolded, with the detections running in alert mode.
+
+Orca’s research team spotted the activity in the sensor data and proactively reached out to the customer to share the full picture of the attack and help their team scope and contain it.
+
+Where known indicators go silent, behavior speaks
+
+Orca Sensor is a lightweight eBPF sensor for runtime detection and response. It watches processes, files and network activity on hosts and in containers as they happen.
+
+This attacker brought nothing known:
+
+No hash to match. The binary they ran was not flagged by threat intelligence.
+
+No IP or domain to match. Neither the domain the binary was downloaded from nor the external address used in a reverse shell attempt was flagged by threat intelligence.
+
+No untrusted image. The containers they started used images from the company’s own private registry, so an image allowlist alone would not have blocked them.
+
+No CVE to scan for. The activity matched a flaw in the web app that had no public CVE at the time.
+
+What the attacker could not hide was behavior, and behavior is what the sensor watches.
+
+Known signals like these only work once someone has already seen that attacker or that flaw. Behavior describes what an attacker does, and that is much harder to change. Attackers can swap their tools, servers and entry points, but the steps they need stay the same: run commands, look for credentials, ask the cloud metadata service for access, try to break out of containers, and set up a way back in.
+
+That is why the detections that fired here were not written for this attacker or this flaw. They describe techniques, and they fired because the attacker used them. And runtime is where those steps happen, so the sensor sees what the attacker does, even when there is nothing known to match.
+
+As more attackers turn to AI agents that tailor their tools to every target and find flaws no one has reported yet, every attack can look brand new. Their behavior is what still gives them away.
+
+Attack timeline: From Node.js RCE to container escape and persistence
+
+Code execution in the web app. A self-hosted web app built on Node.js, running as root, started a shell that ran system recon commands. Two Node.js RCE detections fired on that first command, and a third fired minutes later when the attacker dropped a script in /tmp and ran it. In this environment, these detections fired only on the attack, not on the app’s normal activity. Every later alert on that server traced back to the app’s own process.
+
+Recon and secret hunting. Next, the sensor caught searches for SSH keys and cloud credential files, scans for etcd and the kubelet API, and requests to the cloud metadata service for the temporary credentials it can issue to a workload.
+
+Moving into other services. The attacker then ran commands inside other application containers, among them base64-encoded Python scripts that collected environment variables and listed running processes. In several containers, they also ran a hidden binary from /tmp that deleted itself right after it started.
+
+Breaking out to the host. The attacker started privileged containers that shared the host’s process namespace and mounted its filesystem, and used them to enter the host’s namespaces. On one host, they installed a copy of that binary under a disguised name, which then launched more privileged containers. They also tried to install system services to come back after a reboot.
+
+A second wave. After a quiet period, new containers appeared on hosts that had not been touched before. They downloaded the attacker’s binary and ran it. The same kind of behavioral detections caught the new activity, from reverse shell attempts to fresh requests for cloud credentials.
+
+Across the intrusion, 18 detections fired, spanning seven MITRE ATT&CK tactics:
+
+Tactic
+
+What the sensor caught
+
+Execution
+
+A web app starting shells that ran recon commands, a script dropped in /tmp and run, base64-encoded Python scripts, reverse shell attempts
+
+Discovery
+
+Commands checking which user was running inside a container, and connections probing internal services such as etcd, to map what else could be reached
+
+Credential access
+
+Searches for SSH keys and cloud credential files, running an application’s own code to pull its stored secrets, requests to the cloud metadata service
+
+Privilege escalation
+
+Entering the host’s namespaces and starting privileged containers
+
+Defense evasion
+
+Hidden files in /tmp and a binary named like a kernel process that deleted itself right after it started, both ways to stay out of sight on disk
+
+Persistence
+
+Privileged containers set to restart automatically, and attempts to enable system services from inside a container, all ways to keep or regain access
+
+Lateral movement
+
+Connections from shells and scripts inside containers to the kubelet API on several hosts, probing for a way to reach other workloads
+
+How process tree context tied every alert to the attacker
+
+The alerts carried the command line and the process tree behind each event, along with the host and the Linux user. For containers, they also carried the container name, image, and registry, and whether the container was privileged. That context is what turned separate alerts into one story. A credential search or a request to the metadata service did not stand alone: its process tree showed what had started it, whether that was an application’s own process or a binary the attacker had planted.
+
+The self-deleting binary is a good example: deleting the file does not stop the running program, so the sensor still recorded it as the parent of the commands that followed, which tied activity across many hosts back to the same tool.
+
+From the sensor data, the research team rebuilt the attack from the first alert onward, decoded the attacker’s base64-encoded scripts, and mapped the containers and hosts involved.
+
+One of the Node.js RCE alerts as it appeared in the Orca platform. The process tree shows the web app’s own Node.js process starting a shell that ran system recon commands as root. Identifying details and parts of the attacker’s commands are redacted.
+
+How real-time detection shaped the incident response
+
+Seeing the attack at an early stage shaped everything that followed. With those early and detailed alerts arriving in real time in the customer’s console, the research team used the same sensor data to piece the attack together as it unfolded, instead of working backward from a later alert. That meant they could reach out with the full picture while the attack was still in progress.
+
+The customer confirmed that no red team or penetration test was running. The team shared a timeline built from the sensor’s alerts, along with the affected containers and hosts, the files the attacker dropped, the domain and address they used, the persistence they left behind (system services and auto-restarting containers), and which secrets may have been exposed, to help the customer’s team scope and contain the activity. Using that picture, the customer’s team contained the attack, removing the persistence and the attacker’s containers.
+
+Runtime alerts live on the same platform as Orca’s cloud posture, identity, and vulnerability data. As a result, each alert appeared on the affected asset next to its exposure, vulnerabilities, and access, so the team saw the attack in full context in one place.
+
+How to harden cloud workloads against similar attacks
+
+A few practical steps make each stage of an attack like this harder:
+
+Run web apps with least privilege. Run them as a non-root user, with a read-only filesystem where possible, so a compromised app can’t easily drop and run its own tools.
+
+Limit access to the cloud metadata service. Block it for workloads that don’t need it, so a compromised container can’t collect cloud credentials.
+
+Keep long-lived secrets out of environment variables and files. Prefer short-lived credentials and a secrets manager, so a shell in the app finds little worth stealing.
+
+Block privileged containers and host namespace sharing. Allow them only where a workload truly needs them, and enforce that with policy rather than convention.
+
+Restrict access to cluster control services. Limit which workloads can reach etcd and the kubelet API, and disable anonymous kubelet access, so a shell in one container can’t easily map or control the rest of the cluster.
+
+Control outbound traffic. Let workloads reach only the destinations they need, which makes it much harder for an attacker to download tools or open a reverse shell.
+
+Watch behavior, not just indicators. Activity that breaks a workload’s normal pattern, such as a web app starting shells or a container running a newly dropped binary, can expose an attack even when nothing known is involved. Alert on it, and for high-confidence detections, consider stopping it as it happens.
+
+Detecting and stopping runtime attacks with Orca Sensor
+
+Orca Sensor goes beyond known indicators: even when an attacker brings nothing known, their behavior gives them away. In this intrusion, the detections fired across the attack, from the exploited web app to recon and secret hunting, credential access, the break-out from containers to their hosts, and persistence. Seeing the attack never depended on a single alert, and together the alerts told the story of how it unfolded. Orca’s Threat Investigator Agent can reconstruct that story automatically from the alerts and their context. In alert mode, the sensor caught this attack. Set to terminate, the same detections that raised these alerts can stop the malicious processes as they run, not just flag them, including the Node.js RCE detections that fired before the attacker reached the host.
+
+Runtime alerts in Orca’s Threat Detection dashboard."
 6e7c20ad4f6f,6e7c20ad4f6f,2026-11-24 18:12 UTC,"Attacks, Breaches & Threat Intel",,The Hacker News,Code Security,Article,Hackers Found a Way Around GitHub SHA Pinning. This Webinar Explains How to Close the Gap,https://thehackernews.com/2026/11/hackers-found-way-around-github-sha.html,Attackers have already found a way around it,"Pinning GitHub Actions to an exact version of their code, known as SHA pinning, has become the go-to defense against software supply chain attacks. Attackers have already found a way around it.
 
 In March 2026, the hackers who hijacked Trivy, a widely used open-source security scanner, planted malicious code that looked like it came from GitHub's official checkout tool. They even labeled it a security fix. Teams pinned to it would have passed every check.
@@ -7337,6 +7584,7 @@ Disclosure as harm. The claim that telling people about the breach is more dange
 For organisations reading this, the fixes are not complicated. Publish a security contact, for example in a security.txt file, and make sure someone reads it. Don't route breach reports through a customer support ticket system. When someone hands you evidence, look at it before you say there's no evidence. Disclose what you know early, and update it as you learn more. Treat legal thresholds as the minimum, not the goal. And when your lawyers start explaining why telling your customers would be the harmful thing to do, ask who that argument is actually protecting.
 
 The data in these emails was already out by the time anyone was notified. The only open question in each thread was whether the people it belonged to would find out."
+9cd0b45313c2,9cd0b45313c2,2026-11-23 06:43 UTC,"Attacks, Breaches & Threat Intel",Deloitte,Google News: Deloitte,N/A,Article,Cyber insurers need AI-led underwriting to tackle rising attacks: Deloitte,https://news.google.com/rss/articles/CBMi2AFBVV95cUxNcEkwb0F3MHk1Z0lSQ25lNzZ3TVVSczREaHJNQkdjclBDcDFMcVg3SDQ3aGs1WGwyeDREaktGMC1nVElCa3k1STBvOHVULUJJS0dyajRsSlQ0VlkwdGtkY1NWRXg3WVZNcnFRLUQ5OEtjWVlMNk9td2tHMFUxb2Vtb0kzazZ0S0ZrbTRFTDJlSG5Jb2FSUUZYY1JMMndheHp4V3R0UWVZWDNtdjBadFMxTUFFV3VkSXhXX0VoOUlTWUpZWHRJODk1RlpKVlM4U2Q4NkRfNnlSQmrSAd4BQVVfeXFMTXRWSlM4UXRNVGp2U3hyOHBJNkFvY2ZRTXVRaTlBTWRpQ3RURDhEbmQ2RVg5cU5QaDVZcjdTdTJsVC0wZ21BbDVWMzhUdnAxQkwxOFN0RWFKTmdmamVVdmFoN0hTZjgyZk5GQUlzcWVGcFBKRkNzbmRxd2ZIdS1yQ29WTXBfM2x5SVVQeTZhWVVyX0hILXpBd1lCZ0VvS05zVFpDYzl1cVRvcEI2bXp0UFlCbUtuMXVkMWRwN3BzZnR1eVdIVUtCREw2NnFBTUUwaUpmTGRlUTFBYzYwbWt3?oc=5,,
 bc6e7d61e10e,bc6e7d61e10e,2026-11-23 00:00 UTC,"Attacks, Breaches & Threat Intel",,Cofense Blog,Email and Collaboration Security; Identity Security Posture Management; Threat Intelligence,Article,"Fake Deals, Real Threats: Black Friday Phishing Targets Microsoft Accounts","https://cofense.com/blog/fake-deals,-real-threats-black-friday-phishing-targets-microsoft-accounts",This campaign aims to deceive users by exploiting the device authentication process through generated login codes to grant threat actors unauthorized access to their Microsoft...,"By Aloha Mhae Masbate and Matthew Tirona, Cofense Phishing Defense Center
 
 Black Friday is one of the most anticipated shopping events worldwide, falling on the fourth Friday of November, following Thanksgiving Day in the United States. It is widely known for huge discounts and special promotions, online and in-store deals, and early holiday shopping opportunities. Despite the excitement surrounding the Black Friday promotions, the event also creates an opportunity for cybercriminals to take advantage of the surge in online shopping and target unsuspecting consumers and businesses.
@@ -7398,6 +7646,7 @@ hXXps://black-friday-angebote[.]yann-docs-0112600[.]workers[.]dev/40b200f2-dcf1-
 All third-party trademarks referenced by Cofense whether in logo form, name form or product form, or otherwise, remain the property of their respective holders, and use of these trademarks in no way indicates any relationship between Cofense and the holders of the trademarks. Any observations contained in this blog regarding circumvention of end point protections are based on observations at a point in time based on a specific set of system configurations. Subsequent updates or different configurations may be effective at stopping these or similar threats. Past performance is not indicative of future results.
 
 The Cofense® and PhishMe® names and logos, as well as any other Cofense product or service names or logos displayed on this blog are registered trademarks or trademarks of Cofense Inc."
+e54116b4a592,e54116b4a592,2026-11-23 03:32 UTC,"Attacks, Breaches & Threat Intel",Deloitte,Google News: Deloitte,N/A,Article,AI-driven cyberattacks push India’s insurers towards intelligence-led underwriting: Deloitte,https://news.google.com/rss/articles/CBMiywFBVV95cUxNM1JEenp6WmxIa0VsTXdrcERCUWpCMnp2QndJZko0a0lhQVRMakxONDVSYVJFX2FLelQ3XzMzaVZjRDJCLXU2dmF6ZVVpNXpPb3JveXFQRG04RFJCSVNaR0YzRlVBNFlrVXpzcVMtMHFWb1otVERSZXJ0elgtc1U5OXNyNDJvUTlmbTRXYWF5OXVNS0pfUGIxcGh1VlJoUDFpZjVMVkZrcE5pWmo0N0pXcjJXZm52Q3k5SFI2eWVzX1Fxa3NKc1FEVXR4dw?oc=5,,
 3e2aaad46985,3e2aaad46985,2026-11-23 00:00 UTC,"Attacks, Breaches & Threat Intel",Recorded Future,Recorded Future,Threat Intelligence; Threat and Exposure Management,Article,What are threat intelligence feeds?,https://www.recordedfuture.com/blog/what-are-threat-intelligence-feeds,"Threat intelligence feeds also provide vital data on vulnerabilities, exploits, and attack methods, which can be prioritized to improve patch management efforts within an...","What are threat intelligence feeds, and why do they matter for your cyber defenses? These real-time data streams are vital for pre-empting cyberattacks, providing the latest information on potential threats.
 
 By informing you of dangers before they strike, threat intelligence feeds are your first line of digital defense. This article will explore their types, impacts, and integration with your cybersecurity measures.
@@ -8476,6 +8725,7 @@ You are only as safe as the weakest link in the chain. And customers don't reall
 The advice for concerned Chase, Visa or Mastercard customers is simple: be wary of unexpected emails, texts or calls claiming to come from your bank. It would not be a surprise at all if scammers exploit the breach by mentioning it to customers, and offering compensation, or inviting members of the public to ""verify"" their account.
 
 If you are unsure, contact your bank directly using its published number."
+d0262e77461d,aa954e3f985a,2026-11-20 18:56 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,Unpacking KPMG Canada’s cybersecurity breach,https://news.google.com/rss/articles/CBMiqwFBVV95cUxNdWVvVXVrNDh0SElxeVNKczgyNElrazZLNVowaVFFa3Q0enE3emFhLTZhT3RNUFAtUk9QSTNKSEljVS1KLUdyZXRpbHozdlgyZHgzX0xYZ0ZfOEdORzRNNzNqdXExMXRTT19iemZMLUotcE5JMmxjNWVyTG11V2dlN0E4UnVDNlVSd3RUYlJDckRvZHFraHlTamxQUUkzeFRvZTBQZ19xSnFJSlE?oc=5,,
 7c9882ca955b,7c9882ca955b,2026-11-20 17:30 UTC,"Attacks, Breaches & Threat Intel",,KnowBe4 Blog,AI Security; Threat Intelligence; Email and Collaboration Security,Article,Report: Attackers Are Increasingly Using AI Attack Frameworks,https://blog.knowbe4.com/report-attackers-are-increasingly-using-ai-attack-frameworks,” Threat actors are also integrating AI into commodity cybercrime platforms to help unskilled crooks launch sophisticated attacks,"Threat actors are expanding their use of multi-agent AI attack frameworks, according to researchers at Google’s Threat Intelligence Group (GTIG).
 
 The researchers have observed attackers abusing open-source pentesting frameworks such as ARTEX, CAIRN, CyberStrikeAI, and PentAGI, which can fully automate large portions of attacks.
@@ -8866,7 +9116,6 @@ According to the report, the ransomware landscape continues to be fairly concent
 While the researchers identified 100 active ransomware groups, eight groups accounted for approximately half of attributed incidents. Among those eight groups, the top three (Qilin, INC Ransom and The Gentlemen) together accounted for 30%.
 
 The leading group itself, Qilin, is reportedly responsible for 15% of observed incidents."
-933f99122504,933f99122504,2026-11-20 14:14 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,KPMG Canada Confirms Security Breach as Third Party Accesses Confidential Client Files,https://news.google.com/rss/articles/CBMia0FVX3lxTE5mRjh3S1hCazdQN0NQTmt0THg2VGUwMUN1Q0RBVW1BNEctM2hQZjdUY2gzTDgycXZNSS1vMEtsai1JYjFRYk03TU1FNHpTSEwzWW03U0YtUWZKX0VaUERZMXg0ZVlwT2wxalFV0gFwQVVfeXFMTVhVU3J1cHVTemtzZDFkdXlUU3JNb09NclNNT21zWjctUEFOZE4zZmdRZ3JNZDZhUERpcWo2X05CQU9aTExidUVabXJ5bjBBN3diS3Nia2tqWkhRbVdib2hCNmtOVkRhUmtnSi01a0k4VA?oc=5,,
 6699bd2bfb1d,6699bd2bfb1d,2026-11-20 13:49 UTC,"Attacks, Breaches & Threat Intel",,Malwarebytes Labs,Endpoint Security,Article,US launches center to disrupt scams and warn victims sooner,https://www.malwarebytes.com/blog/news/2026/11/us-launches-center-to-disrupt-scams-and-warn-victims-sooner,"Available with Malwarebytes Premium Security for all your devices, and in the Malwarebytes app for iOS and Android",".kadence-column491337_ded6e7-0b > .kt-inside-inner-col{padding-top:20px;padding-right:20px;padding-bottom:10px;padding-left:20px;}.kadence-column491337_ded6e7-0b > .kt-inside-inner-col{column-gap:var(--global-kb-gap-sm, 1rem);}.kadence-column491337_ded6e7-0b > .kt-inside-inner-col{flex-direction:column;}.kadence-column491337_ded6e7-0b > .kt-inside-inner-col > .aligncenter{width:100%;}.kadence-column491337_ded6e7-0b > .kt-inside-inner-col{background-color:rgba(255, 229, 229, 0.83);}.kadence-column491337_ded6e7-0b > .kt-inside-inner-col:before{opacity:0.3;}.kadence-column491337_ded6e7-0b{position:relative;}@media all and (max-width: 1024px){.kadence-column491337_ded6e7-0b > .kt-inside-inner-col{flex-direction:column;justify-content:center;}}@media all and (max-width: 767px){.kadence-column491337_ded6e7-0b > .kt-inside-inner-col{flex-direction:column;justify-content:center;}}
 
 In this article
@@ -10371,6 +10620,8 @@ T1090.001
 Proxy: Internal Proxy
 
 The infected host serves as an internal proxy mediating C2 access to other hosts on the network."
+0d9f8fc0adc0,aa954e3f985a,2026-11-19 14:55 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,"KPMG Canada client documents accessed in cybersecurity breach, accounting firm says",https://news.google.com/rss/articles/CBMiygFBVV95cUxOajRTYjVVQmk0WTd6dHp0T1c0NGJkQm9ZbTZKUVVjakM2ajVRWGh0US1memlmdVlGS0I5cUpiRnd2aDlhdU1hMkFCX29iVjgzSjJnOUwwQWFIOW1NTXVZV25RcFJ4U3hSRDBpcGhrMS1nYXg3eXYxQkdnbTN2Zjd0bGI1eDlfYk00OG1jd05fdHQ0UUpSWEgtbUdEa1VaeUx5cWlEeUdReGZ2UFZILU9sal9RWmo1Ymc0LUkxbHQ5dXN3RFE5aFpfNVVB?oc=5,,
+0da99d936954,aa954e3f985a,2026-11-19 14:46 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,KPMG Canada hit by cybersecurity breach,https://news.google.com/rss/articles/CBMiggFBVV95cUxNWGNuWDRyQlZJejRoY0V6OHdac3JOaWNjdE9ZY0dFTnNpZVIyQWZtWGQxUnJoQUlmSnNfenRhN3JKaU1yVEl1VmFxQkRveE94S2p0cUdZUnZTNHRkWmdkSmV6QXdGam9xMnF0aFNZUzNGSlJUbmIwZXhPaXpKOUZMbVZB?oc=5,,
 bd0472713bf4,aa954e3f985a,2026-11-19 14:34 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,"KPMG Canada client documents accessed in cybersecurity breach, accounting firm says",https://news.google.com/rss/articles/CBMid0FVX3lxTE95SU9EbUdib1FPZDF0bDRyY1lBbXU4VmJ0eEgzaEk2Y25maTNQVG0yeVQydmlmcGNPREpCY1pLTWhndXRnbnQ5T2k1YnNkUWg3bjMwX25rSkRkc1NvZW9meC1Ra002ZFpPbDJqTDdhV2J4QUlCMzlv?oc=5,,
 4832b225e089,3cd75d07d512,2026-11-19 14:00 UTC,"Attacks, Breaches & Threat Intel",Cloudflare,Cloudflare Security,Network Security; Vulnerability Management,Article,Internet traffic and attacks during the 2026 U.S. midterm elections,https://blog.cloudflare.com/internet-traffic-2026-us-election/,We also found evidence of at least one attempt to exploit a recently disclosed critical PHP vulnerability on a state government voting website in the Western United States,"Visitors to government election websites surged 363% on November 3, the date of the 2026 midterm elections in the United States. Across Cloudflare's election protection programs, we also detected a significant shift in the types and timing of cyberattacks throughout 2026.
 
@@ -11398,8 +11649,8 @@ Watch what normally runs in your environment before you enforce anything, then c
 Look at your network from the outside. Find which ports and services are exposed to the internet, and decide which need tighter protection, such as a hardened firewall policy.
 
 Watch the full livestream, ""Inside the Incident: What Happens When Our SOC Calls"", to learn what good SOC support at 2am looks like."
-609e62675b98,aa954e3f985a,2026-11-19 07:15 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,KPMG Canada Says Client Tax Records Accessed in Cybersecurity Breach,https://news.google.com/rss/articles/CBMikgFBVV95cUxNUlN3eGJPeVg4N3MwN0k0QTkzNmd1TDd2R2xneERvU0w4YTlXQWxZaUVFVmhCMnNHZGE5YnBuTU41a0VfZ3dOYmxMV2hYdXNFakFJZXR3Vl9yOE5VR0FGTTRIdTNSTEdkdm9oWnloYjJTTlRodmIzdFROYnJUbEx0NjlzekdENmw5cDgtc3k5cVdTQQ?oc=5,,
 68210927b49f,aa954e3f985a,2026-11-19 04:34 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,KPMG Canada says client documents accessed in cybersecurity breach - National,https://news.google.com/rss/articles/CBMiZkFVX3lxTFBOWHhqQVdLOFVWMlg1eEJwOE5PVFd0SDFnQUQtX1drdm9scG9wZF9lQVRBcUdjRmNfbVlfT19CYUY3cVMwcXlmZlgtTzBuOGJHb09oOTViTkt6NllxWXFkaENCUFktUQ?oc=5,,
+1a46f25b4a5d,aa954e3f985a,2026-11-19 04:20 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,Data Security Posture Management,Article,KPMG Canada Data Breach: Unauthorized Access to Client Tax Documents - News and Statistics,https://news.google.com/rss/articles/CBMivAFBVV95cUxOZ3U0RW9qRGpZS3BDdEZUdG9HOGJTTGNuQW40dDh6aDgtS0M1azlxaGkyUmRxRF9RTExKcmZrSjNZQ2FLN2pYQlVCZVdpNkRjT0w3Z3FtR3gzNHVfbGVGckxlQ2RlYkF0cVR5SE9YNzBCUk16SlB1V25sc0swZzBrai0zamhHS0c1cUE1WEhOMmFDQzIyYXVyQUx6T0hybjlIY1AxRWd5czNIQS1ST1lIV3RSMWJFWFVXZ2s5MQ?oc=5,,
 091ea0346fd2,091ea0346fd2,2026-11-19 03:15 UTC,"Attacks, Breaches & Threat Intel",,Schneier on Security,Other/General,Article,France Is Blaming Iran for the Fridge Cyberattack,https://www.schneier.com/blog/archives/2026/11/france-is-blaming-iran-for-the-fridge-cyberattack.html,France Is Blaming Iran for the Fridge Cyberattack Interesting: U,"France Is Blaming Iran for the Fridge Cyberattack
 
 Interesting:
@@ -12038,6 +12289,99 @@ The critical severity vulnerability impacted CreditNirvana's main platform, and 
 “Successful exploitation of this vulnerability could allow the attacker to enumerate platform users, establish sessions as arbitrary users including administrative users, access and modify sensitive information with the privileges of the impersonated user,” CERT-In wrote.
 
 Zveare says he is relieved that the issue was resolved quickly, but is conscious that the bugs were potentially present in CreditNirvana's systems for years. As AI is integrated into more and more automated systems, synthesizing data from a greater number of sources and using it to draw conclusions, Zveare says, the episode serves as “an important example of an AI-powered service having a very sensitive data exposure.”"
+000556d82710,5326a6ad4e6d,2026-11-18 17:36 UTC,"Attacks, Breaches & Threat Intel",Orca Security,Orca Security Blog,Code Security; Identity Security Posture Management; Endpoint Security,Article,Microsoft Agent Framework PyPI Supply-Chain Attack: Versions 1.26.1 and 1.26.2 Steal Cloud Credentials,https://orca.security/resources/research/microsoft-agent-framework-pypi-supply-chain-attack-versions-1-26-1-and-1-26-2-steal-cloud-credentials/,"A critical supply-chain compromise was discovered affecting Microsoft’s agent-framework PyPI meta-package, where versions 1","A critical supply-chain compromise was discovered affecting Microsoft’s agent-framework PyPI meta-package, where versions 1.26.1 and 1.26.2 were injected with credential-stealing malware capable of harvesting cloud identity tokens, API keys, and sensitive credentials from developer workstations, CI/CD pipelines, and cloud build hosts. Due to the package’s approximately 190,000 monthly downloads and the breadth of targeted credentials, immediate remediation is required for any environment that installed the compromised versions.
+
+Agent-framework compromise at a glance
+
+Affected package: agent-framework on PyPI, versions 1.26.1 and 1.26.2
+
+Last clean version: 1.26.0
+
+Not affected: agent-framework-core and 22 other sibling packages
+
+Exposure window: November 17, 2026, 20:35 to approximately 21:20 UTC
+
+Payload: a Python .pth startup hook that harvests credentials on every interpreter launch
+
+Exfiltration: zlib-compressed, base64-encoded JSON posted to a webhook.site URL
+
+Status: malicious versions quarantined by PyPI; no CVE assigned
+
+What happened in the agent-framework supply-chain attack
+
+Both malicious versions were published within a 33-minute window on November 17, 2026 (20:35 to 21:08 UTC) and removed by approximately 21:20 UTC.
+
+The attack was entirely in packaging. Neither malicious release changed Agent Framework code or pulled in a rogue dependency. Instead, each version added a Python .pth startup hook file that executes on every Python interpreter launch, even if Agent Framework is never imported.
+
+How the .pth startup hook runs and evades detection
+
+The collector forks a detached background process, sets a flag to prevent re-execution in child processes, and silently harvests credentials. Version 1.26.2 restored the legitimate __init__.py byte-for-byte to evade diff-based detection while moving the payload to a new top-level module.
+
+What credentials does the agent-framework malware steal?
+
+The malware actively requested fresh credential tokens rather than only copying stored secrets. Targeted credentials include:
+
+Environment variables matching sensitive substrings (TOKEN, SECRET, KEY, AZURE, AWS, GITHUB, OPENAI, HF_, and more) from the current process and up to 300 other processes via /proc/*/environ
+
+Azure managed-identity tokens for 12 Azure resources (ARM, Microsoft Graph, Key Vault, Storage, ML, AI Foundry, Container Registry, Azure DevOps) via IMDS and identity endpoints
+
+Azure DevOps SYSTEM_ACCESSTOKEN and OIDC tokens for federated identity
+
+GitHub Actions OIDC tokens (version 1.26.2 only) when workflows have id-token: write permissions
+
+Credential files including Azure CLI state, .npmrc, pip.conf, .netrc, .git-credentials, Docker config.json, Hugging Face tokens, and .env files
+
+All harvested data was exfiltrated via zlib-compressed, base64-encoded JSON posted to a webhook.site URL.
+
+Which agent-framework versions and environments are affected?
+
+The following components are affected: agent-framework versions 1.26.1 and 1.26.2 on PyPI. The last clean version is 1.26.0. The dependency agent-framework-core and 22 other sibling packages were checked and are not affected.
+
+Any environment that installed the compromised versions during the exposure window is at risk, including through loose version pins such as agent-framework>=1.26. This spans developer workstations, CI/CD pipelines (Azure DevOps, GitHub Actions), and cloud build hosts running Python.
+
+At the time of writing, the malicious versions have been quarantined by PyPI and the Microsoft publisher account has been secured. No CVE has been assigned.
+
+Why stolen cloud and CI/CD credentials raise the stakes
+
+Successful exploitation allows attackers to obtain cloud identity tokens that grant access to Azure resources, steal CI/CD pipeline secrets that could enable lateral movement across repositories and infrastructure, and harvest stored credentials that could lead to full infrastructure compromise across multiple cloud providers.
+
+The attack also demonstrates sophisticated evasion techniques, including restoring legitimate code to bypass diff-based reviews while hiding the payload in a separate module.
+
+How to remediate the agent-framework compromise
+
+Organizations should take the following remediation steps immediately:
+
+Isolate affected hosts and CI runners.
+
+Detect exposure by searching lockfiles, container images, CI caches, and environments for versions 1.26.1 or 1.26.2, and look for .pth files (agent_framework_meta.pth, af_runtime_diag.pth) and payload modules in site-packages.
+
+Pin to agent-framework==1.26.0 with hash verification and rebuild from clean environments.
+
+Rotate all credentials that may have been exposed, including Azure service principal credentials, Azure DevOps PATs and service connections, GitHub tokens, npm/PyPI/Hugging Face tokens, Docker registry credentials, and any secrets in environment variables or .env files.
+
+Audit Azure Entra ID sign-in logs, Azure DevOps audit logs, and GitHub Actions workflow runs for unauthorized access since November 17.
+
+Hunt for IOCs by searching proxy and DNS logs for connections to webhook.site, User-Agent strings “af-runtime-diagnostics/1” and “runtime-diagnostics/1”, and bursts of IMDS token requests.
+
+Block versions 1.26.1 and 1.26.2 at your package proxy and consider blocking webhook.site at the network level.
+
+Indicators of compromise (IOCs)
+
+Package versions: agent-framework 1.26.1, 1.26.2
+
+Files in site-packages: agent_framework_meta.pth, af_runtime_diag.pth
+
+Network: outbound connections to webhook.site
+
+User-Agent strings: “af-runtime-diagnostics/1”, “runtime-diagnostics/1”
+
+Behavior: bursts of IMDS token requests
+
+How Orca helps detect compromised agent-framework packages
+
+Orca enables customers to quickly identify assets running vulnerable package versions, understand their exposure in context, including internet accessibility, runtime reachability, and asset criticality, and prioritize the risks that matter most. Orca’s SCA (Software Composition Analysis) scanning capabilities can detect compromised packages in cloud workloads. Customers running Orca’s agentless scanning should check whether their workloads contain the affected versions. Orca’s platform highlights affected assets directly, helping security teams focus on the most critical remediation paths first.
+
+Because this payload targets build hosts and pipelines as much as production, coverage has to start before deployment. Orca helps teams catch risky code before it reaches production. And because the real damage comes from what stolen tokens can reach, Orca also helps teams reduce identity-based cloud risk and detect and respond to cloud threats that follow a credential compromise. As agent frameworks become a recurring supply-chain target, securing AI systems means securing the packages they are built on."
 108090ec0c64,108090ec0c64,2026-11-18 18:23 UTC,"Attacks, Breaches & Threat Intel",,The Register Security,Endpoint Security; Code Security; Data Security Posture Management; Identity Security Posture Management,Article,Microsoft's official Python agent framework hijacked to distribute malware,https://www.theregister.com/security/2026/11/18/microsofts-official-python-agent-framework-hijacked-to-distribute-malware/5310858,"Microsoft’s official agent framework package hosted on PyPI has been hijacked and now installs info-stealing malware, multiple security research firms have discovered","Microsoft’s official agent framework package hosted on PyPI has been hijacked and now installs info-stealing malware, multiple security research firms have discovered. CEO Satya Nadella may be on stage trying to wow investors and customers at his company’s annual Ignite conference, but somewhere in the bowels of a building in Redmond his open source team is likely panicking at what appears to be unauthorized access to an administrator account on Microsoft’s Github organization. The problem package is Microsoft’s agent-framework, versions 1.26.1 and 1.26.2, researchers reported late yesterday and this morning. According to OX Security, version 1.26.1 was reverted to a safe version, but the attacker later uploaded 1.26.2 through Microsoft’s official PyPI publisher account, suggesting that, at least at the time of their report, the credentials hadn’t been locked down. Safe to say, but if you find either version in your environment assume you have some account security work to do. Microsoft agent-framework for Python boasts nearly 200,000 downloads a month and is used to build and deploy AI agents. As of those latest releases, it’s also being used to exfiltrate environment variables, credential files, and other secrets for Azure, Git, Docker, Hugging Face, and other sensitive developer services. To make matters worse, the package never needs to be imported to do its dirty work – all it takes is a Python interpreter with the package installed to start up – the infected package still pulls the genuine 1.26.0 version of Microsoft’s agent-framework in order to keep itself running and looking legitimate, while in the background it gathers up credentials, encrypts them as a base64-encoded chunk of JSON, and sends them off to a webhook.site address hard coded into the malware. It appears from researcher accounts that this is made to act fast, as the malware isn’t persistent and only runs as long as the malicious version of the agent-framework remains in a site-packages directory. What it does do, however, is not just look for credentials in the environment: It actually starts calling for new ones and collecting them, too. In particular, the malware requests fresh identity tokens from GitHub Actions, Azure DevOps, and Azure itself, which are exfiltrated to the same webhook site. “That combination of passive theft and active token requests makes it especially dangerous in cloud build environments, because even short-lived tokens are useful when they're exfiltrated right away,” said researchers at OpenSourceMalware. The agent-framework GitHub repo is offline as of writing. It’s been pointed out online that Microsoft’s repo for ONNX Runtime, an AI accelerator, is also offline. Other Microsoft repos remain available, and neither Microsoft nor security researchers have linked the ONNX repo’s pull to the malware campaign. “We have made some repositories private while we investigate malicious content,” a Microsoft spokesperson told The Register. “Our priority is to protect customers and the broader ecosystem. We are working to review and will take further action as needed.”® Updated at 1805 with comment from Microsoft."
 e7fca461da57,e7fca461da57,2026-11-18 16:46 UTC,"Attacks, Breaches & Threat Intel",Optiv,Google News: Optiv,Threat Intelligence,Article,How NWN Is Becoming ‘The Place To Go For Cybersecurity’ In The AI Threat Landscape: Execs,https://news.google.com/rss/articles/CBMiwwFBVV95cUxNcXJiS1llR0l6cjk3N21GSlNocXk3eFZXc1dQZjNTR0ZYcWNaN21NN1U3ZHpfMzVwTzRqN2VnNjdMdnRiZWRJSTh5ZE9ZVTdZLW5xTngwalZZTnFyV2NjZHpCX29WMDJqbmtrblNuZ0VHNHkxOHVnY1A0QTJjT0swMWFhVzgtel9hcTZBaUQtaWk1WlJwNGlIMHRaeVZwSGROQVhSdVdFNDJlT3RvRE1xaTNTZm5XY253MjVOWFc1SlcxS0E?oc=5,,
 a6066efa2abb,a6066efa2abb,2026-11-18 16:35 UTC,"Attacks, Breaches & Threat Intel",,Wired Security,AI Security,Article,Artex Is Criminals’ New Favorite ‘Point-and-Shoot’ AI Hacking Tool,https://www.wired.com/story/artex-ai-hacking-tools/,"Over the past year, security researchers have warned that AI agents could vastly speed up cybercriminals’ ability to launch cyberattacks, breach companies, and ultimately steal...","Over the past year, security researchers have warned that AI agents could vastly speed up cybercriminals’ ability to launch cyberattacks, breach companies, and ultimately steal money, data, or sensitive information from those compromised systems. For at least one subset of hackers, it appears that era has now arrived.
@@ -13378,7 +13722,6 @@ Effective security needs both automated detection and users who report what they
 Security Awareness Training
 
 KnowBe4 Security Awareness Training provides regular simulated phishing and training modules that help users spot common red flags: unrealistically low prices, sender domains that do not match the brand, and suspicious links. Running these simulations before peak shopping periods prepares your workforce for offers like this one."
-a874ad4b21c6,a874ad4b21c6,2026-11-18 13:07 UTC,"Attacks, Breaches & Threat Intel",Trellix,Google News: Trellix,Email and Collaboration Security,Article,Hackers Impersonate Microsoft Exchange Online Alerts to Trick Users During Microsoft 365 Outage,https://news.google.com/rss/articles/CBMieEFVX3lxTE1sd0trNFZoblNYT1hiblgwR2FNM2NOa05PSDc2MFJBUWxYbHJVU0g2T01OczRDdVctTzFVc3c2cVdydlhyZFY2enQydDM4Q0htMkhoQjBfdEpTTmpmc3lhQm9ZNmlMd18tQ2UxOEE0RmxDYVgtTURsM9IBfkFVX3lxTFBxMHJqX1R2b0JhUDdhcGMwTTFCa3RsR05fczZkWVhlNzBsR1Y5MnNZdGhhZXk5NHdrRzRzcGl4cVAyM2dJNGxNOXdTTUtjTFJPZkFlLW41NmY3QWl0Zkk3Z1V2VTlCdG1pQWRUYXdFV0ZkSWl4LUIwM3pHc3lQZw?oc=5,,
 88ce21477d5c,88ce21477d5c,2026-11-18 13:00 UTC,"Attacks, Breaches & Threat Intel",Check Point,Check Point Blog,Threat Intelligence; Endpoint Security; Threat and Exposure Management,Article,Ransomware Reaches Record Highs in Q3 2026 as the Threat Landscape Fragments,https://blog.checkpoint.com/security/ransomware-reaches-record-highs-in-q3-2026-as-the-threat-landscape-fragments/,"Exposure Management identifies exploitable vulnerabilities, misconfigurations, exposed assets and attack paths so teams can prioritize exposures that provide realistic routes to...","The State of Ransomware Q3 2026 reveals a combination the ransomware market has not seen before: record victim numbers alongside record-low concentration among its leading groups. More ransomware brands claimed victims, the top ten fell below half of observed activity, and several high-profile organizations rejected major extortion demands. Together, these shifts reveal a ransomware ecosystem growing in volume, spreading across more operators, and facing changes in how victims respond to extortion.
 
 Key takeaways
@@ -13446,6 +13789,7 @@ Exposure Management identifies exploitable vulnerabilities, misconfigurations, e
 AI Security supports AI-driven prevention as ransomware groups and infrastructure change. ThreatCloud AI applies AI and global threat intelligence across Check Point protections to help identify emerging threats and analyze signals at scale.
 
 Want the full picture? Download the complete State of Ransomware Q3 2026 report here.."
+a874ad4b21c6,a874ad4b21c6,2026-11-18 12:23 UTC,"Attacks, Breaches & Threat Intel",Trellix,Google News: Trellix,Email and Collaboration Security,Article,Hackers Impersonate Microsoft Exchange Online Alerts to Trick Users During Microsoft 365 Outage,https://news.google.com/rss/articles/CBMieEFVX3lxTE1sd0trNFZoblNYT1hiblgwR2FNM2NOa05PSDc2MFJBUWxYbHJVU0g2T01OczRDdVctTzFVc3c2cVdydlhyZFY2enQydDM4Q0htMkhoQjBfdEpTTmpmc3lhQm9ZNmlMd18tQ2UxOEE0RmxDYVgtTURsM9IBfkFVX3lxTFBxMHJqX1R2b0JhUDdhcGMwTTFCa3RsR05fczZkWVhlNzBsR1Y5MnNZdGhhZXk5NHdrRzRzcGl4cVAyM2dJNGxNOXdTTUtjTFJPZkFlLW41NmY3QWl0Zkk3Z1V2VTlCdG1pQWRUYXdFV0ZkSWl4LUIwM3pHc3lQZw?oc=5,,
 9a48ac181871,9a48ac181871,2026-11-18 12:15 UTC,"Attacks, Breaches & Threat Intel",Kaspersky,Kaspersky Blog,Mobile Security,Article,How to detect stalkerware safely | Kaspersky official blog,https://www.kaspersky.com/blog/how-to-protect-yourself-against-stalkerware/56671/,"During the same period, Kaspersky researchers found 33 previously unknown stalkerware families","As the Coalition Against Stalkerware explains, stalkerware lets someone secretly monitor your private life through your mobile device. Depending on the tool and the access it has, an abuser may be able to view your searches, location, messages and photos, or monitor your calls. These tools are often easy to buy and install, and can run in the background without your knowledge or consent. Their availability does not excuse the person who uses them to abuse you.
 
 Technology has made stalking easier and more dangerous. Recent figures from Kaspersky give a sense of the scale: more than 34,000 people across more than 160 countries were affected by stalkerware in 2024-2025. During the same period, Kaspersky researchers found 33 previously unknown stalkerware families. You can learn more in Kaspersky‘s tech–enabled abuse report.
@@ -15006,6 +15350,7 @@ Driver 109cdc24ccd4872a3e4bf6f2d4f3c3d4 # driver of a legitimate antivirus produ
 File paths
 
 C:\ProgramData\Microsoft\Windows\Caches\syscache.dat C:\Users\{username}\AppData\Local\Microsoft\Windows\Caches\syscache.dat C:\Users\{username}\AppData\Local\Microsoft\CLR_v4.0\syscache.dat {modulepath}\syscache.dat {TempPath}\syscache.dat C:\Users\Public\kv_dbg.log C:\Windows\Sysnative\drivers\kvcore.sys C:\Windows\System32\drivers\kvcore.sys Domains and IPs d19v1tntmz2i98[.]cloudfront[.]net d35htktbyt7nxc[.]cloudfront[.]net 157.20.104[.]111 GitHub page with C2 hxxps://github[.]com/RonaldCMalcolm1983/staticPage"
+4bcc7c2342b7,4bcc7c2342b7,2026-11-18 06:41 UTC,"Attacks, Breaches & Threat Intel",Fortinet,Google News: SonicWall,Network Security,Article,Hackers Abuse FortiGate and SonicWall VPN Access to Infiltrate Enterprise Networks,https://news.google.com/rss/articles/CBMiWEFVX3lxTFBUanlzVUg4dWx1Yy00UlhqdHN2SWI2MnkzaFJmS3R5X25HSGJyenZYTWx4WFY2T01ZVUk4T0lwVlUyd1BJeUdkWW1MTG9CZzFQdmUyRXpOMTbSAV5BVV95cUxNQmEwZTY1eHpUMWluQ0lBY3lERENjUEhDdktPU01UNnNEUGVUWnVlWUNYUDVjOG9TbmdKRnJHX3hKTGFtbTY2TEJQWHQwU1ZvMzFXR05kdkVVaS04dGJR?oc=5,,
 42f904264268,42f904264268,2026-11-18 00:00 UTC,"Attacks, Breaches & Threat Intel",,Cofense Blog,Endpoint Security; Email and Collaboration Security; Threat Intelligence,Article,Betrayed Expectations: Malware Delivery via Common Brands,https://cofense.com/blog/betrayed-expectations-malware-delivery-via-common-brands,"By: Jacob Malimban, Intelligence Team In the first half of 2026, Cofense Intelligence observed a 239% rise in phishing campaigns that weaponize brand names to deliver malware...","By: Jacob Malimban, Intelligence Team
 
 In the first half of 2026, Cofense Intelligence observed a 239% rise in phishing campaigns that weaponize brand names to deliver malware onto corporate devices as compared to the first half of 2025. Adobe, the Social Security Administration, Docusign, the IRS, and Zoom are among the most abused. The names are familiar by design: employees who expect a routine document from a recognized sender appear more likely to click, and the borrowed credibility of those brands helps the emails slip past automated security filters. There are two primary ways that brands can be spoofed to deliver malware and abused legitimate remote access tools (RATs).
@@ -23707,97 +24052,6 @@ The Pathless Path: Cairn AI from Penetration Testing to General Problem Solving 
 Zhipu GLM Model Platform — Zhipu AI
 
 DeepSeek AI Platform — DeepSeek"
-eb1104bab80a,eb1104bab80a,2026-11-12 14:51 UTC,"Attacks, Breaches & Threat Intel",,Socket,Data Security Posture Management; Endpoint Security,Article,Cyberattacks Are Skyrocketing in Japan as Researchers Trace AI-Assisted Intrusions,https://socket.dev/blog/japan-cyberattack-surge?utm_medium=feed,"Investigators found that attackers exploited software vulnerabilities, stole session information, and abused legitimate CSV export functions to extract customer data","Japan is facing an extraordinary surge in cyberattacks, with a record 233 security incidents publicly disclosed in October alone. That's roughly 2.4 times the previous monthly record, according to Trend Micro data reported by TV Asahi. Cyberattacks are rising around the world, but the pace of disclosures in Japan is staggering. Nearly every day has dragged another affected company, service provider, or public institution into the headlines.
-
-The volume of exposed information is growing even faster. An analysis by MM Research Institute estimates that approximately 185 million personal information records were exposed or potentially exposed in incidents disclosed during October, nearly four times the total reported for all of 2025. The number of large breaches has also increased sharply, with 30 incidents involving at least one million records disclosed in October.
-
-The disclosures have implicated major retailers, technology companies, financial services providers, and government agencies. On November 9, Japanese furniture giant Nitori disclosed that unauthorized access to its systems may have exposed up to 37.62 million customer information records. Days earlier, email service provider Arara confirmed an intrusion affecting more than 81 million email addresses and potentially hundreds of corporate customers.
-
-Japan's government has announced emergency cybersecurity measures as researchers dig into why so many attacks are succeeding and what's driving the sudden spike.
-
-Breaches Surge While Ransomware Disclosures Remain Relatively Flat #
-
-In an October analysis of Japanese security incidents, TrendAI counted 607 publicly disclosed incidents from January through September 2026, already exceeding the 594 reported during all of 2025.
-
-Yet ransomware disclosures barely moved in TrendAI's dataset. Researchers counted 82 publicly disclosed ransomware incidents during the first nine months of 2026, compared with 79 during the same period last year.
-
-Unauthorized access accounted for 331 incidents in TrendAI's analysis, more than half of the total. Another 62 involved what TrendAI calls data supply chain incidents, in which an organization entrusted with information suffers an attack and its customers subsequently report their own exposure.
-
-A separate investigation by Japanese cybersecurity firm Macnica illustrates just how dramatically web application breaches have increased. Researchers identified 288 incidents involving unauthorized access to web systems and potential data theft through October 2026, compared with 84 during all of 2025. October alone accounted for 168 disclosures.
-
-Macnica excluded ransomware, credential-stuffing attacks, and duplicate disclosures from customers affected by the same compromised provider. Its research found that attacks have expanded well beyond traditional ecommerce targets to membership portals, business applications, and specialized services.
-
-Some of the targets are surprisingly obscure. Macnica documented breaches involving:
-
-A regional table tennis association's tournament registration system: 185 organizers
-
-A tourist train's seat reservation system: Approximately 1,400 passengers
-
-A funeral company's flower-ordering system: Roughly 10,000 records
-
-An event ticket refund system: Approximately 1,500 records
-
-A fashion magazine's blogger management system: About 2,800 people
-
-These incidents, disclosed between July and October, show how far the attacks have spread beyond major retailers and technology companies. Membership portals and business or administrative systems accounted for roughly two-thirds of the October web-system incidents Macnica tracked.
-
-Researchers also found evidence of successful intrusions continuing into late October, indicating that the spike wasn't simply the result of organizations discovering and reporting older compromises.
-
-Arara Compromise Leads to Hundreds of Affected Companies #
-
-The breach at Japanese email distribution provider Arara demonstrates how an intrusion at a single company can spread through an extensive network of business customers.
-
-In an updated disclosure on November 6, Arara confirmed that attackers had obtained approximately 81.3 million email addresses, with up to 380 corporate customers potentially affected. Depending on the customer, the exposed information may also have included names, dates of birth, phone numbers, addresses, and membership information.
-
-Attackers also used Arara's email distribution service to send as many as 7.13 million fraudulent messages impersonating credit card companies between October 28 and October 30.
-
-The company suspended the affected service on October 31 while investigating the intrusion.
-
-On November 9, Japanese gaming giant SEGA disclosed that approximately 2.2 million newsletter email addresses were exposed through Arara. Other affected organizations include major retailers and service providers that relied on the same email infrastructure.
-
-Arara wasn't the only Japanese email distribution provider hit. On October 19, Ymir Link disclosed an intrusion into its Cuenote FC service. In a November 11 update, the company confirmed that attackers had extracted approximately 47.9 million email distribution records from 49 systems. Investigators found that attackers exploited software vulnerabilities, stole session information, and abused legitimate CSV export functions to extract customer data.
-
-The Arara breach left hundreds of companies dealing with the fallout of an attack on systems they didn't operate. A company whose own systems remain secure may still need to notify customers, investigate potential exposure, and address the consequences of an intrusion at a service provider.
-
-Researchers Find Evidence of AI-Assisted Exploitation #
-
-The reasons behind Japan's sudden increase remain under investigation, but researchers have identified evidence that artificial intelligence is being used to help attackers discover and exploit vulnerabilities.
-
-In an October 21 technical investigation, Japan's Computer Emergency Response Team Coordination Center, JPCERT/CC, confirmed that attackers had used AI to scan for known vulnerabilities and conduct attacks through APIs.
-
-Investigators examining attack infrastructure found that attackers had analyzed Android application packages to identify API endpoints and test them for weaknesses, including server-side request forgery (SSRF).
-
-On another attack server, researchers found Blutter and jadx, tools used to reverse-engineer Android and Flutter applications. Analyzing these apps can reveal API endpoints and authentication mechanisms, allowing attackers to probe backend services for weaknesses that aren't obvious from the public website.
-
-The attacks go beyond known vulnerabilities. Macnica's investigation found attackers exploiting authentication and access-control weaknesses specific to individual applications. Finding these issues has traditionally required considerable effort, but AI-assisted analysis and automation can accelerate the process across many targets.
-
-TrendAI researchers have also observed suspicious files containing artifacts consistent with AI-generated code and attack attempts that rapidly adjusted after initial failures.
-
-While researchers have confirmed AI-assisted attacks, they haven't established how much AI is contributing to Japan's broader cyberattack surge. JPCERT/CC also found that some of the infrastructure it investigated targeted services outside Japan, suggesting these techniques are not limited to Japanese organizations.
-
-Japan Seeks Earlier Vulnerability Warnings as Attacks Accelerate #
-
-The surge has prompted Japan's government to examine how quickly organizations receive information about software vulnerabilities and can respond before attackers exploit them.
-
-According to a November 5 Reuters report citing Nikkei, Japan plans to seek earlier access to information about undisclosed software vulnerabilities from US AI developers and other overseas technology companies.
-
-The government is exploring arrangements that would give agencies and critical infrastructure operators advance warning of serious vulnerabilities, allowing them more time to prepare patches or other mitigations before public disclosure.
-
-The effort follows a disruptive October incident involving critical vulnerabilities in PHP, which is particularly prevalent in Japan. According to W3Techs, PHP runs on approximately 92% of websites hosted in Japan whose server-side language can be identified, compared with 69% globally. One reason is the popularity of WordPress in Japan. The content management system powers 88% of Japan-hosted websites with an identifiable CMS, compared with approximately 58% worldwide.
-
-Exploitation attempts began before the PHP vulnerabilities were publicly disclosed on October 21, and millions of subsequent attempts forced some website operators to patch urgently or temporarily take their systems offline.
-
-The pressure to respond faster extends beyond newly discovered vulnerabilities. On November 5, Japan's National Cybersecurity Office warned businesses that several recent breaches appeared to involve inadequate security practices, including continued use of unsupported software and known vulnerabilities that had not been patched.
-
-The guidance calls on organizations to maintain visibility into their software components, establish priorities and deadlines for fixing vulnerabilities, and prepare procedures for responding when serious vulnerabilities are discovered in open source software and external libraries. It also addresses security weaknesses in APIs and systems operated by outside contractors.
-
-The following day, Prime Minister Sanae Takaichi's administration announced a 10 billion yen ($63 million) emergency cybersecurity package. The measures include expanded intelligence gathering, AI-assisted vulnerability detection, stronger coordination between government and industry, and additional support for organizations responding to attacks.
-
-Japan is pushing for earlier vulnerability warnings as attackers find and exploit weaknesses faster than organizations can patch them, including vulnerabilities that have already been known for some time.
-
-There has also been speculation about state-backed involvement. Kyodo News reported that GMO Internet Group's investigation pointed to a North Korea-linked hacking group in its October breach, but no public evidence has linked Japan's broader cyberattack wave to a single state-sponsored campaign. The incidents involve different systems, techniques, and circumstances, and many investigations remain ongoing.
-
-For organizations trying to keep pace, patching faster requires knowing which software components and open source dependencies they run, where they're used, and which vulnerabilities need attention first. Japan is now seeking access to vulnerability intelligence before public disclosure, while urging businesses to address known weaknesses more quickly. The pressure is mounting after a month of record breaches, with November already bringing another wave of major disclosures."
 f7726175726d,f7726175726d,2026-11-12 14:30 UTC,"Attacks, Breaches & Threat Intel",,Infosecurity Magazine,Other/General,Article,Hacked Asian Telcos Used to Intercept Taiwanese Calls and Texts,https://www.infosecurity-magazine.com/news/silentair-liminal-panda-telco/,"Enea, a firm providing software for telecommunications and cybersecurity, named the actor SilentAir in its November 11 research, which also covers Liminal Panda, a group that...","A newly identified state-level actor has used compromised mobile operators in Asia to intercept calls and texts, mainly targeting subscribers in Taiwan. Enea has watched it since early 2025.
 
 Enea, a firm providing software for telecommunications and cybersecurity, named the actor SilentAir in its November 11 research, which also covers Liminal Panda, a group that has attacked mobile operators.
@@ -24729,6 +24983,7 @@ Explore All Posts by Aaron Linskens
 Tags
 
 artifact repository repository software bill of materials dependencies Nexus Repository Open Source repository management Nexus Repository Pro software infrastructure Sonatype Nexus Repository"
+10c43d089dc3,10c43d089dc3,2026-11-12 11:00 UTC,"Attacks, Breaches & Threat Intel",,Dark Reading,N/A,Article,Inside an AI Attack Against a US Retailer,https://www.darkreading.com/cyberattacks-data-breaches/inside-ai-attack-us-retailer,,
 ccc88de1507e,ccc88de1507e,2026-11-12 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,AI Security; Server & Workload Protection; Endpoint Security; Threat Intelligence,Article,How AI Revived a Stalled Attack on a U.S. Retailer,https://www.security.com/threat-intelligence/ai-assisted-attack-us-retailer,"Similar labelled scripts also appeared on September 18, 2026 on three database servers in the same network, so the web server was not the first place the attackers appeared to...","How the attackers used AI
 
 Phase one: hand-typed commands
@@ -25004,7 +25259,6 @@ hxxp://108[.]165[.]20[.]205:8080/sqlrun2.ps1
 hxxp://103[.]79[.]79[.]191/yuze
 
 hxxp://8[.]219[.]82[.]21/yuze–Windows–X64.exe"
-10c43d089dc3,10c43d089dc3,2026-11-12 11:00 UTC,"Attacks, Breaches & Threat Intel",,Dark Reading,N/A,Article,Inside an AI Attack Against a US Retailer,https://www.darkreading.com/cyberattacks-data-breaches/inside-ai-attack-us-retailer,,
 05f2e6e04f75,05f2e6e04f75,2026-11-12 10:48 UTC,"Attacks, Breaches & Threat Intel",Elastic Security,Elastic Security Labs,Endpoint Security; Server & Workload Protection,Article,0% GPU utilization: How SANSAR hides Linux cryptomining,https://www.elastic.co/security-labs/threat-command/sansar-linux-cryptomining-malware,"Elastic Security Labs is tracking REF3364, a Linux cryptomining intrusion that combines custom malware with publicly available miners","Elastic Security Labs is tracking REF3364, a Linux cryptomining intrusion that combines custom malware with publicly available miners. The toolkit includes SANSAR, a Rust orchestrator that receives commands over Tor (The Onion Router) used to manage CPU and GPU miners.
 
 The threat actor also deployed a kernel rootkit to hide selected processes and files, an NVIDIA Management Library (NVML) wrapper to falsify GPU readings, and a separate backdoor named netns. This backdoor retrieves its C2 address from an Ethereum smart contract before connecting to the server directly.
@@ -25631,9 +25885,7 @@ Citing publicly available information on the attacks, he noted that several were
 Maersk hasn’t experienced a serious cyber incident since the NotPetya campaign in 2017, which it claimed at the time may have cost the firm as much as $300m.
 
 Image credit: Mariusz Bugno / Shutterstock.com"
-e1111e87cbfe,13d7df44cf0d,2026-11-12 08:00 UTC,"Attacks, Breaches & Threat Intel",NCC Group,Google News: NCC Group,Endpoint Security; Threat Intelligence,Article,Qilin Ransomware Gang Leader Allegedly Identified as 36-Year-Old Russian Man,https://news.google.com/rss/articles/CBMiYEFVX3lxTE0tU3VBWmlpMktsRVRjMkNRSm8tOE1LX2h6bTJ1dElvUWwyUG5RaHFMWlRXOTh5eTZSRk9udk1SQjFVek4yZlIzbng0THF3NnQwTFU3T1BVTXplQkRIT0xELdIBZkFVX3lxTE5BM1lHdmpSTHdSaUVtcC1sYk9wQ0JNa1RaSGZKOUdURzQ2QUxZbTdHSGlhNWxIeVZxems3TFl3b05XX1dqbGsyS2xReWpHMFN6dHBtX1c5YjRkcnlVVjNZNlRrNXJldw?oc=5,,
 b84d66e459c0,f4f3c6b93ae5,2026-11-12 08:00 UTC,"Attacks, Breaches & Threat Intel",WWT,Google News: WWT,N/A,Article,Illumio Puts Breach Containment at the Centre of AI Resilience with WWT’s ARMOR,https://news.google.com/rss/articles/CBMixAFBVV95cUxNOEx4WllaQmtXb1RvcnRrS0lwVWNGbUQ3TXNLaXh3NkhhWXdEMjIzLVVZQVVac2ZIMDNYelQxOGNVUzFsM3VBbTByQXQtQ0NQelZPVlI1RGRfQ0RfYTBhOTFfVExoYW1IcTRrWVN2YTRzLTUzX2tMRF9nRVFQSXowSnV3UTNnOEh1M3d0cTFNd2FpYkJENGZRcXRGalpxeG9Ud0g4cktVSWlmUWp4a3ZjdmduTUo2NXpHbkFXOEtqYVBnN3JI?oc=5,,
-a34467ad4bf0,a34467ad4bf0,2026-11-12 08:00 UTC,"Attacks, Breaches & Threat Intel",Secureworks,Google News: Trellix,Endpoint Security,Article,Top 13 Ransomware Protection Companies: Who Actually Wins After the $43.9B Mega-Deal?,https://news.google.com/rss/articles/CBMid0FVX3lxTE1GeGs5YURfQkpvdVkzUjBsU19HUjRfLU83WHRabW93eHpBUXdqZjZ4MWo3VlRydldFNGNldUNQRXRaQlFhZ1dhVmw4NTNjQUVxaUdYTkJ1Sld1U0hfVnZ3eDlmWDFQYU1TNmRqMVpVWEgwOXEwZFhj?oc=5,,
 c8d88b168a3f,c8d88b168a3f,2026-11-12 06:20 UTC,"Attacks, Breaches & Threat Intel",,Cyble,AI Security; Email and Collaboration Security,Article,Can Agentic AI Investigate a Phishing Campaign? Evidence Walkthrough,https://cyble.com/blog/can-agentic-ai-investigate-phishing-campaign/,"They make a good test case because the attack never needed a phishing email, so an inbox-only investigation would have missed most of it","Yes, with a human signing off.
 
 An agentic AI can run most of a phishing investigation on its own. It can pull domain registration records, open the lure safely, pivot to related infrastructure, extract indicators and write up a verdict with the evidence attached. What it shouldn't do yet is act on that verdict unchecked, because attackers are already hiding instructions inside phishing emails meant for the AI doing the reading.
@@ -38421,6 +38673,7 @@ References
 [9] Microsoft Security Research and Microsoft Threat Intelligence, AI-driven, large-scale nation-state campaign using ARTEX enables supply chain compromise, 21 October 2026. https://www.microsoft.com/en-us/security/blog/2026/10/21/storm-0940-uses-artex-agentic-ai-connectwise-supply-chain-compromise/
 
 [10] Darktrace, Advancing the Use of Frontier AI in Cybersecurity: Darktrace Joins the OpenAI Daybreak Cyber Partner Program to Explore Defensive AI Integrations, 22 June 2026. https://www.darktrace.com/blog/advancing-the-use-of-frontier-ai-in-cybersecurity-darktrace-joins-the-openai-daybreak-cyber-partner-program-to-explore-defensive-ai-integrations"
+a384e3221598,2b62329cc6f4,2026-10-30 07:00 UTC,"Attacks, Breaches & Threat Intel",KPMG,Google News: KPMG,N/A,Article,eMudhra Shares Fall Nearly 4%; KPMG To Review Cybersecurity Incident Involving Weak TLS Keys,https://news.google.com/rss/articles/CBMiswFBVV95cUxQdllTQnI3YXk5ZzhJdUJVSW5LTmRtanI5SUJQcFVJaThSRUw5LTN2Qmd0YkxkcVhfSmFqcENFODBUYUx6LTVnay1ld1NvYnBXTXRJVE9Xa2FKaXZUTmtHNHZqd0lTZVVacTRWTk5qWGJUV1hpdVVGbDRFblo1ZlpkdUpfMXpERjdjV1VDZTJHeTZxN3Ata1dUc3VYb1kxcVg1bi02MlF0YzI1dWl4OTNMcVdqaw?oc=5,,
 1e2fe8d86be4,1e2fe8d86be4,2026-10-30 13:07 UTC,"Attacks, Breaches & Threat Intel",,Risky Business News,Other/General,Podcast,Billions stolen in Binance hack,https://risky.biz/RBNEWS627/,Billions stolen in Binance hack 0:00 / 9:31 Subscribe Brought to you by Nebulock Hunt-first security operations Show notes Risky Bulletin: Belarusian state hackers get on the...,"Risky Bulletin Podcast
 
 October 30, 2026
@@ -39866,7 +40119,7 @@ Conclusion
 Amatera shows how the infostealer market works today. A developer maintains the product, and other actors distribute it via compromised websites, ads, fake AI tools, emails, or ClickFix instructions. The threat can outlive the malicious file itself, however, as passwords, cookies, session tokens, and confidential documents remain valuable even after the device has been cleaned. Stolen data can fuel both immediate fraud or later intrusions, and the rise in detections in 2026 shows attackers adopting and adapting malicious toolsets at a rapid clip.
 
 READ NEXT: ESET takes part in Operation Endgame to disrupt Amadey and Stealc"
-40ed7e456820,40ed7e456820,2026-10-29 07:00 UTC,"Attacks, Breaches & Threat Intel",Optiv,Google News: Optiv,Data Security Posture Management,Article,"Hackers expose personal information of more than 40,000 DHS agents",https://news.google.com/rss/articles/CBMiygFBVV95cUxQN3NXT2FyeXhaTlJqVmdkajNYRFpwQnFZcWRRbDJWN0xwQjZlbkVRcTB4WG9EZW1UWjlCYV9KQnhZLUdjNVZCY2VKZy1sQ3J1cklycXdtSUtMS1o5V09MNW9mQml5dG1TTG5qRUtlZjlmakRfNDlJR2hPblZJQjZhZ1RqMWwtbmotOENQVUQxR3ZZM3VSQWxrem5PQ3JkOERGTEc2NjYzcVZKNlVEOE80ZzUtOXpkN2hGdkRWTTkxQ2lDWVJhd2pka0FR?oc=5,,
+9b1d9e8be68a,40ed7e456820,2026-10-29 07:00 UTC,"Attacks, Breaches & Threat Intel",Optiv,Google News: Optiv,Data Security Posture Management,Article,"Hackers expose personal information of more than 40,000 DHS agents",https://news.google.com/rss/articles/CBMiygFBVV95cUxPa3ZyT1RRQjNPcmd5Z2FfTnY1ZUJ0SV95S2Z5QkdCOHBUTHMtT0daNFBnalp1Q3J3aHM3NFU1SFhWb00yMlFDN1ZpZlJWaTZocTY1UEptNUF1QTFPMlhQa0c5U3JfUzdLWEtSOG1UT3loaHc1cTBNTl9PVnRJSmxuXzlVVjQ3bXdiZmpUUm9PMjBaWGRpTGJMWVBHaXlCM0RlNk1kVXZVSGlCQ0tIeUJ4cUdmY3RNdzVRYXQ1Wms3VjJ3RU1HMFlESnFR?oc=5,,
 8376bfc5bebd,2b62329cc6f4,2026-10-29 06:28 UTC,"Attacks, Breaches & Threat Intel",Cato Networks,Cato Networks Blog,Zero Trust Secure Access; Identity Security Posture Management; Cloud Risk Management,Article,Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform,https://www.catonetworks.com/blog/cato-ctrl-threat-brief-emudhra-certificate-compromise-highlights-value-protection-delivered-by-ai-native-sase-platform/,The post Cato CTRL Threat Brief: eMudhra Certificate Compromise Highlights the Value of Protection Delivered by an AI-Native SASE Platform appeared first on Cato Networks,"Executive summary
 
 Eight eMudhra intermediate certificate authority (CA) private keys were compromised after being generated with insufficient randomness. Attackers could use these keys to forge certificates and impersonate legitimate websites or services to clients that still trust them. An attacker able to intercept a connection could potentially read or modify sensitive traffic.

@@ -1,4 +1,90 @@
 ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+ab9c43db1f38,ab9c43db1f38,2026-11-26 02:26 UTC,Product & Roadmap,Wiz,Wiz Blog,AI Security; Vulnerability Management; Endpoint Security,Article,Introducing Wiz ADR: Strengthening Cloud and AI Detection and Response with Application Context,https://www.wiz.io/blog/introducing-wiz-adr,AI-assisted attacks have dramatically compressed the time from vulnerability disclosure to active exploitation–meaning attackers routinely reach execution faster than...,"The security tools SecOps teams rely on have gotten exceptionally good at detecting infrastructure-level events: subprocess spawns, outbound network connections, and system calls. However, what has historically been missing is visibility into the application layer sitting directly above those events: which specific function executed the call, how code execution reached that point, and whether the observed runtime behavior represents expected application logic or an active exploit in progress.
+
+This visibility gap is becoming increasingly critical to address. AI-assisted attacks have dramatically compressed the time from vulnerability disclosure to active exploitation–meaning attackers routinely reach execution faster than engineering teams can patch. At the same time, modern threats like compromised dependencies and prompt-injected AI agents execute entirely inside legitimate application processes without a CVE at all. When every minute counts, deep application context lets SecOps teams immediately separate real attacks from benign app behavior, pinpoint how execution happened, and respond without delay.
+
+Today, we are excited to announce Wiz ADR (Application Detection and Response). Built directly into the Wiz Runtime Sensor, Wiz ADR brings application-layer visibility into threat detection–pairing application call stacks with OS and process telemetry, with no extra agents or code changes required. Rather than only alerting on suspicious events at the system layer, Wiz ADR reveals the exact functions that triggered them–helping SecOps cut false positives by seeing the application’s true intent, and simplifying the handoff to engineering by pinpointing the exact line of code to fix.
+
+Wiz ADR: Turning Runtime Alerts into Clear Intent and Fast Fixes
+
+Whenever a runtime detection fires across your workloads, the Wiz Runtime Sensor doesn’t stop at the OS process–it reaches into the application layer to capture what your code was doing at the exact moment the event occurred.
+
+Wiz ADR reconstructs the application call stack both inside the process that triggered the alert and across parent-to-child spawns–so even when a web service launches a child shell command, analysts see the exact application function that kicked it off. Along the way, it flags meaningful execution patterns with application context tags (such as Request Handler, Dynamic Code Execution, or Unsafe Deserialization), translating raw function calls into plain-English security signals so SecOps can spot the root cause immediately, even without knowing the underlying codebase. When those context tags appear on a runtime event, the Sensor also uses them directly to trigger high-fidelity application detections and elevate the severity of existing alerts.
+
+Paired with the broader Wiz Platform, that application context turns ambiguous alerts into confirmed verdicts and code-level fixes across two everyday scenarios.
+
+Confirming a Real Exploit with Wiz Blue Agent
+
+Consider a containerized Python FastAPI service that unexpectedly spawns /usr/bin/id as root. On its own, /user/bin/id is too common across Linux workloads for standard OS-level rules to alert on without flooding the SOC–meaning early post-exploitation reconnaissance routinely slips by unnoticed.
+
+With Wiz ADR, the Sensor sees where execution started. It reconstructs the call stack across the process spawn–tracing /user/bin/id back to the import_spellbook HTTP endpoint and into PyYAML’s UnsafeConstructor, attaches context tags like Request Handler, Python Request Handler Descendant, and Unsafe Deserialization, and fires a High-severity alert immediately.
+
+Bringing that stack-trace analysis together with process ancestry and cloud risk gives the Wiz Blue Agent the context to classify the alert as Malicious with high confidence, connecting the application context to root execution inside a privileged production container and pointing teams directly to the import_spellbook endpoint. From there, Wiz Workflows can notify the right teams with full context and trigger response actions to contain the threat immediately.
+
+Eliminating False Positives and Tracing Threats Straight to Code
+
+Now consider the flip side: internal services whose legitimate code triggers scary OS alerts. When repohygiene–a containerized Go service on CI runners–runs find /data -name .git-credentials -type f during post-build audits, OS-level rules flag it as potential credential harvesting.
+
+Pairing Wiz ADR with Wiz Code unlocks Threat to Code correlation, tracing the Go call stack (Scanner.findGitCredentials) straight back to the exact repository, file (scanner.go, line 55) and code owner in GitHub, surfacing the developer’s own code and comments right inside the alert inside of handing engineering a bare container ID and PID.
+
+And with Blue Agent, no human has to triage it manually. Wiz Blue Agent synthesizes the stack trace, clean process ancestry (systemd -> containerd -> runc -> repohygine -> find), and sensor forensics to confirm the activity matches intended application logic, automatically classifying the alert as Not Malicious and deprioritizing it before it burns SecOps hours.
+
+Start Defending Your Environment with Application Context
+
+Wiz ADR is available now through the Wiz Runtime Sensor–giving SecOps and Engineering teams deep application context on runtime detections with no code changes or extra agents required.
+
+Existing Wiz customers can learn more about Wiz ADR in our documentation, and if you are not a customer and want to see it in action please request a demo."
+5aa6146fb996,5aa6146fb996,2026-11-26 02:10 UTC,General Security News,Wiz,Wiz Blog,AI Security; Cloud Risk Management,Article,A Feast for AI: What Wiz Agents are Thankful For,https://www.wiz.io/blog/what-wiz-agents-are-thankful-for,"In cloud security, that’s your offensive security team - thinking like real adversaries to uncover exploitable gaps before an attacker does","Anyone who has ever survived a family Thanksgiving knows dinner doesn’t just happen. It takes the whole household working in sync to get everyone fed without setting the kitchen on fire, much like how Wiz’s team of AI agents work alongside security, Security Operations, and engineering teams to keep cloud environments running smoothly and securely.
+
+This year each of the agents is taking on a role that suits them at Thanksgiving.
+
+Red Agent is the taste-tester & kitchen inspector: Inspecting every dish against the recipe, probing the turkey for any raw spots, and flagging potential dinner-ruining mistakes before anyone takes a bite.
+
+Green Agent is the head chef & fixer: Tracking down who was responsible for the turkey, figuring out why it’s so dry, and handing out the exact fix - whether that’s adding more butter to save dinner or updating the recipe so this doesn’t happen again.
+
+Blue Agent is the watchful relative: Investigating every smoke alarm in minutes, separating harmless burnt rolls from a real kitchen fire so everyone isn’t sprinting back before they’ve had pie.
+
+This very much lines up with their day jobs. Protecting a cloud environment isn’t a solo act. It takes offensive validation (Red Agent), AI-driven remediation (Green Agent), and autonomous threat investigation (Blue Agent) operating from the same shared context.
+
+As we prepare for the holidays, here is what each of the agents is most thankful for this season.
+
+The Red Agent: Thankful for Real-World Risks Validated Before Attackers Find Them
+
+Every Thanksgiving needs that sharp-eyed family member who makes sure the recipe was actually followed. They taste the stuffing, check the turkey's temperature, and catch the mistakes before anyone else takes a bite. In cloud security, that’s your offensive security team - thinking like real adversaries to uncover exploitable gaps before an attacker does.
+
+Instead of relying on static signature scanners or waiting once a year for a manual pentest, the Red Agent is thankful for continuous, autonomous offensive testing from the outside in. Red Agent uses AI reasoning to understand how an application is built and its business logic so it can uncover complex logic flaws such as authorization bypasses. It continuously pentests your applications at machine-speed enabling you to stay ahead of AI threats.
+
+Red Agent enables your team to find and remove complex logic-driven vulnerabilities before attackers get to them. Better yet, it works together with the Green Agent to give you the exact guidance on how to fix the issues it finds so teams focus their holiday energy on risks in the kitchen that actually matter.
+
+Kitchen Inspector’s tip:A finding is only useful if you can trust it and know where it fits. Red Agent includes full reproduction commands with every finding, so your team can rerun the test and see the issue for themselves. Just as important, Red Agent findings are mapped onto the Wiz Security Graph and generate Wiz Issues. That lets you trace each one back to its blast radius and prioritize it in the context of your cloud environment. A weakness on an isolated test box and one sitting next to sensitive data are very different problems, and now you can tell them apart. That way, you fix the dish that would spoil the whole meal first.
+
+The Green Agent: Thankful for Clear Context and a Recipe for Remediation
+
+Thanksgiving dinner is no easy feat and comes with its fair share of kitchen mishaps. But it’s even harder when no one knows who’s responsible for dinner or how to salvage it before guests arrive. Security and development teams face a similar challenge when it comes to remediation. Alerts bounce between Jira queues with no clear owner, let alone the guidance needed on how to fix them. That meant remediation stretched out for weeks, all the while security teams tried to race toward the Zero Critical Club.
+
+This season, the Green Agent is thankful for the clear context needed to find the right fix. Stepping in like a head chef with a master prep schedule, Green Agent investigates each Issue to determine the owner best positioned to fix it and the best and safest ways to go about fixing it.
+
+All of that comes together in a remediation plan, Green Agent's step-by-step recipe for resolving an Issue. It determines the various ways to eliminate the risks identified in each Issue, whether that’s giving security teams the option to contain or mitigate the risk until a permanent fix is ready or helping developers with the guidance to fix at the root cause in code or harden systems to prevent future risk. Instead of a cold handoff, owners get clear, tailored steps they can act on right away, so fewer dishes get sent back and the team reaches the Zero Critical Club with time to spare.
+
+Chef's Tip: Don't toss the turkey to save the oven
+
+The fastest fix isn't always the right one when you consider the potential business impact. That’s why Green Agent develops multiple remediation plans and uses context from the full environment to weigh the trade-offs of each. For example, examining a front end that’s intentionally public or a workload that’s part of a Project defined as high business impact. It rules out plans that could disrupt critical workloads, giving teams options to reduce risk without taking production down with it. That way, dinner still makes it to the table
+
+The Blue Agent: Thankful for Uninterrupted Quality Time
+
+Finally, there is the watchful relative, checking each smoke alarm the minute it goes off to ensure evacuation is necessary. For Security Operations teams, the ultimate gift isn’t another dashboard; it’s an undisturbed long weekend spent with family and friends.
+
+This year, the Blue Agent is thankful for the context already available on the table, allowing for trusted, complete threat investigations
+
+Threats don’t follow the holiday calendar. Blue investigates threats fired in the environment to understand which ones are truly malicious, running comprehensive investigations powered by the context of the Wiz Security Graph. So, SOC analysts know that the fire alarm they are pulled to investigate is a true positive, instead of leaving family and friends to deal with a drill in the middle of the meal.
+
+Watchful Relative’s Tip: Check the recipe
+
+Most threat investigation tools stop at process or OS-level alerts, leaving analysts guessing what the application was actually trying to do. Blue Agent goes straight to the execution layer by pulling Application Detection and Response (ADR) stack traces during Sensor-based Threat investigations. Seeing the exact application functions in the call stack helps Blue Agent uncover details infrastructure telemetry alone would miss, such as whether an anomaly is harmless app logic or an active exploit like RCE, LFI, or SSRF. This gives SOC teams code-level confirmation before anyone leaves the table.
+
+The Secret Ingredient: A Shared Table
+
+The best Thanksgiving dinners come together when everyone knows their role and cooks from the same recipe. The same is true in the cloud. Red Agent validates exploitable risks, Green Agent turns them into tailored plans to fix them, and Blue Agent investigates live threats. All three work from the same context across the environment, so developers, security engineers, and SecOps can spend more time at the table."
 0d9703c17e11,0d9703c17e11,2026-11-25 14:27 UTC,General Security News,Wiz,Wiz Blog,AI Security; Cloud IPS,Article,Inside Agentic Offensive Frameworks: Intent IDs,https://www.wiz.io/blog/agentic-offensive-frameworks-intent-ids-artex-cairn,"If a single attacker hits your environment with i14200 at 10:00 and i15100 an hour later, while your logs show only a handful of probes in between, those missing sequence...","“Black October” was rife with iNNNN indicators.
 
 Barracuda: i19ghci.yml in a GitHub workflow.
