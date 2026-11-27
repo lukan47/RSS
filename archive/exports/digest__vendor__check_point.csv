@@ -71,63 +71,6 @@ With attackers planting backdoors on breached Check Point servers, CISOs must au
 To establish whether Check Point infrastructure has been compromised, CISOs and security teams should examine administrative login records for unusual access patterns, including unfamiliar IP addresses, unexpected login times, and unauthorised access added Dhar. They should also look for changes to firewall policies, access-control rules, and configuration files, and thoroughly review system logs, audit trails, and command execution history for suspicious activity.
 
 Dhar noted that once there are indications of a compromise, the immediate priority should be to prevent further access and contain the damage. Security teams should restrict access to the management server to authorised administrative systems and isolate confirmed compromised systems while preserving forensic evidence. Unauthorised accounts should be disabled, suspicious SSH keys and access tokens revoked, and identified malicious IP addresses and domains blocked."
-951e71e76017,1b2ec6a0d346,2026-11-25 10:47 UTC,"Attacks, Breaches & Threat Intel",Check Point,Security Affairs,Server & Workload Protection; Threat Intelligence; Vulnerability Management; Identity Security Posture Management,Article,GT13: AI-Assisted Hackers Target 22 Organizations Through Check Point Servers,https://securityaffairs.com/203946/hacking/gt13-ai-assisted-hackers-target-22-organizations-through-check-point-servers.html,"Sergey Shykevich, its director of threat intelligence, said the activity “does not represent a new vulnerability or exploitation technique”, since CVE-2026-16232 was disclosed...","GreyNoise tracks GT13, an unattributed, probably AI-assisted campaign that hit 22 organizations via Check Point management servers. It may still be running.
-
-GreyNoise detailed an intrusion campaign against Check Point Security Management Servers. The company confirmed attacks between October 17 and November 2, 2026, and counts at least 22 victim organizations. It tracks the activity as GreyNoise Threat 13, or GT13.
-
-“GreyNoise recently discovered an intrusion campaign targeting Check Point Security Management Servers, with confirmed attack activity between October 17th and November 2nd, 2026, impacting at least 22 distinct organizations globally.” reads the report published by GreyNoise.
-
-The victims don’t share a country or an industry. They have assets in the United Kingdom, Ireland, France, the Netherlands, Greece, Germany, Austria, Bulgaria, Poland, India, Thailand, Vietnam, South Korea, Hong Kong, China, Australia and the United States. The sectors include financial services, energy, government, transportation, mining, engineering and manufacturing.
-
-GreyNoise cannot attribute the campaign to any known or publicly tracked threat group. The company also says it lacks enough information to identify the attackers’ motives or country of origin.
-
-GreyNoise tracked most of the activity through its Global Observation Grid, a network of sensors designed to attract and monitor scanning and exploitation attempts. These sensors work much like honeypots, but the company says they offer broader coverage. They allow researchers to observe entire attacks as they happen, rather than relying only on reports from victims.
-
-The attackers used 99 IP addresses, many of them temporary. These addresses belonged either to ExpressVPN exit nodes or to compromised Check Point devices. GreyNoise recorded more than 1,400 network sessions, 800 command-line artifacts, and 1,200 files that were downloaded, uploaded, or created.
-
-The part GreyNoise saw begins with a file server. On October 2 at 13:17 UTC, the actor started scanning and attacking a Rejetto HFS server through CVE-2026-61500. Every POST to the loginSrp1 endpoint returns a signed session cookie that holds a “sid” value drawn from JavaScript’s Math.random() function.
-
-After several logins in a row, the actor had enough output to rebuild the internal state of the V8 random number generator. That gave it the key that signs session cookies, so it could forge an admin cookie and log in without a password. Two minutes later, GreyNoise saw admin requests carrying forged cookies, and the server hadn’t been patched.
-
-The forged cookie also carried “allow_session_ip_change:true”, which lets it work from any IP address. GreyNoise calls that perfect for an attacker behind a VPN or hopping between exits. On October 5, the actor used the same trick to install HFS middleware hooks that run commands, and it added an SSH key to /root/.ssh/authorized_keys.
-
-On October 8, the attacker’s automated system ran a few basic commands to check the system, available disk space, and current user. The activity then stopped until October 19. On that day, the attackers used forged session cookies and the HFS server_code feature to try to download a Linux implant called “ZULT”. They did this despite already having SSH access to the server.
-
-The download failed. The attackers checked running processes, tested the download link with curl, and inspected the network settings. They could not work out why the implant had failed to download, so they returned the next day and used a direct SSH connection to continue setting up their relay. GreyNoise believes this failure may point to problems in a multi-agent system, suggesting that even automated tools can run into issues.
-
-On October 20, the attackers created a script to start an HTTP server on the compromised machine without requiring authentication. They then began uploading files. The first archive contained the results of a network route scan from a Check Point Security Management Server, showing that the attackers had already gained access to that system. They then installed Nmap and Chisel and configured Chisel to work as a reverse proxy.
-
-That made the HFS server a relay, or “hop” in GreyNoise’s wording. The actor used it to run its operations against Check Point devices it had compromised earlier, and to store the results. GreyNoise couldn’t determine when or how the actor got into those Check Point systems, only that it was there before the HFS compromise.
-
-Between October 20 and 26, the actor had a compromised machine in one victim’s network, which GreyNoise calls Victim A, download Chisel and run it as a client. Through that tunnel, a script for CVE-2026-16232 (a Check Point SmartConsole authentication bypass that leads to Run Script) launched more than 100 management tasks on several management servers. The tasks copied the firewall database and the internal certificate authority, minted a new certificate called pivot.p12, and unloaded security policies, which would switch the firewall off.
-
-The actor also probed Citrix NetScaler, Ivanti Connect Secure, VMware vCenter, Microsoft Exchange, Oracle TNS and several domain controllers. It ran exploits for CVE-2020-1472 (Netlogon), CVE-2023-4966 (NetScaler), CVE-2024-21893 (Ivanti), CVE-2021-26855 and CVE-2021-34473 (Exchange), and CVE-2021-21972 and CVE-2023-34048 (vCenter). GreyNoise also lists CVE-2025-5777, CVE-2026-41089 and CVE-2026-98432 among the flaws the actor used or tried to use.
-
-“The actor used Nmap, Chisel, Impacket, Paramiko and other Python tooling to perform intrusion activities against their victim assets, including attempts to perform internal reconnaissance, privilege escalation, and lateral movement.” continues the report. “The bulk of the adversary commands and interaction is too voluminous to dig into here, but we can expose some of the adversary’s TTPs by taking a glimpse at their tooling. The actor used at least 30 Python scripts, many of which were helpers or launchers for other scripts, and several of them were probes for vulnerabilities or runners of exploits. Excerpts are provided below to illustrate the more specialized tooling and workflows.”
-
-Password guessing played a part too. Scripts named spray_portal.py, comb.py, ssh_comb.py and ssh_spray.py carried common, default and weak passwords, plus usernames and passwords themed to the victim. The actor either knew its target or guessed well.
-
-When a second Check Point server wouldn’t report back to the hop, the actor wrote a pull script to steal its data through the first server. The script harvested credentials, internal CA files and the firewall configuration. It was named after the targeted device.
-
-On October 26 at 02:17 UTC, a bulk certificate task went out to 24 compromised Check Point servers: Victim A’s and those of 21 other victims. Results came back to the hop as text files that listed victim IP addresses in increasing order, so a loop was clearly running through them. GreyNoise never saw the actor send the task, which points to another part of its infrastructure.
-
-Every file showed an error, because the certificate task had failed. One message also flagged a preload error for /usr/lib/.libproc.so, registered in /etc/ld.so.preload, which may indicate an implant. GreyNoise saw no follow-up attempts, but the IP addresses in those files let it notify many victims, directly or through government partners.
-
-Check Point’s position, as reported by The Hacker News, is that this isn’t a new weakness. Sergey Shykevich, its director of threat intelligence, said the activity “does not represent a new vulnerability or exploitation technique”, since CVE-2026-16232 was disclosed earlier and patches exist. The company wants customers to apply updates, follow its hardening guidance to restrict management access and look for suspicious activity.
-
-By early November, other attackers had started scanning the hop and trying to abuse it. On November 2 at 02:28 UTC, the GT13 actor ran a script that checked the box for CVE-2026-98432, a Linux IPv4 use-after-free bug. It then used nftables to drop IPv4 packets with IP options that could trigger the flaw. The attacker did patch management on its relay, which is more than some victims managed.
-
-GreyNoise doesn’t read much into the clock. It saw no hands-on-keyboard activity between roughly 17:00 and 00:19 UTC, and nothing in the 05:00 hour, which fits a UTC+7 or UTC+8 workday. The malware domain newpayapp[.]com was registered on March 13, 2026, with the registrant state “Hai Phong” and country code “VN”, and GreyNoise treats that as a possible coincidence. The infrastructure clearly existed long before anyone noticed it.
-
-GreyNoise believes GT13 used AI tools to find vulnerable systems, develop exploits and automate attacks, although human operators were also involved. The company is sharing information with authorities and CERTs. Its monitoring stopped on November 2, but it warns that the campaign may still be active because attackers retain access to compromised Check Point devices.
-
-“We suspect the GT13 actor has a mature AI-enabled offensive apparatus. We believe the actor has separate agentic harnesses and systems weaponizing vulnerabilities, scanning for vulnerable assets, and automatically exploiting them to gather sets of systems that can be later used for operational relays or true targets.” concludes the report. “We suspect some of the foibles in the timeline reflect agentic offensive operations.”
-
-Follow me on Twitter: @securityaffairs and Facebook and Mastodon
-
-Pierluigi Paganini
-
-(SecurityAffairs – hacking, Check Point)"
 53a8a165ab30,1b2ec6a0d346,2026-11-25 12:20 UTC,"Attacks, Breaches & Threat Intel",Check Point,The Hacker News,AI Security; Server & Workload Protection; Threat Intelligence; Vulnerability Management,Article,Hackers Compromise 24 Check Point Management Servers in Suspected AI-Driven Attack Campaign,https://thehackernews.com/2026/11/hackers-compromise-24-check-point.html,"In one case, the attackers have been found using an automated scanning and exploitation pipeline to compromise an HFS server using CVE-2026-61500, a critical flaw in Rejetto...","An unknown threat actor has been using artificial intelligence (AI)-driven offensive tooling in a campaign targeting Check Point Security Management servers, impacting 22 distinct organizations across the world.
 
 The intrusion activity, tracked by GreyNoise under the moniker GreyNoise Threat 13 (GT13), is assessed to have targeted organizations in the financial services, energy, government, transportation, mining, engineering, and manufacturing sectors across the U.K., Ireland, France, Netherlands, Greece, Germany, Austria, Bulgaria, Poland, India, Thailand, Vietnam, South Korea, Hong Kong, China, Australia, and the U.S.
